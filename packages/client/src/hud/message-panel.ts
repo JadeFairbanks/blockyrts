@@ -4,7 +4,10 @@
 // latest 60 messages and every player message, scrolls, filters three ways,
 // collapses to a small button that flashes on an urgent message, and a
 // click on a message jumps the camera to the unit that said it or to where
-// it happened. Urgent messages stand out and ping the minimap.
+// it happened. Urgent messages stand out and ping the minimap. Patch 5
+// (UI-6): it starts collapsed, the button half its old size on the screen's
+// left edge, sitting on the buttons over the minimap, with a count of the
+// other players' messages not yet read that stays until the panel opens.
 import type { PingStyle } from '../minimap/minimap.ts';
 import type { ButtonRegistry, HudButton } from './buttons.ts';
 import type { HudPanels } from './panels.ts';
@@ -29,6 +32,8 @@ export interface PanelMessage {
   unit?: number | undefined;
   /** How an urgent message's ping looks: gold, or red for a new lair (Patch 3). */
   ping?: PingStyle | undefined;
+  /** Another player's message (never the player's own): counts as unread on the collapsed button until the panel opens. */
+  other?: boolean | undefined;
 }
 
 /** The three views of the filter button (doc): everything; alerts and player messages; player messages only. */
@@ -79,6 +84,9 @@ export class MessagePanel {
   private filter = 0;
   private collapsed = false;
   private seq = 0;
+  /** Other players' messages since the panel was last open (UI-6). */
+  private unread = 0;
+  private readonly badge: HTMLElement;
   private readonly filterBtn: HudButton;
   private readonly collapseBtn: HudButton;
   private readonly openBtn: HudButton;
@@ -122,13 +130,19 @@ export class MessagePanel {
       face: '✉',
       name: 'Messages',
       keys: [],
-      description: 'Opens the message panel again.',
+      description: 'Opens the message panel. The number on it counts the other players\' messages you have not read yet.',
       className: 'msg-open',
       onPress: () => this.setCollapsed(false),
     });
+    this.badge = document.createElement('span');
+    this.badge.className = 'msg-unread';
+    this.badge.hidden = true;
+    this.openBtn.el.append(this.badge);
     this.openPanel.append(this.openBtn.el);
     root.append(this.openPanel);
     panels.register('messages-open', this.openPanel);
+    // Patch 5 (UI-6): the panel starts collapsed.
+    this.setCollapsed(true);
   }
 
   /** Adds a message at the bottom; the oldest beyond 60 go (never another player's). */
@@ -170,11 +184,24 @@ export class MessagePanel {
       if (m.at) this.a.ping(m.at.x, m.at.z, m.ping);
       if (this.collapsed) this.openPanel.classList.add('flash');
     }
+    if (m.other && this.collapsed) this.setUnread(this.unread + 1);
   }
 
-  /** Chat for milestone 9: a message from another player (highlighted, kept beyond the 60). */
-  addPlayer(name: string, text: string): void {
-    this.add({ text, kind: 'player', name });
+  /** Chat for milestone 9: a message from a player (highlighted, kept beyond the 60); another player's counts as unread. */
+  addPlayer(name: string, text: string, other = true): void {
+    this.add({ text, kind: 'player', name, other });
+  }
+
+  /** How many of the other players' messages wait unread on the collapsed button. */
+  unreadCount(): number {
+    return this.unread;
+  }
+
+  private setUnread(n: number): void {
+    this.unread = n;
+    this.badge.hidden = n === 0;
+    this.badge.textContent = n > 9 ? '9+' : String(n);
+    this.openPanel.classList.toggle('unread', n > 0);
   }
 
   setFilter(f: number): void {
@@ -189,7 +216,10 @@ export class MessagePanel {
     this.panel.hidden = on;
     this.openPanel.hidden = !on;
     this.openPanel.classList.remove('flash');
-    if (!on) this.list.scrollTop = this.list.scrollHeight;
+    if (!on) {
+      this.setUnread(0);
+      this.list.scrollTop = this.list.scrollHeight;
+    }
   }
 
   isCollapsed(): boolean {

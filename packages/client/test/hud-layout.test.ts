@@ -17,6 +17,7 @@ import {
   cardInner,
   cardWidth,
   DEFAULT_ROWS,
+  BUTTON_MAX,
   fitButtons,
   GAP,
   hudLayout,
@@ -189,12 +190,19 @@ describe('square buttons (Jade\'s Patch 2)', () => {
     }
   });
 
-  it('draws the kit pictures at whole or half steps up with the button', () => {
-    expect(buttonIcon(70)).toBe(32);
+  it('draws the kit pictures at whole or half steps up with the button, about 80% of it (Patch 5)', () => {
     expect(buttonIcon(52)).toBe(32);
-    expect(buttonIcon(104)).toBe(64);
-    expect(buttonIcon(89)).toBe(48);
-    expect(buttonIcon(220)).toBe(128);
+    expect(buttonIcon(70)).toBe(48);
+    expect(buttonIcon(89)).toBe(64);
+    expect(buttonIcon(104)).toBe(80);
+    expect(buttonIcon(BUTTON_MAX)).toBe(96);
+  });
+
+  it('never makes a button bigger than the maximum, however few there are (Patch 5)', () => {
+    // A 10-column card: one, two or three buttons are each 128 px, not the card's whole height.
+    for (const n of [1, 2, 3]) expect(fitButtons(n, 556, 220, 800).size).toBe(BUTTON_MAX);
+    // A 5-column card on a laptop: three buttons were 108 px and stay so.
+    expect(fitButtons(3, 276, 220, 800).size).toBe(108);
   });
 });
 

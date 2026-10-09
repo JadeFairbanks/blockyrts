@@ -77,14 +77,18 @@ export function cardAction(card: number): string {
   return ['', 'trainClose', 'trainLong', 'trainRanger', 'trainBrawler', 'trainCavalry'][card] ?? '';
 }
 
-/** "Close melee", "Support mage": the card's name, as on the Barracks' buttons (Jade's troop names rule). */
-export function cardName(card: number): string {
+/**
+ * "Copper swordsman", "Support mage": the card's name, as on the Barracks' buttons. With a weapon tier, the
+ * troop goes by that tier's name; "close melee" and "long melee" are never shown (Patch 5, UI-11).
+ */
+export function cardName(card: number, w?: number): string {
   if (isMageCard(card)) return cardSchool(card) === School.Battle ? 'Battle mage' : 'Support mage';
+  if (w !== undefined) return troopTierName(card, w);
   return TROOP_NAMES[card] ?? 'Troop';
 }
 
-export function troopName(troop: number): string {
-  return cardName(troop);
+export function troopName(troop: number, w?: number): string {
+  return cardName(troop, w);
 }
 
 /** A building's cards, troops first: none at a main base (the Big House trains its lowest tier with nothing to pick). */

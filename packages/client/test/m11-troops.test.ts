@@ -206,8 +206,8 @@ describe('the Barracks card', () => {
     const { c, sent } = harness(g, b);
     const card = c.card();
     expect(card.slice(0, 4).map((e) => [e.action, e.face, e.key])).toEqual([
-      ['trainClose', 'Close', 'KeyA'],
-      ['trainLong', 'Long', 'KeyQ'],
+      ['trainClose', 'Sword', 'KeyA'],
+      ['trainLong', 'Spear', 'KeyQ'],
       ['trainRanger', 'Ranger', 'KeyN'],
       ['trainBrawler', 'Brawler', 'KeyB'],
     ]);

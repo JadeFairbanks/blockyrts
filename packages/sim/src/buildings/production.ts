@@ -27,7 +27,6 @@ import { hasResearch, Made, RESEARCH, Research, type ResearchSpec } from '../com
 import { madeAt, payableInputs, RECIPES, recipeSpec } from './recipes.ts';
 import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS } from '../magic/mages.ts';
 import { School } from '../magic/spells.ts';
-import { Role } from '../threats/types.ts';
 import type { crewHooks } from '../units/questions.ts';
 import {
   fromItem,
@@ -133,8 +132,9 @@ export function productSpec(product: Product): ProductSpec {
     const pieces = troopPieces(t.troop, t.w, t.a, t.s);
     const horse = t.troop === Troop.Cavalry ? ' and a tamed horse from the nearest Barn' : '';
     return {
-      product, name: TROOP_NAMES[t.troop] ?? 'Troop', key: TROOP_KEYS[t.troop] ?? '', steps: (TRAINING.troopS + piecesTime(pieces)) * STEPS_PER_SECOND, cost: mainCost(pieces), pieces, food: TRAINING.troopFood, troop: t,
-      tooltip: `A new ${(TROOP_NAMES[t.troop] ?? 'troop').toLowerCase()} troop: ${kitName(t.troop, t.w, t.a, t.s).toLowerCase()} (Table 7). Pays ${TRAINING.troopFood} food, the kit${horse}. Needs free supply. Ready items in stock go on first, in a fifth of the time.`,
+      // Jade's Patch 5 (UI-11): a troop goes by its own name ("Club fighter"), never "close melee" or "long melee".
+      product, name: troopTierName(t.troop, t.w), key: TROOP_KEYS[t.troop] ?? '', steps: (TRAINING.troopS + piecesTime(pieces)) * STEPS_PER_SECOND, cost: mainCost(pieces), pieces, food: TRAINING.troopFood, troop: t,
+      tooltip: `A new ${troopTierName(t.troop, t.w).toLowerCase()}: ${kitName(t.troop, t.w, t.a, t.s).toLowerCase()} (Table 7). Pays ${TRAINING.troopFood} food, the kit${horse}. Needs free supply. Ready items in stock go on first, in a fifth of the time.`,
     };
   }
   if (product >= RESEARCH_PRODUCT && product < RECIPE_PRODUCT) {
@@ -556,8 +556,8 @@ export function supplyNeed(product: number): number {
 export function supplyUsed(state: SimState, player: number): number {
   const e = state.entities;
   let n = 0;
-  // Mercenaries use none: they are the camp's.
-  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && e.role[i] !== Role.Mercenary && (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage)) n++;
+  // Hired mercenaries count like any troop: from Patch 5 they are the player's for good (s).
+  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage)) n++;
   for (const b of state.buildings.list) {
     if (b.owner === player && b.kind === BuildingKind.ScholarsLodge && b.complete) n++;
     const h = b.queue[0];

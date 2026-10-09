@@ -141,7 +141,7 @@ export const S = {
 export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 16, Hexed: 32 } as const;
 
 /** Bits of S.flags (OnTop: up on a tower or a main base's top, drawn there though it is inside). */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096 } as const;
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;
@@ -376,14 +376,15 @@ export interface PeopleInfo {
   stock: number[];
   /** What it pays, percent of value, by trade category (-1 refused). */
   wants: number[];
-  /** What it will still buy today, tenths, by category. */
-  room: number[];
+  /** What is left of its day of trade, shared by every player, and the whole day's, tenths (Patch 5, GP-46). */
+  room: number;
+  day: number;
   /** What it pays for each good the local player has (good, percent) pairs, refused -1. */
   pays: number[];
   /** The local player's open offer and its three answers. */
   offer: { goods: number[]; worth: number; bundles: number[][] } | null;
-  /** Mercenary camps: how many are there to hire now and when full, and why none can be hired now ('' when they can). */
-  hire: { left: number; size: number; why: string } | null;
+  /** Mercenary camps: how many are there to hire now and when full, why none can be hired now ('' when they can), and a head's price in silver or in gold. */
+  hire: { left: number; size: number; why: string; silver: number; gold: number } | null;
   /** An Elf caravan come to the local player's main base. */
   visiting: boolean;
 }

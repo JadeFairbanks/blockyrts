@@ -28,9 +28,9 @@ import {
   MAGE_RANK_TRAINING,
   MONSTERS,
   FactionKind,
-  Mob,
   PEOPLES,
-  TRADE_BUILDINGS,
+  OUT_OF_REACH,
+  HAND_CART_TENTHS_LB,
   nextMageTraining,
   PickOwn,
   Product,
@@ -61,6 +61,7 @@ import {
   SPELLS,
   Troop,
   TROOP_PRODUCT,
+  troopOf,
   troopProduct,
   Greyed,
   mageLock,
@@ -81,7 +82,7 @@ import {
 import type { UnitInfo } from '../game/game-info.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import { keyFor, spellAction } from '../input/bindings.ts';
-import type { BuildingInfo, PeopleInfo } from '../messages.ts';
+import { UnitFlag, type BuildingInfo, type PeopleInfo } from '../messages.ts';
 import { isOwn } from '../selection/rules.ts';
 import { buildingIdOf, entityIdOf, lootIdOf, type Selectable } from '../selection/types.ts';
 import type { Settings } from '../settings/settings.ts';
@@ -111,6 +112,10 @@ export interface CardEntry {
   lit?: boolean;
   run(p: ButtonPress): void;
   double?(p: ButtonPress): void;
+  /** A right click (Jade's Patch 5, CT-1 and UI-13: the button's auto function), and a touch held on it. */
+  right?(p: ButtonPress): void;
+  /** Its auto function is on for the selection (UI-13: autorepair): a small mark on the button. */
+  auto?: boolean;
   /** A click while it is greyed out (Jade's Patch 3): those who can sort out why ask, in bubbles (sim units/greyed.ts). */
   grey?(): void;
   /** A right click's dropdown (Patch 5: Scrap 1, Scrap 10, Scrap all on the Workshop's scrapping). */
@@ -138,7 +143,7 @@ type Slots = Array<CardEntry | null>;
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
 const ALLIED_ACTIONS = new Set(['attack', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'repair' | 'port' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew';
+type TargetCommand = 'move' | 'repair' | 'port' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt';
 
 /** Pages of the command card: the main card, the build menu (Patch 2: one, in place of Basic and Advanced) and a building's K menu (smelting, research and the rest). */
 export type CardPage = 'main' | 'build' | 'make';
@@ -208,8 +213,8 @@ export const FACE_MIN_UNITS = 5;
 
 /** The troop types' card actions, their buttons' faces and slots on a Barracks card (a main base shifts them one along for Worker). */
 const TROOP_ACTIONS: Readonly<Record<number, readonly [string, string, number]>> = {
-  [Troop.Close]: ['trainClose', 'Close', 0],
-  [Troop.Long]: ['trainLong', 'Long', 1],
+  [Troop.Close]: ['trainClose', 'Sword', 0],
+  [Troop.Long]: ['trainLong', 'Spear', 1],
   [Troop.Ranger]: ['trainRanger', 'Ranger', 2],
   [Troop.Brawler]: ['trainBrawler', 'Brawler', 3],
   // Patch 2: cavalry trains at the Barracks with the rest, after the brawler.
@@ -530,8 +535,9 @@ export class Commands {
         this.entry(
           'gather',
           'Gather',
-          'The workers fetch the basic materials the camp can use by themselves: wood, sticks, stone and flint, clay, sand and coal as the main base grows, and ore once there is a forge for it, most of what the stock is shortest of, the nearest first. They look only where your side has explored, then farther out round its edge (never more than 25 m into the unknown), and never so far that they could not get home by nightfall; at dusk they come back to the nearest main base, and go out again in the day. To gather one tree, rock or bush, right-click it.',
-          () => this.forage(),
+          'Then left click a tree, rock or bush: the workers gather from it, take each load to the nearest main base or Storehouse and go back for more of the same.\nRight click (or press twice): they fetch the basic materials the camp can use by themselves: wood, sticks, stone and flint, clay, sand and coal as the main base grows, and ore once there is a forge for it, most of what the stock is shortest of, the nearest first. They look only where your side has explored, then farther out round its edge (never more than 25 m into the unknown), and never so far that they could not get home by nightfall; at dusk they come back to the nearest main base, and go out again in the day.',
+          () => this.target('gather', 'gather'),
+          { lit: t === 'gather', right: () => this.forage(), double: () => this.forage() },
         ),
         carrying
           ? this.entry('returnCargo', 'Unload', unload, () => this.unitOrder({ kind: 'returnCargo' }))
@@ -539,9 +545,9 @@ export class Commands {
         this.entry(
           'repair',
           'Repair',
-          'Then left click one of your buildings to build, upgrade or repair it. Press twice (or double click) and they repair every damaged building nearby, worst first.',
+          'Then left click one of your buildings, engines or cannons to build, upgrade or repair it. A repair uses up the building\'s own materials for the health it gives back: from nothing to whole costs what the building cost.\nRight click: autorepair on or off. Workers on autorepair fix anything of yours that is damaged within 8 m of them, then go back to what they were doing.\nPress twice (or double click): they repair every damaged building nearby, worst first.',
           () => this.target('repair', 'repair'),
-          { lit: t === 'repair', double: () => this.repairAll() },
+          { lit: t === 'repair', double: () => this.repairAll(), right: () => this.autoRepair(workers), auto: workers.length > 0 && workers.every((id) => ((this.d.game.unit(id)?.flags ?? 0) & UnitFlag.AutoRepair) !== 0) },
         ),
         this.entry(
           'dig',
@@ -593,8 +599,9 @@ export class Commands {
       this.entry(
         'hunt',
         'Hunt',
-        'The warriors go out after game, hares, deer and wild birds, take the meat home when their bags are half full and go out again, looking farther out when nothing is in sight; workers in the selection follow and carry the meat. They never go farther than they could walk back from in dusk\'s 40 s, so they are home by nightfall, and go out again in the day. Wild boar, giant crabs, bears and creatures that guard their ground fight back, so they are left alone unless you right-click one. To hunt one animal, right-click it.',
-        () => this.huntAuto(),
+        'Then left click a wild animal: the warriors hunt it, then go on hunting as usual.\nRight click (or press twice): the warriors go out after game, hares, deer and wild birds, take the meat home when their bags are half full and go out again, looking farther out when nothing is in sight; workers in the selection follow and carry the meat. They never go farther than they could walk back from in dusk\'s 40 s, so they are home by nightfall, and go out again in the day. Wild boar, giant crabs, bears and creatures that guard their ground fight back, so they are left alone unless you pick one.',
+        () => this.target('hunt', 'hunt'),
+        { lit: t === 'hunt', right: () => this.huntAuto(), double: () => this.huntAuto() },
       ),
       this.eatEntry(),
       this.equipEntry(troops),
@@ -788,7 +795,7 @@ export class Commands {
     const back = units.length > 0 && units.every((u) => u.kit !== 0);
     const desc = back
       ? 'Take the carts back to the main base and hand them in to the stock.'
-      : 'Walk to the main base and take a cart from the stock: a hand cart carries 150 lb, an ox cart (for a worker with an ox hitched) much more. Make carts at a Workshop.';
+      : `Walk to the main base and take a cart from the stock: a hand cart carries ${HAND_CART_TENTHS_LB / 10} lb (ten times a load on foot), an ox cart (for a worker with an ox hitched) far more. A cart fills up at the next node of the same kind before the trip home. Make carts at a Workshop.`;
     const name = back ? 'Hand the cart back' : 'Fetch a cart';
     const base = this.d.game.mainBases().some((b) => b.complete);
     if (!base) return this.off('cart', 'Cart', desc, 'There is no main base.', name);
@@ -1080,7 +1087,7 @@ export class Commands {
     const first = all[0]!;
     const c = troopChoice(first, troop);
     const why = troopWhy(this.d.game, first, troop, c.w, c.a, c.s);
-    const others = all.length > 1 ? ' With several selected, each trains its own pick and the shortest queue goes first.' : '';
+    const others = all.length > 1 ? ' With several selected, each one trains its own pick, as many as you can afford.' : '';
     const any = all.some((b) => {
       const k = troopChoice(b, troop);
       return troopWhy(this.d.game, b, troop, k.w, k.a, k.s) === '';
@@ -1088,7 +1095,7 @@ export class Commands {
     return {
       action,
       face,
-      name: `Train ${troopName(troop).toLowerCase()}`,
+      name: `Train ${troopName(troop, c.w).toLowerCase()}`,
       key: this.key(action),
       description: `${kitName(troop, c.w, c.a, c.s)} (weapon tier ${c.w}, armour tier ${c.a}${hasShield(troop) ? `, shield tier ${c.s}` : ''}). Cost: ${troopCostText(first, troop, c.w, c.a, c.s)}. Pick the kit in the panel.${others} Shift: queue 5.`,
       icon: trainTroopIcon(troop, c.w),
@@ -1105,7 +1112,7 @@ export class Commands {
     const first = all[0]!;
     const c = cardChoice(first, card);
     const why = cardWhy(this.d.game, first, card, c.w, c.a);
-    const others = all.length > 1 ? ' With several selected, each trains its own pick and the shortest queue goes first.' : '';
+    const others = all.length > 1 ? ' With several selected, each one trains its own pick, as many as you can afford.' : '';
     const any = all.some((b) => {
       const k = cardChoice(b, card);
       return cardWhy(this.d.game, b, card, k.w, k.a) === '';
@@ -1141,20 +1148,33 @@ export class Commands {
     this.trainCardAt(all, troop, count);
   }
 
-  /** Spreads a card's units over the buildings with the shortest queues, each with its own choice. */
+  /**
+   * A card's units, each with its building's own choice: every selected
+   * building trains `count` (Jade's Patch 5, GP-15), the shortest queue first
+   * each round, so when the stock runs short the buildings that start one are
+   * the least busy. The sim takes what the stock pays for and refuses the rest.
+   */
   private trainCardAt(all: BuildingInfo[], card: number, count: number): void {
     const ready = all.filter((b) => {
       if (!b.complete) return false;
       const c = cardChoice(b, card);
       return cardOffered(b, card, c.w, c.a, c.s);
     });
-    for (let k = 0; k < count && ready.length > 0; k++) {
-      ready.sort((a, b) => a.queue.length - b.queue.length || a.id - b.id);
-      const b = ready[0]!;
+    this.eachTrains(ready, (b) => {
       const c = cardChoice(b, card);
-      const product = cardProduct(card, c.w, c.a, c.s);
-      this.d.send({ kind: 'produce', player: this.d.player, building: b.id, product, count: 1 });
-      b.queue.push({ product, done: 0, stepsLeft: 0 });
+      return cardProduct(card, c.w, c.a, c.s);
+    }, count);
+  }
+
+  /** `count` rounds of one unit at each building, the shortest queue first in each round (GP-15). */
+  private eachTrains(ready: BuildingInfo[], productAt: (b: BuildingInfo) => number, count: number): void {
+    for (let k = 0; k < count; k++) {
+      for (const b of [...ready].sort((a, c) => a.queue.length - c.queue.length || a.id - c.id)) {
+        if (b.queue.length >= 5) continue;
+        const product = productAt(b);
+        this.d.send({ kind: 'produce', player: this.d.player, building: b.id, product, count: 1 });
+        b.queue.push({ product, done: 0, stepsLeft: 0 });
+      }
     }
     this.d.changed();
   }
@@ -1278,10 +1298,26 @@ export class Commands {
     this.d.changed();
   }
 
+  /** Repair's right click (Jade's Patch 5, UI-13): autorepair on for the selected workers, or off when all of them have it. */
+  private autoRepair(workers: number[]): void {
+    if (workers.length === 0) return;
+    const on = workers.some((id) => ((this.d.game.unit(id)?.flags ?? 0) & UnitFlag.AutoRepair) === 0);
+    this.targeting = null;
+    this.d.send({ kind: 'autoRepair', player: this.d.player, units: workers, on: on ? 1 : 0 });
+    this.d.message(on ? 'Autorepair on: they fix anything of yours damaged within 8 m of them.' : 'Autorepair off.');
+    this.d.changed();
+  }
+
   /** Produce at the building of the group with the shortest queue (Control groups: spread the work). */
   private produce(all: BuildingInfo[], product: number, count: number): void {
     const ready = all.filter((b) => b.complete);
     if (ready.length === 0) return;
+    // A unit or an engine: every selected building makes one (Jade's Patch 5, GP-15); goods and research are shared out as before.
+    const ps = productSpec(product);
+    if (product === Product.Worker || product === Product.SupportMage || product === Product.BattleMage || product === Product.Crewman || ps.engine !== undefined || troopOf(product) !== undefined) {
+      this.eachTrains(ready, () => product, count);
+      return;
+    }
     for (let k = 0; k < count; k++) {
       ready.sort((a, b) => a.queue.length - b.queue.length || a.id - b.id);
       const b = ready[0]!;
@@ -1341,6 +1377,14 @@ export class Commands {
         break;
       case 'prospect':
         ok = ground ? this.prospect(ground) : false;
+        break;
+      case 'gather':
+        ok = item?.kind === 'node' && item.resource ? this.gather(item) : false;
+        if (!ok) this.d.message('Pick a tree, rock or bush to gather from.', 'alert');
+        break;
+      case 'hunt':
+        ok = item !== null && this.wildAnimal(item) && this.hunt(item, true);
+        if (!ok) this.d.message('Pick a wild animal to hunt.', 'alert');
         break;
       case 'cast':
         ok = this.cast(t.spell ?? 0, item, ground);
@@ -1428,15 +1472,21 @@ export class Commands {
     return item.kind === 'unit' && item.typeKey.startsWith('ruin:');
   }
 
-  /** Right click on the peoples at peace: their leader, a trade building or a caravan opens trade; a mercenary camp the hire box. */
+  /**
+   * Right click on the peoples at peace: any of their buildings (Patch 5,
+   * GP-46: "you can click to trade on any of their buildings"), their leader
+   * or a caravan opens trade; a mercenary camp the hire box. Selected units
+   * with none in reach walk up to the building (s).
+   */
   private talkTo(item: Selectable): boolean {
     const f = this.factionOf(item);
     if (!f || f.war || item.owner !== PEOPLES) return false;
     const id = entityIdOf(item.key);
-    const mob = Number(item.typeKey.split(':')[1]);
-    const trader = item.typeKey.startsWith('peoples:') ? TRADE_BUILDINGS.includes(mob) || mob === Mob.ElfCaravanWagon : id === f.leader;
+    const trader = item.typeKey.startsWith('peoples:') || id === f.leader;
     if (!trader && f.kind !== FactionKind.ElfCaravan && f.kind !== FactionKind.MercCamp) return false;
     this.d.openPeople(f.id);
+    const why = f.kind === FactionKind.MercCamp ? (f.hire?.why ?? '') : f.tradeWhy;
+    if (why === OUT_OF_REACH && this.unitIds().length > 0) this.moveTo(item.centre);
     return true;
   }
 
@@ -1445,11 +1495,12 @@ export class Commands {
     return item.kind === 'unit' && item.typeKey.startsWith('animal:wild:');
   }
 
-  private hunt(item: Selectable): boolean {
+  /** One animal; picked with Hunt's left click (Jade's Patch 5, CT-1), the hunt goes on after it. */
+  private hunt(item: Selectable, goOn = false): boolean {
     const target = entityIdOf(item.key);
     const units = this.unitIds();
     if (target === null || units.length === 0) return false;
-    this.d.send({ kind: 'hunt', player: this.d.player, units, target, auto: 0, queued: this.d.queued() });
+    this.d.send({ kind: 'hunt', player: this.d.player, units, target, auto: goOn ? 1 : 0, queued: this.d.queued() });
     this.d.marker(item.centre, 'target');
     return true;
   }
@@ -1625,6 +1676,8 @@ export class Commands {
     const units = this.unitIds();
     if (units.length === 0) {
       if (this.buildings().length > 0) this.rally(item, ground);
+      // Their trade menu opens with nothing selected too (it says what is needed).
+      else if (item) this.talkTo(item);
       return;
     }
     const workers = this.workerIds();

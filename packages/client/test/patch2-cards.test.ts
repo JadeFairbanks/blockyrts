@@ -127,12 +127,12 @@ describe('the Several panel', () => {
   const unit = (label: string): Selectable => ({ key: label, kind: 'unit', owner: ME, typeKey: 'warrior', centre: new THREE.Vector3(), halfSize: new THREE.Vector3(), label });
 
   it("keeps the rank out of the title (the XP bar's tooltip names it, Patch 3)", () => {
-    expect(bareName('Close melee (Veteran)')).toBe('Close melee');
+    expect(bareName('Iron swordsman (Veteran)')).toBe('Iron swordsman');
     expect(bareName('Barracks')).toBe('Barracks');
   });
 
   it("sums the troops' tab in the crossed swords' tooltip, most first", () => {
-    const items = [...Array.from({ length: 5 }, () => unit('Close melee (Recruit)')), unit('Ranger (Soldier)'), unit('Ranger (Recruit)'), unit('Cavalry (Hero)')];
-    expect(armyMix(items)).toBe('5 Close melee, 2 Rangers, 1 Cavalry');
+    const items = [...Array.from({ length: 5 }, () => unit('Iron swordsman (Recruit)')), unit('Ranger (Soldier)'), unit('Ranger (Recruit)'), unit('Cavalry (Hero)')];
+    expect(armyMix(items)).toBe('5 Iron swordsmen, 2 Rangers, 1 Cavalry');
   });
 });
