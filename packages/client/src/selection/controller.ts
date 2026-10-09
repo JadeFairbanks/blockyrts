@@ -14,6 +14,7 @@ import {
   isDrag,
   pickAt,
   priorityFilter,
+  typeWithin,
   type ClickRecord,
   type ScreenItem,
 } from './rules.ts';
@@ -27,6 +28,8 @@ export class SelectionController {
   highlighted: Selectable[] = [];
   private press: { p: Pt; world: THREE.Vector3 | null } | null = null;
   private lastClick: ClickRecord | null = null;
+  /** The selection before the first click of a double click, for a double click within a mixed selection (CT-5). */
+  private beforeClick: readonly Selectable[] = [];
   private readonly cursor: Pt = { x: 0, y: 0 };
   private readonly startScreen: Pt = { x: 0, y: 0 };
   private box: Rect = { x0: 0, y0: 0, x1: 0, y1: 0 };
@@ -74,6 +77,13 @@ export class SelectionController {
     const hit = pickAt(this.items(), press.p);
     // Clicking empty ground keeps the selection.
     if (!hit) return;
+    if (!double) this.beforeClick = [...this.selection.list()];
+    // A double click on a unit of a mixed selection keeps only its type there (Jade's Patch 5, CT-5).
+    const within = double && !mods.shift && !mods.ctrl ? typeWithin(this.beforeClick, hit.item) : null;
+    if (within) {
+      this.selection.set(within);
+      return;
+    }
     this.selection.set(
       applyClick(this.selection.list(), hit.item, { shift: mods.shift, ctrl: mods.ctrl, double }, this.items(), this.player),
     );

@@ -415,6 +415,8 @@ export class WorldView {
         const troop = d[o + S.troop]!;
         // The artillery crewman (Patch 2) is its own type: its own card and subgroup, never upgraded or sent hunting.
         u.typeKey = troop === Troop.Crew ? 'warrior:crew' : 'warrior';
+        // A double click's types (Jade's Patch 5, CT-5): cavalry (anyone mounted), close melee, long melee, and every other kind its own.
+        u.clickType = d[o + S.mount] !== Mount.None || troop === Troop.Cavalry ? 'warrior:cavalry' : `warrior:${troop}`;
         u.label = this.title(d, o, kind);
         // Rangers fight close with their fists, which go unsaid; the brawler's pistol comes first.
         const weapon = troop === Troop.Ranger ? '' : gearName(d[o + S.weapon]!);
