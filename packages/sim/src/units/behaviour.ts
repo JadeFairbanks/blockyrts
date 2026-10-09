@@ -22,6 +22,7 @@ import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
 import { HOP_SLOW_BP, hoppingUp, isGod, landAt, NO_CARRY, OrderKind, placeBuilding, standY, stepOffSolid, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
 import { WARRIOR_XP_TENTHS } from '../combat/combat.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
+import { BOULDER_HALF } from '../world/generate.ts';
 import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool, ToolJob } from '../world/props.ts';
 import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
@@ -32,6 +33,7 @@ import { canGarrison, fightStep } from '../combat/fight.ts';
 import { freePost, menOnTop, onTop, platformCrew, spreadTop, topRoom as roomUpTop } from './top.ts';
 import { refundKit, runCart, runKitUp } from './gear.ts';
 import { runDig } from './dig.ts';
+import { noteStuck, saidStuckNow } from './stuck.ts';
 import { addRun, climbOn, gaitMover, gaitOf, gaitSpec, payForRunning, RUN_BONUS_BP, runsNow, startClimb } from './moves.ts';
 import { toolNeeded, toolTier } from './tools.ts';
 import { aTroop } from './kits.ts';
@@ -65,6 +67,8 @@ export const Act = {
 
 /** Path searches allowed per step, shared by every unit (the rest wait a step). */
 export const PATH_SEARCHES_PER_STEP = 8;
+/** A unit's pathOk while it walks a leg of a long trip, and plans the next at its end (Patch 5, GP-22; 0 a path that only comes near, 1 one that gets there, 2 none yet). */
+export const PATH_LEG = 4;
 /** How far a gatherer looks for another node of the same resource when one runs out or is full (s): 15 m. */
 export const NODE_SEARCH_M = 15;
 export const NODE_SEARCH_COLUMNS = floorDiv(NODE_SEARCH_M * WU_PER_METRE, WU_PER_COLUMN);
@@ -100,6 +104,8 @@ export function columnCentre(c: number): number {
 /** An alert for a player; with a unit, it is that unit saying so (Unit speech: triggered speech), as a bubble over it and under its name in the panel. */
 function alert(state: SimState, player: number, text: string, x?: number, z?: number, unit = -1): void {
   if (unit >= 0) {
+    // A unit that has just said it is stuck has said why already (Patch 5, GP-22).
+    if (saidStuckNow(state, unit)) return;
     const e = state.entities;
     state.events.push({ player, kind: 'alert', text, x: e.x[unit]!, z: e.z[unit]!, speaker: e.id[unit]!, name: speakerName(state, unit), urgent: true });
     return;
@@ -130,6 +136,13 @@ export function besideBuilding(b: { kind: number; x: number; z: number }): Goal 
  * ends there rather than anywhere in the goal's column.
  */
 export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, exactZ?: number): WalkResult {
+  const r = walk(state, i, goal, exactX, exactZ);
+  // A player's unit that cannot find its way looks round and may say where it is stuck and why (Patch 5, GP-22).
+  if (r === FAILED && state.entities.owner[i]! < state.players.length) noteStuck(state, i, goal, moverOf(state, i));
+  return r;
+}
+
+function walk(state: SimState, i: number, goal: Goal, exactX?: number, exactZ?: number): WalkResult {
   const e = state.entities;
   const cx = col(e.x[i]!);
   const cz = col(e.z[i]!);
@@ -152,7 +165,7 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
       }
       if (pts.length === 0) return r.reached ? ARRIVED : FAILED;
       e.path[i] = pts;
-      e.pathOk[i] = r.reached ? 1 : 0;
+      e.pathOk[i] = r.reached ? 1 : r.more ? PATH_LEG : 0;
     }
     e.pathAt[i] = 0;
     const p = e.path[i]!;
@@ -163,6 +176,11 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
   const k = e.pathAt[i]! * 2;
   if (k >= pts.length) {
     if (atGoal(goal, cx, cz, unitLevel(state, i))) return ARRIVED;
+    // The end of a long trip's leg (Patch 5, GP-22): plan the next one from here, and walk on in this same step.
+    if (e.pathOk[i] === PATH_LEG) {
+      e.pathOk[i] = 2;
+      return state.paths.searches < PATH_SEARCHES_PER_STEP ? walk(state, i, goal, exactX, exactZ) : MOVING;
+    }
     if (e.pathOk[i] === 0) return FAILED;
     // The land changed under the path: search again, a few times at most.
     if ((e.stuck[i] = e.stuck[i]! + 1) > 3) return FAILED;
@@ -717,7 +735,9 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
         return CONTINUE;
       }
       const [nx, nz] = nodeColumn(o, view);
-      const r = walkTo(state, i, { x0: nx, z0: nz, x1: nx, z1: nz, min: 1, max: 1 });
+      // A boulder's workers stand round its foot, not up on it (Patch 5, GP-22).
+      const h = view.kind === PropKind.Boulder ? BOULDER_HALF : 0;
+      const r = walkTo(state, i, { x0: nx - h, z0: nz - h, x1: nx + h, z1: nz + h, min: 1, max: 1 });
       if (r === MOVING) return CONTINUE;
       if (r === FAILED) {
         const alt = findNode(state, i, res, nx, nz, NODE_SEARCH_COLUMNS, o);

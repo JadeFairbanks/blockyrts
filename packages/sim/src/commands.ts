@@ -15,7 +15,6 @@ import { isDreadnought } from './units/dreadnought.ts';
 import { costText, FOODS, refund, Res, RESOURCES, type Cost } from './economy/resources.ts';
 import { canAffordAny, haveOf, isAnyRes, payAny, shortOfAny } from './economy/food-kinds.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
-import { pointGoal } from './nav/path.ts';
 import { canonicalOrders, DebugTool, PickOwn, type Order } from './orders.ts';
 import { isGod, NO_CARRY, placeBuilding, refitBuilding, sightOf, SiteKind, UnitKind, type SimState } from './state.ts';
 import { huntable } from './combat/combat.ts';
@@ -35,7 +34,7 @@ import { isForage, setWoods } from './units/woods.ts';
 import { isFish } from './world/props.ts';
 import { callRepairs } from './units/repairs.ts';
 import { hasRunButton } from './units/moves.ts';
-import { Act, columnCentre, findNode, giveOrder, moverOf, NODE_SEARCH_COLUMNS, leaveBuilding, nodeView, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
+import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, nodeView, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
 import { menOnTop, platformCrew, topRoom } from './units/top.ts';
 import { goesInside, insideAuto, mayShelter, swapShelter } from './units/shelter.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
@@ -50,8 +49,6 @@ import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
 import { barnHandsIn, keepBarnHands } from './units/barn-hand.ts';
 
-/** Groups this large share one flow field (technical decision 6). */
-export const FLOW_FIELD_GROUP = 8;
 /** Spacing of a group spread round its target (s): 1.2 m. */
 const SPREAD_WU = 12 * floorDiv(WU_PER_METRE, 10);
 
@@ -136,42 +133,8 @@ function applyMove(state: SimState, o: Extract<Order, { kind: 'move' }>): void {
   const tz = clamp(o.z, -WORLD_EDGE_WU, WORLD_EDGE_WU);
   const targets = groupTargets(state, units, tx, tz);
   units.forEach((i, k) => giveOrder(state, i, { t: 'move', x: targets[k]![0], z: targets[k]![1] }, o.queued === true));
-  if (o.queued || units.length < FLOW_FIELD_GROUP) return;
-  // A big group shares one flow field: each member's path is found inside the field's corridor now.
-  const e = state.entities;
-  let x0 = Infinity;
-  let z0 = Infinity;
-  let x1 = -Infinity;
-  let z1 = -Infinity;
-  for (const i of units) {
-    const cx = floorDiv(e.x[i]!, WU_PER_COLUMN);
-    const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
-    x0 = Math.min(x0, cx);
-    z0 = Math.min(z0, cz);
-    x1 = Math.max(x1, cx);
-    z1 = Math.max(z1, cz);
-  }
-  const goal = pointGoal(floorDiv(tx, WU_PER_COLUMN), floorDiv(tz, WU_PER_COLUMN));
-  const field = state.paths.flowField(goal, { x0, z0, x1, z1 });
-  units.forEach((i, k) => {
-    // One on a face finds its way once it is off it (units/moves.ts).
-    if (e.onFace[i] !== 0) return;
-    const [gx, gz] = targets[k]!;
-    const r = state.paths.findWithField(field, moverOf(state, i), floorDiv(e.x[i]!, WU_PER_COLUMN), floorDiv(e.z[i]!, WU_PER_COLUMN), pointGoal(floorDiv(gx, WU_PER_COLUMN), floorDiv(gz, WU_PER_COLUMN)));
-    const pts = r.points.map(columnCentre);
-    if (r.reached) {
-      if (pts.length > 0) {
-        pts[pts.length - 2] = gx;
-        pts[pts.length - 1] = gz;
-      } else pts.push(gx, gz);
-    }
-    if (pts.length === 0) return;
-    e.path[i] = pts;
-    e.pathAt[i] = 0;
-    e.pathOk[i] = r.reached ? 1 : 0;
-    e.targetX[i] = pts[pts.length - 2]!;
-    e.targetZ[i] = pts[pts.length - 1]!;
-  });
+  // Each finds its own way as it sets off, a few searches a step shared by every unit (units/behaviour.ts walkTo): a
+  // group of 20 sent 300 m planned every way in the step the order came, a stall of most of a second (Patch 5, GP-22).
 }
 
 /** Gives each of the order's units what `make` says; with `crewed`, crewmen whose engine is in the order keep crewing it (siege/engines.ts withoutTheirCrew). */

@@ -62,8 +62,8 @@ const Turned = 8;
 export const HUNT_PICKED = 16;
 /** It is picking the berry bush on the column at (kx, kz), with no quarry (Jade's Patch 5, GP-31); (x, z) stay where it set out or is looking. */
 const Picking = 32;
-/** Kinds of quiet line, for chatter's spacing (forage.ts uses 1, 2, 4 and 5, woods.ts 13 to 15; under 16). */
-const Talk = { Berries: 3, Spotted: 6, Look: 7, Away: 8, Carry: 9, Dusk: 10, Back: 11, Bait: 12 } as const;
+/** Kinds of quiet line, for chatter's spacing (forage.ts uses 1, 2, 4 and 5, woods.ts 13 to 15, fight.ts 12; under 16). */
+const Talk = { Berries: 3, Spotted: 6, Look: 7, Away: 8, Carry: 9, Dusk: 10, Back: 11, Bait: 0 } as const;
 
 function col(wu: number): number {
   return floorDiv(wu, WU_PER_COLUMN);

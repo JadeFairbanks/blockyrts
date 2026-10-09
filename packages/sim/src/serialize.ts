@@ -195,13 +195,14 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * drain on each unit, the Deadlands' guarded mana crystals). 29: Patch 5's
  * gear (close melee's shield and a ranger's poison tips on every unit, the
  * shield in a troop's product and a Barracks padlock). 30: Patch 5's digging
- * (a dig order's layer and missed columns, and digs drawn upwards). 31: Patch
- * 5's farms and animals (bonemeal, farm boosts, stacked queue items, the
- * woodsman and his woods order and food line). Every patch raises it, and a
- * snapshot from any other version is refused, never carried over (Jade, Patch
- * 2: a standing rule).
+ * (a dig order's layer and missed columns, and digs drawn upwards). 31:
+ * Patch 5's pathing (when a stuck unit may next say so). 32: Patch 5's farms
+ * and animals (bonemeal, farm boosts, stacked queue items, the woodsman and
+ * his woods order and food line). Every patch raises it, and a snapshot from
+ * any other version is refused, never carried over (Jade, Patch 2: a standing
+ * rule).
  */
-export const SNAPSHOT_VERSION = 31;
+export const SNAPSHOT_VERSION = 32;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 

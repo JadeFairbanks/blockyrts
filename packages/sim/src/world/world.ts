@@ -17,11 +17,11 @@ import {
   WATER_PER_UNIT,
   type ChunkColumns,
 } from './chunk.ts';
-import { NATURAL_FLOOR_UNITS, WorldGen, type PropRecord } from './generate.ts';
+import { BOULDER_HALF, NATURAL_FLOOR_UNITS, WorldGen, type PropRecord } from './generate.ts';
 import { Band, WorldLayout } from './layout.ts';
 import { Mat } from './materials.ts';
 import { hash2 } from './noise.ts';
-import { fishAt, growth, growthStages, isFish, isTree, MUSHROOM_SPREAD, propInfo, PROPS, spreads, Stage } from './props.ts';
+import { fishAt, growth, growthStages, isFish, isTree, MUSHROOM_SPREAD, propInfo, PropKind, PROPS, spreads, Stage } from './props.ts';
 
 const N = COLUMNS_PER_CHUNK;
 /** A column and its four sides; the four sides alone. */
@@ -525,8 +525,28 @@ export class World {
       m = new Map();
       this.propChanges.set(key, m);
     }
+    const was = m.get(index);
     m.set(index, change);
     this.dirty.add(key);
+    // A boulder mined away or cleared frees its footprint on the walk map (Patch 5, GP-22).
+    if (change.removed && !was?.removed) {
+      const r = this.propRecords(cx, cz)[index];
+      if (r?.kind === PropKind.Boulder) {
+        for (let dz = -BOULDER_HALF; dz <= BOULDER_HALF; dz++) for (let dx = -BOULDER_HALF; dx <= BOULDER_HALF; dx++) this.touchNav(key, (r.lz + dz) * N + r.lx + dx);
+      }
+    }
+  }
+
+  /** The boulders standing in a chunk, as local x, z and ground-height triples: the walk map raises their footprints (Patch 5, GP-22). */
+  boulders(cx: number, cz: number): number[] {
+    const list = this.propRecords(cx, cz);
+    const changes = this.propChanges.get(chunkKey(cx, cz));
+    const out: number[] = [];
+    for (let k = 0; k < list.length; k++) {
+      const p = list[k]!;
+      if (p.kind === PropKind.Boulder && !changes?.get(k)?.removed) out.push(p.lx, p.lz, p.y);
+    }
+    return out;
   }
 
   /** The chunk's props as they stand at a step, with growth and regrowth applied. Felled ones are left out. */
@@ -687,7 +707,7 @@ export class World {
     this.dirty.add(key);
   }
 
-  /** Whether a mushroom may come up on a column (GP-30): dry, not built on, nothing else growing there, and not in the Barrens or Deadlands. */
+  /** Whether a mushroom may come up on a column (GP-30): dry, not built on, not under a boulder, nothing else growing there, and not in the Barrens or Deadlands. */
   private roomForMushroom(x: number, z: number, step: number): boolean {
     const tcx = x >> CHUNK_SHIFT;
     const tcz = z >> CHUNK_SHIFT;
@@ -695,6 +715,9 @@ export class World {
     const lz = z - tcz * N;
     if (this.columns(tcx, tcz).water[lz * N + lx] !== NO_WATER || this.builtOn?.(x, z)) return false;
     if (this.gen.columnBand(x, z) >= Band.Barrens) return false;
+    // A boulder's footprint lies inside its own chunk.
+    const rocks = this.boulders(tcx, tcz);
+    for (let k = 0; k < rocks.length; k += 3) if (Math.abs(rocks[k]! - lx) <= BOULDER_HALF && Math.abs(rocks[k + 1]! - lz) <= BOULDER_HALF) return false;
     return !this.props(tcx, tcz, step).some((p) => p.lx === lx && p.lz === lz);
   }
 

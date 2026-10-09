@@ -613,7 +613,7 @@ describe('moving over the land', () => {
     expect(atGoal(pointGoal(sx + 10, sz), r.points[r.points.length - 2]!, r.points[r.points.length - 1]!)).toBe(true);
   });
 
-  it('moves a group of 8 or more with one flow field and keeps them apart at the goal', () => {
+  it('moves a group of 8 or more, each finding its own way, and keeps them apart at the goal', () => {
     const s = createWorld(1, { playerUnits: 10, peaceful: true });
     const e = s.entities;
     const units = Array.from({ length: 10 }, (_, k) => k + 1);
