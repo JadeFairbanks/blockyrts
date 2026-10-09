@@ -465,8 +465,9 @@ describe('farms', () => {
     run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.FarmFare, on: 1 }]);
     run(s, 1, [{ kind: 'assign', player: 0, units: [1, 2, 3], building: farm.id }]);
     run(s, 299);
-    // Two farmers at most; the third was turned away.
-    expect(s.entities.queue[2]!.length).toBe(0);
+    // Two farmers at most, the nearest; the third was never sent (Patch 5, CT-2: only as many go as there is room for).
+    expect([0, 1, 2].filter((i) => s.entities.queue[i]![0]?.t === 'job')).toHaveLength(2);
+    expect([0, 1, 2].filter((i) => s.entities.queue[i]!.length === 0)).toHaveLength(1);
     // No fallow days: the bar is already filling.
     expect(farm.farmAcc).toBeGreaterThan(0);
     expect(pool[Res.FarmFare]).toBe(0);

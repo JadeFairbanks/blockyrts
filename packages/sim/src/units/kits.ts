@@ -32,8 +32,13 @@ export const Troop = { None: 0, Close: 1, Long: 2, Ranger: 3, Brawler: 4, Cavalr
 export type Troop = (typeof Troop)[keyof typeof Troop];
 /** The troop types a Barracks trains (the crewman is the Artillery workshop's). */
 export const TROOP_TYPES: readonly Troop[] = [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler, Troop.Cavalry];
-/** The troop types' names, for the training buttons; a trained troop goes by its weapon tier's name (TROOP_TIER_NAMES). */
-export const TROOP_NAMES: readonly string[] = ['Warrior', 'Close melee', 'Long melee', 'Ranger', 'Brawler', 'Cavalry', 'Artillery crewman', 'Woodsman'];
+/**
+ * The troop types' names where no weapon tier is known; a troop goes by its
+ * weapon tier's name (TROOP_TIER_NAMES). Jade's Patch 5 (UI-11): "close
+ * melee" and "long melee" are our words, never shown to the player, so the
+ * two melee lines go by their best-known names here.
+ */
+export const TROOP_NAMES: readonly string[] = ['Warrior', 'Swordsman', 'Spearman', 'Ranger', 'Brawler', 'Cavalry', 'Artillery crewman', 'Woodsman'];
 /**
  * A troop's name by its weapon tier, [type][tier] (Patch 2, Jade): '' where a
  * type has no such tier. The brawler keeps its type name (Jade).

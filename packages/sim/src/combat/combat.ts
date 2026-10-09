@@ -300,7 +300,9 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   const fresh = e.hurtAt[i] === 0 || state.step - e.hurtAt[i]! > FRESH_HURT_STEPS;
   e.hurtAt[i] = state.step;
   if (blow.from) e.attacker[i] = blow.from;
-  if (!blow.exact || state.step % 10 === 0) state.hits.push({ look: hitLook(state, i, block > 0), x: e.x[i]!, y: e.y[i]! + floorDiv(bodyHeight(state, i) * 2, 3), z: e.z[i]!, id: e.id[i]! });
+  const hy = e.y[i]! + floorDiv(bodyHeight(state, i) * 2, 3);
+  if (!blow.exact) state.hits.push({ look: hitLook(state, i, block > 0), x: e.x[i]!, y: hy, z: e.z[i]!, id: e.id[i]!, dmg: d });
+  else noteSteadyHit(state, i, hitLook(state, i, block > 0), hy, d);
   // The players' units that hit a mob or a people's unit in the last 10 s share its experience.
   if ((e.kind[i] === UnitKind.Mob || e.owner[i] === PEOPLES) && blow.from) {
     const j = e.indexOf(blow.from);
@@ -320,7 +322,9 @@ function hurtMount(state: SimState, i: number, blow: Blow): number {
   e.mountHp[i] = e.mountHp[i]! - d;
   e.hurtAt[i] = state.step;
   if (blow.from) e.attacker[i] = blow.from;
-  if (!blow.exact || state.step % 10 === 0) state.hits.push({ look: 'blood', x: e.x[i]!, y: e.y[i]! + floorDiv(bodyHeight(state, i), 3), z: e.z[i]!, id: e.id[i]! });
+  const hy = e.y[i]! + floorDiv(bodyHeight(state, i), 3);
+  if (!blow.exact) state.hits.push({ look: 'blood', x: e.x[i]!, y: hy, z: e.z[i]!, id: e.id[i]!, dmg: d });
+  else noteSteadyHit(state, i, 'blood', hy, d);
   if ((e.kind[i] === UnitKind.Mob || e.owner[i] === PEOPLES) && blow.from) {
     const j = e.indexOf(blow.from);
     if (j >= 0 && sideOf(state, j) === Side.Players) noteHitter(state, i, blow.from);
@@ -328,6 +332,16 @@ function hurtMount(state: SimState, i: number, blow: Blow): number {
   if (e.mountHp[i]! <= 0) loseMount(state, i);
   else if (blow.from) hurtHooks.unit(state, i, blow.from, false);
   return d;
+}
+
+/**
+ * A blow that lands every step (a beam, Exact): its look only every 10th step, as before, but its damage every step
+ * as a 'tick' the screen adds up into one number (Patch 5, UI-10).
+ */
+function noteSteadyHit(state: SimState, i: number, look: HitLook, y: number, d: number): void {
+  const e = state.entities;
+  if (state.step % 10 === 0) state.hits.push({ look, x: e.x[i]!, y, z: e.z[i]!, id: e.id[i]! });
+  state.hits.push({ look: 'tick', x: e.x[i]!, y, z: e.z[i]!, id: e.id[i]!, dmg: d });
 }
 
 /** A hurt is fresh when the unit was not hurt in the 2 s before it (workers flee once, not at every blow). */
@@ -351,7 +365,7 @@ function noteHitter(state: SimState, i: number, id: number): void {
 export function hurtBuilding(state: SimState, b: Building, damage: number, x: number, y: number, z: number): void {
   if (damage <= 0 || b.hp <= 0) return;
   b.hp -= damage;
-  state.hits.push({ look: buildingSpec(b.kind).wooden === false ? 'stone' : 'wood', x, y, z, id: b.id });
+  state.hits.push({ look: buildingSpec(b.kind).wooden === false ? 'stone' : 'wood', x, y, z, id: b.id, dmg: damage });
   if (b.hp <= 0) {
     b.hp = 0;
     state.falling.push(b.id);

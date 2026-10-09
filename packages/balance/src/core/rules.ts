@@ -125,6 +125,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/forage.ts': 'loot',
   'units/night-work.ts': 'nightwork',
   'units/dig.ts': 'world',
+  'units/repairs.ts': 'units',
   'state.ts': 'units',
   'economy/food.ts': 'food',
   'economy/food-kinds.ts': 'food',

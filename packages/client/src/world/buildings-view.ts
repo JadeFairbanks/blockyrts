@@ -101,6 +101,8 @@ export class BuildingsView {
   private readonly modelFog: ModelShaderPatch;
   /** 0 by day, 1 at night: how bright the flames' lights are. */
   darkness = 0;
+  /** Building ids the cursor is over, for their silhouette outline (Patch 5, UI-5). */
+  hovered: ReadonlySet<number> = new Set();
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -332,6 +334,7 @@ export class BuildingsView {
         if (n >= MAX_MODEL_INSTANCES) continue;
         counts.set(key, n + 1);
         draw.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M, b.z * COLUMN_M + m.dz, 0, '', 0, this.teamColour(b.owner), m.scale);
+        if (this.hovered.has(b.id)) draw.setHover(n);
       }
     }
     for (const [id, draw] of this.modelDraws) {
@@ -383,6 +386,17 @@ export class BuildingsView {
     s.r = r;
     s.k = k;
     s.d = s.p.distanceToSquared(focus);
+  }
+
+  /** What the hover outline draws of the buildings the cursor is over: catalogue models (their hovered instances) and code-built blocks. */
+  hoverParts(): { models: InstancedModel[]; meshes: THREE.Mesh[] } {
+    const models = [...this.modelDraws.values()].filter((d) => d.hoveredCount > 0);
+    const meshes: THREE.Mesh[] = [];
+    for (const id of this.hovered) {
+      const m = this.entries.get(id)?.mesh;
+      if (m) meshes.push(m);
+    }
+    return { models, meshes };
   }
 
   /** Every building's selectable, for the selection code. */

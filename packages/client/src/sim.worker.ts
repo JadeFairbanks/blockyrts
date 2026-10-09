@@ -177,6 +177,7 @@ function postState(s: SimState): void {
     if (e.lowUntil[i]! > s.step) flags |= UnitFlag.Swooping;
     if (e.shared[i] !== 0) flags |= UnitFlag.Shared;
     if (onTop(s, i)) flags |= UnitFlag.OnTop;
+    if (e.autoRepair[i] !== 0) flags |= UnitFlag.AutoRepair;
     // A Barn's hand (Patch 5): he wears the farmer's hat while he is one (Jade's GP-37).
     if (e.kind[i] === UnitKind.Worker && barnOf(s, i)) flags |= UnitFlag.BarnHand;
     data[o + S.flags] = flags;

@@ -912,46 +912,14 @@ body.playing * {
   pointer-events: none;
   overflow: hidden;
 }
-/* The bar over a unit's head while it tinkers beside a building (Jade's Patch 2), under its speech bubble. */
-.tinker-bars {
+/* Patch 5: the bars, stars and damage numbers over the world (world-marks.ts), under the speech bubbles. */
+.world-marks {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 0;
   pointer-events: none;
-  overflow: hidden;
-}
-.tinker-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 34px;
-  height: 6px;
-  box-sizing: border-box;
-  border: 1px solid #1a120a;
-  background: rgba(20, 14, 8, 0.75);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-.tinker-fill {
-  height: 100%;
-  width: 0;
-  background: linear-gradient(#f2d27a, #c9962e);
-}
-/* Patch 5: the bonemeal boost over a farm, its waiting boosts beside it. */
-.boost-bar {
-  width: 44px;
-}
-.boost-bar .tinker-fill {
-  background: #c9d98a;
-}
-.boost-count {
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translate(3px, -50%);
-  font: 11px/1 var(--display);
-  color: #fff;
-  text-shadow: 1px 1px 0 #000;
-  white-space: nowrap;
 }
 .bubble {
   position: absolute;
@@ -2669,4 +2637,183 @@ body.playing.touch .hud {
 /* The cards read like a book from the left, the facts column after them. */
 .kit-cards {
   justify-content: flex-start;
+}
+
+/* ---- Patch 5 (UI-1): a crisp, plain font for the button hotkeys and all
+   very tiny text; Jersey 10 stays on titles, names and the larger numbers.
+   Jersey draws small for its size, so each line here is set a step smaller
+   to stay the same size on the screen. ---- */
+:root {
+  --crisp: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+.hud-btn .key,
+.tt-key,
+.btn-tag,
+.hud-btn.card-pic .card-horses,
+.hud-btn.chip .chip-count,
+.hud-btn.chip.owner-tag,
+.hud-btn.sel-bar .num,
+.hud-btn.portrait.tile .tile-count,
+.hud-btn.group-tab .face,
+.card-name,
+.sel-more {
+  font-family: var(--crisp);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-shadow: 1px 1px 0 #000, 0 0 2px rgba(0, 0, 0, 0.85);
+}
+.hud-btn .key,
+.tt-key {
+  font-size: 11px;
+}
+.hud-btn.cmd .key {
+  font-size: calc(11.5px * var(--card-k, 1));
+  top: 3px;
+  right: 5px;
+}
+.hud-btn.util .key {
+  font-size: 9px;
+}
+.hud-btn.top .key {
+  font-size: 10px;
+}
+.hud-btn.card-pic .key {
+  font-size: 10px;
+}
+.btn-tag,
+.hud-btn.card-pic .card-horses,
+.hud-btn.chip .chip-count {
+  font-size: 11px;
+  line-height: 1;
+}
+.hud-btn.chip.owner-tag,
+.sel-more {
+  font-size: 12px;
+  line-height: 1;
+}
+.hud-btn.sel-bar .num {
+  font-size: 10px;
+  line-height: 13px;
+}
+.hud-btn.portrait.tile .tile-count {
+  font-size: 9.5px;
+}
+.hud-btn.group-tab .face,
+.card-name {
+  font-size: 11.5px;
+  line-height: 1;
+}
+
+/* Patch 5 (UI-2): two pictures side by side keep inside the bigger pictures' button. */
+.command-card .btn-icon img.shift-left {
+  transform: translate(-18%, -10%) scale(0.86);
+}
+.command-card .btn-icon img.shift-right {
+  transform: translate(18%, 10%) scale(0.86);
+}
+
+/* ---- Patch 5 (UI-16): the doing-now marker about 30% thicker and a little
+   flashier: the ring 2.6 px at its brightest (was 2) and never under 1.3 px,
+   a brighter pulse with a glow outside, and the arrow a little bigger (3.5 px
+   a pixel, was 3), bobbing just barely, 2 px, smoothly. ---- */
+.hud-btn.doing::after {
+  left: calc(50% - 12.25px);
+  top: 1px;
+  width: 24.5px;
+  height: 17.5px;
+  animation: doing-bob-p5 0.9s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 2px rgba(255, 216, 74, 0.75));
+}
+.hud-btn.doing {
+  animation: doing-glow-p5 1.2s ease-in-out infinite;
+}
+@keyframes doing-bob-p5 {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(2px);
+  }
+}
+@keyframes doing-glow-p5 {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1.3px rgba(255, 216, 74, 0.6), 0 0 3px rgba(255, 216, 74, 0.25);
+  }
+  50% {
+    box-shadow: inset 0 0 0 2.6px rgba(255, 226, 110, 1), inset 0 0 9px rgba(255, 236, 160, 0.45), 0 0 10px rgba(255, 216, 74, 0.7);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-btn.doing,
+  .hud-btn.doing::after {
+    animation: none;
+  }
+  .hud-btn.doing {
+    box-shadow: inset 0 0 0 2.6px rgba(255, 216, 74, 0.85);
+  }
+}
+
+/* ---- Patch 5 (UI-6): the collapsed messages button, half its old size, its
+   left edge on the screen's and its foot on the top of the buttons over the
+   minimap; the number on it counts other players' unread messages. ---- */
+.hud .panel.messages-open {
+  left: var(--strip-left, 0px);
+  bottom: var(--strip-h, calc(var(--mm-h) + var(--util-h)));
+  padding: 0;
+  border: 0;
+  border-image: none;
+  background: none;
+}
+.hud-btn.msg-open {
+  width: 25px;
+  height: 22px;
+  font-size: 12px;
+}
+.msg-unread {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 10px;
+  height: 10px;
+  padding: 0 2px;
+  box-sizing: border-box;
+  border-radius: 5px;
+  background: #2f86e0;
+  box-shadow: 0 0 0 1px #000;
+  color: #fff;
+  font: 700 8px/10px var(--crisp, system-ui, sans-serif);
+  text-align: center;
+}
+.messages-open.unread .hud-btn.msg-open {
+  box-shadow: inset 0 0 0 1.5px #5fb0ff, 0 0 6px rgba(95, 176, 255, 0.7);
+}
+
+/* Jade's Patch 5 (UI-13): a button whose auto function is on for the
+   selection (Repair's autorepair) wears a small green AUTO tag along its
+   bottom edge. Repair All (GP-25) sits with the camera spots, its picture
+   kept to the bar's size. */
+.hud-btn.auto-on::before {
+  content: 'AUTO';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  text-align: center;
+  font-size: 8px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #8ef08e;
+  text-shadow: 0 0 2px #000, 0 0 2px #000;
+  pointer-events: none;
+  z-index: 2;
+}
+.hud-btn.auto-on {
+  box-shadow: inset 0 0 0 1px rgba(142, 240, 142, 0.55);
+}
+.hud-btn.util.repairall .btn-icon img {
+  width: 20px;
+  height: 20px;
+  margin-top: 9px;
 }
