@@ -58,6 +58,7 @@ import { propDetails, propLabel } from './plant-text.ts';
 import { BuildingsView } from './buildings-view.ts';
 import { UnitsView } from './units-view.ts';
 import { PortraitView } from './portrait-view.ts';
+import { FishView } from './fish-view.ts';
 import { LootView } from './loot-view.ts';
 import { Overlay } from './overlay.ts';
 import { patchMaterial, type FowUniforms } from './fog-material.ts';
@@ -236,6 +237,8 @@ export class WorldView {
   /** The selection's portrait, drawn by match.ts into the HUD's portrait window after the world. */
   readonly portrait: PortraitView;
   private readonly lootView: LootView;
+  /** The live fish in the water and the woodsmen's catches (Patch 5, FR-2). */
+  private readonly fishView: FishView;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
   private viewRing = QUARTER_DETAIL_RING;
@@ -295,6 +298,7 @@ export class WorldView {
     this.portrait = new PortraitView(this.colours, NEUTRAL_COLOUR);
     this.overlay = new Overlay(scene);
     this.lootView = new LootView(scene);
+    this.fishView = new FishView(scene);
 
     const ground: GroundPicker = (ray) => this.pick(ray);
     const selectables: SelectableSource = { candidates: () => this.candidates() };
@@ -357,6 +361,7 @@ export class WorldView {
   setModels(lib: ModelLibrary): void {
     this.models = lib;
     this.unitsView.setModels(lib);
+    this.fishView.setModels(lib);
     this.ghostUnits?.setModels(lib);
     this.buildings.setModels(lib);
     this.portrait.setModels(lib);
@@ -411,8 +416,9 @@ export class WorldView {
         u.details = details;
       } else if (kind === UnitKind.Warrior) {
         const troop = d[o + S.troop]!;
-        // The artillery crewman (Patch 2) is its own type: its own card and subgroup, never upgraded or sent hunting.
-        u.typeKey = troop === Troop.Crew ? 'warrior:crew' : 'warrior';
+        // The artillery crewman (Patch 2) is its own type: its own card and subgroup, never upgraded or sent hunting. So is the
+        // woodsman (Patch 5): his own card, and not one of the army F2 selects (Jade's WD-4).
+        u.typeKey = troop === Troop.Crew ? 'warrior:crew' : troop === Troop.Woodsman ? 'warrior:woods' : 'warrior';
         // A double click's types (Jade's Patch 5, CT-5): cavalry (anyone mounted), close melee, long melee, and every other kind its own.
         u.clickType = d[o + S.mount] !== Mount.None || troop === Troop.Cavalry ? 'warrior:cavalry' : `warrior:${troop}`;
         u.label = this.title(d, o, kind);
@@ -489,6 +495,7 @@ export class WorldView {
       if (group !== 0 && kind !== UnitKind.Animal && (owner === PEOPLES || (owner === NEUTRAL && kind === UnitKind.Mob) || (owner < 8 && kind !== UnitKind.Mob))) this.peoplesLabel(u, d, o, owner, kind, group, health);
     }
     this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now(), (id) => this.game?.unit(id) ?? null);
+    this.fishView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());
   }
 
   /** A worker's, troop's or mage's name: the sim's unitTitle, so it reads the same as its bubbles and lines. */
@@ -647,6 +654,7 @@ export class WorldView {
     this.minimapFocus = focus;
     this.updateUnits(now);
     this.lootView.update(now);
+    this.fishView.update(now, focus, (id) => this.game?.unit(id) ?? null);
     this.updateSky();
     if (this.game) this.buildings.update(this.game, now, focus);
     const fcx = Math.floor(focus.x / CHUNK_M);
@@ -760,6 +768,7 @@ export class WorldView {
     c.heights = m.heights;
     c.size = m.size;
     c.props = m.props.map((p) => this.propSelectable(c, p));
+    this.fishView.setChunk(ck(c.cx, c.cz), c.cx, c.cz, m.props);
     for (const p of m.props) c.ranges.set(`p:${c.cx},${c.cz}:${p.index}`, [p.first, p.cubes]);
     c.meshedAt = performance.now();
   }
@@ -810,6 +819,7 @@ export class WorldView {
   }
 
   private dropChunk(c: ChunkView): void {
+    this.fishView.dropChunk(ck(c.cx, c.cz));
     if (!c.group) return;
     this.scene.remove(c.group);
     c.group.traverse((o) => {

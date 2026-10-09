@@ -95,6 +95,8 @@ const HIT_LOOKS: Record<string, { colour: number; n: number; speed: number; up: 
   fell: { colour: 0x9a6a3a, n: 18, speed: 3, up: 3.2 },
   bomb: { colour: 0xff8020, n: 40, speed: 5, up: 3.5 },
   dirt: { colour: 0x6a4a2a, n: 14, speed: 2.2, up: 2.6 },
+  // Patch 5 (FR-1): the splash where a woodsman's fish comes up out of the water (world/fish-view.ts draws the fish).
+  catch: { colour: 0xcfe6f2, n: 7, speed: 1.2, up: 2 },
 };
 
 /** The gunpowder shots (Patch 5, Jade's VX-4): hot lead, barely seen by day, a bright orange streak in the dark. */

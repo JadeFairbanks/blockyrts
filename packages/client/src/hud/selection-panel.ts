@@ -35,6 +35,7 @@ import {
   speciesSpec,
   STEPS_PER_SECOND,
   TOOL_KITS,
+  WOODSMAN_KIT,
   troopOf,
   Troop,
   unitOrderText,
@@ -64,6 +65,7 @@ import { TrainingCards } from './training-cards.ts';
 import { cardsOf, keepPicks } from './troops.ts';
 import { BATTLE_MAGE_ICON, buildingIconFile, selectableIconFile, SUPPORT_MAGE_ICON, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
 import { oneIsSingular } from './wording.ts';
+import { woodsLineClass, woodsLineText } from './woods.ts';
 import { hasRanks, xpView } from './xp-bar.ts';
 
 /** Most portraits shown at once; the rest are counted ("+8"). */
@@ -130,6 +132,7 @@ const layer = (p: Pic, tag?: string): ButtonIcon => ({ layers: [p.filter ? { fil
 export function typeOrder(typeKey: string): number {
   if (typeKey === 'worker') return 0;
   if (typeKey === 'warrior') return 1;
+  if (typeKey === 'warrior:woods') return 1.4;
   if (typeKey === 'warrior:crew') return 1.5;
   if (typeKey === 'mage:support') return 2;
   if (typeKey === 'mage:battle') return 3;
@@ -817,7 +820,8 @@ export class SelectionPanel {
     const u = id === null ? null : this.a.game.unit(id);
     if (!u) return '';
     const bag = this.a.game.info?.bags.find(([x]) => x === u.id)?.[1] ?? [];
-    return [u.kind, u.troop, u.wTier, u.aTier, u.rank, u.upLine, u.upTo, u.mount, u.carryRes, u.carryAmt, u.spells, u.meal > 0, u.crew, bag.map(([r, n]) => `${r}x${n}`).join('.')].join('/');
+    const woods = this.a.game.woodsLine(u.id);
+    return [u.kind, u.troop, u.wTier, u.aTier, u.rank, u.upLine, u.upTo, u.mount, u.carryRes, u.carryAmt, u.spells, u.meal > 0, u.crew, bag.map(([r, n]) => `${r}x${n}`).join('.'), woods ? `${woodsLineText(woods)}.${woods.keep}` : ''].join('/');
   }
 
   private oneThing(t: Selectable): void {
@@ -902,6 +906,9 @@ export class SelectionPanel {
       if ((u.spells & bit) === 0) continue;
       this.chip(`spell${bit}`, { icon: pic(file), name, description: `${name}: a mage's spell is on it.`, className: 'spell' }, row);
     }
+    // A woodsman's food line, as large as his name, red, yellow or green (Patch 5, Jade's WD-7).
+    const woods = u.owner === this.a.player ? this.a.game.woodsLine(u.id) : null;
+    if (woods) this.row(`woods-line ${woodsLineClass(woods.keep)}`, woodsLineText(woods));
     if (u.owner === this.a.player) {
       const q = this.a.game.queues.get(u.id) ?? [];
       // A Barn's hand (Jade's GP-37: "he is operating the barn/tending to livestock").
@@ -923,6 +930,14 @@ export class SelectionPanel {
       return [
         { pic: wandPic(u.wTier), tag: String(u.wTier), ...named(WAND_KITS[u.wTier], u.wTier, 'wand'), line: 0 },
         { pic: robePic(u.aTier), tag: String(u.aTier), ...named(ROBE_KITS[u.aTier], u.aTier, 'robe'), line: 1 },
+      ];
+    }
+    // The woodsman (Patch 5): his long weapon and his rod and pack, drawn while he fishes; no armour (Jade's WD-2).
+    if (u.troop === Troop.Woodsman) {
+      const rod = WOODSMAN_KIT[1]!;
+      return [
+        { pic: weaponPic(u.troop, u.wTier), tag: String(u.wTier), ...named(weaponPiece(u.troop, u.wTier), u.wTier, 'weapon'), line: 0 },
+        { pic: { file: 'icon_fishing_rod' }, name: rod.name, text: 'He fishes with it; it comes with him. A woodsman wears no armour.', line: -1 },
       ];
     }
     const out: Array<{ pic: Pic; tag?: string; name: string; text: string; line: number }> = [

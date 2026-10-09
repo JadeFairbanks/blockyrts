@@ -334,6 +334,20 @@ body.playing * {
 .sel-row.hint {
   color: var(--muted);
 }
+/* The woodsman's food line (Patch 5, Jade's WD-7): as large as the name, red, yellow or green. */
+.sel-row.woods-line {
+  font-size: 14px;
+  font-weight: 600;
+}
+.sel-row.woods-line.keep-red {
+  color: #e05a4a;
+}
+.sel-row.woods-line.keep-yellow {
+  color: #e8c84a;
+}
+.sel-row.woods-line.keep-green {
+  color: #6ad06a;
+}
 .sel-row.owner {
   color: var(--muted);
   font-size: 12px;

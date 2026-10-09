@@ -31,6 +31,9 @@ export const ACTIONS: readonly Action[] = [
   { id: 'crew', name: 'Crew an engine (artillery crewmen)', key: 'KeyC', group: 'Units' },
   // Patch 3: an artillery crewman retrains as a worker; W for worker, a key no unit card uses (s). Workers' Upgrade rank (U) is gone: they rank up by working.
   { id: 'retrain', name: 'Retrain as a worker (artillery crewmen)', key: 'KeyW', group: 'Units' },
+  // Patch 5: the woodsman's Fish (I, as F is Eat) and Forage (G, as workers' Gather) (Jade's WD-1).
+  { id: 'fish', name: 'Fish (woodsmen; right click: fish by themselves, home by nightfall)', key: 'KeyI', group: 'Units' },
+  { id: 'forage', name: 'Forage (woodsmen; right click: forage by themselves, home by nightfall)', key: 'KeyG', group: 'Units' },
   { id: 'deeper', name: 'Dig or heap: deeper or higher', key: 'Equal', group: 'Workers' },
   { id: 'shallower', name: 'Dig or heap: shallower or lower', key: 'Minus', group: 'Workers' },
   { id: 'gather', name: 'Gather (workers fetch what the camp needs, home by nightfall)', key: 'KeyG', group: 'Workers' },
@@ -60,6 +63,7 @@ export const ACTIONS: readonly Action[] = [
   { id: 'trainSupportMage', name: 'Train Support mage', key: 'KeyS', group: 'Buildings' },
   { id: 'trainBattleMage', name: 'Train Battle mage', key: 'KeyM', group: 'Buildings' },
   { id: 'trainCrewman', name: 'Train Artillery crewman (Artillery workshop)', key: 'KeyE', group: 'Buildings' },
+  { id: 'trainWoodsman', name: "Train Woodsman (Scholar's Lodge)", key: 'KeyW', group: 'Buildings' },
   { id: 'craft', name: 'Smelting, research, making or slaughter menu', key: 'KeyK', group: 'Buildings' },
   // Patch 5: a farm's Fertilize (right click: Auto fertilize).
   { id: 'fertilize', name: 'Fertilize (farms; right click turns Auto fertilize on or off)', key: 'KeyF', group: 'Buildings' },

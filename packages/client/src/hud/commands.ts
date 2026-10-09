@@ -105,6 +105,7 @@ import { defenseAction, flatMake, makeAction, menuSlots, MORE_ACTION, placeActio
 import { buildingIconFile } from './unit-icons.ts';
 import { cardChoice, cardCostText, cardOffered, cardProduct, cardTrainsText, cardWhy, troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
 import { count } from './wording.ts';
+import { woodsOn, woodsWhat, type WoodsWhat } from './woods.ts';
 
 /** One button of the command card. */
 export interface CardEntry {
@@ -145,7 +146,7 @@ type Slots = Array<CardEntry | null>;
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
 const ALLIED_ACTIONS = new Set(['attack', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt';
+type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'fish' | 'forage';
 
 /**
  * Pages of the command card: the main card, the build menu (Patch 2: one, in
@@ -228,11 +229,11 @@ const TROOP_ACTIONS: Readonly<Record<number, readonly [string, string, number]>>
 };
 
 /** Whether a selectable's type is one of the player's units that wears gear and eats: workers, warriors and mages. */
-const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey === 'warrior' || u.typeKey.startsWith('mage:');
+const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey === 'warrior' || u.typeKey === 'warrior:woods' || u.typeKey.startsWith('mage:');
 
 /** Whether a building trains workers, warriors or mages, which come out to its rally point. */
 const trainsUnits = (b: BuildingInfo): boolean =>
-  buildingSpec(b.kind).trainsWorkers || b.troops.length > 0 || (b.mages?.length ?? 0) > 0 || b.products.some(([p]) => p === Product.SupportMage || p === Product.BattleMage);
+  buildingSpec(b.kind).trainsWorkers || b.troops.length > 0 || (b.mages?.length ?? 0) > 0 || b.products.some(([p]) => p === Product.SupportMage || p === Product.BattleMage || p === Product.Woodsman);
 
 export interface Targeting {
   command: TargetCommand;
@@ -415,7 +416,7 @@ export class Commands {
 
   private slotsFor(active: string, waiting: boolean): Slots {
     if (this.area && active === 'worker') return this.areaCard();
-    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active.startsWith('mage:')) {
+    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active === 'warrior:woods' || active.startsWith('mage:')) {
       if (this.alliedOnly(active)) return this.alliedCard(active);
       if (this.menu.page === 'build' && active === 'worker') return this.buildMenuCard(waiting);
       return this.unitCard(active);
@@ -589,6 +590,11 @@ export class Commands {
         this.retrainEntry(),
       ];
     }
+    if (active === 'warrior:woods') {
+      // The woodsman (Patch 5, Jade's WD-1 and WD-2): move and attack, Fish and Forage, Eat and Upgrade equipment.
+      const men = this.unitIds((u) => u.typeKey === 'warrior:woods');
+      return [attack, move, this.woodsEntry(men, 1), this.woodsEntry(men, 2), this.eatEntry(), this.equipEntry(men)];
+    }
     const troops = this.unitIds((u) => u.typeKey === 'warrior');
     return [
       attack,
@@ -604,6 +610,43 @@ export class Commands {
       this.eatEntry(),
       this.equipEntry(troops),
     ];
+  }
+
+  /**
+   * The woodsman's Fish (1) and Forage (2) buttons (Jade's WD-1, WD-5 and
+   * CT-1): a left click, then a stretch of water or wild food, works that one
+   * and goes on by himself; a right click (or pressing twice) turns doing it
+   * by himself on or off. Fishing and foraging can both be on at once; the
+   * button is marked while it is on for all of them.
+   */
+  private woodsEntry(men: number[], what: WoodsWhat): CardEntry {
+    const fish = what === 1;
+    const action = fish ? 'fish' : 'forage';
+    const on = woodsOn(this.d.game.queues, men, what);
+    const desc = fish
+      ? "Then left click a stretch of water with fish in it: the woodsmen fish it down to its last pair, then go on fishing by themselves.\nRight click (or press twice): they fish by themselves, or stop. Each goes to the nearest stretch with fish to spare and leaves it half its fish, so it breeds back; he takes his catch home when his bag cannot take another fish, and goes back out. They never go farther than they could walk back from in dusk's 40 s, so they are home by nightfall, and go out again in the day. Fishing and foraging can both be on: they take whatever they come across."
+      : "Then left click wild food: berries, mushrooms and the like. The woodsmen pick it, then go on foraging by themselves.\nRight click (or press twice): they forage by themselves, or stop. Each goes to the nearest wild food ready to pick and takes his bag home when it is full, and goes back out; home by nightfall, out again in the day. Fishing and foraging can both be on: they take whatever they come across.";
+    const auto = (): void => this.woodsAuto(men, what, on ? 0 : 1);
+    if (men.length === 0) return this.off(action, fish ? 'Fish' : 'Forage', desc, 'Select a woodsman.');
+    return this.entry(action, fish ? 'Fish' : 'Forage', desc, () => this.target(action, action), { lit: this.targeting?.command === action, auto: on, right: auto, double: auto });
+  }
+
+  /** Fish or Forage by himself, on or off, for every selected woodsman. */
+  private woodsAuto(men: number[], what: WoodsWhat, on: number): void {
+    if (men.length === 0) return;
+    this.targeting = null;
+    this.d.send({ kind: 'woods', player: this.d.player, units: men, what, on, cx: 0, cz: 0, index: -1, queued: this.d.queued() });
+    this.d.message(on ? (what === 1 ? 'Fishing by themselves.' : 'Foraging by themselves.') : what === 1 ? 'No more fishing.' : 'No more foraging.');
+    this.d.changed();
+  }
+
+  /** A fish stretch or wild food picked for the woodsmen: they work it, then go on (CT-1). */
+  private woodsAt(item: Selectable, what: WoodsWhat, men = this.unitIds((u) => u.typeKey === 'warrior:woods')): boolean {
+    const m = /^p:(-?\d+),(-?\d+):(\d+)$/.exec(item.key);
+    if (!m || men.length === 0 || woodsWhat(item.typeKey) !== what) return false;
+    this.d.send({ kind: 'woods', player: this.d.player, units: men, what, on: 1, cx: Number(m[1]), cz: Number(m[2]), index: Number(m[3]), queued: this.d.queued() });
+    this.d.marker(item.centre, 'target');
+    return true;
   }
 
   /** A spell button: greyed with the reason when none of the selected mages can cast it now (a cooldown only delays it). */
@@ -756,14 +799,18 @@ export class Commands {
     const list = this.holders(ids);
     const kind = list[0]?.h.kind ?? 'warrior';
     const name = 'Upgrade equipment';
-    const what = kind === 'worker' ? 'the best tools' : kind === 'mage' ? 'the best wand, then the best robe,' : 'the best weapon, then the best armour,';
-    const where = kind === 'mage' ? 'the nearest Barracks, Forge, main base or Magi Sanctum' : 'the nearest Barracks, Forge or main base';
+    // A woodsman wears no armour and upgrades his long weapon only at a main base (Patch 5, Jade's WD-2 and WD-3).
+    const woods = list.length > 0 && list.every((x) => x.h.kind === 'warrior' && x.h.troop === Troop.Woodsman);
+    const what = kind === 'worker' ? 'the best tools' : kind === 'mage' ? 'the best wand, then the best robe,' : woods ? 'the best long weapon' : 'the best weapon, then the best armour,';
+    const where = kind === 'mage' ? 'the nearest Barracks, Forge, main base or Magi Sanctum' : woods ? 'the nearest main base' : 'the nearest Barracks, Forge or main base';
     const plans = equipmentPlans(list, this.d.game.pool(), this.d.game.tech());
     const sent = plans.filter((p) => p.w > 0 || p.a > 0);
     const lines = [
       kind === 'worker'
         ? 'Each one gets the best tools researched that the stock pays for, the highest ranks first.'
-        : `Each one gets ${what} researched that the stock pays for: weapons first for all of them, the highest ranks first, then armour from what is left.`,
+        : woods
+          ? `Each one gets ${what} researched that the stock pays for, the highest ranks first. A woodsman wears no armour.`
+          : `Each one gets ${what} researched that the stock pays for: weapons first for all of them, the highest ranks first, then armour from what is left.`,
       `They walk to ${where} and sit tinkering there, with a bar over their heads, for each piece's time. The stock pays now; the old kit goes back to the stock in full when the new one goes on.`,
     ];
     if (sent.length > 0) {
@@ -972,6 +1019,8 @@ export class Commands {
       }
       // Patch 2: the Artillery workshop trains the artillery crewman, first on its card; its engines follow it (Patch 5, flatMake).
       if (first.products.some(([p]) => p === Product.Crewman)) rows.push([Product.Crewman, 'trainCrewman', 'Crewman', 0]);
+      // Patch 5: the Scholar's Lodge trains the woodsman, first on its card.
+      if (first.products.some(([p]) => p === Product.Woodsman)) rows.push([Product.Woodsman, 'trainWoodsman', 'Woodsman', 0]);
     }
     for (const [p, action, face, slot] of rows) card[slot] = this.productEntry(all, p, action, face);
     // Patch 5 (Jade's GP-38): Fertilize on a farm's card, beside Train worker.
@@ -1066,7 +1115,7 @@ export class Commands {
     else if (ps.food > 0 && g.food() < ps.food) reason = `Not enough food (needs ${ps.food}).`;
     // An engine pays its resources and its crew's food (Patch 2).
     if (!reason && (ps.food === 0 || ps.engine !== undefined)) reason = g.costProblem(ps.cost);
-    const unit = p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage || p === Product.Crewman || p === Product.GarrisonCrewman;
+    const unit = p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage || p === Product.Crewman || p === Product.GarrisonCrewman || p === Product.Woodsman;
     // A fixed engine's upgrade brings only the crewmen it adds (Patch 5).
     const crew = ps.engine === undefined ? 0 : ps.upgrade !== undefined ? engineUpgradeCrew(ps.upgrade as Engine, ps.engine as Engine) : engineSpec(ps.engine).crew;
     if (!reason && unit && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
@@ -1433,6 +1482,14 @@ export class Commands {
         ok = item !== null && this.wildAnimal(item) && this.hunt(item, true);
         if (!ok) this.d.message('Pick a wild animal to hunt.', 'alert');
         break;
+      case 'fish':
+        ok = item?.kind === 'node' && this.woodsAt(item, 1);
+        if (!ok) this.d.message('Pick a stretch of water with fish in it.', 'alert');
+        break;
+      case 'forage':
+        ok = item?.kind === 'node' && this.woodsAt(item, 2);
+        if (!ok) this.d.message('Pick wild food: berries, mushrooms and the like.', 'alert');
+        break;
       case 'cast':
         ok = this.cast(t.spell ?? 0, item, ground);
         break;
@@ -1735,6 +1792,14 @@ export class Commands {
     if (loot !== null) {
       this.d.send({ kind: 'pickUp', player, units, target: loot, queued });
       this.d.marker(item!.centre, 'target');
+      return;
+    }
+    // A fish stretch or wild food: the woodsmen fish or forage it (Patch 5); workers and the rest walk there.
+    const woodsmen = this.unitIds((u) => u.typeKey === 'warrior:woods');
+    const what = item?.kind === 'node' ? woodsWhat(item.typeKey) : 0;
+    if (item && what && woodsmen.length > 0 && this.woodsAt(item, what, woodsmen)) {
+      const others = units.filter((id) => !woodsmen.includes(id));
+      if (others.length > 0 && ground) this.d.send({ kind: 'move', player, units: others, x: Math.round(ground.x * WU_PER_METRE), z: Math.round(ground.z * WU_PER_METRE), queued });
       return;
     }
     if (item?.kind === 'node' && workers.length > 0 && item.resource) {

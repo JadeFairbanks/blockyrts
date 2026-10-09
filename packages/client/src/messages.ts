@@ -335,6 +335,8 @@ export interface InfoMessage {
   loot: LootInfo[];
   /** The local player's units' loot bags: per unit id, (resource, count) pairs. */
   bags: Array<[number, Array<[number, number]>]>;
+  /** The local player's woodsmen's food lines (Patch 5, Jade's WD-7): per id, the food brought in and eaten (quarters), over how many steps, and its colour (sim Keep). */
+  woodsmen?: Array<[number, number, number, number, number]>;
 }
 
 /** A piece of loot on the ground as the screen sees it. */

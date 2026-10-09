@@ -6,6 +6,8 @@ import {
   applyChunkDelta,
   chunkKey,
   COLUMNS_PER_CHUNK as N,
+  fishWaters,
+  isFish,
   MATERIALS,
   NO_WATER,
   propInfo,
@@ -15,7 +17,10 @@ import {
   type LowResChunk,
 } from '@blockyrts/sim';
 import { CUBE_STRIDE, propCubes, sceneryCubes } from './props-gen.ts';
-import { meshChunk, meshLowRes, meshWater } from './mesher.ts';
+import { COLUMN_M, meshChunk, meshLowRes, meshWater, UNIT_M } from './mesher.ts';
+
+/** The water columns a stretch's live fish swim among, at most. */
+const FISH_WATER_COLUMNS = 6;
 import type { FromMesh, PropSummary, ToMesh } from './mesh-messages.ts';
 
 let world: World | null = null;
@@ -82,12 +87,23 @@ function mesh(id: number, cx: number, cz: number, lod: number, simStep: number, 
       z0 = Math.min(z0, cz0 - hz); z1 = Math.max(z1, cz0 + hz);
       y0 = Math.min(y0, by); y1 = Math.max(y1, by + cubes[k + 4]!);
     }
+    // A fish stretch draws no cubes: its live fish swim in the water beside its bank (Patch 5, FR-2), and that water is what is picked.
+    const water = isFish(p.kind) ? fishWaters(w, cx * N + p.lx, cz * N + p.lz, FISH_WATER_COLUMNS).flatMap(([x, z, surface]) => [(x - cx * N + 0.5) * COLUMN_M, (surface / WATER_PER_UNIT) * UNIT_M, (z - cz * N + 0.5) * COLUMN_M]) : null;
+    if (water) {
+      for (let k = 0; k < water.length; k += 3) {
+        x0 = Math.min(x0, water[k]! - COLUMN_M / 2); x1 = Math.max(x1, water[k]! + COLUMN_M / 2);
+        z0 = Math.min(z0, water[k + 2]! - COLUMN_M / 2); z1 = Math.max(z1, water[k + 2]! + COLUMN_M / 2);
+        y0 = Math.min(y0, water[k + 1]! - 0.3); y1 = Math.max(y1, water[k + 1]! + 0.1);
+      }
+    }
     if (x0 === Infinity) continue;
     // Trees are picked by their trunk and lower canopy, not the whole crown.
     const tree = propInfo(p.kind).shape === PropShape.Tree;
     const hx = tree ? Math.min((x1 - x0) / 2, 1.2) : Math.max(0.3, (x1 - x0) / 2);
     const hz = tree ? Math.min((z1 - z0) / 2, 1.2) : Math.max(0.3, (z1 - z0) / 2);
-    props.push({ index: p.index, kind: p.kind, x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2, hx, hy: Math.max(0.2, (y1 - y0) / 2), hz, amount: p.amount, most: p.most, stage: p.stage, nextAt: p.next < 0 ? -1 : simStep + p.next, first: before / CUBE_STRIDE, cubes: (cubes.length - before) / CUBE_STRIDE });
+    const summary: PropSummary = { index: p.index, kind: p.kind, x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2, hx, hy: Math.max(0.2, (y1 - y0) / 2), hz, amount: p.amount, most: p.most, stage: p.stage, nextAt: p.next < 0 ? -1 : simStep + p.next, first: before / CUBE_STRIDE, cubes: (cubes.length - before) / CUBE_STRIDE };
+    if (water) summary.water = water;
+    props.push(summary);
   }
   if (scenery) {
     const edited = w.editedColumns.get(chunkKey(cx, cz));

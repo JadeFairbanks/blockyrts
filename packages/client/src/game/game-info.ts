@@ -178,6 +178,12 @@ export class GameInfo {
     return this.info?.spells.find(([m]) => m === id)?.[1] ?? [];
   }
 
+  /** A woodsman's food line (Patch 5, WD-7): food brought in and eaten (quarters) over `steps`, and its colour (sim Keep), or null. */
+  woodsLine(id: number): { brought: number; ate: number; steps: number; keep: number } | null {
+    const row = this.info?.woodsmen?.find(([w]) => w === id);
+    return row ? { brought: row[1], ate: row[2], steps: row[3], keep: row[4] } : null;
+  }
+
   /** Why a mage cannot go for her next rank yet (experience, or the top rank), or ''. */
   mageRankWhy(id: number): string {
     return this.info?.mageRanks.find(([m]) => m === id)?.[1] ?? '';

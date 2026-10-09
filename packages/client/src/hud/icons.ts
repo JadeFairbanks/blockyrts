@@ -87,6 +87,7 @@ export function weaponPic(troop: number, tier: number): Pic {
       return CLOSE[t]!;
     case Troop.Long:
     case Troop.Cavalry:
+    case Troop.Woodsman:
       return LONG[t]!;
     case Troop.Ranger:
       return RANGER[t]!;

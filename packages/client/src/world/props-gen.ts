@@ -332,12 +332,9 @@ export function propCubes(p: PropLike, out: number[]): void {
     }
     case PropKind.FishTrout:
     case PropKind.FishSalmon:
-    case PropKind.FishCatfish: {
-      // A fishing stretch: a few silver flashes at the water's edge.
-      const colour = p.kind === PropKind.FishTrout ? 0xb8c8c8 : p.kind === PropKind.FishSalmon ? 0xd89a80 : 0x6a705a;
-      for (let t = 0; t < r.int(3, 5); t++) cube(r.range(-0.6, 0.6), 0.02, r.range(-0.6, 0.6), 0.25, 0.05, 0.08, shade(colour, r.range(0.85, 1.15)));
+    case PropKind.FishCatfish:
+      // A fishing stretch: no cubes since Patch 5 (FR-1); its live fish swim in the water (world/fish-view.ts).
       return;
-    }
     case PropKind.SurfaceGem:
     case PropKind.ManaCrystal: {
       const colour = p.kind === PropKind.ManaCrystal ? 0x5ad8e8 : 0xc03a6a;

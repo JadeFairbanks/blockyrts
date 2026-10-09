@@ -89,7 +89,7 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
-import { barnOf, cloaked, crewOf, haulerOf, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom } from '@blockyrts/sim';
+import { barnOf, cloaked, crewOf, haulerOf, isWoodsman, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom, woodsmanLedger } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
@@ -336,8 +336,13 @@ function postInfo(s: SimState): void {
   const spells: Array<[number, Array<[number, string, number]>]> = [];
   const mageRanks: Array<[number, string]> = [];
   const bags: Array<[number, Array<[number, number]>]> = [];
+  const woodsmen: Array<[number, number, number, number, number]> = [];
   for (let i = 0; i < e.count; i++) {
     if (e.owner[i] !== PLAYER) continue;
+    if (isWoodsman(e, i)) {
+      const l = woodsmanLedger(s, i);
+      woodsmen.push([e.id[i]!, l.brought, l.ate, l.steps, l.keep]);
+    }
     queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
     if (e.bag[i]!.length > 0) bags.push([e.id[i]!, bagItems(s, i)]);
     if (e.kind[i] === UnitKind.Mage) mageRanks.push([e.id[i]!, mageTrainingProblem(s, i)]);
@@ -384,6 +389,7 @@ function postInfo(s: SimState): void {
         .filter((l) => s.world.isExplored(Math.floor(l.x / FOG_TILE_WU), Math.floor(l.z / FOG_TILE_WU)))
         .map((l) => ({ id: l.id, res: l.res, amt: l.amt, x: l.x, y: l.y, z: l.z, own: l.owner < 0 || l.owner === PLAYER })),
       bags,
+      woodsmen,
     },
     [pool.buffer, open.buffer],
   );

@@ -18,16 +18,15 @@
 // draws, and goes in his bag. Only woodsmen fish.
 
 import { dist2 } from '../buildings/lights.ts';
-import { hasWaterAt } from '../buildings/placement.ts';
 import { clockAt, isDark, Period } from '../clock.ts';
 import { fishOf } from '../economy/food-kinds.ts';
-import { atan2Angle, floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { atan2Angle, floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
 import { chatter } from '../peoples/speech.ts';
 import { OrderKind, standY, type SimState } from '../state.ts';
-import { CHUNK_SHIFT, chunkKey } from '../world/chunk.ts';
+import { CHUNK_SHIFT, chunkKey, NO_WATER, WATER_PER_UNIT } from '../world/chunk.ts';
 import { isFish, propInfo } from '../world/props.ts';
-import { FOG_TILE_COLUMNS, type PropView } from '../world/world.ts';
+import { FOG_TILE_COLUMNS, type PropView, type World } from '../world/world.ts';
 import { Act, besideBuilding, columnCentre, FAILED, giveOrder, MOVING, nearestDropoff, nodeResource, nodeView, resetWalk, walkTo } from './behaviour.ts';
 import { exploreTarget, fromBuilding, HOME_SLACK_M, homeBaseNear, homeOf, wanderTarget, type Home } from './forage.ts';
 import { addToBag, bagEmpty, bagRoom } from './loot.ts';
@@ -155,17 +154,34 @@ function nearestSpot(state: SimState, i: number, h: Home | undefined, o: WoodsOr
   return best;
 }
 
-/** The water a fish comes up out of beside a stretch's bank column: the nearest column of open water within 3, or the bank itself. */
-export function fishWater(state: SimState, x: number, z: number): [number, number] {
-  for (let r = 1; r <= 3; r++) {
-    for (let dz = -r; dz <= r; dz++) {
-      for (let dx = -r; dx <= r; dx++) {
+/** Whether a column holds open water (buildings/placement.ts hasWaterAt, from the world alone: the screen's mesh worker uses it too). */
+function openWater(world: World, x: number, z: number): boolean {
+  const w = world.waterAt(x, z);
+  return w !== NO_WATER && w > world.topAt(x, z) * WATER_PER_UNIT;
+}
+
+/**
+ * The open water a stretch's fish swim in beside its bank column: up to
+ * `most` columns within 3, nearest first, each (x, z, its water surface in
+ * 32nds of a terrain unit). The screen draws the live fish there (FR-2).
+ */
+export function fishWaters(world: World, x: number, z: number, most: number): Array<[number, number, number]> {
+  const out: Array<[number, number, number]> = [];
+  for (let r = 1; r <= 3 && out.length < most; r++) {
+    for (let dz = -r; dz <= r && out.length < most; dz++) {
+      for (let dx = -r; dx <= r && out.length < most; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
-        if (hasWaterAt(state, x + dx, z + dz)) return [x + dx, z + dz];
+        if (openWater(world, x + dx, z + dz)) out.push([x + dx, z + dz, world.waterAt(x + dx, z + dz)]);
       }
     }
   }
-  return [x, z];
+  return out;
+}
+
+/** The water a fish comes up out of beside a stretch's bank column: the nearest column of open water within 3, or the bank itself. */
+export function fishWater(world: World, x: number, z: number): [number, number] {
+  const w = fishWaters(world, x, z, 1)[0];
+  return w ? [w[0], w[1]] : [x, z];
 }
 
 /** Puts handing his bag in at the nearest drop-off in front of the order (it carries on once that is done). */
@@ -269,7 +285,7 @@ export function runWoods(state: SimState, i: number, o: WoodsOrder): boolean {
   }
   // At work: facing the water (or the plant), the rod out or his hands at it.
   const fishing = isFish(view.kind);
-  const [tx, tz] = fishing ? fishWater(state, nx, nz) : [nx, nz];
+  const [tx, tz] = fishing ? fishWater(state.world, nx, nz) : [nx, nz];
   const wx = columnCentre(tx);
   const wz = columnCentre(tz);
   if (wx !== e.x[i] || wz !== e.z[i]) e.heading[i] = headingTowards(wx - e.x[i]!, wz - e.z[i]!);
@@ -281,7 +297,11 @@ export function runWoods(state: SimState, i: number, o: WoodsOrder): boolean {
   if (taken > 0) {
     addToBag(state, i, res, taken);
     // The fish comes up on the line out of the water to him (FR-1), drawn by the screen.
-    if (fishing) state.hits.push({ look: 'catch', x: wx, y: standY(state, wx, wz), z: wz, id: e.id[i]!, mob: view.kind });
+    if (fishing) {
+      const surface = state.world.waterAt(tx, tz);
+      const wy = surface !== NO_WATER ? floorDiv(surface * WU_PER_TERRAIN_UNIT, WATER_PER_UNIT) : standY(state, wx, wz);
+      state.hits.push({ look: 'catch', x: wx, y: wy, z: wz, id: e.id[i]!, mob: view.kind });
+    }
   }
   return CONTINUE;
 }
