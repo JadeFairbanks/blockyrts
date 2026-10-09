@@ -166,7 +166,6 @@ function taskOf(s: SimState, i: number): number {
     case 'job':
       return order === OrderKind.Farm ? Task.Field : Task.None;
     case 'dig':
-    case 'stairs':
       return Task.Dig;
   }
   return order === OrderKind.Dig ? Task.Dig : Task.None;
