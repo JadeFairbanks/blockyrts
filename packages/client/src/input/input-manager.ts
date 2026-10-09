@@ -405,7 +405,7 @@ export class InputManager {
       this.captures.set(button, { kind: 'button', btn });
       return;
     }
-    if (btn && button === Btn.Right && btn.enabled) btn.def.onRightClick?.(press);
+    if (btn && button === Btn.Right && (btn.enabled || btn.def.rightWhenGrey)) btn.def.onRightClick?.(press);
     this.captures.set(button, { kind: 'hud' }); // swallowed by the panel
   }
 
@@ -667,7 +667,7 @@ export class InputManager {
         this.setPos(f.x, f.y);
         if (g.held) {
           // Hold and let go: the button's right click, where it has one (save a group, cross out a food).
-          if (g.btn?.enabled && this.buttonAt(this.pos) === g.btn) g.btn.def.onRightClick?.({ shift: false, ctrl: false });
+          if ((g.btn?.enabled || g.btn?.def.rightWhenGrey) && this.buttonAt(this.pos) === g.btn) g.btn.def.onRightClick?.({ shift: false, ctrl: false });
         } else this.click(Btn.Left);
       }
       // The tooltip of a hold stays up until the next touch; a tap leaves none.

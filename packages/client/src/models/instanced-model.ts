@@ -299,6 +299,14 @@ export class InstancedModel {
     this.material.color.set(colour);
   }
 
+  /** Lights the model by its own texture as well as the sun and the lights, this strongly (Patch 5: spells glow at night as by day); 0 for none. */
+  glow(strength: number): void {
+    this.material.emissive.set(strength > 0 ? 0xffffff : 0x000000);
+    this.material.emissiveMap = strength > 0 ? this.model.texture : null;
+    this.material.emissiveIntensity = strength;
+    this.material.needsUpdate = true;
+  }
+
   /** Draws every instance see-through at this opacity, over the rest and casting no shadow: a placement ghost or a planned building. */
   seeThrough(opacity: number): void {
     this.material.transparent = true;

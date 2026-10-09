@@ -4,6 +4,7 @@
 // orders go out through issueOrder.
 import * as THREE from 'three';
 import {
+  BuildingKind,
   buildingSpec,
   clockAt,
   GOD_SPAWNS,
@@ -68,7 +69,7 @@ import { applyGeometry, buildLayout, fitDebug, type Folds, type HudLayout } from
 import { buttonRoom, cardInner, fitButtons, hudLayout, type ButtonFit, type HudGeometry } from './hud-layout.ts';
 import { SpeechBubbles, type Speaker } from './bubbles.ts';
 import { remarkLine, remarkVoice, sceneOf } from './remarks.ts';
-import { markEntry, WorldMarks, type MarkEntry, type MarkSource, type StackBar } from './world-marks.ts';
+import { markEntry, PROGRESS_COLOUR, WorldMarks, type MarkEntry, type MarkSource, type StackBar } from './world-marks.ts';
 import { ATTACK_COLOUR, orderColour, OrderFlags, orderLines, RALLY_COLOUR, type Mover } from './order-lines.ts';
 import { boostStackBars } from './boost-bars.ts';
 import { TameTip } from './tame-tip.ts';
@@ -363,6 +364,17 @@ export class GameShell {
       building: (id) => this.game.buildings.get(id),
       extra: (key) => (this.stackBars.length === 0 ? [] : this.stackBars.flatMap((f) => f(key))),
     };
+    // Patch 5 (MB-24): each mage training a rank at a Magi Sanctum adds her bar to its stack.
+    this.stackBars.push((key) => {
+      const b = key.startsWith('b:') ? this.game.buildings.get(Number(key.slice(2))) : undefined;
+      if (b?.kind !== BuildingKind.MagiSanctum) return [];
+      const bars: StackBar[] = [];
+      for (const id of b.inside) {
+        const t = this.game.mageTraining(id);
+        if (t) bars.push({ frac: t.done / Math.max(1, t.total), colour: PROGRESS_COLOUR });
+      }
+      return bars;
+    });
     // The bonemeal boost's bar in each boosted farm's stack (Jade's UI-17).
     this.stackBars.push((key) => boostStackBars(key, (id) => this.game.buildings.get(id)));
     this.tameTip = new TameTip(this.layout.root);
@@ -2261,13 +2273,15 @@ export class GameShell {
         keys: [e.key],
         description: e.description,
         icon: e.icon ?? actionIcon(e.action, e.face),
-        className: `cmd${e.menu ? ' menu-item' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.auto ? ' auto-on' : ''}`,
+        className: `cmd${e.menu ? ' menu-item' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.auto ? ' auto-on' : ''}${e.autocast ? ' autocast' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
-        ...(e.right ? { onRightClick: (p: ButtonPress) => e.right!(p) } : {}),
+        // A spell's right click (its autocast) works while it is greyed out too.
+        ...(e.right ? { onRightClick: (p: ButtonPress) => e.right!(p), rightWhenGrey: e.autocast !== undefined } : {}),
         ...(e.grey ? { onGreyPress: () => e.grey!() } : {}),
         ...(e.choices ? { onRightClick: () => this.cardPop.show(b.el, e.action, e.choices!()) } : {}),
       });
+      b.setCool(e.cool ?? 0);
       this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
       b.setEnabled(e.enabled, e.reason);
       b.setLit(e.lit === true);

@@ -5,11 +5,13 @@
 // spell power and the mana bar, the robe protection and mana regain). The
 // casting itself is in cast.ts.
 
+import { Res } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { rankSpellPowerBonusBp, XP_TENTHS } from '../rules.ts';
+import { BuildingKind } from '../buildings/data.ts';
 import { standY, UnitKind, WALK_SPEED_WU, type SimState } from '../state.ts';
 import { applyKit, ROBE_KITS, WAND_KITS } from '../units/kits.ts';
-import { COMBAT_PAUSE_STEPS, MANA_SCALE, MAGE_RANKS, MAGE_TOP_RANK, mageRank, School, SCHOOL_NAMES, Spell, spellSpec } from './spells.ts';
+import { AUTOCAST_RULES, COMBAT_PAUSE_STEPS, defaultAutocast, MANA_SCALE, MAGE_RANKS, MAGE_TOP_RANK, mageRank, School, SCHOOL_NAMES, Spell, SPELLS, spellSpec } from './spells.ts';
 
 const SEC = STEPS_PER_SECOND;
 
@@ -53,6 +55,44 @@ export const MAGE_RANK_TRAINING: readonly MageTraining[] = [
   { rank: 6, food: 0, crystals: 10, combat: true, steps: 30 * SEC, name: 'Grand Magician' },
 ];
 
+/**
+ * Jade's Patch 5 (decisions 2.5): "the Magi Sanctum takes 3 demon horns in
+ * place of 1 mana crystal for mage ranks". Pick: the horns go first, three
+ * for each crystal, and the crystals make up the rest, since a mana crystal
+ * has other uses and a demon horn none.
+ */
+export const CRYSTAL_STAND_IN = { res: Res.DemonHorn, per: 3 } as const;
+
+/** How many mana crystals a pool can pay for rank training, demon horns counted three to a crystal. */
+export function rankCrystalsIn(pool: ArrayLike<number>): number {
+  return (pool[Res.ManaCrystal] ?? 0) + floorDiv(pool[CRYSTAL_STAND_IN.res] ?? 0, CRYSTAL_STAND_IN.per);
+}
+
+/** Pays mana crystals for rank training, demon horns first; false (nothing paid) when the pool cannot. */
+export function payRankCrystals(pool: Int32Array, crystals: number): boolean {
+  if (rankCrystalsIn(pool) < crystals) return false;
+  const horns = Math.min(crystals, floorDiv(pool[CRYSTAL_STAND_IN.res]!, CRYSTAL_STAND_IN.per));
+  pool[CRYSTAL_STAND_IN.res] = pool[CRYSTAL_STAND_IN.res]! - horns * CRYSTAL_STAND_IN.per;
+  pool[Res.ManaCrystal] = pool[Res.ManaCrystal]! - (crystals - horns);
+  return true;
+}
+
+/**
+ * A mage's rank training under way at a Magi Sanctum (Patch 5, MB-24): the
+ * steps done and the steps it takes, or null. For the middle HUD's Training
+ * cards and the bar over the Sanctum.
+ */
+export function mageTrainingProgress(state: SimState, i: number): { done: number; total: number } | null {
+  const e = state.entities;
+  if (e.kind[i] !== UnitKind.Mage || e.inside[i] === 0) return null;
+  const o = e.queue[i]![0];
+  if (o?.t !== 'train' || o.b !== e.inside[i]) return null;
+  const b = state.buildings.get(o.b);
+  const t = nextMageTraining(e.rank[i]!);
+  if (!b || b.kind !== BuildingKind.MagiSanctum || !t) return null;
+  return { done: Math.min(e.timer[i]!, t.steps), total: t.steps };
+}
+
 /** The training a mage can take next, or undefined at the top. */
 export function nextMageTraining(rank: number): MageTraining | undefined {
   return MAGE_RANK_TRAINING.find((t) => t.rank === rank + 1);
@@ -93,6 +133,7 @@ export function addMage(state: SimState, owner: number, x: number, z: number, sc
   e.maxHp[i] = mageRank(1).health;
   e.wTier[i] = wand;
   e.aTier[i] = robe;
+  e.autocast[i] = defaultAutocast(e.school[i]!);
   applyKit(e, i, 'mage');
   e.mana[i] = manaCap(state, i);
   e.homeX[i] = x;
@@ -180,4 +221,37 @@ export function refillMages(state: SimState): void {
     e.mana[i] = Math.min(max, e.mana[i]! + floorDiv(acc, 100));
     e.manaAcc[i] = acc % 100;
   }
+}
+
+// ----- autocast (Patch 5: MB-14, MB-15, MB-18) -----
+
+/** Whether a mage has a spell on autocast. */
+export function autocastOn(state: SimState, i: number, spell: number): boolean {
+  return spell >= 0 && spell < 32 && (state.entities.autocast[i]! & (1 << spell)) !== 0;
+}
+
+/**
+ * Turns a spell's autocast on or off for a mage (a right click on its
+ * button); returns why it cannot, or ''. A battle mage's attack spells take
+ * turns: putting one on takes the last one off. She always keeps one spell
+ * on: the last cannot be taken off (MB-14: "A spell must always be selected").
+ */
+export function setAutocast(state: SimState, i: number, spell: number, on: boolean, knows: (spell: number) => boolean): string {
+  const e = state.entities;
+  const s = SPELLS[spell];
+  if (!s || e.kind[i] !== UnitKind.Mage || s.school !== e.school[i]) return 'Only her own school\'s spells go on autocast.';
+  const rules = AUTOCAST_RULES[s.school];
+  if (!rules || s.role === 'grove') return 'That spell has no autocast.';
+  const bit = 1 << spell;
+  let bits = e.autocast[i]!;
+  if (on) {
+    if (!knows(spell)) return s.hexcraft ? `${s.name} is learned at rank ${s.rank}, with Hexcraft.` : `${s.name} is learned at rank ${s.rank}.`;
+    if (rules.oneAttack && s.role === 'attack') for (const o of SPELLS) if (o.school === s.school && o.role === 'attack') bits &= ~(1 << o.id);
+    bits |= bit;
+  } else {
+    bits &= ~bit;
+    if (rules.keepOne && bits === 0) return `A ${SCHOOL_NAMES[s.school]!.toLowerCase()} always keeps one spell on autocast.`;
+  }
+  e.autocast[i] = bits >>> 0;
+  return '';
 }
