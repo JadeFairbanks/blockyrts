@@ -368,6 +368,8 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   // A kit row's tier is its place in the table, and its material tier follows from it (a shield's from the armour it comes with).
   'need', 'TIER_NEEDS:tier', 'TOOL_KITS:tier', 'CLOSE_KITS:tier', 'LONG_KITS:tier', 'RANGER_KITS:tier', 'BRAWLER_KIT:tier', 'ARMOUR_KITS:tier',
   'SHIELD_KITS:tier', 'WAND_KITS:tier', 'ROBE_KITS:tier',
+  // Patch 7: a looted piece's good is the row itself, its grade one of four, and its material tier only its look and sound.
+  'LOOT_KITS:item', 'LOOT_KITS:rarity', 'LOOT_KITS:tier',
   // A growth stage's place in the order (world/props.ts Stage): the stages are named by it.
   'TREE_GROWTH:stage', 'HAZEL_GROWTH:stage', 'PLANT_GROWTH:stage',
   // Patch 3: a night monster's threat is worked out from its numbers and traits (combat/threat.ts), never set by hand;
@@ -607,7 +609,7 @@ export const INDEX_REFS: Readonly<Record<string, ReadonlyArray<RefKind | null>>>
 
 /** Pair lists inside a table, by export (`EXPORT:*`) or key: what the first number of each pair names. */
 export const PAIR_KEY_REFS: Readonly<Record<string, RefKind>> = {
-  'SALVAGE:*': 'res', 'LAYOUTS:structures': 'mob', 'LAYOUTS:people': 'peopleUnit', 'LAYOUTS:animals': 'species',
+  'SALVAGE:*': 'res', 'LOOT_KITS:scrap': 'res', 'LAYOUTS:structures': 'mob', 'LAYOUTS:people': 'peopleUnit', 'LAYOUTS:animals': 'species',
 };
 
 /** Modules whose loose numbers split into one page per `// ----- section -----` comment. */

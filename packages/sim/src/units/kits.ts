@@ -702,10 +702,11 @@ export interface DreadnoughtBlow {
  * (s): the smash as the mace comes down, the swing half way through its
  * clip, where its crescent shows. Patch 7 (plan 2.3, 2.4): the swing loses
  * 30% with every area weapon, 70 to 49; the mace is an item he can take off
- * (Heft 250, epic) and swap for any two-handed area weapon, which he swings
- * for 1.5 times its damage (damagePm), every blow a full sweep
- * (dreadnoughtMelee); his plate is the Fluted Gothic harness, worn in his
- * own look (plan 2.2), at a Stature of his (s).
+ * (Heft 250, epic) and swap for any two-handed area weapon, with which his
+ * blows go back and forth as with the mace (Jade): a smash at one enemy for
+ * 1.5 times its damage (damagePm), then a sweep at every enemy in his arc
+ * for its own damage (dreadnoughtBlow); his plate is the Fluted Gothic
+ * harness, worn in his own look (plan 2.2), at a Stature of his (s).
  */
 export const DREADNOUGHT_KIT = {
   mace: 'Heavy spiked mace',
@@ -715,7 +716,7 @@ export const DREADNOUGHT_KIT = {
   smash: { damage: 140, hit: Hit.Stab, landDs: 9 } as DreadnoughtBlow,
   swing: { damage: 49, hit: Hit.Sweep, landDs: 9 } as DreadnoughtBlow,
   armourTier: TOP_TIER,
-  /** His blow with any weapon but his own mace, per mille of its damage (plan 2.3: 1.5 times). */
+  /** His smash with any weapon but his own mace, per mille of its damage (plan 2.3: 1.5 times); his sweep with it is its own damage. */
   damagePm: 1500,
   /** The mace's Heft (plan 2.3). */
   maceHeft: 250,
@@ -754,12 +755,18 @@ export const DREADNOUGHT_GEAR = {
 export const SECOND_BLOW = 5;
 
 /**
- * The Dreadnought's blow with any weapon but his own mace (plan 2.3): 1.5
- * times its damage, rounded down, and every swing a full sweep at every
- * enemy in his arc. Combat applies it (combat.ts handMelee).
+ * The Dreadnought's blows with any weapon but his own mace (plan 2.3; Jade:
+ * "going back and forth one after another from single target with higher
+ * damage to full sweep with single target damage"): the first a smash at one
+ * enemy for 1.5 times the weapon's damage, rounded down, the second a sweep
+ * at every enemy in his arc for the weapon's own damage, in turn, each
+ * landing as his clips strike. Combat applies it (combat.ts handMelee and
+ * nextBlow).
  */
-export function dreadnoughtMelee(m: MeleeStats): MeleeStats {
-  return { ...m, damage: floorDiv(m.damage * DREADNOUGHT_KIT.damagePm, 1000), hit: Hit.Sweep, oneHanded: false };
+export function dreadnoughtBlow(m: MeleeStats, second: boolean): MeleeStats {
+  const landSteps = ds((second ? DREADNOUGHT_KIT.swing : DREADNOUGHT_KIT.smash).landDs);
+  if (second) return { ...m, hit: Hit.Sweep, oneHanded: false, crit: false, landSteps };
+  return { ...m, damage: floorDiv(m.damage * DREADNOUGHT_KIT.damagePm, 1000), hit: Hit.Stab, oneHanded: false, crit: false, landSteps };
 }
 
 // ----- Patch 7: the looted pieces -----
@@ -1268,7 +1275,8 @@ export function gearScore(gear: number, h?: KitHolder): number {
   if (!gear) return 0;
   const g = gearSpec(gear);
   const s = specScore(g);
-  return h && isDreadHolder(h) && g.melee && !g.wand && gear !== DREADNOUGHT_GEAR.mace ? floorDiv(s * DREADNOUGHT_KIT.damagePm, 1000) : s;
+  // In his hands a weapon's blows go smash (1.5 times) then sweep (its own damage), in turn: on average 1.25 times.
+  return h && isDreadHolder(h) && g.melee && !g.wand && gear !== DREADNOUGHT_GEAR.mace ? floorDiv(s * (DREADNOUGHT_KIT.damagePm + 1000), 2000) : s;
 }
 
 /** A piece's score (gearScore) on a holder, whether or not it fits (0 for a piece that fits nobody); with no holder, on a person. */

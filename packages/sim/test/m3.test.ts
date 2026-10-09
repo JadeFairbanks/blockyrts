@@ -27,7 +27,6 @@ import {
   LONG_GEAR,
   meleeOf,
   Mob,
-  MONSTERS,
   nearestUpgradePlace,
   nightBudgetTenths,
   NIGHT_STEPS,
@@ -173,27 +172,21 @@ describe('night 0', () => {
   it('is survived behind a wooden fence with the three starting warriors and four workers', () => {
     const s = createWorld(3);
     const e = s.entities;
-    // Close melee with wooden cudgels and no armour (Troops and gear: starting units).
+    // Close melee with wooden cudgels and no armour (Troops and gear: starting units), and from Patch 7 a spearman (Jade).
     for (const i of [4, 5, 6]) {
       expect(e.troop[i]).toBe(Troop.Close);
       expect(e.weapon[i]).toBe(CLOSE_GEAR[1]);
       expect(e.armour[i]).toBe(0);
     }
+    expect([e.troop[7], e.weapon[7], e.armour[7]]).toEqual([Troop.Long, LONG_GEAR[1], 0]);
     fenceIn(s);
     run(s, NIGHT_START + NIGHT_STEPS + 20 - s.step);
     expect(clockAt(s.step).period).toBe(Period.Dawn);
     expect(s.over).toBe(0);
-    // Cudgels are too short to stab over the fence (a polearm's 2 m does): the night comes at the corner nearest the
-    // dark edge (Patch 5 MB-1: the waves go for the base), the rats and the spider come over it and the troops fall
-    // fighting them; the zombies chew through the corner late in the night. Patch 7 (plan 3): the cudgels hit 30% less
-    // (8 to 6), so on this seed the workers fall too and the night knocks the Big House about, but it stands.
+    // The night comes at the corner nearest the dark edge (Patch 5 MB-1: the waves go for the base) and over the fence.
+    // Patch 7 (plan 3): the cudgels hit 30% less (8 to 6), and Jade gave the start a spearman, 4 food and 2 supply for
+    // it; she keeps night 0's balance to herself, so this asks only that the Big House stands.
     expect(bigHouse(s)!.hp).toBeGreaterThan(0);
-    expect(bigHouse(s)!.hp).toBeLessThan(1200);
-    expect(alive(s, UnitKind.Worker)).toBe(0);
-    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs, nor is the Bog
-    // guardian in his bog, Patch 5 MB-11): a zombie and the slime, last, are in the yard when the sun comes up, and from
-    // Patch 7 the spider too.
-    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.owner[i] === MONSTERS && e.mob[i] !== Mob.BogGuardian) expect([Mob.Zombie, Mob.GiantSpider, Mob.Slime, Mob.SmallSlime]).toContain(e.mob[i]);
   });
 
   it('never ends the game while the Big House stands', () => {

@@ -10,7 +10,7 @@ import {
   createWorld,
   deserializeState,
   DREADNOUGHT_GEAR,
-  dreadnoughtMelee,
+  dreadnoughtBlow,
   dreadnoughtTakes,
   FAE_REGAIN_PCT,
   fitProblem,
@@ -32,8 +32,10 @@ import {
   LOOT_GEAR,
   LOOT_KITS,
   mageRank,
+  meleeOf,
   MOBS,
   Mob,
+  nextBlow,
   NO_CARRY,
   ownGear,
   PeopleGear,
@@ -45,7 +47,9 @@ import {
   Res,
   RESOURCE_COUNT,
   School,
+  SECOND_BLOW,
   serializeState,
+  Slot,
   SMASHING_LINE,
   STEPS_PER_SECOND,
   takeOffLine,
@@ -187,12 +191,13 @@ describe('ranking by real numbers (plan 2.4)', () => {
     expect(rung(Res.SkeletonRecurveBow)).toBe(4);
   });
 
-  it('lists pieces best first for each holder, the Dreadnought with his 1.5 times', () => {
+  it('lists pieces best first for each holder, the Dreadnought by his smash and sweep in turn', () => {
     expect(bestFirst(close(), [Res.GoblinDagger, Res.FiendCleaver, Res.HobgoblinSword])).toEqual([Res.FiendCleaver, Res.HobgoblinSword, Res.GoblinDagger]);
-    expect(itemScore(Res.MinotaurGreatAxe, dread())).toBe(Math.floor((itemScore(Res.MinotaurGreatAxe) * 1500) / 1000));
-    // The mace is his own: no 1.5 times on top.
+    // A smash at 1.5 times, then a sweep at its own damage: 1.25 times on average.
+    expect(itemScore(Res.MinotaurGreatAxe, dread())).toBe(Math.floor((itemScore(Res.MinotaurGreatAxe) * 2500) / 2000));
+    // The mace is his own: nothing on top.
     expect(itemScore(Res.HeavySpikedMace, dread())).toBe(itemScore(Res.HeavySpikedMace));
-    expect(bestFirst(dread(), [Res.HeavySpikedMace, Res.ArchfiendGreatsword, Res.MinotaurGreatAxe])[2]).toBe(Res.MinotaurGreatAxe);
+    expect(bestFirst(dread(), [Res.MinotaurGreatAxe, Res.ArchfiendGreatsword, Res.HeavySpikedMace])).toEqual([Res.HeavySpikedMace, Res.ArchfiendGreatsword, Res.MinotaurGreatAxe]);
   });
 
 });
@@ -217,7 +222,7 @@ describe('wearing and taking off (plan 2.1 to 2.3)', () => {
     expect(takeOffLine(e, i, 'warrior', Line.Armour)).toEqual([]);
   });
 
-  it('lets the Dreadnought swap his mace for a great weapon, at 1.5 times and a full sweep', () => {
+  it('lets the Dreadnought swap his mace for a great weapon: a smash at 1.5 times, then a sweep, in turn (Jade)', () => {
     const s = createWorld(1, { peaceful: true });
     const { x, z } = home(s);
     const e = s.entities;
@@ -227,9 +232,15 @@ describe('wearing and taking off (plan 2.1 to 2.3)', () => {
     expect(wearItem(e, i, 'warrior', Res.MinotaurGreatAxe)).toEqual([Res.HeavySpikedMace]);
     const row = e.weapon[i]!;
     expect(row).toBe(itemGear(Res.MinotaurGreatAxe, dread()));
-    const m = dreadnoughtMelee(gearSpec(row).melee!);
-    expect(m.damage).toBe(Math.floor((gearSpec(row).melee!.damage * 1500) / 1000));
-    expect(m.hit).toBe(Hit.Sweep);
+    const own = gearSpec(row).melee!.damage;
+    e.atkWith[i] = nextBlow(s, i);
+    expect(e.atkWith[i]).toBe(Slot.Weapon);
+    expect(meleeOf(s, i)).toMatchObject({ damage: Math.floor((own * 1500) / 1000), hit: Hit.Stab });
+    e.atkWith[i] = nextBlow(s, i);
+    expect(e.atkWith[i]).toBe(SECOND_BLOW);
+    expect(meleeOf(s, i)).toMatchObject({ damage: own, hit: Hit.Sweep });
+    expect(nextBlow(s, i)).toBe(Slot.Weapon);
+    expect(dreadnoughtBlow(gearSpec(row).melee!, true).hit).toBe(Hit.Sweep);
     expect(wearItem(e, i, 'warrior', Res.GoblinDagger)).toBeNull();
     expect(wearItem(e, i, 'warrior', Res.MinotaurBracers)).toEqual([Res.FlutedGothicHarness]);
     expect(takeOffLine(e, i, 'warrior', Line.Weapon)).toEqual([Res.MinotaurGreatAxe]);

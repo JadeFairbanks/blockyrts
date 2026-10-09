@@ -682,10 +682,11 @@ export type Cost = ReadonlyArray<readonly [Res, number]>;
  * Starting stock (Table 6 note and Table 9): food for the four workers and
  * three warriors for 10 days, 140 nutrition (Troops and gear: starting units
  * (s)): 25 meat (venison, patch 1), 10 fish (trout, patch 1), 10 eggs; and 40
- * softwood lumber, 20 stone, 10 flint, 20 sticks.
+ * softwood lumber, 20 stone, 10 flint, 20 sticks. Patch 7 (Jade): 4 more
+ * food, as venison, beside the starting spearman.
  */
 export const STARTING_STOCK: Cost = [
-  [Res.Venison, 25],
+  [Res.Venison, 29],
   [Res.Trout, 10],
   [Res.Eggs, 10],
   [Res.SoftwoodLumber, 40],

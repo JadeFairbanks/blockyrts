@@ -785,6 +785,8 @@ export interface WorldOptions {
   playerUnits?: number;
   /** Warriors each player starts with: 3 close-melee troops with wooden cudgels and no armour (Troops and gear: starting units). */
   warriors?: number;
+  /** Spearmen each player starts with, beside the warriors: 1 with a fire-hardened spear and no armour (Patch 7, Jade); none when `warriors` is 0. */
+  spearmen?: number;
   /** Neutral units that wander on their own, drawing on the 'ai' stream (M0's test of the streams). */
   wanderers?: number;
   /** Start without the Big House (tests). */
@@ -1129,17 +1131,19 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
       state.entities.add(id, pocket.player, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Worker);
     }
   }
-  // Then the starting warriors, a little east of the workers: close melee, a wooden cudgel, no armour (Jade).
+  // Then the starting warriors, a little east of the workers: close melee, a wooden cudgel, no armour (Jade); and from
+  // Patch 7 a spearman with a fire-hardened spear at the end of their row (Jade).
   const warriors = options.warriors ?? 3;
+  const troops = warriors + (options.spearmen ?? (warriors > 0 ? 1 : 0));
   for (const pocket of world.gen.start.pockets) {
     const px = pocket.x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
     const pz = pocket.z * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
-    for (let n = 0; n < warriors; n++) {
+    for (let n = 0; n < troops; n++) {
       let x = px + (playerUnits + 1 + n) * 2 * WU_PER_METRE - (playerUnits >> 1) * 2 * WU_PER_METRE;
       let z = pz + 6 * WU_PER_METRE;
       // Beside a base among others: a row 9.5 m out on its yard's side, just beyond the workers.
-      if (pocket.yard > 0) [x, z] = yardSpot(px, pz, pocket.outward, 9 * WU_PER_METRE + (WU_PER_METRE >> 1), (2 * n - (warriors - 1)) * WU_PER_METRE);
-      addWarrior(state, pocket.player, x, z, Troop.Close, 1, 0);
+      if (pocket.yard > 0) [x, z] = yardSpot(px, pz, pocket.outward, 9 * WU_PER_METRE + (WU_PER_METRE >> 1), (2 * n - (troops - 1)) * WU_PER_METRE);
+      addWarrior(state, pocket.player, x, z, n < warriors ? Troop.Close : Troop.Long, 1, 0);
     }
   }
   if (!options.noBase) {

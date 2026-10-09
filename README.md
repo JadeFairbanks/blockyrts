@@ -4694,12 +4694,15 @@ models come with the other Patch 7 changes.*
    common, no looted weapon hits for its mob's blow, who can use what and
    the reasons shown when not (the Dreadnought's "I need something for
    smashing."), pieces ranked best first, wearing and taking off, the
-   Dreadnought's 1.5 times and full sweep with a great weapon, the Fae
+   Dreadnought's smash at 1.5 times then sweep with a great weapon, the Fae
    Guardian's wand and robe adding 25% mana regain each, witchwood in a wand
    recipe, scrap times by rarity, and a save with the new goods loading back
    the same.
-2. **In a game.** Swordsmen, spearmen and the Dreadnought's sweep hit 30%
-   less (a new swordsman's cudgel shows Damage 6). The Workshop lists a
+2. **In a game.** Every player starts with three cudgel warriors and a
+   spearman, 29 venison, and the Big House gives 12 supply (each main base
+   tier 2 more than before). Swords, axes, clubs, the halberd, the
+   Zweihänder and the Dreadnought's sweep hit 30% less (a new swordsman's
+   cudgel shows Damage 6). The Workshop lists a
    scrap recipe for every piece of gear, rarer pieces taking longer.
    **Upgrade equipment** skips a tier that is not better by the numbers: a
    crossbowman keeps the crossbow, a pikeman the pike.
