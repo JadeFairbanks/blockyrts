@@ -41,6 +41,11 @@ describe('manifest', () => {
     expect(pngSize('../public/icons/apple-touch-icon.png')).toBe('180x180');
   });
 
+  it('loads past the sign-in page, as Chrome fetches it without cookies and the worker updates while signed out', () => {
+    const routes = JSON.parse(read('../../../deploy/pages/static/_routes.json')) as { exclude: string[] };
+    for (const path of ['/manifest.webmanifest', '/sw.js', '/icons/*']) expect(routes.exclude).toContain(path);
+  });
+
   it('is linked from the page, with the iPhone icon', () => {
     expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest" />');
     expect(html).toContain('<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />');
