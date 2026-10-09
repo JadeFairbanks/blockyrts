@@ -37,7 +37,10 @@ import {
   lineTier,
   lineTop,
   mainCost,
+  ownGear,
+  ownGearItem,
   piecesCost,
+  planItem,
   replacedItem,
   takesTips,
   TIPS_KIT,
@@ -58,7 +61,11 @@ export function kitHolder(state: SimState, i: number): KitHolder | undefined {
   if (e.role[i] === Role.Mercenary || e.role[i] === Role.People) return undefined;
   const kind = holderKind(e.kind[i]!);
   if (!kind) return undefined;
-  return { kind, troop: e.troop[i]!, w: e.wTier[i]!, a: e.aTier[i]!, s: e.sTier[i]!, t: e.tips[i]! };
+  const h: KitHolder = { kind, troop: e.troop[i]!, w: e.wTier[i]!, a: e.aTier[i]!, s: e.sTier[i]!, t: e.tips[i]! };
+  // A weapon with a gear row of its own (the obsidian hand-axe) goes back to stock as itself.
+  const wItem = ownGearItem(e.weapon[i]!);
+  if (wItem !== undefined) h.wItem = wItem;
+  return h;
 }
 
 /** What a player has for the kit's needs: research, the Forge step their town is at and research names. */
@@ -124,6 +131,18 @@ export function inFront(state: SimState, i: number, o: UnitOrder): void {
 function pieceName(h: KitHolder, line: number, tier: number): string {
   const p = linePiece(h, line, tier);
   return p ? p.name.toLowerCase() : 'kit';
+}
+
+/** The gear row of its own an upgrade puts on (the obsidian hand-axe, paid with it), or 0. */
+function ownPutOn(h: KitHolder, o: KitUpOrder): number {
+  const p = o.line === Line.Weapon ? linePiece(h, o.line, o.to) : undefined;
+  return p ? ownGear(planItem(p, o.ways)) : 0;
+}
+
+/** The lower-case name of what an upgrade puts on: the item's own name when it has a row of its own. */
+function newPieceName(h: KitHolder, o: KitUpOrder): string {
+  const own = ownPutOn(h, o);
+  return own ? RESOURCES[ownGearItem(own)!]!.name.toLowerCase() : pieceName(h, o.line, o.to);
 }
 
 /** The same with its article: "a bronze sword", "an iron coat of plates", "poison tips". */
@@ -381,7 +400,7 @@ export function runKitUp(state: SimState, i: number, o: KitUpOrder): boolean {
     e.act[i] = Act.Work;
     e.timer[i] = 0;
     // What it is doing, in the present tense, its bubble up while the bar runs (Jade's Patch 3).
-    sayTinkering(state, i, `Upgrading to ${pieceName(h, o.line, o.to)}.`);
+    sayTinkering(state, i, `Upgrading to ${newPieceName(h, o)}.`);
   }
   // Beside it, the unit sits and tinkers while the bar over its head fills (Jade's Patch 2).
   // Godmode: the new piece goes on at once.
@@ -421,9 +440,11 @@ function finishKitUp(state: SimState, i: number, h: KitHolder, o: KitUpOrder): v
     toStock(state, owner, TIPS_KIT.items[0]);
   }
   applyKit(e, i, h.kind);
+  const own = ownPutOn(h, o);
+  if (own) e.weapon[i] = own;
   // Done, after its last piece: the next piece's bar would cover the line at once (Jade's Patch 3: no past tense while a bar runs).
   if (e.queue[i]![1]?.t === 'kitUp') return;
-  say(state, i, h.kind === 'worker' ? `New tools: ${pieceName(h, o.line, o.to)}.` : `Upgraded to ${pieceName(h, o.line, o.to)}.`, false, true);
+  say(state, i, h.kind === 'worker' ? `New tools: ${newPieceName(h, o)}.` : `Upgraded to ${newPieceName(h, o)}.`, false, true);
 }
 
 /** The text an upgrade would cost, for tooltips: the new kit's main cost. */

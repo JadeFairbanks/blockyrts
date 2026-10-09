@@ -2887,9 +2887,11 @@ body.playing.touch .hud {
   border: 0 !important;
   border-image: var(--kit-well) 4 fill / 4px !important;
 }
+/* Its counts and the weight are very tiny text: UI-1's crisp font, a step smaller than Jersey 10 would be. */
 .hud-btn.chip.unit-slot > .face {
-  font: 14px/1 var(--display);
+  font: 700 11px/1 var(--crisp);
   color: var(--parchment);
+  text-shadow: 1px 1px 0 #000, 0 0 2px rgba(0, 0, 0, 0.85);
 }
 .unit-slot.empty {
   display: block;
@@ -2910,9 +2912,9 @@ body.playing.touch .hud {
 }
 .unit-inv .hud-btn.chip.weight > .face {
   padding: 0 2px;
-  font: 17px/1 var(--display);
+  font: 700 13px/1 var(--crisp);
   color: var(--parchment);
-  text-shadow: 1px 1px 0 #000;
+  text-shadow: 1px 1px 0 #000, 0 0 2px rgba(0, 0, 0, 0.85);
 }
 .unit-inv .hud-btn.chip.weight.warn > .face {
   color: #ff9a7a;

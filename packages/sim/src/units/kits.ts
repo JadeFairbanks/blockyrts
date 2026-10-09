@@ -564,6 +564,31 @@ export const TOOL_GEAR: ReadonlyArray<readonly number[]> = TOOL_KITS.map((k) => 
 export const WAND_GEAR: readonly number[] = WAND_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Weapon, tier: k.tier, model: k.model, melee: WAND_TAP, wand: { powerPct: k.powerPct, mana: k.mana } })));
 export const ROBE_GEAR: readonly number[] = ROBE_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Armour, tier: k.tier, model: k.model, armourBp: k.protectionPct * 100, robe: { regainPct: k.regainPct } })));
 
+/**
+ * Gear rows of their own for the items that go on as another piece (Patch 5:
+ * the satyrs' obsidian hand-axe as the bronze shortsword), with that piece's
+ * stats under the item's name and look, so a unit keeps the item it was
+ * given: drawn and named as itself, and back to stock as itself.
+ */
+const OWN_ROWS: Array<readonly [item: Res, gear: number]> = [];
+function ownRow(item: Res, k: MeleeKit, model: string): number {
+  const id = add({ name: RESOURCES[item]!.name, slot: Slot.Weapon, tier: k.tier, model, melee: meleeStats(k, true, false) });
+  OWN_ROWS.push([item, id]);
+  return id;
+}
+/** The obsidian hand-axe in hand: the bronze shortsword's numbers, and the flint hand-axe's look until its own model lands. */
+export const OBSIDIAN_AXE_GEAR: number = ownRow(Res.ObsidianHandAxe, CLOSE_KITS[4]!, 'axe_war_flint');
+
+/** The gear row of its own an item goes on as, or 0 when it takes its piece's row. */
+export function ownGear(item: Res | undefined): number {
+  return OWN_ROWS.find(([r]) => r === item)?.[1] ?? 0;
+}
+
+/** The item a gear row of its own is, or undefined. */
+export function ownGearItem(gear: number): Res | undefined {
+  return OWN_ROWS.find(([, g]) => g === gear)?.[0];
+}
+
 function capital(s: string): string {
   return s ? s[0]!.toUpperCase() + s.slice(1) : s;
 }
@@ -753,6 +778,14 @@ export function fromItem(ways: number, piece = 0): boolean {
   return code % 8 === ITEM_WAY;
 }
 
+/** The ready item a plan put a set's piece on as, or undefined when it was made from materials. */
+export function planItem(p: Piece, ways: number, piece = 0): Res | undefined {
+  let code = ways;
+  for (let k = 0; k < piece; k++) code = floorDiv(code, DIGIT);
+  const digit = code % DIGIT;
+  return digit % 8 === ITEM_WAY ? (p.items[floorDiv(digit, 8)] ?? p.items[0]) : undefined;
+}
+
 /** The cost of a set of pieces paid the ways a plan chose, kind by kind (to give it back); with 0, the first ways in softwood and the goods themselves. */
 export function piecesCost(pieces: readonly Piece[], ways: number): Cost {
   const cost: Array<[Res, number]> = [];
@@ -882,7 +915,8 @@ export function applyKit(e: EntityStore, i: number, kind: 'worker' | 'warrior' |
       e.ranged[i] = PISTOL_GEAR;
       break;
     default:
-      e.weapon[i] = CLOSE_GEAR[w] ?? CLOSE_GEAR[0]!;
+      // An item with a row of its own (the obsidian hand-axe) stays in hand while its tier does.
+      if (ownGearItem(e.weapon[i]!) === undefined || GEAR[e.weapon[i]!]!.tier !== w) e.weapon[i] = CLOSE_GEAR[w] ?? CLOSE_GEAR[0]!;
   }
 }
 
@@ -896,7 +930,7 @@ export function kitName(troop: number, weapon: number, armourTier: number, shiel
 
 // ----- upgrading -----
 
-/** What an upgrade looks at: the unit's kind, troop type and tiers (weapon, armour, shield and poison tips). */
+/** What an upgrade looks at: the unit's kind, troop type and tiers (weapon, armour, shield and poison tips), and the weapon's item when it has a row of its own. */
 export interface KitHolder {
   kind: 'worker' | 'warrior' | 'mage';
   troop: number;
@@ -904,6 +938,7 @@ export interface KitHolder {
   a: number;
   s: number;
   t: number;
+  wItem?: Res;
 }
 
 /** A unit's kind as the kit rules see it, from its UnitKind (0 worker, 1 warrior, 5 mage). */
@@ -956,7 +991,8 @@ export function upgradePieces(h: KitHolder, line: number, to: number): Piece[] {
 /** The item a line's piece goes to stock as when the unit takes it off for a better one (Patch 5, GP-3), or undefined at tier 0. */
 export function replacedItem(h: KitHolder, line: number): Res | undefined {
   const from = lineTier(h, line);
-  return from > 0 ? linePiece(h, line, from)?.items[0] : undefined;
+  if (from === 0) return undefined;
+  return (line === Line.Weapon ? h.wItem : undefined) ?? linePiece(h, line, from)?.items[0];
 }
 
 /**

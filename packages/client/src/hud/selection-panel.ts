@@ -24,6 +24,7 @@ import {
   kitName,
   linePiece,
   Mount,
+  ownGearItem,
   productSpec,
   QUEUE_LIMIT,
   RATING_NAMES,
@@ -1031,8 +1032,14 @@ export class SelectionPanel {
         { pic: robePic(u.aTier), tag: String(u.aTier), ...named(ROBE_KITS[u.aTier], u.aTier, 'robe'), line: 1 },
       ];
     }
+    // A weapon item with a gear row of its own (the obsidian hand-axe) shows as itself, with its piece's numbers.
+    const own = ownGearItem(u.weapon);
+    const g = own !== undefined ? goodIcon(own) : undefined;
+    const weapon = { pic: weaponPic(u.troop, u.wTier), tag: String(u.wTier), ...named(weaponPiece(u.troop, u.wTier), u.wTier, 'weapon'), line: 0 };
+    if (own !== undefined) weapon.name = `${RESOURCES[own]!.name}, tier ${u.wTier}`;
+    if (g) weapon.pic = g.tint ? { file: g.file, filter: g.tint } : { file: g.file };
     const out: Array<{ pic: Pic; tag?: string; name: string; text: string; line: number }> = [
-      { pic: weaponPic(u.troop, u.wTier), tag: String(u.wTier), ...named(weaponPiece(u.troop, u.wTier), u.wTier, 'weapon'), line: 0 },
+      weapon,
       { pic: armourPic(u.aTier), tag: String(u.aTier), ...named(ARMOUR_KITS[u.aTier], u.aTier, 'armour'), line: 1 },
     ];
     // Close melee's shield is its own slot from Patch 5, with its own tier.

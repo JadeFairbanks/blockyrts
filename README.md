@@ -3861,6 +3861,14 @@ blueprint/patch5-gear-picks.md (section 12).*
    Cast Quicken, Fortify or Heal on a unit and select it: each spell's
    picture has a bar that runs down over the spell's time, its tooltip
    saying how many seconds are left.
+9. **The obsidian hand-axe.** With one in the stock (the satyrs drop it),
+   Equip it on a swordsman of tier 3 or lower: it says "Upgrading to
+   obsidian hand-axe.", its weapon slot shows the axe, and it holds a hand
+   axe (the flint one's model until its own lands) with a bronze
+   shortsword's numbers. New armour leaves the axe in hand; a better sword
+   sends it back to the stock as an obsidian hand-axe. A swordsman trained
+   at tier 4 while one is in the stock comes out holding it. The test is in
+   packages/sim/test/patch5-gear.test.ts.
 
 ## How a tester checks running, climbing and jumping (Patch 5)
 

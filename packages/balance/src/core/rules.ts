@@ -88,7 +88,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'units/kits.ts:TROOP_TYPES', 'units/kits.ts:TROOP_NAMES', 'units/kits.ts:TROOP_TIER_NAMES', 'units/kits.ts:TROOP_KEYS', 'units/kits.ts:TOP_TIER', 'units/kits.ts:TOP_MAGE_TIER',
   'units/kits.ts:GEAR', 'units/kits.ts:PeopleGear', 'units/kits.ts:CLOSE_GEAR', 'units/kits.ts:LONG_GEAR', 'units/kits.ts:RANGER_GEAR',
   'units/kits.ts:PISTOL_GEAR', 'units/kits.ts:ARMOUR_GEAR', 'units/kits.ts:SHIELD_GEAR', 'units/kits.ts:TOOL_GEAR', 'units/kits.ts:WAND_GEAR',
-  'units/kits.ts:ROBE_GEAR',
+  'units/kits.ts:ROBE_GEAR', 'units/kits.ts:OBSIDIAN_AXE_GEAR',
   // Worker ranks (Patch 3): the rank names are words, and Work names what a worker is doing (building or gathering).
   'units/ranks.ts:WORKER_RANK_NAMES', 'units/ranks.ts:Work',
   // Working through the night (Patch 4): the question's kind, and the shelter and Gather orders' flags.

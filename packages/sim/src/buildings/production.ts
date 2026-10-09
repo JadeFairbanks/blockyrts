@@ -37,6 +37,7 @@ import {
   piecesProblem,
   piecesSteps,
   piecesTime,
+  ownGear,
   planPieces,
   ROBE_KITS,
   TOOL_KITS,
@@ -717,12 +718,15 @@ function spawnWorker(state: SimState, b: Building, owner: number): void {
   state.events.push({ player: owner, kind: 'info', text: 'A new worker is ready.', x, z });
 }
 
-function spawnTroop(state: SimState, b: Building, product: number, owner: number, horse: number): void {
+function spawnTroop(state: SimState, b: Building, product: number, owner: number, horse: number, paid: ReadonlyArray<readonly [number, number]>): void {
   const t = troopOf(product)!;
   const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
   const x = columnCentre(cx);
   const z = columnCentre(cz);
   const i = addWarrior(state, owner, x, z, t.troop as Troop, t.w, t.a, t.s);
+  // Trained with a weapon item that has a gear row of its own (the obsidian hand-axe), it goes on as itself.
+  const own = weaponPiece(t.troop, t.w)?.items.find((r) => ownGear(r) !== 0 && paid.some(([q, n]) => q === r && n > 0));
+  if (own !== undefined) state.entities.weapon[i] = ownGear(own);
   state.entities.heading[i] = 32768;
   // Cavalry rides out on the horse it was given (Jade: the horse is used up).
   if (t.troop === Troop.Cavalry) seatOnHorse(state, i, Mount.Horse, speciesSpec(Species.Horse).hp, barnsNear(state, b, owner)[0]?.id ?? 0, Math.max(0, horse - 1));
@@ -1038,7 +1042,7 @@ export function updateBuildings(state: SimState): void {
           b.queue.shift();
           const m = mageOf(head.product);
           if (m) spawnMage(state, b, m.school, head.by, m.w, m.a);
-          else if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse);
+          else if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse, head.paid);
           else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
           else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);
           else if (head.product === Product.Crewman) spawnCrewman(state, b, head.by, head.engine);
