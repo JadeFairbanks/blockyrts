@@ -54,6 +54,8 @@ export type Ask = (typeof Ask)[keyof typeof Ask];
 
 /** How long a question waits for its owner's answer (Jade's Patch 3; 30 s in Patch 2): 10 s of game time. */
 export const QUESTION_WAIT_STEPS = 10 * STEPS_PER_SECOND;
+/** The `until` of a question that waits for its answer however long it takes (askForever): past any game's last step. */
+export const QUESTION_FOREVER = 0x7fffffff;
 /** Open questions one player may have at once (s); the next waits its turn. */
 export const OPEN_QUESTIONS_PER_PLAYER = 3;
 /** A unit at or below this share of its health asks to eat to heal (Jade: 70%), and asks again only once it is back above it. */
@@ -111,6 +113,10 @@ interface Question {
    * questions count what is left once the other is answered).
    */
   recount?: () => string | null;
+  /** It waits until it is answered (Jade's Patch 5: a keeper's question "never expires"), not QUESTION_WAIT_STEPS. */
+  forever?: boolean;
+  /** Its speaker is not the player's own (a Bog guardian asking every player, Jade's Patch 5): it holds while the speaker lives, whoever owns it. */
+  foreign?: boolean;
 }
 
 /** A question waiting for a free place among its player's open ones: made afresh when its turn comes, or null if it no longer holds. */
@@ -199,7 +205,7 @@ function put(state: SimState, q: Question): void {
     book.stepCount = 0;
   }
   q.info.id = state.step * 16 + book.stepCount++;
-  q.info.until = state.step + QUESTION_WAIT_STEPS;
+  q.info.until = q.forever ? QUESTION_FOREVER : state.step + QUESTION_WAIT_STEPS;
   book.open.push(q);
   const ev: SimEvent = { player: q.player, kind: 'question', text: q.text, ask: { ...q.info, units: [...q.info.units] } };
   if (q.building) {
@@ -606,7 +612,7 @@ export function updateQuestions(state: SimState): void {
       gone = !b || b.owner !== q.player || b.hp <= 0;
     } else {
       const i = e.indexOf(q.who);
-      gone = i < 0 || e.hp[i]! <= 0 || e.owner[i] !== q.player;
+      gone = i < 0 || e.hp[i]! <= 0 || (!q.foreign && e.owner[i] !== q.player);
     }
     if (gone || state.step >= q.info.until || !asks(state, q.player)) close(state, q);
     else if (q.holds && !q.holds()) {
@@ -859,6 +865,35 @@ export function askOwn(state: SimState, a: OwnQuestion): number {
   if (a.recount) q.recount = a.recount;
   put(state, q);
   return q.info.id;
+}
+
+// ----- questions that wait for their answer (Patch 5) -----
+
+/**
+ * A question another module asks that waits until it is answered (Jade's
+ * Patch 5, MB-11 and MF-10: a keeper's questions "never expire"), put up at
+ * once past the cap on open questions. `foreign`: its speaker is not one of
+ * the player's own (a Bog guardian asks every player for his promise). It is
+ * withdrawn only when answered, its speaker falls or its player leaves.
+ * Returns its id.
+ */
+export function askForever(state: SimState, a: OwnQuestion & { foreign?: boolean }): number {
+  const q: Question = { player: a.player, who: a.who, building: a.building, text: a.text, info: { id: 0, q: a.q, units: [...a.units], res: -1, until: 0, yes: a.yes, no: a.no }, forever: true };
+  if (a.foreign) q.foreign = true;
+  if (a.holds) q.holds = a.holds;
+  if (a.unask) q.unask = a.unask;
+  put(state, q);
+  return q.info.id;
+}
+
+/** Ends every open question of these kinds a unit (entity id) asks, for every player. */
+export function closeAsksBy(state: SimState, who: number, kinds: readonly number[]): void {
+  for (const q of [...bookOf(state).open]) if (!q.building && q.who === who && kinds.includes(q.info.q)) close(state, q);
+}
+
+/** Whether a unit (entity id) has a question of this kind open for a player. */
+export function asksOf(state: SimState, who: number, player: number, kind: number): boolean {
+  return bookOf(state).open.some((q) => !q.building && q.who === who && q.player === player && q.info.q === kind);
 }
 
 /**

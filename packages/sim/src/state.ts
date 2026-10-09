@@ -706,9 +706,11 @@ export interface SimEvent {
  * sits at the timed action that made it speak, as long as the progress bar
  * over its head runs (units/tinker.ts); 'long' twice the usual time (the
  * main base's word of advice at the start); 'linger' 20 s, unless the
- * speaker says something else first (Jade's Patch 5: the necromancer).
+ * speaker says something else first (Jade's Patch 5: the necromancer);
+ * 'held' until the speaker says something else (Jade's Patch 5, MB-11 and
+ * MF-10: a keeper's words while it waits for a Yes or No).
  */
-export type BubbleHold = 'bar' | 'long' | 'linger';
+export type BubbleHold = 'bar' | 'long' | 'linger' | 'held';
 
 export interface SimState {
   seed: number;
@@ -886,9 +888,11 @@ export interface Site {
  * where it was taken to `to`, `n` of them (one for every 2 health); 'crimson' the necromancer's bolt bursting and his
  * dead rising (MB-5); 'summon' a summoner calling up its kin (the necromancer, Morvath opening the Rift), at the
  * summoner `id`. 'sweep': the Dreadnought's swing landing, its crescent drawn in front of him; 'warcry': a remark
- * of his, said with his war cry.
+ * of his, said with his war cry. Jade's Patch 5 keepers (threats/keepers.ts): 'fairy' the Fae Guardian's bolt
+ * bursting in pink-magenta over its 2 m (MF-7); 'roar' and 'alarm' a keeper at `id` roaring as it turns angry and
+ * looking alarmed (MB-11's clips).
  */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'sweep' | 'warcry';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'sweep' | 'warcry' | 'fairy' | 'roar' | 'alarm';
 
 export interface HitEvent {
   look: HitLook;

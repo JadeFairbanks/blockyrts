@@ -55,6 +55,8 @@ export const Shot = {
   BronzeCannonball: 20,
   /** Jade's Patch 5: the necromancer's crimson bolt. */
   NecroBolt: 21,
+  /** Jade's Patch 5 (MF-7): the Fae Guardian's pink-magenta bolt. */
+  FairyBolt: 22,
 } as const;
 export type Shot = (typeof Shot)[keyof typeof Shot];
 
@@ -233,7 +235,7 @@ export interface ShotSpec {
   fells?: number;
   chips?: number;
   /** How its splash looks where it lands (state.ts HitLook), when not the usual blast. */
-  burst?: 'crimson';
+  burst?: 'crimson' | 'fairy';
 }
 
 export const SHOTS: readonly ShotSpec[] = [
@@ -272,9 +274,12 @@ export const SHOTS: readonly ShotSpec[] = [
   { speed: floorDiv(cm(4000), STEPS_PER_SECOND), arcs: true, name: 'bronze cannonball', model: 'cannonball_iron', vsWalls: 300, splash: 35, splashRadius: cm(150), fells: 4, chips: 5 },
   // Jade's Patch 5 (MB-5): the necromancer's bolt, 35 within 0.5 m of where it lands besides the 35 to whoever it strikes; it flies straight at 18 m/s (s).
   { speed: floorDiv(cm(1800), STEPS_PER_SECOND), arcs: false, name: 'crimson bolt', model: 'necromancer_bolt', vsWalls: 5, splash: 35, splashRadius: cm(50), burst: 'crimson' },
+  // Jade's Patch 5 (MF-7, decisions 2.2): the Fae Guardian's bolt, 30 to all within 2 m of where it lands besides the 30 to whoever it strikes, in a big
+  // explosion of its own pink-magenta; it flies straight at 16 m/s (s).
+  { speed: floorDiv(cm(1600), STEPS_PER_SECOND), arcs: false, name: 'fairy bolt', model: 'fairy_bolt', vsWalls: 0, splash: 30, splashRadius: cm(200), burst: 'fairy' },
 ];
 
 /** Shots that are spells (Warding halves them; Counterspell stops them while they are cast). */
 export function spellShot(shot: number): boolean {
-  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball || shot === Shot.Thorn || shot === Shot.NecroBolt;
+  return shot === Shot.Spark || shot === Shot.ManaBolt || shot === Shot.ArcaneBolt || shot === Shot.Fireball || shot === Shot.Thorn || shot === Shot.NecroBolt || shot === Shot.FairyBolt;
 }
