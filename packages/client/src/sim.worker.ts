@@ -89,7 +89,7 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
-import { cloaked, crewOf, haulerOf, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom } from '@blockyrts/sim';
+import { cloaked, crewOf, haulerOf, isCrystalGuardian, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom } from '@blockyrts/sim';
 import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
@@ -216,6 +216,7 @@ function postState(s: SimState): void {
     if (e.shared[i] !== 0) flags |= UnitFlag.Shared;
     if (onTop(s, i)) flags |= UnitFlag.OnTop;
     if (e.autoRepair[i] !== 0) flags |= UnitFlag.AutoRepair;
+    if (isCrystalGuardian(s, i)) flags |= UnitFlag.Guardian;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
     data[o + S.target] = e.target[i]!;
