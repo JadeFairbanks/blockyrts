@@ -31,8 +31,8 @@ import { UnitKind, type AskInfo, type SimEvent, type SimState } from '../state.t
 import { Role } from '../threats/types.ts';
 import { giveOrder, stopUnit } from './behaviour.ts';
 import { chooseNode, fromBuilding, GATHER_SWITCH_M, homeOf } from './forage.ts';
-import { inFront, kitHolder, orderUpgradeEquipment, pendingKitUp, techOf } from './gear.ts';
-import { equipmentPlans, Line, upgradeTarget, type EquipmentHolder, type KitHolder, type TechView } from './kits.ts';
+import { inFront, kitHolder, orderUpgradeEquipment, pendingKitUp, pendingLines, techOf } from './gear.ts';
+import { equipmentPlans, Line, KIT_LINES, upgradeTarget, type EquipmentHolder, type KitHolder, type TechView } from './kits.ts';
 import { topOf } from './top.ts';
 
 /** The questions (Patch 2, round 3's table, in its order). */
@@ -309,17 +309,17 @@ function kitCost(state: SimState, units: readonly number[], pool: Int32Array, te
   const list: EquipmentHolder[] = [];
   for (const i of units) {
     const h = kitHolder(state, i);
-    if (h) list.push({ id: e.id[i]!, h, rank: e.rank[i]!, pendingW: pendingKitUp(state, i, Line.Weapon) !== undefined, pendingA: pendingKitUp(state, i, Line.Armour) !== undefined });
+    if (h) list.push({ id: e.id[i]!, h, rank: e.rank[i]!, pending: pendingLines(state, i) });
   }
   const plans = equipmentPlans(list, pool, tech);
   const total = new Map<Res, number>();
-  for (const line of [Line.Weapon, Line.Armour]) {
+  for (const line of KIT_LINES) {
     for (const p of plans) {
-      const plan = line === Line.Weapon ? p.wPlan : p.aPlan;
+      const plan = p.plans[line];
       if (plan) for (const [r, n] of plan.cost) total.set(r, (total.get(r) ?? 0) + n);
     }
   }
-  return { cost: [...total], paid: plans.filter((p) => p.wPlan || p.aPlan).length };
+  return { cost: [...total], paid: plans.filter((p) => p.plans.some((x) => x)).length };
 }
 
 /** Yes's tooltip for a better-kit question about these units (the stock pays for `paid` of them). */

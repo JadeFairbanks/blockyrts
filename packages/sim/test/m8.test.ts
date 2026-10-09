@@ -309,8 +309,8 @@ describe('tier 8: the Artillery workshop and the Citadel ports', () => {
     const barracks = placeBuilding(s, 0, BuildingKind.Barracks, 0, base.x + 18, base.z, true);
     const p = s.players[0]!;
     p.pool[Res.Venison] = 200;
-    // The flintlock musket's kit (Table 2e): carbon steel, planks, flint and gunpowder.
-    for (const [r, n] of [[Res.CarbonSteel, 1], [Res.Planks, 2], [Res.Flint, 1], [Res.Gunpowder, 1]] as const) p.pool[r] = n;
+    // The flintlock musket's kit (Table 2e): carbon steel, planks, flint and gunpowder, and from Patch 5 two lead ore.
+    for (const [r, n] of [[Res.CarbonSteel, 1], [Res.Planks, 2], [Res.Flint, 1], [Res.Gunpowder, 1], [Res.LeadOre, 2]] as const) p.pool[r] = n;
     const product = troopProduct(Troop.Ranger, 8, 0);
     expect(productProblem(s, barracks, product)).toBe('Needs a Forge.');
     placeBuilding(s, 0, BuildingKind.Forge, 0, base.x - 18, base.z, true);

@@ -166,7 +166,7 @@ describe('a click on a greyed-out action asks the sim (Patch 3)', () => {
   });
 
   it('sends the troop with the kit on its card for a Barracks button', () => {
-    const b = building(51, BuildingKind.Barracks, { troops: [{ troop: Troop.Close, w: 2, a: 1, lock: 0 }] });
+    const b = building(51, BuildingKind.Barracks, { troops: [{ troop: Troop.Close, w: 2, a: 1, s: 0, lock: 0 }] });
     const { c, sent } = harness(game([b]), [picked(b)], picked(b).typeKey);
     const close = c.card().find((e) => e.action === 'trainClose')!;
     expect(close.enabled).toBe(false);

@@ -28,6 +28,8 @@ export interface HudLayout {
   selectionCorner: HTMLElement;
   /** The tier strip a training card's slot opens just above the middle (Patch 2). */
   tierStrip: HTMLElement;
+  /** A command card button's right-click dropdown (Patch 5: Scrap 1, Scrap 10, Scrap all). */
+  cardPop: HTMLElement;
   selectionBody: HTMLElement;
   groupTabs: HTMLElement;
   commandCard: HTMLElement;
@@ -157,6 +159,9 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   const tierStrip = div('panel tier-strip', root);
   tierStrip.hidden = true;
   panels.register('tier-strip', tierStrip);
+  const cardPop = div('panel card-pop', root);
+  cardPop.hidden = true;
+  panels.register('card-pop', cardPop);
 
   return {
     root,
@@ -175,6 +180,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
     selectionExtra,
     selectionCorner,
     tierStrip,
+    cardPop,
     selectionBody,
     groupTabs,
     commandCard,

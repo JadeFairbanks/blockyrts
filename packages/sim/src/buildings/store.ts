@@ -31,28 +31,28 @@ export type Product = number;
  * (recipes.ts) RECIPE_PRODUCT + n; slaughtering one animal of a species at
  * a Barn, SLAUGHTER_PRODUCT + species; making a siege
  * engine or cannon (siege/data.ts), ENGINE_PRODUCT + engine; a new troop
- * (units/kits.ts) TROOP_PRODUCT + type x 100 + weapon tier x 10 + armour
- * tier (troopProduct); a new mage with her kit picked at a Magi Sanctum
- * (Patch 2), MAGE_PRODUCT + school x 100 + wand tier x 10 + robe tier
- * (mageProduct).
+ * (units/kits.ts) TROOP_PRODUCT + shield tier x 1000 + type x 100 + weapon
+ * tier x 10 + armour tier (troopProduct; the shield from Patch 5, GP-26); a
+ * new mage with her kit picked at a Magi Sanctum (Patch 2), MAGE_PRODUCT +
+ * school x 100 + wand tier x 10 + robe tier (mageProduct).
  */
 export const RESEARCH_PRODUCT = 8;
 export const RECIPE_PRODUCT = 512;
 export const SLAUGHTER_PRODUCT = 1024;
 export const ENGINE_PRODUCT = 2048;
 export const TROOP_PRODUCT = 4096;
-export const MAGE_PRODUCT = 8192;
+export const MAGE_PRODUCT = 12288;
 
-/** The product for a new troop of a type with a weapon tier and an armour tier. */
-export function troopProduct(troop: number, weapon: number, armour: number): Product {
-  return TROOP_PRODUCT + troop * 100 + weapon * 10 + armour;
+/** The product for a new troop of a type with a weapon tier, an armour tier and (close melee) a shield tier. */
+export function troopProduct(troop: number, weapon: number, armour: number, shield = 0): Product {
+  return TROOP_PRODUCT + shield * 1000 + troop * 100 + weapon * 10 + armour;
 }
 
 /** A troop product's type and tiers, or undefined for any other product. */
-export function troopOf(product: Product): { troop: number; w: number; a: number } | undefined {
+export function troopOf(product: Product): { troop: number; w: number; a: number; s: number } | undefined {
   if (product < TROOP_PRODUCT || product >= MAGE_PRODUCT) return undefined;
   const n = product - TROOP_PRODUCT;
-  return { troop: floorDiv(n, 100), w: floorDiv(n, 10) % 10, a: n % 10 };
+  return { troop: floorDiv(n, 100) % 10, w: floorDiv(n, 10) % 10, a: n % 10, s: floorDiv(n, 1000) };
 }
 
 /** The product for a new mage of a school (magic/spells.ts School) with a wand tier and a robe tier, trained at a Magi Sanctum (Patch 2). */
@@ -138,8 +138,9 @@ export interface Building {
   /**
    * Barracks: the padlock per troop type (Patch 2's training cards), by
    * type; a Magi Sanctum's per school at mageLock (6 support, 7 battle): 0
-   * unlocked, else 1 + weapon (wand) tier x 10 + armour (robe) tier, the kit
-   * this building keeps training.
+   * unlocked, else 1 + weapon (wand) tier x 10 + armour (robe) tier, plus
+   * close melee's shield tier x 100 (Patch 5), the kit this building keeps
+   * training.
    */
   locks: number[];
 }
@@ -425,7 +426,7 @@ export function writeBuildings(w: ByteWriter, store: BuildingStore): void {
     w.u8(b.shared);
     w.u32(b.tech);
     w.u8(b.locks.length);
-    for (const v of b.locks) w.u8(v);
+    for (const v of b.locks) w.u16(v);
     w.u8(b.paid.length);
     for (const [res, n] of b.paid) {
       w.u8(res);
@@ -495,7 +496,7 @@ export function readBuildings(r: ByteReader, store: BuildingStore, touch: (chunk
     b.shared = r.u8();
     b.tech = r.u32();
     const nl = r.u8();
-    for (let k2 = 0; k2 < nl; k2++) b.locks.push(r.u8());
+    for (let k2 = 0; k2 < nl; k2++) b.locks.push(r.u16());
     const np2 = r.u8();
     for (let k2 = 0; k2 < np2; k2++) b.paid.push([r.u8(), r.i32()]);
     store.add(b, touch);

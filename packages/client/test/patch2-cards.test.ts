@@ -24,7 +24,7 @@ function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): Buil
 }
 
 const barracks = (id: number): BuildingInfo =>
-  building(id, BuildingKind.Barracks, { name: 'Barracks', troops: [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler].map((troop) => ({ troop, w: troop === Troop.Brawler ? 8 : 1, a: 0, lock: 0 })) });
+  building(id, BuildingKind.Barracks, { name: 'Barracks', troops: [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler].map((troop) => ({ troop, w: troop === Troop.Brawler ? 8 : 1, a: 0, s: 0, lock: 0 })) });
 
 const sanctum = (id: number, w = 1, a = 1): BuildingInfo =>
   building(id, BuildingKind.MagiSanctum, { name: 'Magi Sanctum', mages: [School.Support, School.Battle].map((school) => ({ school, w, a, lock: 0 })) });
@@ -51,7 +51,7 @@ describe('cardsOf', () => {
   });
 
   it('gives the Big House no cards (A, Q and N train tier 1 there, as before Patch 2), nor a building still going up', () => {
-    expect(cardsOf(building(203, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, lock: 0 }] }))).toEqual([]);
+    expect(cardsOf(building(203, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, s: 0, lock: 0 }] }))).toEqual([]);
     expect(cardsOf({ ...barracks(204), complete: false })).toEqual([]);
   });
 });

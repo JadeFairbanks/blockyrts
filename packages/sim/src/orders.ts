@@ -110,7 +110,7 @@ export interface RetrainOrder extends UnitsOrder {
   kind: 'retrain';
 }
 
-/** Add items to a building's production queue (1, or 5 with Shift). */
+/** Add items to a building's production queue (1, or 5 with Shift; Scrap equipment's stacks any number, Patch 5). */
 export interface ProduceOrder {
   kind: 'produce';
   player: number;
@@ -764,7 +764,8 @@ export function validateOrder(o: Order): void {
       if (o.radius < 0 || o.radius > 2000 * 8000) throw new Error('reveal radius out of range');
       return;
     case 'produce':
-      if (o.count < 1 || o.count > 5) throw new Error('produce count must be 1 to 5');
+      // 1, or 5 with Shift; a stack of scraps (Patch 5) any number to 9999.
+      if (o.count < 1 || o.count > 9999) throw new Error('produce count must be 1 to 9999');
       return;
     case 'dig':
       if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');

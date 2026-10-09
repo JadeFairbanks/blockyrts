@@ -10,7 +10,7 @@ import { Res, TRINKET_BASE, TRINKET_METALS } from '../economy/resources.ts';
 import { FISHES, MEATS } from '../economy/food-kinds.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS, TRINKET_MULTIPLIER_TENTHS, SPECIAL_TRINKET_MULTIPLIER_TENTHS } from '../rules.ts';
-import { CLOSE_GEAR, LONG_GEAR, PeopleGear, RANGER_GEAR, SHIELD_GEAR, shieldRow } from '../units/kits.ts';
+import { CLOSE_GEAR, LONG_GEAR, PeopleGear, RANGER_GEAR, SHIELD_GEAR } from '../units/kits.ts';
 import { TRINKET_INGOTS } from '../buildings/recipes.ts';
 import { Mob } from '../combat/mobs.ts';
 import { Species } from '../animals/species.ts';
@@ -123,7 +123,7 @@ const SPEAR_BRONZE = LONG_GEAR[4]!;
 const LONGBOW = RANGER_GEAR[2]!;
 const SWORD_STEEL = CLOSE_GEAR[7]!;
 const MUSKET = RANGER_GEAR[8]!;
-const STEEL_HEATER = SHIELD_GEAR[shieldRow(7).tier]!;
+const STEEL_HEATER = SHIELD_GEAR[4]!;
 
 /**
  * The peoples' units (s throughout, from the doc's descriptions): Halfling

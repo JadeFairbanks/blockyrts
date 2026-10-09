@@ -152,7 +152,7 @@ describe('early tools by job', () => {
     expect(toolNeeded(ToolJob.Break, Tool.Flint)).toBe('copper pickaxe');
   });
 
-  it('are had at the Big House on day 0: Upgrade Tools pays 6 sticks, 1 flint and 5 stone and takes 15 s', () => {
+  it('are had at the Big House on day 0: Upgrade Tools pays 6 sticks, 1 flint and 5 stone and takes 20 s', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const pool = s.players[0]!.pool;
@@ -161,7 +161,7 @@ describe('early tools by job', () => {
     const flint = pool[Res.Flint]!;
     run(s, 1, [{ kind: 'upgradeKit', player: 0, units: [e.id[0]!], line: Line.Weapon, max: 0 }]);
     expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.Stone]]).toEqual([sticks - 6, flint - 1, stone - 5]);
-    // Half the kit's 30 s beside the Big House.
+    // The 30 s kit less the 10 s of the wooden one it replaces (Patch 5, BL-11: never quicker than training it), beside the Big House.
     let bar = 0;
     let beside = 0;
     runUntil(
@@ -176,10 +176,10 @@ describe('early tools by job', () => {
       },
       1000,
     );
-    expect(bar).toBe(300);
-    expect(beside).toBeGreaterThanOrEqual(299);
-    // The hardwood kit is scrapped with a full refund (3 sticks).
-    expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.Stone]]).toEqual([sticks - 3, flint - 1, stone - 5]);
+    expect(bar).toBe(400);
+    expect(beside).toBeGreaterThanOrEqual(399);
+    // The wooden tools go to stock as an item (Patch 5, GP-3), no longer back to their sticks.
+    expect([pool[Res.Sticks], pool[Res.Flint], pool[Res.Stone], pool[Res.WoodenTools]]).toEqual([sticks - 6, flint - 1, stone - 5, 1]);
   });
 
   it('quarry a stone outcrop with the digging stick, and mine copper only with a stone maul (Table 5)', () => {

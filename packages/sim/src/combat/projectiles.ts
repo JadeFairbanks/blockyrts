@@ -14,11 +14,12 @@ import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isTree } from '../world/props.ts';
 import { bodyHeight, forward, halfWidth, hurtBuilding, hurtUnit, shotMayHit, Side, sideOf } from './combat.ts';
 import { SHOTS } from './items.ts';
-import { isStructure } from './mobs.ts';
+import { isStructure, mobSpec } from './mobs.ts';
 import { buildingCentre } from '../buildings/lights.ts';
 import { WEB } from './mobs.ts';
 import { smoulder, SPARK } from '../threats/burns.ts';
 import { fireballBurst } from '../magic/cast.ts';
+import { POISON_TIPS } from '../units/kits.ts';
 
 /** Gravity, wu per step per step: 9.8 m/s2 at 20 steps a second. Even, so half of it times k squared stays whole. */
 export const GRAVITY = 196;
@@ -35,12 +36,26 @@ export const HAND_HEIGHT = floorDiv(WU_PER_METRE * 14, 10);
  * where it stops (magic/cast.ts fireballBurst).
  */
 /** Bit 8 was a venom-coated arrow's, which nothing ever fired; Patch 2 cut it with the Herbalist hut. */
-export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Spell: 16, Burst: 32, Siege: 64, Pierce: 128 } as const;
+export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Venom: 8, Spell: 16, Burst: 32, Siege: 64, Pierce: 128 } as const;
 
 /** Milestone 8. Siege: an engine's shot, which does its damage against walls to the foes' structures too (lairs, huts) (s). Pierce: a ballista bolt goes on through one more foe behind its first. */
 
 /** Poison from a bite or a sting works over 5 s (roster 6.1), on top of the hit. */
 export const POISON = { steps: 5 * STEPS_PER_SECOND };
+
+/**
+ * A poison-tipped arrow or bolt (Patch 5: units/kits.ts POISON_TIPS) poisons
+ * what it hits like a viper's bite: more damage over 5 s, renewed rather
+ * than piled up. The undead and structures take none.
+ */
+function envenom(state: SimState, t: number, from: number): void {
+  const e = state.entities;
+  if (e.hp[t]! <= 0) return;
+  if (e.kind[t] === UnitKind.Mob && (mobSpec(e.mob[t]!).undead || isStructure(e.mob[t]!))) return;
+  e.dotLeft[t] = Math.max(e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0, POISON_TIPS.poison);
+  e.dotUntil[t] = state.step + POISON.steps;
+  e.dotFrom[t] = from;
+}
 
 /** Where a projectile is at a given age. */
 export function projectileAt(p: Projectile, age: number): [number, number, number] {
@@ -324,6 +339,7 @@ export function updateProjectiles(state: SimState): void {
           const damage = p.flags & ProjectileFlag.Siege && e.kind[hit] === UnitKind.Mob && isStructure(e.mob[hit]!) ? SHOTS[p.shot]!.vsWalls : p.damage;
           hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell });
           if (p.flags & ProjectileFlag.Pierce) pierceOn(state, p, hit);
+          if (p.flags & ProjectileFlag.Venom) envenom(state, hit, p.shooter);
         }
         if (p.flags & ProjectileFlag.Burst) fireballBurst(state, p, x, y, z, hit, null);
         splash(state, p, x, y, z, hit);

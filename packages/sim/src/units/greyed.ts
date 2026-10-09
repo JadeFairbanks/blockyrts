@@ -51,7 +51,7 @@ import { propJob, PROPS } from '../world/props.ts';
 import { giveOrder, nodeResource } from './behaviour.ts';
 import { chooseNode, fromBuilding, GATHER_SWITCH_M, homeOf, type NodePick } from './forage.ts';
 import { inFront, kitHolder, nearestUpgradePlace, pendingKitUp, techOf } from './gear.ts';
-import { Line, pieceProblem, planPieces, TIER_NEEDS, TOOL_GEAR, TOOL_KITS, upgradePieces, type Piece } from './kits.ts';
+import { Line, pieceProblem, piecesProblem, planPieces, TIER_NEEDS, TOOL_GEAR, TOOL_KITS, upgradePieces, type Piece } from './kits.ts';
 import { TOOL_FIELDS } from './tools.ts';
 import { answerHooks, askNow, closeAsks, isAsking, openQuestions, SPEAK_FOR_M } from './questions.ts';
 
@@ -583,7 +583,8 @@ function toolsFor(state: SimState, player: number, i: number, res: number, job: 
     if (kit.tools[job]! <= tool) continue;
     tool = kit.tools[job]!;
     const pieces = upgradePieces(h, Line.Weapon, to);
-    if (pieces.some((p) => pieceProblem(p, tech.research, tech.forge, tech.researchName) !== '')) return null;
+    // A tool kit in stock goes on whatever is researched (Patch 5, GP-1).
+    if (piecesProblem(pieces, pool, tech.research, tech.forge, tech.researchName) !== '') return null;
     const pick = withTools(state, i, to, () => findNode(state, i, want));
     if (!pick) continue;
     const plan = planPieces(pieces, pool);

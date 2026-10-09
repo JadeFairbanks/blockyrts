@@ -339,7 +339,8 @@ function land(state: SimState, i: number): void {
   const t = e.indexOf(e.target[i]!);
   const r = rangedOf(state, i);
   if (!r || t < 0 || e.hp[t]! <= 0) return;
-  const flags = r.blunt ? ProjectileFlag.Blunt : 0;
+  // A bow or crossbow with poison tips on (Patch 5) poisons what it hits.
+  const flags = (r.blunt ? ProjectileFlag.Blunt : 0) | (e.tips[i] ? ProjectileFlag.Venom : 0);
   const [x, y, z] = shotOrigin(state, i);
   // A bow from the saddle misses twice as wide (Table 1's mounted row).
   const spread = e.mount[i] && r.shot === Shot.Arrow ? r.spreadBp * MOUNTED.bowSpreadMul : r.spreadBp;

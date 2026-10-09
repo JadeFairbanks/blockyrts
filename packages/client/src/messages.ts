@@ -46,7 +46,7 @@ export type ToWorker =
  * rides and the mount's health; an engine's crew standing by and whether
  * something hauls it; its meal and hunger; a timed action under way.
  */
-export const STATE_STRIDE = 56;
+export const STATE_STRIDE = 58;
 export const S = {
   id: 0,
   owner: 1,
@@ -132,6 +132,9 @@ export const S = {
   /** A timed action beside a building (Jade's Patch 2, sim units/tinker.ts): the steps done and the steps it takes, 0 when the unit is not sitting at one. */
   tinkerDone: 54,
   tinkerOf: 55,
+  /** Close melee's shield tier (Patch 5, GP-26), and 1 when a bow or crossbow ranger has poison tips on. */
+  sTier: 56,
+  tips: 57,
 } as const;
 
 /** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */
@@ -202,8 +205,13 @@ export interface BuildingInfo {
   /** Level being built as an upgrade, or 0, and how far, per mille. */
   upgrading: number;
   upgraded: number;
-  /** Production queue: product, and for the first only the per mille done and the steps it has left at the sim's own pace now (0 while it is on hold). */
-  queue: Array<{ product: number; done: number; stepsLeft: number }>;
+  /**
+   * Production queue: product, and for the first only the per mille done and
+   * the steps it has left at the sim's own pace now (0 while it is on hold);
+   * a stack being scrapped (Patch 5) has `count`, how many are left with the
+   * one under way.
+   */
+  queue: Array<{ product: number; done: number; stepsLeft: number; count?: number }>;
   rally: RallyPoint[];
   /** Lights: lit now (from Patch 2 a light burns without fuel until something puts it out). */
   lit: boolean;
@@ -231,10 +239,11 @@ export interface BuildingInfo {
   /**
    * Barracks and main bases (own and usable): each troop type it
    * trains, with the panel's default weapon and armour tiers (the Lock's
-   * combination, else the best the stock pays for) and the Lock (0 off, else
-   * 1 + weapon x 10 + armour).
+   * combination, else the best the stock pays for; close melee's shield
+   * after them from Patch 5) and the Lock (0 off, else 1 + shield x 100 +
+   * weapon x 10 + armour).
    */
-  troops: Array<{ troop: number; w: number; a: number; lock: number }>;
+  troops: Array<{ troop: number; w: number; a: number; s: number; lock: number }>;
   /**
    * A Magi Sanctum (own and usable): each school it trains on its cards
    * (Patch 2), with the default wand and robe tiers (the padlock's kit, else

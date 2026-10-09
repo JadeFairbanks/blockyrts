@@ -2281,6 +2281,24 @@ body.playing.touch .hud {
   display: flex;
   gap: 3px;
 }
+/* A card button's right-click dropdown (Patch 5: Scrap 1, Scrap 10, Scrap all), framed like the tier strip. */
+.hud .panel.card-pop {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 3px;
+  border: 6px solid transparent;
+  border-image: var(--kit-popup) 12 fill / 6px round;
+}
+.hud .panel.card-pop[hidden] {
+  display: none;
+}
+.hud-btn.pop-item {
+  min-width: 96px;
+  height: 28px;
+}
 .tier-point {
   position: absolute;
   bottom: -17px;

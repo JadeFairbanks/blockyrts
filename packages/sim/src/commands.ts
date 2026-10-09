@@ -7,7 +7,7 @@ import { BuildingKind, buildingSpec, CANCEL_REFUND_PER_MILLE, levelSpec } from '
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { plannedSpots, stretchCells, stretchRoom } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
-import { cancelProduct, queueProduct, setKitLock, usableBy } from './buildings/production.ts';
+import { cancelProduct, queueProduct, setKitLock, stacks, usableBy } from './buildings/production.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
 import { costText, FOODS, refund, Res, RESOURCES, type Cost } from './economy/resources.ts';
 import { canAffordAny, haveOf, isAnyRes, payAny, shortOfAny } from './economy/food-kinds.ts';
@@ -525,7 +525,13 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'produce': {
         const b = usableBuilding(state, o.player, o.building);
         if (!b) break;
-        for (let k = 0; k < o.count; k++) {
+        // A stack (Scrap equipment, Patch 5) takes its whole count in one queue slot.
+        if (stacks(o.product)) {
+          const why = queueProduct(state, b, o.product, o.player, 0, o.count);
+          if (why) alert(state, o.player, why);
+          break;
+        }
+        for (let k = 0; k < Math.min(o.count, 5); k++) {
           const why = queueProduct(state, b, o.product, o.player);
           if (why) {
             alert(state, o.player, why);

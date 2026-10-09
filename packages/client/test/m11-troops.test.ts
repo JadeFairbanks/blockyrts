@@ -26,7 +26,7 @@ function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): Buil
 
 /** The Barracks' four troop types, at the given default tiers. */
 function barracks(id: number, w = 1, a = 0, o: Partial<BuildingInfo> = {}): BuildingInfo {
-  return building(id, BuildingKind.Barracks, { name: 'Barracks', troops: [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler].map((troop) => ({ troop, w: troop === Troop.Brawler ? 8 : w, a, lock: 0 })), ...o });
+  return building(id, BuildingKind.Barracks, { name: 'Barracks', troops: [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler].map((troop) => ({ troop, w: troop === Troop.Brawler ? 8 : w, a, s: 0, lock: 0 })), ...o });
 }
 
 interface World {
@@ -104,7 +104,7 @@ describe('troopChoice', () => {
     expect(troopChoice(b, Troop.Ranger)).toEqual({ w: 7, a: 4, picked: false, locked: true });
     expect(pickTier([b], Troop.Ranger, 'a', 2)).toEqual([{ building: 104, lock: 1 + 7 * 10 + 2 }]);
     // A main base trains tier 1 at most: a pick above that is not kept.
-    const house = building(105, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, lock: 0 }] });
+    const house = building(105, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, s: 0, lock: 0 }] });
     pickTier([house], Troop.Close, 'w', 4);
     expect(troopChoice(house, Troop.Close)).toEqual({ w: 1, a: 0, picked: false, locked: false });
   });
@@ -154,7 +154,7 @@ describe('weaponOptions and armourOptions', () => {
   });
 
   it('offer a main base tier 1 at most, and put close melee shields in the armour names', () => {
-    const house = building(111, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, lock: 0 }] });
+    const house = building(111, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, s: 0, lock: 0 }] });
     const g = game({ buildings: [house] });
     expect(weaponOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['Fists', 'Wooden cudgel']);
     expect(armourOptions(g, house, Troop.Close).map((o) => o.name)).toEqual(['No armour', 'Leather jerkin, wooden shield']);
@@ -185,7 +185,7 @@ describe('troopWhy', () => {
   });
 
   it('wants main base tier 2 and a tamed, grown horse in a Barn for cavalry (Patch 2: trained at the Barracks)', () => {
-    const b = barracks(124, 1, 0, { troops: [{ troop: Troop.Cavalry, w: 1, a: 0, lock: 0 }] });
+    const b = barracks(124, 1, 0, { troops: [{ troop: Troop.Cavalry, w: 1, a: 0, s: 0, lock: 0 }] });
     expect(troopWhy(game({ buildings: [b], pool: STOCK }), b, Troop.Cavalry, 1, 0)).toBe('Needs a tier 2 main base.');
     const g = game({ buildings: [b, building(125, BuildingKind.MainBase, { level: 2 })], pool: STOCK });
     expect(troopWhy(g, b, Troop.Cavalry, 1, 0)).toBe('No grown tamed horse ready in a Barn.');

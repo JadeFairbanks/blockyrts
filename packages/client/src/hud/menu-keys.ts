@@ -5,8 +5,10 @@
 // and hotkeys: "Two buttons on the same card never share a letter"). The
 // build menu's letters are picked by hand (s); a K menu's come from its
 // products' names by one rule (menuLetters). Esc is Back and + turns a long
-// menu's page (s).
-import { BUILDINGS, BuildingKind, buildingSpec, productsOf, productSpec, RESEARCH_PRODUCT, TROOP_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
+// menu's page (s). Patch 5 (Jade's UI-8 and GP-3): the Workshop's trinkets sit
+// under a Trinkets button and the scrapping of equipment under Scrap
+// equipment, each a submenu with letters of its own.
+import { BUILDINGS, BuildingKind, buildingSpec, productsOf, productSpec, recipeSpec, RESEARCH_PRODUCT, ResGroup, RESOURCES, TROOP_PRODUCT, type BuildingSpec } from '@blockyrts/sim';
 import type { Action } from '../input/bindings.ts';
 
 /** The buildings of the build menu in its order: one kind, or a submenu's kinds (Defences, Lights) sharing a place. */
@@ -44,6 +46,27 @@ export function submenuAction(group: string): string {
 /** The binding name of a product in a building's K menu (the same product can sit in two menus: rope at the Big House and the Workshop). */
 export function makeAction(kind: number, product: number): string {
   return `make-${kind}-${product}`;
+}
+
+/** A K menu's submenus, by number: the Workshop's trinkets and its scrapping of equipment (Patch 5). */
+export const MAKE_SUBMENUS: readonly string[] = ['Trinkets', 'Scrap equipment'];
+
+/** The scrapping submenu's number. */
+export const SCRAP_SUB = 1;
+
+/** Which submenu of a K menu a product sits in (MAKE_SUBMENUS), or -1 for the menu itself. */
+export function makeSub(product: number): number {
+  const r = productSpec(product).recipe;
+  if (r === undefined) return -1;
+  const spec = recipeSpec(r);
+  if (spec.scrap !== undefined) return SCRAP_SUB;
+  const out = spec.outputs[0]?.[0];
+  return out !== undefined && RESOURCES[out]?.group === ResGroup.Trinkets ? 0 : -1;
+}
+
+/** The binding name of the button opening a K menu's submenu. */
+export function makeSubAction(kind: number, sub: number): string {
+  return `make-${kind}-sub${sub}`;
 }
 
 /** The page turn of a menu too long for the card (More). */
@@ -148,13 +171,25 @@ export function makesOne(kind: number): boolean {
   return list.length === 1 && productSpec(list[0]!).recipe !== undefined;
 }
 
-/** Every K menu's default letters, by binding name. */
+/** A K menu's pages: the menu itself (its products, then its submenus' buttons) and each submenu, as binding names and names. */
+function makePages(kind: number): Array<{ sub: number; actions: Array<{ id: string; name: string }> }> {
+  const list = makeList(kind);
+  const subs = MAKE_SUBMENUS.map((_, k) => k).filter((k) => list.some((p) => makeSub(p) === k));
+  const item = (p: number): { id: string; name: string } => ({ id: makeAction(kind, p), name: productSpec(p).name });
+  return [
+    { sub: -1, actions: [...list.filter((p) => makeSub(p) < 0).map(item), ...subs.map((k) => ({ id: makeSubAction(kind, k), name: MAKE_SUBMENUS[k]! }))] },
+    ...subs.map((k) => ({ sub: k, actions: list.filter((p) => makeSub(p) === k).map(item) })),
+  ];
+}
+
+/** Every K menu's default letters, by binding name: each page's own, as each fills the card alone. */
 const MAKE_KEYS: ReadonlyMap<string, string> = (() => {
   const out = new Map<string, string>();
   for (const kind of MAKERS) {
-    const list = makeList(kind);
-    const letters = menuLetters(list.map((p) => productSpec(p).name));
-    list.forEach((p, k) => out.set(makeAction(kind, p), letters[k] ? `Key${letters[k]}` : ''));
+    for (const page of makePages(kind)) {
+      const letters = menuLetters(page.actions.map((a) => a.name));
+      page.actions.forEach((a, k) => out.set(a.id, letters[k] ? `Key${letters[k]}` : ''));
+    }
   }
   return out;
 })();
@@ -181,7 +216,10 @@ export function buildMenuActions(): Action[] {
 export function makeMenuActions(): Action[] {
   const out: Action[] = [];
   for (const kind of MAKERS) {
-    for (const p of makeList(kind)) out.push({ id: makeAction(kind, p), name: productSpec(p).name, key: MAKE_KEYS.get(makeAction(kind, p)) ?? '', group: `${buildingSpec(kind).name} menu` });
+    for (const page of makePages(kind)) {
+      const group = `${buildingSpec(kind).name} menu${page.sub >= 0 ? `: ${MAKE_SUBMENUS[page.sub]}` : ''}`;
+      for (const a of page.actions) out.push({ id: a.id, name: a.name, key: MAKE_KEYS.get(a.id) ?? '', group });
+    }
   }
   return out;
 }

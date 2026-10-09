@@ -70,6 +70,7 @@ import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
 import { typeWorth } from './worth.ts';
 import { actionIcon } from './card-icons.ts';
+import { CardPop } from './card-pop.ts';
 import { siteTraces, sitesInOrders, TRACE_LIFT_M, TRACE_NUDGE_M } from './site-marks.ts';
 import { doingActions } from './doing.ts';
 import { speechToPanel } from './wording.ts';
@@ -212,6 +213,8 @@ export class GameShell {
   private readonly selector: SelectionController;
   private readonly panel: SelectionPanel;
   private readonly cardButtons: HudButton[] = [];
+  /** A card button's right-click dropdown (Patch 5: the Workshop's Scrap 1, Scrap 10, Scrap all). */
+  private readonly cardPop: CardPop;
   /** What each card button stands for, to mark what the selection is doing now (its action, or the product or troop a building makes). */
   private cardDoing: string[] = [];
   /** What the portrait shows (a unit or building key), and its window on screen (null until measured again). */
@@ -352,7 +355,7 @@ export class GameShell {
     this.input = new InputManager(
       {
         game: this.gameMouse(),
-        anyPress: (button, inHud, el) => this.panel.cards.pressed(button === Btn.Left, inHud, el),
+        anyPress: (button, inHud, el) => this.cardPop.pressed(inHud, el) || this.panel.cards.pressed(button === Btn.Left, inHud, el),
         hudPress: (_panel, button, area) => {
           // Clicking a HUD panel other than the minimap cancels a targeted command (not the ghost: the card is how the player picks another).
           if (this.commands.targeting && area !== 'minimap' && button !== Btn.Middle) {
@@ -420,6 +423,7 @@ export class GameShell {
       centreOn: (list) => this.centreOn(list),
       message: (t) => this.message(t),
     });
+    this.cardPop = new CardPop(this.layout.cardPop, this.buttons);
     this.panel = new SelectionPanel(this.layout.selectionTitle, this.layout.selectionExtra, this.layout.selectionBody, this.layout.tierStrip, this.buttons, {
       player: this.player,
       health: (t) => this.health(t),
@@ -1366,7 +1370,7 @@ export class GameShell {
     }
     if (id === 'Escape') {
       // Esc backs out of a pending order, ghost or menu first, then clears the selection.
-      if (this.panel.cards.close()) return;
+      if (this.cardPop.close() || this.panel.cards.close()) return;
       if (this.selector.dragging) this.selector.cancel();
       else if (this.pinging) this.endPing();
       else if (this.commands.back()) this.cardDirty = true;
@@ -1877,12 +1881,15 @@ export class GameShell {
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
         ...(e.grey ? { onGreyPress: () => e.grey!() } : {}),
+        ...(e.choices ? { onRightClick: () => this.cardPop.show(b.el, e.action, e.choices!()) } : {}),
       });
       this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
       b.setEnabled(e.enabled, e.reason);
       b.setLit(e.lit === true);
       b.el.hidden = false;
     }
+    // The dropdown goes with the button it was opened on.
+    if (this.cardPop.open && !card.slice(0, fit.shown).some((e) => e.action === this.cardPop.action && e.enabled)) this.cardPop.close();
     this.input.refreshHover();
   }
 }

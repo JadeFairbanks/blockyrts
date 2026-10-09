@@ -111,6 +111,78 @@ export const Res = {
   AnyMeat: 107,
   AnyFish: 108,
   AnyLumber: 109,
+  /**
+   * Patch 5 (Jade, GP-1): weapons and armour are items again, one good for
+   * each piece of kit at each tier (units/kits.ts names which piece each one
+   * is). Nothing makes them: they come from monster waves, rewards and the
+   * old piece a unit takes off when it upgrades, and fit in place of making
+   * that piece. Close melee, long melee and cavalry, rangers, the brawler,
+   * armour, close melee's shields, workers' tool kits, wands and robes.
+   */
+  WoodenCudgel: 110,
+  FlintHandAxe: 111,
+  CopperShortSword: 112,
+  BronzeShortsword: 113,
+  WroughtIronSword: 114,
+  IronBroadsword: 115,
+  SteelSideSword: 116,
+  BasketHiltedBroadsword: 117,
+  FireHardenedSpear: 118,
+  FlintHeadedSpear: 119,
+  CopperLeafBladeSpear: 120,
+  BronzeSpear: 121,
+  CrudeIronSpear: 122,
+  IronPike: 123,
+  SteelHalberd: 124,
+  Zweihander: 125,
+  LeatherSling: 126,
+  YewLongbow: 127,
+  RecurveBowCopper: 128,
+  RecurveBowBronze: 129,
+  RecurveBowWroughtIron: 130,
+  RecurveBowIron: 131,
+  SteelProdCrossbow: 132,
+  FlintlockMusket: 133,
+  FlintlockPistol: 134,
+  LeatherJerkin: 135,
+  BoiledLeatherCuirass: 136,
+  CopperScaleJack: 137,
+  BronzeScaleArmour: 138,
+  WroughtIronMail: 139,
+  IronCoatOfPlates: 140,
+  SteelPlateHarness: 141,
+  FlutedGothicHarness: 142,
+  WoodenShield: 143,
+  BoiledLeatherTarge: 144,
+  IronRimmedHeaterShield: 145,
+  SteelHeaterShield: 146,
+  SteelRotella: 147,
+  WoodenTools: 148,
+  StoneAndFlintTools: 149,
+  CopperTools: 150,
+  BronzeTools: 151,
+  WroughtIronTools: 152,
+  IronTools: 153,
+  SteelTools: 154,
+  CarbonSteelTools: 155,
+  HazelWand: 156,
+  CopperTippedWand: 157,
+  BronzeBoundStaff: 158,
+  IronShodStaff: 159,
+  CrystalStaff: 160,
+  Archstaff: 161,
+  HomespunRobe: 162,
+  LeatherTrimmedRobe: 163,
+  HardenedLeatherRobe: 164,
+  WardedRobe: 165,
+  RuneStitchedVestments: 166,
+  ArchmagesMantle: 167,
+  /** The satyrs' drop (Patch 5, Stone Circle): a weapon item standing in for a bronze shortsword. */
+  ObsidianHandAxe: 168,
+  /** Patch 5's Stone Circle goods: obsidian counts as flint, 1 for 1, wherever flint is needed (STAND_INS). */
+  Obsidian: 169,
+  /** Patch 5 (Jade: venom makes poison arrow and bolt tips): made at the Workshop, put on a bow or crossbow ranger like a kit upgrade. */
+  PoisonTips: 170,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -123,7 +195,7 @@ export function trinketRes(metal: number, tier: number): Res {
   return (TRINKET_BASE + metal * 4 + tier - 1) as Res;
 }
 
-export const ResGroup = { Main: 0, Additional: 1, Goods: 2, Food: 3, Trinkets: 4 } as const;
+export const ResGroup = { Main: 0, Additional: 1, Goods: 2, Food: 3, Trinkets: 4, Gear: 5 } as const;
 export type ResGroup = (typeof ResGroup)[keyof typeof ResGroup];
 
 export interface ResourceInfo {
@@ -162,6 +234,82 @@ function trinkets(): ResourceInfo[] {
     });
   });
   return out;
+}
+
+const Gr = ResGroup.Gear;
+/** Where every gear item comes from (Patch 5, GP-1 and GP-3). */
+const GEAR_SOURCE = 'A ready piece of kit, from monster waves and rewards, or the old piece a unit takes off when it upgrades. Nothing makes it: a unit trained or upgraded to it puts it on in place of having one made, and the Workshop scraps it for its materials.';
+
+/**
+ * The gear items in id order (Patch 5): name and carrying weight, tenths of a
+ * pound (s: gear worn weighs nothing, Jade 2026-10-03; carried in a bag it
+ * does): a one-handed weapon 3 lb, a two-handed one 5 lb, a sling half a
+ * pound, a bow 2 lb, a crossbow 6 lb, a musket 9 lb, the pistol and cutlass
+ * 5 lb, armour 6 lb in leather to 20 lb in plate, a shield or a tool kit 5
+ * lb, a wand 2 lb and a robe 3 lb.
+ */
+function gearItems(): ResourceInfo[] {
+  const rows: Array<[Res, string, number]> = [
+    [Res.WoodenCudgel, 'Wooden cudgel', 30],
+    [Res.FlintHandAxe, 'Flint hand-axe', 30],
+    [Res.CopperShortSword, 'Copper short sword', 30],
+    [Res.BronzeShortsword, 'Bronze shortsword', 30],
+    [Res.WroughtIronSword, 'Wrought iron sword', 30],
+    [Res.IronBroadsword, 'Iron broadsword', 30],
+    [Res.SteelSideSword, 'Steel side-sword', 30],
+    [Res.BasketHiltedBroadsword, 'Basket-hilted broadsword', 30],
+    [Res.FireHardenedSpear, 'Fire-hardened spear', 50],
+    [Res.FlintHeadedSpear, 'Flint-headed spear', 50],
+    [Res.CopperLeafBladeSpear, 'Copper leaf-blade spear', 50],
+    [Res.BronzeSpear, 'Bronze spear', 50],
+    [Res.CrudeIronSpear, 'Crude iron spear', 50],
+    [Res.IronPike, 'Iron pike', 50],
+    [Res.SteelHalberd, 'Steel halberd', 50],
+    [Res.Zweihander, 'Zweihänder', 50],
+    [Res.LeatherSling, 'Leather sling', 5],
+    [Res.YewLongbow, 'Yew longbow', 20],
+    [Res.RecurveBowCopper, 'Recurve bow, copper arrowheads', 20],
+    [Res.RecurveBowBronze, 'Recurve bow, bronze arrowheads', 20],
+    [Res.RecurveBowWroughtIron, 'Recurve bow, wrought-iron arrowheads', 20],
+    [Res.RecurveBowIron, 'Recurve bow, iron arrowheads', 20],
+    [Res.SteelProdCrossbow, 'Steel-prod crossbow', 60],
+    [Res.FlintlockMusket, 'Flintlock musket', 90],
+    [Res.FlintlockPistol, 'Flintlock pistol and cutlass', 50],
+    [Res.LeatherJerkin, 'Leather jerkin', 60],
+    [Res.BoiledLeatherCuirass, 'Boiled-leather cuirass', 60],
+    [Res.CopperScaleJack, 'Copper scale jack', 100],
+    [Res.BronzeScaleArmour, 'Bronze scale armour', 100],
+    [Res.WroughtIronMail, 'Wrought-iron mail', 150],
+    [Res.IronCoatOfPlates, 'Iron coat of plates', 150],
+    [Res.SteelPlateHarness, 'Steel plate harness', 200],
+    [Res.FlutedGothicHarness, 'Fluted Gothic harness', 200],
+    [Res.WoodenShield, 'Wooden shield', 50],
+    [Res.BoiledLeatherTarge, 'Boiled-leather targe', 50],
+    [Res.IronRimmedHeaterShield, 'Iron-rimmed heater shield', 50],
+    [Res.SteelHeaterShield, 'Steel heater shield', 50],
+    [Res.SteelRotella, 'Steel rotella', 50],
+    [Res.WoodenTools, 'Wooden tools', 50],
+    [Res.StoneAndFlintTools, 'Stone and flint tools', 50],
+    [Res.CopperTools, 'Copper tools', 50],
+    [Res.BronzeTools, 'Bronze tools', 50],
+    [Res.WroughtIronTools, 'Wrought iron tools', 50],
+    [Res.IronTools, 'Iron tools', 50],
+    [Res.SteelTools, 'Steel tools', 50],
+    [Res.CarbonSteelTools, 'Carbon steel tools', 50],
+    [Res.HazelWand, 'Hazel wand', 20],
+    [Res.CopperTippedWand, 'Copper-tipped wand', 20],
+    [Res.BronzeBoundStaff, 'Bronze-bound staff', 20],
+    [Res.IronShodStaff, 'Iron-shod staff', 20],
+    [Res.CrystalStaff, 'Crystal staff', 20],
+    [Res.Archstaff, 'Archstaff', 20],
+    [Res.HomespunRobe, 'Homespun robe', 30],
+    [Res.LeatherTrimmedRobe, 'Leather-trimmed robe', 30],
+    [Res.HardenedLeatherRobe, 'Hardened-leather robe', 30],
+    [Res.WardedRobe, 'Warded robe', 30],
+    [Res.RuneStitchedVestments, 'Rune-stitched vestments', 30],
+    [Res.ArchmagesMantle, "Archmage's mantle", 30],
+  ];
+  return rows.map(([id, name, weight]) => r(id, name, name, Gr, weight, GEAR_SOURCE, 0, false));
 }
 
 /** Every resource, indexed by id. Weights from Table 12; nutrition from Table 6. */
@@ -250,6 +398,10 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.AnyMeat, 'Meat', 'Meat', F, 25, 'Any kind of raw meat.', 0, false),
   r(Res.AnyFish, 'Fish', 'Fish', F, 25, 'Any kind of fish.', 0, false),
   r(Res.AnyLumber, 'Lumber', 'Lumber', M, 50, 'Softwood or hardwood lumber, whichever is in stock.', 0, false),
+  ...gearItems(),
+  r(Res.ObsidianHandAxe, 'Obsidian hand-axe', 'Obsidian axe', Gr, 30, `The satyrs' weapon. ${GEAR_SOURCE} It fits as a bronze shortsword: a close melee troop takes it in place of one.`, 0, false),
+  r(Res.Obsidian, 'Obsidian', 'Obsidian', A, 10, 'Stone circle chests. Counts as flint wherever flint is needed.'),
+  r(Res.PoisonTips, 'Poison tips', 'Poison tips', G, 5, 'One venom at the Workshop. Upgrade equipment puts them on a bow or crossbow ranger, whose hits then poison.', 0, false),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;

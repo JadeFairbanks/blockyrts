@@ -2,17 +2,17 @@
 // Barracks or a Magi Sanctum, one card per troop type or school,
 // side by side under the title row. A card is the training picture (the bust
 // for the tier it would train, the action menu's key in its corner), the
-// name, two slots (weapon and armour, a mage's wand and robe) with their tier
-// numbers, and a padlock in its top right corner. A slot opens the tier strip
+// name, two slots (weapon and armour, a mage's wand and robe; close melee's
+// shield a third from Patch 5) with their tier numbers, and a padlock in its top right corner. A slot opens the tier strip
 // just above the panel: every tier the building offers as its picture and
 // number, gold round the one trained now, red where the stock is short (still
 // pickable), dark where not unlocked yet. Esc, a right click or a click
 // anywhere else closes it. Every sentence is in a tooltip.
-import { ARMOUR_KITS, mainCost, piecesTime, ROBE_KITS, Troop, WAND_KITS, armourPieces, weaponPiece, type Piece } from '@blockyrts/sim';
+import { ARMOUR_KITS, hasShield, mainCost, piecesTime, ROBE_KITS, shieldPieces, Troop, WAND_KITS, armourPieces, weaponPiece, type Piece } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import type { ButtonIcon, HudButton, HudButtonDef } from './buttons.ts';
-import { armourPic, robePic, wandPic, weaponPic, type Pic } from './icons.ts';
+import { armourPic, robePic, shieldPic, wandPic, weaponPic, type Pic } from './icons.ts';
 import { piecesStats } from './kit-text.ts';
 import {
   aTroopName,
@@ -67,13 +67,20 @@ function cardBust(card: number, w: number): string {
 /** A slot's picture at a tier. */
 function slotPic(card: number, line: KitLine, tier: number): Pic {
   if (isMageCard(card)) return line === 'w' ? wandPic(tier) : robePic(tier);
-  return line === 'w' ? weaponPic(card, tier) : armourPic(tier);
+  return line === 'w' ? weaponPic(card, tier) : line === 's' ? shieldPic(tier) : armourPic(tier);
 }
 
-/** The pieces one line of a card holds at a tier (close melee's armour carries its shield). */
+/** The lines a card shows: weapon and armour, and close melee's shield. */
+const cardLines = (card: number): KitLine[] => (!isMageCard(card) && hasShield(card) ? ['w', 'a', 's'] : ['w', 'a']);
+
+/** A line's tier in a card's kit. */
+const lineTier = (k: { w: number; a: number; s: number }, line: KitLine): number => (line === 'w' ? k.w : line === 's' ? k.s : k.a);
+
+/** The pieces one line of a card holds at a tier. */
 function linePieces(card: number, line: KitLine, tier: number): Piece[] {
   if (isMageCard(card)) return [line === 'w' ? WAND_KITS[tier]! : ROBE_KITS[tier]!];
-  if (line === 'a') return tier === 0 ? [ARMOUR_KITS[0]!] : armourPieces(card, tier);
+  if (line === 's') return shieldPieces(card, tier);
+  if (line === 'a') return tier === 0 ? [ARMOUR_KITS[0]!] : armourPieces(tier);
   const p = weaponPiece(card, tier);
   return p ? [p] : [];
 }
@@ -107,9 +114,9 @@ export class TrainingCards {
       const tiers = (line: KitLine): string => cardOptions(g, first, r.card, line).map((o) => (o.why ? (o.short ? 's' : 'n') : 'y')).join('');
       const why = all.map((b) => {
         const k = cardChoice(b, r.card);
-        return cardWhy(g, b, r.card, k.w, k.a);
+        return cardWhy(g, b, r.card, k.w, k.a, k.s);
       });
-      return `${r.card}:${c.w}.${c.a}.${c.picked}.${c.locked}:${lockedCount(all, r.card)}:${why.join('/')}:${tiers('w')}|${tiers('a')}:${this.host.keyName(cardAction(r.card))}`;
+      return `${r.card}:${c.w}.${c.a}.${c.s}.${c.picked}.${c.locked}:${lockedCount(all, r.card)}:${why.join('/')}:${tiers('w')}|${tiers('a')}|${tiers('s')}:${this.host.keyName(cardAction(r.card))}`;
     });
     const s = this.strip;
     return `${s ? `${s.card}${s.line}${s.on}` : ''}|${first.horses}|${rows.join(';')}`;
@@ -133,13 +140,10 @@ export class TrainingCards {
       let why = '';
       for (const b of all) {
         const k = cardChoice(b, card);
-        why = cardWhy(g, b, card, k.w, k.a);
+        why = cardWhy(g, b, card, k.w, k.a, k.s);
         if (why === '') break;
       }
-      if (all.length > 1 && why) {
-        const k = cardChoice(first, card);
-        why = cardWhy(g, first, card, k.w, k.a);
-      }
+      if (all.length > 1 && why) why = cardWhy(g, first, card, c.w, c.a, c.s);
       const el = div(`kit-card${c.locked ? ' locked' : ''}${why ? ' cannot' : ''}`, box);
       el.dataset.card = String(card);
       const name = cardName(card);
@@ -185,7 +189,7 @@ export class TrainingCards {
       el.append(pic.el, lock.el);
       div('card-name', el, name);
       const slots = div('card-slots', el);
-      for (const line of ['w', 'a'] as const) slots.append(this.slot(first, card, line, line === 'w' ? c.w : c.a).el);
+      for (const line of cardLines(card)) slots.append(this.slot(first, card, line, lineTier(c, line)).el);
     }
     this.renderStrip(all);
     return box;
@@ -200,7 +204,7 @@ export class TrainingCards {
     const name = o?.name ?? pieces[0]?.name ?? '';
     const open = this.strip?.card === card && this.strip.line === line;
     const dark = !!o && o.why !== '' && !o.short;
-    const what = line === 'w' ? (isMageCard(card) ? 'wand' : 'weapon') : isMageCard(card) ? 'robe' : 'armour';
+    const what = line === 'w' ? (isMageCard(card) ? 'wand' : 'weapon') : line === 's' ? 'shield' : isMageCard(card) ? 'robe' : 'armour';
     const btn = this.host.button(`card-${card}-${line}`, {
       face: String(tier),
       icon: icon(slotPic(card, line, tier), String(tier)),
@@ -236,7 +240,7 @@ export class TrainingCards {
     const first = all[0]!;
     const g = this.host.game;
     const c = cardChoice(first, s.card);
-    const now = s.line === 'w' ? c.w : c.a;
+    const now = lineTier(c, s.line);
     const current = linePieces(s.card, s.line, now);
     const row = div('tier-row', el);
     for (const o of cardOptions(g, first, s.card, s.line)) {
