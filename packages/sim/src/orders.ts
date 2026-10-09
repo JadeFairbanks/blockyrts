@@ -571,7 +571,14 @@ export interface DropItemOrder extends UnitsOrder {
   res: number;
 }
 
-/** Equip (Patch 5, GP-2): a unit walks to the nearest place to upgrade and puts on the stock's item res (a weapon, armour, shield, tools, wand or robe), as Upgrade equipment does. */
+/**
+ * Equip (Patch 5, GP-2): a unit walks to the nearest place to upgrade and
+ * puts on the stock's item res (a weapon, armour, shield, tools, wand or
+ * robe), as Upgrade equipment does. Patch 7 (plan section 7): any piece that
+ * fits, looted ones and the Dreadnought's too; with several units, each it
+ * fits and betters takes one, the highest rank first, while the stock lasts
+ * (units/handling.ts orderEquip).
+ */
 export interface EquipOrder extends UnitsOrder {
   kind: 'equip';
   res: number;
@@ -1101,11 +1108,11 @@ export function validateOrder(o: Order): void {
       if (o.res < 0 || o.res > 255 || (o.on !== 0 && o.on !== 1)) throw new Error('bad Don\'t eat toggle');
       return;
     case 'unloadItem':
-      if (o.res < -1 || o.res > 254) throw new Error('bad unload: a good, or -1 for everything');
+      if (o.res < -1 || o.res > GOOD_MAX) throw new Error('bad unload: a good, or -1 for everything');
       return;
     case 'dropItem':
     case 'equip':
-      if (o.res < 0 || o.res > 254) throw new Error(`bad ${o.kind}: a good`);
+      if (o.res < 0 || o.res > GOOD_MAX) throw new Error(`bad ${o.kind}: a good`);
       return;
     case 'pickOwn':
       if (o.command < 0 || o.command > 3) throw new Error('bad pick-own command');
@@ -1146,7 +1153,7 @@ export function validateOrder(o: Order): void {
       if (o.to < 0 || o.to > 7 || o.res < 0 || o.res > 255 || o.amount < 1 || o.amount > 1_000_000_000) throw new Error('bad send resources');
       return;
     case 'answer':
-      if ((o.yes !== 0 && o.yes !== 1) || o.q < 1 || o.q > 31 || o.units.length > 256 || o.res < -1 || o.res > 255) throw new Error('bad answer');
+      if ((o.yes !== 0 && o.yes !== 1) || o.q < 1 || o.q > 31 || o.units.length > 256 || o.res < -1 || o.res > GOOD_MAX) throw new Error('bad answer');
       if (o.n !== undefined && (!isInt(o.n) || o.n < 0 || o.n > 99)) throw new Error('bad answer');
       return;
     case 'greyed':

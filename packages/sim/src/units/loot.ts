@@ -12,7 +12,9 @@
 // where nobody picks it up by themselves. Patch 7 (plan section 7): Keep in
 // bag locks a good in the bag, in a pocket of its own (EntityStore.kept) that
 // nothing hands in by itself; Unload, Drop, Give, Equip and Scrap still take
-// it, and the lock goes when the last of it leaves.
+// it, and the lock goes when the last of it leaves. A unit that picks up a
+// piece that fits it and beats what it has asks to use it (the pickup
+// prompt, units/pickup-ask.ts, through lootHooks).
 // Engines and animals carry nothing: they do not eat.
 
 import { buildingSpec } from '../buildings/data.ts';
@@ -36,6 +38,9 @@ import { accepts, Act, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk
 import type { UnitOrder } from './unit-orders.ts';
 import { rawLimitTenthsLb, rawTenthsLb } from './weight.ts';
 import { foodIn, ledgerAdd } from './woodsman.ts';
+
+/** What other modules do when a unit puts goods in its bag (Patch 7: units/pickup-ask.ts offerPickup, the pickup prompt). */
+export const lootHooks: { picked: (state: SimState, i: number, got: ReadonlyArray<readonly [number, number]>, found: boolean) => void } = { picked: () => {} };
 
 /** A unit's loot bag holds 25 lb, the Table 12 carrying limit, a worker's gathered load counting against it (s). */
 export const LOOT_BAG_TENTHS_LB = 250;
@@ -121,6 +126,13 @@ export function bagFreeTenthsLb(state: SimState, i: number): number {
 /** How many of a resource still fit in a unit's bag. */
 export function bagRoom(state: SimState, i: number, res: number): number {
   return floorDiv(bagFreeTenthsLb(state, i), weightOf(res));
+}
+
+/** Whether a unit's bag takes these goods, one of each listed, once one `less` has left it (Patch 7: the piece a swap takes off, for the piece it puts on). */
+export function bagTakes(state: SimState, i: number, add: readonly number[], less = -1): boolean {
+  let need = less >= 0 ? -weightOf(less) : 0;
+  for (const r of add) need += weightOf(r);
+  return need <= bagFreeTenthsLb(state, i);
 }
 
 /** Whether a unit's bag holds nothing to hand in (what is kept in it stays: Patch 7, Keep in bag). */
@@ -255,13 +267,17 @@ export function handInOne(state: SimState, i: number, res: number): void {
  * right click on it sends units for it as for any loot.
  */
 export function dropItem(state: SimState, i: number, res: number): number {
-  const e = state.entities;
   const n = takeOut(state, i, res);
-  if (n <= 0) return 0;
+  if (n > 0) dropAtFeet(state, i, res, n);
+  return n;
+}
+
+/** Puts n of a good on the ground at a unit's feet, dropped on purpose: nobody picks it up by themselves (Drop, and Patch 7's Drop of a worn piece). */
+export function dropAtFeet(state: SimState, i: number, res: number, n: number): void {
+  const e = state.entities;
   const x = e.x[i]!;
   const z = e.z[i]!;
   state.loot.push({ id: state.nextEntityId++, res, amt: n, x, y: standY(state, x, z), z, at: state.step, by: 0, owner: DROPPED, brag: 0, src: 0 });
-  return n;
 }
 
 /**
@@ -494,6 +510,7 @@ export function dropLoot(state: SimState, x: number, z: number, items: Items, fr
     if (got.length === 0) continue;
     if (j === k) killerGot = true;
     found(state, j, got, from.brag, from.src, j === k && hunting(state, j) ? (from.prey ?? 0) : 0);
+    lootHooks.picked(state, j, got, true);
     if (left.every((it) => it[1] === 0)) break;
   }
   // A hunter whose kill fell out of its reach (or its bag is full) still says what it got.
@@ -559,6 +576,7 @@ function pickUp(state: SimState, i: number, first: number): boolean {
   state.loot = state.loot.filter((l) => l.amt > 0);
   if (got.length === 0) return false;
   found(state, i, got, brag, src, 0);
+  lootHooks.picked(state, i, got, true);
   return true;
 }
 

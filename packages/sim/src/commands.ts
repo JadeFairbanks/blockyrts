@@ -25,7 +25,7 @@ import { RESEARCH } from './combat/items.ts';
 import { addMob, combatTroop } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt, isDark } from './clock.ts';
-import { inFront, orderCart, orderEquip, orderUpgrade, orderUpgradeEquipment } from './units/gear.ts';
+import { inFront, orderCart, orderUpgrade, orderUpgradeEquipment } from './units/gear.ts';
 import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, carriedOf, dropItem, HAND_ONE, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
@@ -50,7 +50,7 @@ import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
 import { actSpot, CircleAct, doAct, onColumn, planter, showCircle, unitAt } from './circles/act.ts';
 import { useItem } from './circles/items.ts';
-import { orderEquipBag, orderGive, orderKeep, orderScrapItem, orderTakeOff } from './units/handling.ts';
+import { orderEquip, orderEquipBag, orderGive, orderKeep, orderScrapItem, orderTakeOff } from './units/handling.ts';
 import { barnHandsIn, keepBarnHands } from './units/barn-hand.ts';
 
 /** Spacing of a group spread round its target (s): 1.2 m. */
