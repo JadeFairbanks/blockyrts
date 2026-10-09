@@ -56,6 +56,7 @@ import type { FromMesh, MeshResult, PropSummary, ToMesh } from './mesh-messages.
 import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
 import { CUBE_STRIDE } from './props-gen.ts';
 import { propDetails, propLabel } from './plant-text.ts';
+import { circlePieceDetails, circlePieceLabel } from './circle-text.ts';
 import { BuildingsView } from './buildings-view.ts';
 import { UnitsView } from './units-view.ts';
 import { PortraitView } from './portrait-view.ts';
@@ -63,7 +64,8 @@ import { LootView } from './loot-view.ts';
 import { glitterOfResource, Muzzle, WorldFx, type GlitterSpot } from './sparkle.ts';
 import { shotSound } from '../audio/sound-map.ts';
 import { Overlay } from './overlay.ts';
-import { patchMaterial, type FowUniforms } from './fog-material.ts';
+import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
+import { PropModelsView, PROP_VIEW_IDS, type PlacedProp } from './prop-models-view.ts';
 import { HiddenOutlines, type OutlineStats, type OwnDraw } from './hidden-outlines.ts';
 import { HoverOutline, type HoverParts } from './hover-outline.ts';
 import { aimSun, keepShadowFlags, setUpSun } from './sun-shadows.ts';
@@ -186,6 +188,9 @@ interface ChunkView {
   /** The scenery cubes, and each prop's cubes in them by its key (first, count), for the hover outline. */
   cubes: THREE.InstancedMesh | null;
   ranges: Map<string, readonly [number, number]>;
+  /** Its props drawn with their own models (Patch 5), and the models it would use that have not loaded yet. */
+  models: PlacedProp[];
+  wants: string[];
 }
 
 export interface WorldViewOptions {
@@ -255,6 +260,13 @@ export class WorldView {
   /** The selection's portrait, drawn by match.ts into the HUD's portrait window after the world. */
   readonly portrait: PortraitView;
   private readonly lootView: LootView;
+  /** The world props' own models (Patch 5). */
+  private readonly propModels: PropModelsView;
+  /** Prop models loaded since the mesh workers were last told, and when they were. */
+  private propModelsNew: string[] = [];
+  private propModelsToldAt = 0;
+  /** Prop models a chunk asked the library for. */
+  private readonly propModelsAsked = new Set<string>();
   /** Muzzle flashes and gold and silver glitter (Patch 5, VX-6). */
   private readonly fx: WorldFx;
   private glitterDirty = true;
@@ -318,6 +330,7 @@ export class WorldView {
     this.portrait = new PortraitView(this.colours, NEUTRAL_COLOUR);
     this.overlay = new Overlay(scene);
     this.lootView = new LootView(scene);
+    this.propModels = new PropModelsView(scene, { key: 'fow', apply: fowPatch(this.fow, false) });
     this.fx = new WorldFx(scene);
 
     const ground: GroundPicker = (ray) => this.pick(ray);
@@ -369,7 +382,7 @@ export class WorldView {
     }
     return {
       units: this.hoverUnits.size > 0 ? { group: this.unitsView.bodyGroup, pass: (m) => this.unitsView.passPools(m) } : null,
-      models,
+      models: [...models, ...this.propModels.hovered()],
       meshes,
       sprites: this.lootView.hoverSprites(this.hoverKeys),
       cubes,
@@ -384,6 +397,33 @@ export class WorldView {
     this.ghostUnits?.setModels(lib);
     this.buildings.setModels(lib);
     this.portrait.setModels(lib);
+    this.propModels.setModels(lib);
+    for (const id of lib.models.keys()) if (PROP_VIEW_IDS.has(id)) this.propModelsNew.push(id);
+    lib.onLoad((m) => {
+      if (PROP_VIEW_IDS.has(m.id)) this.propModelsNew.push(m.id);
+    });
+  }
+
+  /**
+   * Tells the mesh workers about the prop models loaded since last time (at
+   * most once a second, as they arrive in a rush), and remeshes the chunks
+   * that wanted them: their props swap from cubes to models.
+   */
+  private tellPropModels(now: number): void {
+    const lib = this.models;
+    if (!lib || this.propModelsNew.length === 0 || now - this.propModelsToldAt < 1000) return;
+    this.propModelsToldAt = now;
+    const ids = new Set(this.propModelsNew);
+    this.propModelsNew = [];
+    const bounds: Array<[string, number, number, number, number, number, number]> = [];
+    for (const id of ids) {
+      const b = lib.models.get(id)?.boundingBox;
+      if (b) bounds.push([id, b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z]);
+    }
+    for (const w of this.workers) w.postMessage({ type: 'propModels', bounds } satisfies ToMesh);
+    for (const c of this.chunks.values()) if (c.wants.some((id) => ids.has(id))) c.version++;
+    // An idol's model draws on an altar already in view.
+    this.propModels.invalidate();
   }
 
   // ---- From the sim worker ----
@@ -688,6 +728,8 @@ export class WorldView {
     this.minimapFocus = focus;
     this.updateUnits(now);
     this.lootView.update(now);
+    this.tellPropModels(now);
+    this.propModels.update(this.modelChunks(), this.game?.info?.circles, this.hoverKeys, now);
     this.updateFx(now);
     this.updateSky();
     if (this.game) this.buildings.update(this.game, now, focus);
@@ -709,6 +751,11 @@ export class WorldView {
       this.fowLastSeen = now;
       this.rebuildFog();
     }
+  }
+
+  /** The props drawn with models, chunk by chunk. */
+  private *modelChunks(): Iterable<readonly PlacedProp[]> {
+    for (const c of this.chunks.values()) if (c.lod === 1 && c.models.length > 0) yield c.models;
   }
 
   /** Which chunks to draw at which detail around the focus; explored land and its edge only, unless showing all. */
@@ -734,7 +781,7 @@ export class WorldView {
     for (const [key, w] of want) {
       if (this.chunks.has(key)) continue;
       const [cx, cz] = key.split(',').map(Number) as [number, number];
-      this.chunks.set(key, { cx, cz, lod: 0, want: w, pending: 0, version: 0, meshedVersion: -1, requested: 0, group: null, heights: null, size: 0, props: [], glitter: [], meshedAt: 0, cubes: null, ranges: new Map() });
+      this.chunks.set(key, { cx, cz, lod: 0, want: w, pending: 0, version: 0, meshedVersion: -1, requested: 0, group: null, heights: null, size: 0, props: [], glitter: [], meshedAt: 0, cubes: null, ranges: new Map(), models: [], wants: [] });
     }
   }
 
@@ -805,6 +852,16 @@ export class WorldView {
     c.glitter = this.glitterOf(c, m.props);
     this.glitterDirty = true;
     for (const p of m.props) c.ranges.set(`p:${c.cx},${c.cz}:${p.index}`, [p.first, p.cubes]);
+    c.models = [];
+    for (const p of m.props) if (p.model) c.models.push({ key: `p:${c.cx},${c.cz}:${p.index}`, kind: p.kind, variant: p.variant, ox: c.cx * CHUNK_M, oz: c.cz * CHUNK_M, model: p.model });
+    c.wants = m.wants;
+    // Its models load next.
+    for (const id of m.wants) {
+      if (this.propModelsAsked.has(id)) continue;
+      this.propModelsAsked.add(id);
+      this.models?.request(id);
+    }
+    this.propModels.invalidate();
     c.meshedAt = performance.now();
   }
 
@@ -846,10 +903,11 @@ export class WorldView {
       typeKey: `node:${info.name.toLowerCase()}`,
       centre: new THREE.Vector3(x, p.y, z),
       halfSize: new THREE.Vector3(p.hx, p.hy, p.hz),
-      label: propLabel(p.kind, p.stage, p.amount),
-      details: propDetails(p.kind, p.stage, p.amount, p.most, p.nextAt < 0 ? -1 : p.nextAt - this.simStep),
+      label: circlePieceLabel(p.kind, p.variant, p.amount) ?? propLabel(p.kind, p.stage, p.amount),
+      details: [...propDetails(p.kind, p.stage, p.amount, p.most, p.nextAt < 0 ? -1 : p.nextAt - this.simStep), ...circlePieceDetails(p.kind, p.stage, p.amount, p.variant)],
       // A sapling holds nothing yet, so there is nothing to gather.
       resource: info.resource && p.amount > 0 ? info.resource : '',
+      prop: { kind: p.kind, variant: p.variant, gx: c.cx * COLUMNS_PER_CHUNK + p.lx, gz: c.cz * COLUMNS_PER_CHUNK + p.lz, amount: p.amount },
     };
   }
 
@@ -888,6 +946,8 @@ export class WorldView {
     c.lod = 0;
     c.cubes = null;
     c.ranges.clear();
+    if (c.models.length > 0) this.propModels.invalidate();
+    c.models = [];
   }
 
   // ---- Fog of war ----
@@ -1371,6 +1431,7 @@ export class WorldView {
   dispose(): void {
     for (const w of this.workers) w.terminate();
     for (const c of this.chunks.values()) this.dropChunk(c);
+    this.propModels.dispose();
     this.models?.dispose();
   }
 }

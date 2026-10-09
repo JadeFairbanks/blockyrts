@@ -100,8 +100,8 @@ export function statusText(f: PeopleInfo): string {
   return f.traded ? 'At peace. You have traded with them.' : 'At peace.';
 }
 
-/** A panel's buttons, made again whenever its content changes. */
-class Buttons {
+/** A panel's buttons, made again whenever its content changes (the stone circles' panels use them too). */
+export class Buttons {
   private ids: string[] = [];
   private n = 0;
 
@@ -133,7 +133,7 @@ class Buttons {
   }
 }
 
-function el(tag: string, cls: string, parent?: HTMLElement, text?: string): HTMLElement {
+export function el(tag: string, cls: string, parent?: HTMLElement, text?: string): HTMLElement {
   const e = document.createElement(tag);
   e.className = cls;
   if (text !== undefined) e.textContent = text;
@@ -142,7 +142,7 @@ function el(tag: string, cls: string, parent?: HTMLElement, text?: string): HTML
 }
 
 /** A panel's title row and the body under it, which scrolls on its own so the title and its × always show (decisions 2.16). */
-function frame(panel: HTMLElement, title: string): { head: HTMLElement; body: HTMLElement } {
+export function frame(panel: HTMLElement, title: string): { head: HTMLElement; body: HTMLElement } {
   panel.replaceChildren();
   const head = el('div', 'dlg-head', panel);
   el('h3', 'dlg-title', head, title);

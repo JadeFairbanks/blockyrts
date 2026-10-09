@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { cue } from '../audio/cues.ts';
 import {
   BuildingKind,
+  CircleAct,
   costText,
   craftRate,
   CREWMAN_RETRAIN_STEPS,
@@ -68,6 +69,10 @@ import {
   upgradePieces,
   equipmentPlans,
   type EquipmentHolder,
+  PropKind,
+  variantCircle,
+  variantLook,
+  variantType,
   WU_PER_COLUMN,
   WU_PER_METRE,
   WU_PER_TERRAIN_UNIT,
@@ -265,6 +270,8 @@ export interface CommandDeps {
   confirmWar(faction: number, then: () => void): void;
   /** The trade menu, or a mercenary camp's hire box. */
   openPeople(faction: number): void;
+  /** Opens a stone circle's altar panel (Patch 5, SCA-2): leave the Goddess her gifts, take the idol. */
+  openAltar?(circle: number, type: number): void;
   /** How many buttons the card can show at once, at the smallest size it may shrink them to (hud-layout.ts buttonRoom); 15 when left out. */
   slots?(): CardSize;
 }
@@ -1411,6 +1418,38 @@ export class Commands {
     return true;
   }
 
+  /**
+   * Right click on a stone circle's piece (Patch 5): a unit opens a bluestone
+   * chest (SC-6), the altar's panel opens (SCA-2), a worker cuts down a bare
+   * Sweet Hawthorne (SC-9), and a shut Moon Rose bush says when it opens (SCA-8).
+   */
+  private circlePiece(item: Selectable, units: number[], workers: number[]): boolean {
+    const p = item.prop!;
+    const player = this.d.player;
+    const queued = this.d.queued();
+    switch (p.kind) {
+      case PropKind.BluestoneChest:
+        this.d.send({ kind: 'circle', player, units, circle: variantCircle(p.variant), act: CircleAct.OpenChest, arg: variantLook(p.variant), queued });
+        this.d.marker(item.centre, 'target');
+        return true;
+      case PropKind.CircleAltar:
+        if (!this.d.openAltar) return false;
+        this.d.openAltar(variantCircle(p.variant), variantType(p.variant));
+        return true;
+      case PropKind.SweetHawthorne:
+        if (workers.length === 0 || item.resource) return false;
+        this.d.send({ kind: 'circle', player, units: workers, circle: p.gx, act: CircleAct.Fell, arg: p.gz, queued });
+        this.d.marker(item.centre, 'target');
+        return true;
+      case PropKind.MoonRoseBush:
+        if (p.amount > 0) return false;
+        this.d.message('The Moon Roses open only on a Bright Night.');
+        return true;
+      default:
+        return false;
+    }
+  }
+
   /** A wild animal on screen. */
   private wildAnimal(item: Selectable): boolean {
     return item.kind === 'unit' && item.typeKey.startsWith('animal:wild:');
@@ -1597,6 +1636,8 @@ export class Commands {
     const units = this.unitIds();
     if (units.length === 0) {
       if (this.buildings().length > 0) this.rally(item, ground);
+      // A stone circle's altar panel opens with nothing selected too, as the trade menus do.
+      else if (item?.prop && this.circlePiece(item, [], [])) return;
       // Their trade menu opens with nothing selected too (it says what is needed).
       else if (item) this.talkTo(item);
       return;
@@ -1617,6 +1658,7 @@ export class Commands {
       if (others.length > 0 && ground) this.d.send({ kind: 'move', player, units: others, x: Math.round(ground.x * WU_PER_METRE), z: Math.round(ground.z * WU_PER_METRE), queued });
       return;
     }
+    if (item?.prop && this.circlePiece(item, units, workers)) return;
     if (item && this.ownBuilding(item) && workers.length > 0) {
       const b = this.buildingOf(item);
       if (b) {

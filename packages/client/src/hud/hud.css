@@ -984,6 +984,7 @@ body.playing * {
 .peoples-panel,
 .trade-dialog,
 .hire-dialog,
+.circle-dialog,
 .war-confirm {
   z-index: 5;
   padding: 10px 12px 12px;
@@ -998,6 +999,7 @@ body.playing * {
 .peoples-panel,
 .trade-dialog,
 .hire-dialog,
+.circle-dialog,
 .allies-panel,
 .send-dialog {
   display: flex;
@@ -1042,6 +1044,14 @@ body.playing * {
   width: min(420px, calc(100vw - 32px));
 }
 .hire-dialog {
+  max-height: calc(100vh - 120px - var(--card-top, 250px) - 8px);
+}
+/* Patch 5's stone circles: a bluestone chest's spaces and an altar, laid out like the hire box. */
+.circle-dialog {
+  left: 50%;
+  top: 120px;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 32px));
   max-height: calc(100vh - 120px - var(--card-top, 250px) - 8px);
 }
 .war-confirm {

@@ -15,10 +15,13 @@ import {
   type LowResChunk,
 } from '@blockyrts/sim';
 import { CUBE_STRIDE, propCubes, sceneryCubes } from './props-gen.ts';
-import { meshChunk, meshLowRes, meshWater } from './mesher.ts';
+import { COLUMN_M, meshChunk, meshLowRes, meshWater, UNIT_M } from './mesher.ts';
 import type { FromMesh, PropSummary, ToMesh } from './mesh-messages.ts';
+import { PENDING_PROP_MODELS, propModel } from './prop-models.ts';
 
 let world: World | null = null;
+/** The prop models the page has loaded, by id: their rest bounds. */
+const modelBounds = new Map<string, readonly number[]>();
 
 /** Samples of an edited chunk taken from its columns; untouched chunks come straight from the generator. */
 function lowRes(w: World, cx: number, cz: number, step: number): LowResChunk {
@@ -53,7 +56,7 @@ function mesh(id: number, cx: number, cz: number, lod: number, simStep: number, 
     const heights = lr.top;
     const transfer: Transferable[] = [land.positions.buffer, land.normals.buffer, land.colors.buffer, land.indices.buffer, heights.buffer];
     if (water) transfer.push(water.positions.buffer, water.normals.buffer, water.colors.buffer, water.indices.buffer);
-    post({ type: 'mesh', id, cx, cz, lod, land, water, cubes: null, props: [], heights, size: lr.size, ms: performance.now() - started }, transfer);
+    post({ type: 'mesh', id, cx, cz, lod, land, water, cubes: null, props: [], wants: [], heights, size: lr.size, ms: performance.now() - started }, transfer);
     return;
   }
   const centre = w.columns(cx, cz);
@@ -69,10 +72,32 @@ function mesh(id: number, cx: number, cz: number, lod: number, simStep: number, 
   const cubes: number[] = [];
   const props: PropSummary[] = [];
   const taken = new Set<number>();
+  const wants = new Set<string>();
   for (const p of w.props(cx, cz, simStep)) {
     const before = cubes.length;
-    propCubes(p, cubes);
+    const nextAt = p.next < 0 ? -1 : simStep + p.next;
     taken.add(p.lz * N + p.lx);
+    // Drawn with its own model once that has loaded; its cubes until then.
+    const pm = propModel(p.kind, p.stage, p.variant, p.amount);
+    const b = pm ? modelBounds.get(pm.id) : undefined;
+    if (pm && b) {
+      const x = (p.lx + 0.5) * COLUMN_M;
+      const z = (p.lz + 0.5) * COLUMN_M;
+      const y = p.y * UNIT_M;
+      // The model's footprint turned by its yaw, for selection; trees by their trunk and lower crown.
+      const c = Math.abs(Math.cos(pm.yaw));
+      const s = Math.abs(Math.sin(pm.yaw));
+      const wx = ((b[3]! - b[0]!) * pm.scale) / 2;
+      const wz = ((b[5]! - b[2]!) * pm.scale) / 2;
+      const hy = ((b[4]! - b[1]!) * pm.scale) / 2;
+      const tree = propInfo(p.kind).shape === PropShape.Tree;
+      const hx = tree ? Math.min(c * wx + s * wz, 1.2) : Math.max(0.3, c * wx + s * wz);
+      const hz = tree ? Math.min(s * wx + c * wz, 1.2) : Math.max(0.3, s * wx + c * wz);
+      props.push({ index: p.index, kind: p.kind, lx: p.lx, lz: p.lz, x, y: y + hy, z, hx, hy: Math.max(0.2, hy), hz, amount: p.amount, most: p.most, stage: p.stage, nextAt, first: before / CUBE_STRIDE, cubes: 0, variant: p.variant, model: { ...pm, x, y, z } });
+      continue;
+    }
+    if (pm && !PENDING_PROP_MODELS.has(pm.id.split(/[@~]/)[0]!)) wants.add(pm.id);
+    propCubes(p, cubes);
     // The bounding box of its cubes, for selection.
     let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
     for (let k = before; k < cubes.length; k += CUBE_STRIDE) {
@@ -87,7 +112,7 @@ function mesh(id: number, cx: number, cz: number, lod: number, simStep: number, 
     const tree = propInfo(p.kind).shape === PropShape.Tree;
     const hx = tree ? Math.min((x1 - x0) / 2, 1.2) : Math.max(0.3, (x1 - x0) / 2);
     const hz = tree ? Math.min((z1 - z0) / 2, 1.2) : Math.max(0.3, (z1 - z0) / 2);
-    props.push({ index: p.index, kind: p.kind, x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2, hx, hy: Math.max(0.2, (y1 - y0) / 2), hz, amount: p.amount, most: p.most, stage: p.stage, nextAt: p.next < 0 ? -1 : simStep + p.next, first: before / CUBE_STRIDE, cubes: (cubes.length - before) / CUBE_STRIDE });
+    props.push({ index: p.index, kind: p.kind, lx: p.lx, lz: p.lz, x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2, hx, hy: Math.max(0.2, (y1 - y0) / 2), hz, amount: p.amount, most: p.most, stage: p.stage, nextAt, first: before / CUBE_STRIDE, cubes: (cubes.length - before) / CUBE_STRIDE, variant: p.variant, model: null });
   }
   if (scenery) {
     const edited = w.editedColumns.get(chunkKey(cx, cz));
@@ -103,7 +128,7 @@ function mesh(id: number, cx: number, cz: number, lod: number, simStep: number, 
   const cubeArray = new Float32Array(cubes);
   const transfer: Transferable[] = [land.positions.buffer, land.normals.buffer, land.colors.buffer, land.indices.buffer, heights.buffer, cubeArray.buffer];
   if (water) transfer.push(water.positions.buffer, water.normals.buffer, water.colors.buffer, water.indices.buffer);
-  post({ type: 'mesh', id, cx, cz, lod, land, water, cubes: cubeArray, props, heights, size: N, ms: performance.now() - started }, transfer);
+  post({ type: 'mesh', id, cx, cz, lod, land, water, cubes: cubeArray, props, wants: [...wants], heights, size: N, ms: performance.now() - started }, transfer);
 }
 
 /** A 16 x 16 minimap tile: ground colour shaded by height, water in blue. */
@@ -143,6 +168,9 @@ self.onmessage = (ev: MessageEvent<ToMesh>) => {
       break;
     case 'minimap':
       minimap(msg.id, msg.cx, msg.cz);
+      break;
+    case 'propModels':
+      for (const [id, ...b] of msg.bounds) modelBounds.set(id, b);
       break;
   }
 };

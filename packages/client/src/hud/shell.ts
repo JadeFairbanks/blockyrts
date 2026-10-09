@@ -71,6 +71,7 @@ import { YesNoButtons } from './yes-no.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
 import { PeoplesUi } from './peoples-ui.ts';
+import { CirclesUi } from './circles-ui.ts';
 import { HudPanels } from './panels.ts';
 import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
@@ -220,6 +221,8 @@ export class GameShell {
    */
   readonly stackBars: Array<(key: string) => readonly StackBar[]> = [];
   readonly peoples: PeoplesUi;
+  /** The stone circles' chest and altar panels (Patch 5). */
+  readonly circles: CirclesUi;
   readonly allies: AlliesUi;
   readonly inventory: InventoryUi;
   readonly chat: ChatBox;
@@ -358,6 +361,10 @@ export class GameShell {
       message: (t, k) => this.message(t, k),
       addArea: (id, el, target) => this.input.addArea(id, el, target),
     });
+    this.circles = new CirclesUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
+      send: (o) => opts.issueOrder(o),
+      units: () => this.selection.list().flatMap((t) => (t.kind === 'unit' && t.owner === this.player && entityIdOf(t.key) !== null ? [entityIdOf(t.key)!] : [])),
+    });
     this.selector = new SelectionController(this.cam, this.panels, this.selection, this.player, () => this.items, this.layout.dragBox);
     const session = opts.session;
     this.menu = new GameMenu(parent, this.settings, { seed: opts.seed, online: session.online, code: session.code }, {
@@ -392,6 +399,7 @@ export class GameShell {
       },
       confirmWar: (faction, then) => this.peoples.confirmWar(faction, then),
       openPeople: (faction) => this.peoples.open(faction),
+      openAltar: (circle, type) => this.circles.openAltar(circle, type),
       slots: () => {
         const room = buttonRoom(cardInner(this.geometry).w, this.geometry.maxH);
         return { most: room.cols * room.rows };
@@ -717,6 +725,7 @@ export class GameShell {
     // Events into the message panel.
     for (const ev of info.events) this.onEvent(ev);
     this.peoples.refresh();
+    this.circles.refresh();
     this.allies.refresh();
     // Idle gatherers and the dusk button.
     const idle = this.game.idleWorkers().length;
@@ -793,6 +802,8 @@ export class GameShell {
     const at = ev.x !== undefined && ev.z !== undefined ? { x: ev.x / WU_PER_METRE, z: ev.z / WU_PER_METRE } : undefined;
     // The debugger's Elf kingdom button: the camera goes there at once.
     if (ev.look && at) this.jumpTo(at.x, at.z);
+    // One of the player's units opened a stone circle's chest: its spaces show (Patch 5, SC-6).
+    if (ev.chest !== undefined && ev.player === this.player) this.circles.openChest(ev.chest);
     if (ev.kind === 'question') {
       this.onQuestion(ev);
       return;
@@ -1566,6 +1577,7 @@ export class GameShell {
       else if (this.commands.back()) this.cardDirty = true;
       else if (this.allies.closeTop()) return;
       else if (this.peoples.closeTop()) return;
+      else if (this.circles.closeTop()) return;
       else this.selection.clear();
       return;
     }
