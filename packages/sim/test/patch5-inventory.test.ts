@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addMage,
   addWarrior,
+  Blocked,
   BuildingKind,
   createWorld,
   DROPPED,
@@ -18,6 +19,8 @@ import {
   Line,
   Mount,
   onTop,
+  placeBuilding,
+  placementBlocked,
   Res,
   SAFE_TEXT,
   School,
@@ -141,6 +144,31 @@ describe('Equip from the stock (GP-2)', () => {
     run(s, 1, [{ kind: 'equip', player: 0, units: [e.id[sword]!], res: Res.SteelSideSword }]);
     expect(pool[Res.SteelSideSword]).toBe(0);
     expect(e.queue[sword]![0]).toMatchObject({ t: 'kitUp', line: Line.Weapon, to: 7, ways: ITEM_WAY, paid: 1 });
+    runUntil(s, () => e.wTier[sword] === 7, 120 * SEC);
+  });
+
+  it('takes it at a Storehouse nearer than the main base, a drop-off for everything', () => {
+    const s = world();
+    const e = s.entities;
+    const pool = s.players[0]!.pool;
+    const [x, z] = eastOf(s, 25);
+    const cx = Math.floor(x / WU_PER_COLUMN);
+    const cz = Math.floor(z / WU_PER_COLUMN);
+    let store: Building | null = null;
+    for (let r = 4; r < 20 && !store; r++) {
+      for (const [sx, sz] of [[cx + r, cz], [cx, cz + r], [cx, cz - r]] as const) {
+        if (placementBlocked(s, 0, BuildingKind.Storehouse, sx, sz) === Blocked.None) {
+          store = placeBuilding(s, 0, BuildingKind.Storehouse, 0, sx, sz, true);
+          break;
+        }
+      }
+    }
+    expect(store).not.toBeNull();
+    const sword = addWarrior(s, 0, x, z, Troop.Close, 1);
+    pool[Res.SteelSideSword] = 1;
+    run(s, 1, [{ kind: 'equip', player: 0, units: [e.id[sword]!], res: Res.SteelSideSword }]);
+    expect(e.queue[sword]![0]).toMatchObject({ t: 'kitUp', line: Line.Weapon, to: 7, ways: ITEM_WAY, b: store!.id });
+    expect(s.events.some((ev) => ev.kind === 'speech' && ev.speaker === e.id[sword] && ev.text === 'Off to the storehouse for a steel side-sword.')).toBe(true);
     runUntil(s, () => e.wTier[sword] === 7, 120 * SEC);
   });
 });
