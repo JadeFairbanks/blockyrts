@@ -17,6 +17,9 @@ import { amountBox, FOCUS_BOX, goodCount, goodPic } from './goods-ui.ts';
 import { FOOD_ICON, iconUrl } from './inventory-icons.ts';
 import type { HudPanels } from './panels.ts';
 
+/** The Dreadnought's 64 px portrait (Patch 5), from his model heavy_knight. */
+const PORTRAIT = 'portrait_heavy_knight';
+
 export interface HireActions {
   send(o: Order): void;
   message(text: string): void;
@@ -185,7 +188,15 @@ export class DreadnoughtUi {
     const body = el('div', 'dlg-body', this.box);
     body.dataset.scroll = '';
     const ps = productSpec(dreadnoughtProduct(DREADNOUGHT.gold, 0));
-    el('p', 'dlg-note', body, `Pay ${DREADNOUGHT.food} food and ingots worth ${DREADNOUGHT.gold} gold: gold, silver or a mix, one gold ingot worth ${DREADNOUGHT.silverPerGold} silver. He takes ${ps.steps / STEPS_PER_SECOND} s to hire.`);
+    // His portrait, rendered from his own model, beside the price.
+    const intro = el('div', 'dread-intro', body);
+    const face = document.createElement('img');
+    face.className = 'dread-portrait';
+    face.src = iconUrl(PORTRAIT);
+    face.alt = '';
+    face.draggable = false;
+    intro.append(face);
+    el('p', 'dlg-note', intro, `Pay ${DREADNOUGHT.food} food and ingots worth ${DREADNOUGHT.gold} gold: gold, silver or a mix, one gold ingot worth ${DREADNOUGHT.silverPerGold} silver. He takes ${ps.steps / STEPS_PER_SECOND} s to hire.`);
     el('div', 'trade-head', body, 'You pay');
     const list = el('div', 'send-list', body);
     // The food: not negotiable.

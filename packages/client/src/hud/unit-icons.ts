@@ -22,8 +22,8 @@ export function troopIconFile(troop: number, wTier: number): string {
     case Troop.Crew:
       return 'icon_train_warrior_cannon_crew';
     case Troop.Dreadnought:
-      // Patch 5: the brawler's mace-man stands in until the Dreadnought has a picture of his own.
-      return 'icon_train_warrior_mace';
+      // Patch 5: rendered from his own model, heavy_knight.
+      return 'icon_dreadnought';
     default:
       return 'icon_train_warrior_club';
   }

@@ -3940,7 +3940,8 @@ editor shows them under Buildings, Training and Units.*
    door lights the ground, and the chimney smokes well. Closed, the windows
    and lantern go dark and the chimney gives a thin wisp.
 6. **Hiring.** At a tier 3 main base, press **Hire Dreadnought**: its
-   tooltip is his description and price. The window lists 100 food (not
+   tooltip is his description and price, and the button wears his own
+   picture. The window shows his portrait by the price and lists 100 food (not
    negotiable) and gold and silver boxes with your stock; type or use − and
    + in either, and the other fills to the price. **All gold** and **All
    silver** pay all one way. The worth line warns when the mix is under the
