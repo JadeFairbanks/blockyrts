@@ -110,6 +110,7 @@ import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, P
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type TavernPanel, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
+import { GroundCache } from './world/ground-under.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 /** Never run more than this many steps in one tick; a long stall slows the game instead of freezing the tab. */
@@ -358,6 +359,9 @@ function tavernPanel(s: SimState, b: Building): TavernPanel | null {
   };
 }
 
+/** The ground each building is drawn standing on (ground-under.ts), worked out again only when the land under it changes. */
+const grounds = new GroundCache();
+
 /** A building's queue for the panel: the head item's bar and the steps it has left at the sim's own pace (0 while on hold), the rest waiting. */
 function queueInfo(s: SimState, b: Building): BuildingInfo['queue'] {
   const h = queueHead(s, b);
@@ -425,6 +429,7 @@ function postInfo(s: SimState): void {
       farm: farmInfo(s, b),
       boost: farmBoost(s, b),
       tavern: tavernPanel(s, b),
+      ground: grounds.of(s.world, b),
     };
   });
   const e = s.entities;
@@ -670,6 +675,7 @@ function tick(): void {
 /** Starts (or restarts) from a state: everything the page draws is sent again. */
 function begin(s: SimState): void {
   state = s;
+  grounds.clear();
   clock = performance.now();
   lastHash = 0;
   lastHashStep = 0;

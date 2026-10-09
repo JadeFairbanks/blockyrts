@@ -14,6 +14,7 @@ import {
   footprintRect,
   growthBlocked,
   hashState,
+  Mat,
   meleeOf,
   Mob,
   onTop,
@@ -21,6 +22,7 @@ import {
   PickOwn,
   placeBuilding,
   placementBlocked,
+  placementTiles,
   refitBuilding,
   sayUpTop,
   serializeState,
@@ -298,5 +300,33 @@ describe('manning towers and main base tops (patch notes 1)', () => {
     run(s, 40);
     run(copy, 40);
     expect(hashState(copy)).toBe(hashState(s));
+  });
+});
+
+describe('farms and stone (after Patch 5)', () => {
+  it('never puts a farm on stone: a stone column under its footprint is a red tile, while a Barn may stand there', () => {
+    const s = createWorld(1, { peaceful: true });
+    const h = bigHouse(s);
+    const [x, z] = spotNear(s, BuildingKind.Farm, h.x + 24, h.z);
+    const top = s.world.topAt(x + 3, z + 3);
+    s.world.editBox(x + 3, z + 3, x + 3, z + 3, top - 1, top, Mat.Stone);
+    const w = footprintDims(BuildingKind.Farm, 0).w;
+    expect(placementTiles(s, 0, BuildingKind.Farm, x, z)[3 * w + 3]).toBe(Blocked.Stone);
+    expect(placementBlocked(s, 0, BuildingKind.Farm, x, z)).toBe(Blocked.Stone);
+    expect(placementBlocked(s, 0, BuildingKind.Barn, x, z)).toBe(Blocked.None);
+  });
+
+  it('keeps a farm that already stands on stone (a game saved before the rule) through a save and load', () => {
+    const s = createWorld(1, { peaceful: true });
+    const h = bigHouse(s);
+    const [x, z] = spotNear(s, BuildingKind.Farm, h.x + 24, h.z);
+    const top = s.world.topAt(x + 3, z + 3);
+    s.world.editBox(x + 3, z + 3, x + 3, z + 3, top - 1, top, Mat.Stone);
+    const farm = placeBuilding(s, 0, BuildingKind.Farm, 0, x, z, true);
+    const loaded = deserializeState(serializeState(s));
+    run(loaded, 40);
+    const again = loaded.buildings.get(farm.id)!;
+    expect(again.kind).toBe(BuildingKind.Farm);
+    expect(again.complete).toBe(true);
   });
 });

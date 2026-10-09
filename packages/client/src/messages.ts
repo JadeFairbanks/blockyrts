@@ -276,6 +276,8 @@ export interface BuildingInfo {
   boost?: FarmBoost | null;
   /** A finished Tavern (Patch 5): its till, its bar to the next silver ingot and its counters, or null. */
   tavern?: TavernPanel | null;
+  /** The material the ground under it is drawn as (the Big House and buildings with walk space, ground-under.ts), or undefined: a trodden path. */
+  ground?: number | undefined;
 }
 
 /** A farm's boost (Patch 5): steps left of the one running and its whole, the boosts waiting, Auto fertilize, and a Sweet Hawthorne within 30 m. */
