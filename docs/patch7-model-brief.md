@@ -71,11 +71,11 @@ The game places a worn piece by matching bone names, so an armour or robe file m
 
 ## 4. Who Makes What
 
-The code team cuts the monster weapons into held models and renders all item icons. This team makes the 15 models in section 5: four human armour sets, the Dreadnought split into three parts, two Dreadnought armour pieces, five looted robes and one material.
+The code team cuts the monster weapons into held models and renders all item icons. This team makes the 16 models in section 5: four human armour sets, the Dreadnought split into three parts, two Dreadnought armour pieces, six looted robes and one material.
 
 ---
 
-## 5. The Models (15)
+## 5. The Models (16)
 
 Each armour or robe piece is **redrawn** to fit its wearer's body, keeping the source's design, materials and colours so it is clearly the same piece. It is a worn piece, following the `armour_iron_mail` pattern in section 3, and it must look right in every clip the body plays.
 
@@ -122,12 +122,13 @@ These are worn by mages and fit `base/models/peoples/mage/mage.bbmodel`. Each ro
 | 12 | `robe_necromancer` | `necromancer` | The necromancer's robe and gold crown |
 | 13 | `robe_flamecaller` | `flamecaller` | The flamecaller's robe with its burning hem, the flames as `glow_*` cubes |
 | 14 | `robe_fae` | `fairy` | The Fae Guardian's dress, from `skirt` and `chest_bust`, remade as a mage's robe with the same colours and pattern |
+| 15 | `robe_lich` | `lich` | The Deathless Shroud: the lich's robe, from its `torso` cloth and the hanging `strip_0` to `strip_7`, with its `crown`, remade as a mage's robe. The strips stay as separate cubes on the hips and legs so they sway with the walk; leave out the floating crystal |
 
 ### 5.5 One New Material
 
 | # | New id | What to make |
 |---|---|---|
-| 15 | `witchwood` | A small bundle of dark, gnarled staff wood with a faint violet sheen, a material left over when casters' staffs are scrapped. Under 12 cubes, in the style of the existing `sticks_bundle` and `bone_bundle` items |
+| 16 | `witchwood` | A small bundle of dark, gnarled staff wood with a faint violet sheen, a material left over when casters' staffs are scrapped. Under 12 cubes, in the style of the existing `sticks_bundle` and `bone_bundle` items |
 
 ---
 
@@ -139,8 +140,8 @@ There is one pull request per batch.
 |---|---|---|
 | armour | `assets/patch7-armour` | Items 1 to 4 |
 | dreadnought | `assets/patch7-dreadnought` | Items 5 to 9 (make 5, 6 and 7 first; 8 and 9 fit over them) |
-| robes | `assets/patch7-robes` | Items 10 to 14 |
-| material | `assets/patch7-material` | Item 15 |
+| robes | `assets/patch7-robes` | Items 10 to 15 |
+| material | `assets/patch7-material` | Item 16 |
 
 ---
 
@@ -165,7 +166,7 @@ Check every model in the pull request. Fix what you can by pushing to the branch
 - [ ] No existing model file is touched, `heavy_knight` included.
 - [ ] No secret, token or password appears anywhere.
 
-**Armour and robes (items 1 to 4 and 7 to 14)**
+**Armour and robes (items 1 to 4 and 7 to 15)**
 - [ ] The bone names and rest-pose origins match the target body exactly, and every cube sits in the bone it should move with.
 - [ ] **Clipping:** play every clip of the target body with the piece on it:
   - warrior: `idle`, `walk`, `run`, `guard_1h`, `attack_1h_slash`, `attack_1h_stab`, `shield_block`, `guard_polearm`, `attack_polearm_thrust`, `attack_polearm_swing`, `bow_shoot`, `crossbow_shoot`, `crossbow_reload`, `musket_fire`, `musket_reload`, `throw_spear`, `sling_throw`, `ride`, `injured`, `death`
