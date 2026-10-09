@@ -9,7 +9,7 @@ import {
   Body,
   bodyOf,
   DREADNOUGHT_GEAR,
-  dreadnoughtMelee,
+  dreadnoughtBlow,
   FIT_RANGES,
   fits,
   gearScore,
@@ -26,7 +26,6 @@ import {
   Troop,
   WU_PER_METRE,
   type GearSpec,
-  type MeleeStats,
 } from '@blockyrts/sim';
 import type { CompareRow, CompareTip } from './buttons.ts';
 import type { RowValue } from './card-pop.ts';
@@ -75,18 +74,27 @@ const n = (key: string, label: string, value: number, unit: string, lowBetter = 
   ...(lowBetter ? { lowBetter } : {}),
 });
 
-/** A blow in the holder's hands: the Dreadnought's are 1.5 times with any weapon but his own mace (plan 2.3). */
-function blow(gear: number, h: KitHolder | null, m: MeleeStats): MeleeStats {
-  return h !== null && bodyOf(h) === Body.Dreadnought && gear !== DREADNOUGHT_GEAR.mace ? dreadnoughtMelee(m) : m;
+/**
+ * The Dreadnought's two blows with a weapon, in turn (plan 2.3): a smash at
+ * one enemy for 1.5 times its damage, then a sweep for its own; his own mace
+ * has its own two. Null for anyone else, who hits once.
+ */
+function dreadBlows(gear: number, h: KitHolder | null, g: GearSpec): [number, number] | null {
+  if (h === null || bodyOf(h) !== Body.Dreadnought || !g.melee) return null;
+  if (gear === DREADNOUGHT_GEAR.mace) return [g.melee.damage, g.melee2?.damage ?? g.melee.damage];
+  return [dreadnoughtBlow(g.melee, false).damage, g.melee.damage];
 }
 
-/** A gear row's numbers, in the holder's hands (the Dreadnought hits 1.5 times as hard with any weapon but his own mace). */
+/** A gear row's numbers, in the holder's hands (the Dreadnought's smash and sweep with any weapon). */
 export function gearNums(gear: number, h: KitHolder | null = null): GearNum[] {
   const g: GearSpec = gearSpec(gear);
   const out: GearNum[] = [];
   if (g.melee && !g.wand) {
-    const m = blow(gear, h, g.melee);
-    out.push(n('damage', 'Damage', m.damage, ''), n('swing', 'Swing', m.attackSteps / STEPS_PER_SECOND, 's', true), n('reach', 'Reach', m.reach / WU_PER_METRE, 'm'));
+    const m = g.melee;
+    const two = dreadBlows(gear, h, g);
+    if (two) out.push(n('damage', 'Smash', two[0], ''), n('sweep', 'Sweep', two[1], ''));
+    else out.push(n('damage', 'Damage', m.damage, ''));
+    out.push(n('swing', 'Swing', m.attackSteps / STEPS_PER_SECOND, 's', true), n('reach', 'Reach', m.reach / WU_PER_METRE, 'm'));
   } else if (g.ranged) {
     const r = g.ranged;
     out.push(n('damage', 'Damage', r.damage, ''), n('shot', 'Shot every', r.attackSteps / STEPS_PER_SECOND, 's', true), n('range', 'Range', r.range / WU_PER_METRE, 'm'));
@@ -128,7 +136,7 @@ export function headNum(gear: number, h: KitHolder | null = null): { value: numb
     return { value: p, text: `${fmt(p)}%`, words: `protection ${fmt(p)}%` };
   }
   if (!g.melee && !g.ranged) return null;
-  // gearScore is damage a second in hundredths, the Dreadnought's 1.5 times in.
+  // gearScore is damage a second in hundredths, the Dreadnought's smash and sweep in.
   const v = round1(gearScore(gear, h ?? undefined) / 100);
   return { value: v, text: `${fmt(v)}/s`, words: `${fmt(v)} damage a second` };
 }
