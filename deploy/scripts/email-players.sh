@@ -21,7 +21,9 @@ done
 
 here=$(cd "$(dirname "$0")" && pwd)
 bucket=blockyrts-saves
-summary=${GITHUB_STEP_SUMMARY:-/dev/stdout}
+summary=${GITHUB_STEP_SUMMARY:-/dev/null}
+# To the run log and the run's summary page alike: counts and the message, never an address.
+say() { tee -a "$summary"; }
 
 if ! [[ $MESSAGE =~ ^[a-z0-9][a-z0-9-]{0,63}$ ]]; then
   echo "::error::The message name is lower-case letters, digits and dashes, such as patch-5-live."
@@ -81,7 +83,7 @@ exists() {
   echo
   echo "{username} becomes each player's username."
   echo
-} >>"$summary"
+} | say
 
 # The newest nightly backup gives a count even while the live server is one
 # that does not take mail jobs yet. Streamed, never written to disk.
@@ -91,7 +93,7 @@ if [ -n "$latest" ]; then
   in_backup=$(r2 s3 cp --quiet "s3://$bucket/backups/$latest" - | gunzip -c |
     awk '/^COPY public\.accounts /{on=1; next} on && /^\\\.$/{on=0} on{n++} END{print n+0}') ||
     in_backup="unknown (the backup could not be read)"
-  echo "- Accounts in the newest nightly backup ($latest, taken at 10:00 UTC): $in_backup" >>"$summary"
+  echo "- Accounts in the newest nightly backup ($latest, taken at 10:00 UTC): $in_backup" | say
 fi
 
 request="run-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
@@ -122,7 +124,7 @@ for _ in $(seq 18); do
 done
 if [ "$taken" != true ]; then
   r2 s3 rm --quiet "s3://$bucket/jobs/mail.json" || true
-  echo "- The live server did not take the job within 3 minutes, so it runs a version from before mail jobs; nothing was sent." >>"$summary"
+  echo "- The live server did not take the job within 3 minutes, so it runs a version from before mail jobs; nothing was sent." | say
   if [ "$dry" = true ]; then
     echo "::warning::The live server does not take mail jobs yet; the count above comes from the nightly backup."
     exit 0
@@ -156,7 +158,7 @@ jq -r '
     (if .dryRun then "- Would get it now: \(.toSend)"
      else "- Sent now: \(.sent)", "- Failed: \(.failed) (running this again tries them again)" end),
     (.errors[] | "- Mail service said: \(.)")
-  end' "$result" | tee -a "$summary"
+  end' "$result" | say
 
 if jq -e '.refused or (.failed // 0) > 0' "$result" >/dev/null; then
   exit 1
