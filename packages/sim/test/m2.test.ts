@@ -3,6 +3,7 @@ import {
   Act,
   Ask,
   CLOSE_GEAR,
+  LONG_GEAR,
   TOOL_FIELDS,
   TOOL_GEAR,
   ToolJob,
@@ -105,10 +106,10 @@ function freeSpot(s: SimState, kind: number): [number, number] {
 }
 
 describe('the starting camp', () => {
-  it('is a finished level 1 Big House, four workers with wooden tools, three close-melee troops and the starting stock', () => {
+  it('is a finished level 1 Big House, four workers with wooden tools, three close-melee troops, a spearman and the starting stock', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
-    expect(e.count).toBe(7);
+    expect(e.count).toBe(8);
     for (let i = 0; i < 4; i++) {
       expect(e.kind[i]).toBe(UnitKind.Worker);
       // One tool kit tier, the hardwood kit, for every job (Troops and gear: workers' tools).
@@ -125,15 +126,18 @@ describe('the starting camp', () => {
       expect([e.troop[i], e.wTier[i], e.aTier[i]]).toEqual([Troop.Close, 1, 0]);
       expect([e.weapon[i], e.ranged[i], e.shield[i], e.armour[i]]).toEqual([CLOSE_GEAR[1], 0, 0, 0]);
     }
+    // Patch 7 (Jade): a spearman joins them, with the tier 1 spear and no armour.
+    expect([e.kind[7], e.troop[7], e.wTier[7], e.aTier[7]]).toEqual([UnitKind.Warrior, Troop.Long, 1, 0]);
+    expect([e.weapon[7], e.ranged[7], e.shield[7], e.armour[7]]).toEqual([LONG_GEAR[1], 0, 0, 0]);
     const b = bigHouse(s);
     expect(b.complete).toBe(true);
     expect(b.level).toBe(1);
     expect(b.hp).toBe(1200);
     const pool = s.players[0]!.pool;
-    // More food for the three troops, and room in the Big House's supply for them.
-    expect([pool[Res.Venison], pool[Res.Trout], pool[Res.Eggs], pool[Res.SoftwoodLumber], pool[Res.Stone], pool[Res.Flint], pool[Res.Sticks]]).toEqual([25, 10, 10, 40, 20, 10, 20]);
-    expect(supplyCap(s, 0)).toBe(10);
-    expect(supplyUsed(s, 0)).toBe(7);
+    // More food for the four troops, and room in the Big House's supply for them (Patch 7: 4 more venison, 2 more supply).
+    expect([pool[Res.Venison], pool[Res.Trout], pool[Res.Eggs], pool[Res.SoftwoodLumber], pool[Res.Stone], pool[Res.Flint], pool[Res.Sticks]]).toEqual([29, 10, 10, 40, 20, 10, 20]);
+    expect(supplyCap(s, 0)).toBe(12);
+    expect(supplyUsed(s, 0)).toBe(8);
   });
 
   it('gives every player their own camp', () => {
@@ -392,7 +396,7 @@ describe('building', () => {
     // 420 ws with 4 workers is 105 s, plus the walk.
     runUntil(s, () => b.level === 2, 3000);
     expect(b.hp).toBe(2000);
-    expect(supplyCap(s, 0)).toBe(16);
+    expect(supplyCap(s, 0)).toBe(18);
   });
 
   it('repairs a damaged building with a double-tapped Repair', () => {
@@ -422,8 +426,8 @@ describe('training and production queues', () => {
     expect(food()).toBeLessThan(before[Res.Venison]! * 2 + before[Res.Trout]! * 3 + before[Res.Eggs]! * 2);
     // The kit's 3 sticks for the one still queued (Table 7).
     expect(pool[Res.Sticks]).toBe(before[Res.Sticks]! - 3);
-    runUntil(s, () => ownUnits(s).length === 8, 700);
-    const w = ownUnits(s)[7]!;
+    runUntil(s, () => ownUnits(s).length === 9, 700);
+    const w = ownUnits(s)[8]!;
     expect(s.entities.kind[w]).toBe(UnitKind.Worker);
     expect(s.entities.wTier[w]).toBe(1);
     expect(s.entities.toolChop[w]).toBe(TOOL_GEAR[1]![ToolJob.Chop]);
@@ -432,11 +436,12 @@ describe('training and production queues', () => {
   });
 
   it('will not start a worker without free supply', () => {
-    const s = createWorld(1, { playerUnits: 10, warriors: 0, peaceful: true });
+    // Patch 7: the Big House gives 12 supply.
+    const s = createWorld(1, { playerUnits: 12, warriors: 0, peaceful: true });
     const b = bigHouse(s);
     run(s, 1, [{ kind: 'produce', player: 0, building: b.id, product: Product.Worker, count: 1 }]);
     run(s, 700);
-    expect(ownUnits(s).length).toBe(10);
+    expect(ownUnits(s).length).toBe(12);
     expect(b.queue[0]!.progress).toBe(0);
   });
 

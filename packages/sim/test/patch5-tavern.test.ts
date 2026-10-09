@@ -135,7 +135,8 @@ describe('Patch 5: the Dreadnought', () => {
     expect(meleeOf(s, i)).toMatchObject({ damage: 140, hit: Hit.Stab });
     e.atkWith[i] = nextBlow(s, i);
     expect(e.atkWith[i]).toBe(SECOND_BLOW);
-    expect(meleeOf(s, i)).toMatchObject({ damage: 70, hit: Hit.Sweep });
+    // Patch 7 (plan 3): his sweep, an area blow, hits 30% less (70 to 49).
+    expect(meleeOf(s, i)).toMatchObject({ damage: 49, hit: Hit.Sweep });
     expect(nextBlow(s, i)).toBe(Slot.Weapon);
   });
 

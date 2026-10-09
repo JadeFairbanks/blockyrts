@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, BuildingKind, Engine, Res, RESOURCE_COUNT, Troop, troopProduct, UnitKind, type Order } from '@blockyrts/sim';
+import { BUILDINGS, BuildingKind, Engine, Res, NO_CARRY, RESOURCE_COUNT, Troop, troopProduct, UnitKind, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type CommandDeps } from '../src/hud/commands.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
@@ -42,7 +42,7 @@ function game(more: BuildingInfo[] = [], pool: Array<[number, number]> = []): Ga
     data[o + S.rank] = 1;
     data[o + S.hp] = id === 7 ? 200 : 60;
     data[o + S.maxHp] = id === 7 ? 400 : 60;
-    data[o + S.carryRes] = 255;
+    data[o + S.carryRes] = NO_CARRY;
     // Milestone 11: riding is no skill any more; cavalry is a troop type, trained (Patch 2) at the Barracks on a horse from a Barn.
     if (kind === UnitKind.Warrior) {
       data[o + S.troop] = id === 3 ? Troop.Cavalry : Troop.Close;

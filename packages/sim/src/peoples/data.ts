@@ -10,7 +10,7 @@ import { Res, TRINKET_BASE, TRINKET_METALS } from '../economy/resources.ts';
 import { FISHES, MEATS } from '../economy/food-kinds.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS, TRINKET_MULTIPLIER_TENTHS, SPECIAL_TRINKET_MULTIPLIER_TENTHS } from '../rules.ts';
-import { CLOSE_GEAR, LONG_GEAR, PeopleGear, RANGER_GEAR, SHIELD_GEAR } from '../units/kits.ts';
+import { LONG_GEAR, PeopleGear, RANGER_GEAR, SHIELD_GEAR } from '../units/kits.ts';
 import { TRINKET_INGOTS } from '../buildings/recipes.ts';
 import { Mob } from '../combat/mobs.ts';
 import { Species } from '../animals/species.ts';
@@ -116,12 +116,17 @@ const unit = (o: Omit<PeopleUnitSpec, 'weapon' | 'ranged' | 'armour' | 'shield' 
   weapon: 0, ranged: 0, armour: 0, shield: 0, walkShoot: false, mount: 0, ...o,
 });
 
-/** The players' kit rows the peoples carry too (Troops and gear): a wooden cudgel, a flint and a bronze spear, a longbow, a steel side-sword, a flintlock musket and a steel heater. */
-const CUDGEL = CLOSE_GEAR[1]!;
+/**
+ * The players' kit rows the peoples carry too (Troops and gear): a flint and
+ * a bronze spear, a longbow, a flintlock musket and a steel heater; and the
+ * wooden cudgel and steel side-sword at their numbers before Patch 7's 30%
+ * cut to area weapons, which the peoples keep (units/kits.ts PeopleGear).
+ */
+const CUDGEL = PeopleGear.Cudgel;
 const SPEAR_FLINT = LONG_GEAR[2]!;
 const SPEAR_BRONZE = LONG_GEAR[4]!;
 const LONGBOW = RANGER_GEAR[2]!;
-const SWORD_STEEL = CLOSE_GEAR[7]!;
+const SWORD_STEEL = PeopleGear.SteelSword;
 const MUSKET = RANGER_GEAR[8]!;
 const STEEL_HEATER = SHIELD_GEAR[4]!;
 

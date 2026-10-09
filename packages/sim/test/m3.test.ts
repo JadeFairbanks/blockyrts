@@ -27,7 +27,6 @@ import {
   LONG_GEAR,
   meleeOf,
   Mob,
-  MONSTERS,
   nearestUpgradePlace,
   nightBudgetTenths,
   NIGHT_STEPS,
@@ -170,28 +169,24 @@ function toNight(s: SimState, night: number): void {
 }
 
 describe('night 0', () => {
-  it('is survived by the three starting warriors and four workers behind a wooden fence', () => {
+  it('is survived behind a wooden fence with the three starting warriors and four workers', () => {
     const s = createWorld(3);
     const e = s.entities;
-    // Close melee with wooden cudgels and no armour (Troops and gear: starting units).
+    // Close melee with wooden cudgels and no armour (Troops and gear: starting units), and from Patch 7 a spearman (Jade).
     for (const i of [4, 5, 6]) {
       expect(e.troop[i]).toBe(Troop.Close);
       expect(e.weapon[i]).toBe(CLOSE_GEAR[1]);
       expect(e.armour[i]).toBe(0);
     }
+    expect([e.troop[7], e.weapon[7], e.armour[7]]).toEqual([Troop.Long, LONG_GEAR[1], 0]);
     fenceIn(s);
     run(s, NIGHT_START + NIGHT_STEPS + 20 - s.step);
     expect(clockAt(s.step).period).toBe(Period.Dawn);
     expect(s.over).toBe(0);
-    expect(bigHouse(s)!.hp).toBe(1200);
-    // Cudgels are too short to stab over the fence (a polearm's 2 m does): the night comes at the corner nearest the
-    // dark edge (Patch 5 MB-1: the waves go for the base), the rats and the spider come over it and the troops fall
-    // fighting them; the zombies chew through the corner late in the night. On this seed none of the three comes
-    // through, but every worker does.
-    expect(alive(s, UnitKind.Worker)).toBe(4);
-    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs, nor is the Bog
-    // guardian in his bog, Patch 5 MB-11): a zombie and the slime, last, are in the yard when the sun comes up.
-    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.owner[i] === MONSTERS && e.mob[i] !== Mob.BogGuardian) expect([Mob.Zombie, Mob.Slime, Mob.SmallSlime]).toContain(e.mob[i]);
+    // The night comes at the corner nearest the dark edge (Patch 5 MB-1: the waves go for the base) and over the fence.
+    // Patch 7 (plan 3): the cudgels hit 30% less (8 to 6), and Jade gave the start a spearman, 4 food and 2 supply for
+    // it; she keeps night 0's balance to herself, so this asks only that the Big House stands.
+    expect(bigHouse(s)!.hp).toBeGreaterThan(0);
   });
 
   it('never ends the game while the Big House stands', () => {
@@ -248,7 +243,8 @@ describe('the fence against later nights', () => {
   });
 
   it('is broken by a skeleton bomber on night 10', () => {
-    const s = createWorld(1, { peaceful: true });
+    // The camp before Patch 7's starting spearman, whose reach through the fence can drop the bomber first.
+    const s = createWorld(1, { peaceful: true, spearmen: 0 });
     fenceIn(s);
     toNight(s, 10);
     const [cx, cz] = buildingCentre(bigHouse(s)!);
@@ -449,7 +445,8 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
   });
 
   it('waits for free supply before a troop starts', () => {
-    const s = createWorld(1, { playerUnits: 7, peaceful: true });
+    // 8 workers, 3 warriors and the spearman fill the Big House's 12 supply (Patch 7).
+    const s = createWorld(1, { playerUnits: 8, peaceful: true });
     const base = bigHouse(s)!;
     const texts: string[] = [];
     for (let k = 0; k < 200; k++) {

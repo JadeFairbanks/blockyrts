@@ -1,7 +1,7 @@
 // Numbers and names the client and the server must agree on.
 
-/** Bumped whenever a message layout changes, so mismatched clients refuse to join. 5: Patch 5's open lobbies, private games, kicks and the debugger flag. 6: the relay sends a step's frames in one message. */
-export const PROTOCOL_VERSION = 6;
+/** Bumped whenever a message layout changes, so mismatched clients refuse to join. 5: Patch 5's open lobbies, private games, kicks and the debugger flag. 6: the relay sends a step's frames in one message. 7: Patch 7's gear catalogue (goods and gear past 255, so a Patch 6 client and a Patch 7 one never share a match). */
+export const PROTOCOL_VERSION = 7;
 
 /**
  * The game's save format version. Every patch raises it, and a save from an
@@ -11,10 +11,11 @@ export const PROTOCOL_VERSION = 6;
  * milestone 11's troop rework; 3 was Patch 2; 4 was Jade's mini patch (base
  * spacing and the world 30% smaller); 5 was Patch 3; 6 was Patch 3b (the
  * start's asks wait 10 s); 7 was indev 0.8 (the action card holds 12 buttons
- * before it grows); 8 was Patch 4; 9 is Patch 5 (indev 1.0), one bump for
- * the whole patch.
+ * before it grows); 8 was Patch 4; 9 was Patch 5 (indev 1.0), kept by
+ * Patch 6; 10 is Patch 7 (goods and gear rows saved in two bytes), one bump
+ * for the whole patch.
  */
-export const SAVE_FORMAT_VERSION = 9;
+export const SAVE_FORMAT_VERSION = 10;
 
 /** Up to 8 players play together (Multiplayer and saving). */
 export const MAX_PLAYERS = 8;

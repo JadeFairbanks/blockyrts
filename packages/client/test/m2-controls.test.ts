@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, Res, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, Res, NO_CARRY, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { ACTIONS, clashes, keyFor, sanitizeBindings } from '../src/input/bindings.ts';
 import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
@@ -35,7 +35,7 @@ function game(buildings: BuildingInfo[], pool: Array<[number, number]> = []): Ga
     data[o + S.rank] = 1;
     data[o + S.hp] = 60;
     data[o + S.maxHp] = 60;
-    data[o + S.carryRes] = i === 1 ? Res.SoftwoodLumber : 255;
+    data[o + S.carryRes] = i === 1 ? Res.SoftwoodLumber : NO_CARRY;
     data[o + S.carryAmt] = i === 1 ? 5 : 0;
   }
   g.onState({ type: 'state', step: 10, hash: 0, hashStep: 0, count: 2, data, shots: new Int32Array(0), hits: [] });
