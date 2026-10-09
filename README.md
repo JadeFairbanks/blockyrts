@@ -3734,6 +3734,55 @@ in `packages/client/src/world/buildings-view.ts`, and their models placed by
     picture in the selection grid and in a building's panel is her robe
     look's portrait, coloured as she is drawn.
 
+## How a tester checks gear as items, shields and scrapping (Patch 5)
+
+*Patch 5's GP-1, GP-3, GP-26, BL-11, UI-8 and the troop side of the unused
+goods: weapons, armour and shields as goods in the stock, close melee's
+shield slot, scrapping at the Workshop, gear in the night waves, poison
+tips. Picks in blueprint/patch5-gear-picks.md.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-gear.test.ts: a
+   ready item goes on first, free, in a fifth of the time and whatever is
+   researched, unless a higher tier can be made; a troop trains with an item
+   from the stock; training low and upgrading is never quicker than training
+   high on any ladder; a scrap stack takes one place in the queue, gives each
+   one's materials as it finishes, takes more of the same into its stack and
+   gives back the rest when cancelled; spider silk pays for rope and obsidian
+   for flint; the waves carry about 0.04 pieces a night per player.
+2. **A shield of their own.** `pnpm dev`, open http://localhost:5173/?seed=1,
+   type M N B V C X Z, press **Troop kit** and **Citadel**, and build a
+   Barracks. The close melee card has three slots: weapon, armour and
+   shield, each opening its tier strip. With stock for everything it trains
+   the best weapon, then armour, then shield; with too little left, no
+   shield. The Big House's close melee come with a wooden shield when the
+   stock pays for one. Select a swordsman: the panel shows the shield in its
+   own slot with its tier, and **Upgrade equipment** raises it like the
+   weapon and armour.
+3. **The old piece goes to the stock.** Upgrade a unit's weapon. When it is
+   done the old weapon is in the stock's new **Gear** row (last), with its
+   picture. Train a unit of that kit, or upgrade another unit to it: the
+   item goes on first, costs nothing and takes a fifth of the time; the
+   tooltip says so.
+4. **Scrapping.** Build a Workshop and open its menu: **Trinkets** holds the
+   trinkets, **Scrap equipment** every piece of equipment in the stock
+   (greyed out with none). A click scraps one, Shift + click ten; a right
+   click opens **Scrap 1**, **Scrap 10** and **Scrap all**. A stack takes one
+   place in the queue with the count on its picture; each 10 s the count
+   drops by one and that piece's materials land in the stock. Cancel it: the
+   pieces not yet scrapped come back.
+5. **The Workshop asks.** Leave a Workshop with materials in the stock for a
+   few minutes: every 200 to 300 s it asks in its bubble whether to make
+   something it can make now. Yes queues one batch; No queues nothing.
+6. **Poison tips and the other goods.** With venom in the stock, the
+   Workshop makes poison tips (1 venom). **Upgrade equipment** on a bow or
+   crossbow ranger puts them on; its panel shows them, and its hits poison
+   (the poisoned mark on the target). Spider silk pays where a bow wants
+   rope, obsidian where a kit wants flint; the pistol and musket ask for lead
+   ore (1 and 2).
+7. **Gear in the waves.** Late enough (or with many nights of **Wave**), a
+   killed monster now and then drops a weapon, armour or shield of the
+   night's tier, which units carry home like other loot.
+
 ## How a tester checks running, climbing and jumping (Patch 5)
 
 *Patch 5's GP-16 (Run/Walk), GP-17 (no crude stairs), GP-18 (climbing and
@@ -3835,7 +3884,7 @@ the box and the press on a face).*
    cliff above no longer holds the diggers up. On a cliff too tall to
    climb, Move a unit to a spot over the tunnel's far end: it walks in
    along the tunnel's floor.
-7. **Saves.** No save format change; the snapshot version goes to 29 (a
+7. **Saves.** No save format change; the snapshot version goes to 30 (a
    dig order's layer and missed columns, and digs drawn upwards).
 
 ## License

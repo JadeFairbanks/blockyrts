@@ -159,11 +159,15 @@ export const UNIT_FIELDS = [
   /**
    * The kit (Troops and gear): a troop's type (units/kits.ts Troop, fixed
    * when it is trained) and its weapon and armour tiers; a worker's tool
-   * kit tier in wTier; a mage's wand and robe tiers.
+   * kit tier in wTier; a mage's wand and robe tiers. Close melee's shield
+   * tier (Patch 5, GP-26), and 1 when a bow or crossbow ranger has poison
+   * tips on (Patch 5).
    */
   ['troop', 'u8'],
   ['wTier', 'u8'],
   ['aTier', 'u8'],
+  ['sTier', 'u8'],
+  ['tips', 'u8'],
   /** What the kit puts in its hands and on its back (units/kits.ts gear ids, 0 for none), set by applyKit. */
   ['weapon', 'u8'],
   ['ranged', 'u8'],
@@ -372,6 +376,8 @@ export class EntityStore implements Record<FieldName, Column> {
   declare troop: Uint8Array;
   declare wTier: Uint8Array;
   declare aTier: Uint8Array;
+  declare sTier: Uint8Array;
+  declare tips: Uint8Array;
   declare weapon: Uint8Array;
   declare ranged: Uint8Array;
   declare shield: Uint8Array;
@@ -808,6 +814,8 @@ export interface PendingSpawn {
   az: number;
   /** The lair it comes out of (an entity id), or 0 for the dark edge. */
   src: number;
+  /** A weapon, armour or shield it carries, dropped when it is killed (Patch 5, GP-1: threats/loot.ts giveWaveGear), or 0. */
+  gear: number;
 }
 
 /**
@@ -1125,13 +1133,14 @@ function yardSpot(x: number, z: number, bearing: number, out: number, across: nu
   return [x + floorDiv(out * c - across * s, 65536), z + floorDiv(out * s + across * c, 65536)];
 }
 
-/** A new troop of rank 1 of a type, with its weapon and armour tiers (a fist fighter by default); returns its index. */
-export function addWarrior(state: SimState, owner: number, x: number, z: number, troop: number = Troop.Close, weapon = 0, armour = 0): number {
+/** A new troop of rank 1 of a type, with its weapon, armour and (close melee) shield tiers (a fist fighter by default); returns its index. */
+export function addWarrior(state: SimState, owner: number, x: number, z: number, troop: number = Troop.Close, weapon = 0, armour = 0, shield = 0): number {
   const id = state.nextEntityId++;
   const i = state.entities.add(id, owner, x, standY(state, x, z), z, WALK_SPEED_WU, UnitKind.Warrior);
   state.entities.troop[i] = troop;
   state.entities.wTier[i] = weapon;
   state.entities.aTier[i] = armour;
+  state.entities.sTier[i] = shield;
   applyKit(state.entities, i, 'warrior');
   state.entities.hp[i] = WARRIOR_HEALTH_BY_RANK[1]!;
   state.entities.maxHp[i] = WARRIOR_HEALTH_BY_RANK[1]!;
