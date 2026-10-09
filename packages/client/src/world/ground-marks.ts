@@ -3,22 +3,22 @@
 // fields", with "soil_tilled_wet, a shade darker, for watered or freshly
 // seeded fields"). A map of marks a column a texel round the camera, which
 // the land's shader (terrain-textures.ts) reads to draw those tiles on the
-// tops of loose ground: a trodden path under each building and PATH_RING
-// columns round it, and a Farm's field tilled, wet while bonemeal works it
-// or freshly sown. The Big House wears no path: the ground under it is what
-// it stands on, all of it grass if any of it is (ground-under.ts).
+// tops of the land: a trodden path on loose ground under each building and
+// PATH_RING columns round it, and a Farm's field tilled, wet while bonemeal
+// works it or freshly sown. The Big House and every building with walk space
+// lay no path: they stand on the ground they are on (ground-under.ts).
 import * as THREE from 'three';
 import { buildingSpec, BuildingKind, footprintRect, Mat, solidRect } from '@blockyrts/sim';
 import type { BuildingInfo } from '../messages.ts';
-import { MATCHES_GROUND } from './ground-under.ts';
+import { drawsGround } from './ground-under.ts';
 import { COLUMN_M } from './mesher.ts';
 
 /**
  * What a column's top wears: nothing, a trodden path, a tilled field, a wet
- * tilled field; under the Big House grass, dry grass, or its own ground (no
- * path laid over it).
+ * tilled field, or a building's ground: Ground plus the material it is drawn
+ * as (ground-under.ts).
  */
-export const Mark = { None: 0, Path: 1, Tilled: 2, TilledWet: 3, Grass: 4, DryGrass: 5, Own: 6 } as const;
+export const Mark = { None: 0, Path: 1, Tilled: 2, TilledWet: 3, Ground: 16 } as const;
 /** The map's side, columns (230 m), centred on the camera's focus in steps of RECENTRE columns. */
 export const MARK_COLUMNS = 512;
 const RECENTRE = 64;
@@ -27,7 +27,7 @@ export const PATH_RING = 2;
 /** A field is freshly sown for the first part of each harvest, per mille of its bar (s). */
 const FRESH_PER_MILLE = 150;
 
-type Marked = Pick<BuildingInfo, 'id' | 'owner' | 'kind' | 'variant' | 'level' | 'upgrading' | 'x' | 'z' | 'farm' | 'boost' | 'grass'>;
+type Marked = Pick<BuildingInfo, 'id' | 'owner' | 'kind' | 'variant' | 'level' | 'upgrading' | 'x' | 'z' | 'farm' | 'boost' | 'ground'>;
 
 /** Whether a Farm's field shows wet: bonemeal at work in it, or sown again after a harvest. */
 export function fieldWet(b: Pick<BuildingInfo, 'farm' | 'boost'>): boolean {
@@ -35,9 +35,10 @@ export function fieldWet(b: Pick<BuildingInfo, 'farm' | 'boost'>): boolean {
 }
 
 /**
- * The marks of the players' buildings over the map whose corner is column
- * (x0, z0), `size` columns a side, row by row. A path never covers a field
- * or the Big House's ground, and walls leave the ground as it is.
+ * The marks of the buildings over the map whose corner is column (x0, z0),
+ * `size` columns a side, row by row. A path never covers a field or a
+ * building's ground, the peoples' buildings lay none, and walls leave the
+ * ground as it is.
  */
 export function groundMarks(buildings: Iterable<Marked>, x0: number, z0: number, size: number): Uint8Array {
   const out = new Uint8Array(size * size);
@@ -52,26 +53,27 @@ export function groundMarks(buildings: Iterable<Marked>, x0: number, z0: number,
   const fields: Marked[] = [];
   const grounds: Marked[] = [];
   for (const b of buildings) {
-    if (b.owner >= 8 || buildingSpec(b.kind).defence === 'wall') continue;
-    if (MATCHES_GROUND.has(b.kind)) {
+    if (buildingSpec(b.kind).defence === 'wall') continue;
+    if (drawsGround(b)) {
       grounds.push(b);
-      continue;
+      if (b.kind === BuildingKind.Farm && b.owner < 8) fields.push(b);
+    } else if (b.owner < 8) {
+      const [ax, az, bx, bz] = footprintRect(b);
+      fill(ax - PATH_RING, az - PATH_RING, bx + PATH_RING, bz + PATH_RING, Mark.Path, false);
     }
-    const [ax, az, bx, bz] = footprintRect(b);
-    fill(ax - PATH_RING, az - PATH_RING, bx + PATH_RING, bz + PATH_RING, Mark.Path, false);
-    if (b.kind === BuildingKind.Farm) fields.push(b);
   }
-  // The Big House's ground over any path round a neighbour: grass if any of it touches grass, else what it stands on.
+  // Each building's ground over any path round a neighbour.
   for (const b of grounds) {
+    if (!b.ground) continue;
     const [ax, az, bx, bz] = footprintRect(b);
-    fill(ax, az, bx, bz, b.grass === Mat.Grass ? Mark.Grass : b.grass === Mat.DryGrass ? Mark.DryGrass : Mark.Own, true);
+    fill(ax, az, bx, bz, Mark.Ground + b.ground, true);
   }
-  // The fields last, over any path, the farmhouse's own columns trodden.
+  // The players' fields last, the farmhouse's own columns dirt.
   for (const b of fields) {
     const [ax, az, bx, bz] = footprintRect(b);
     fill(ax, az, bx, bz, fieldWet(b) ? Mark.TilledWet : Mark.Tilled, true);
     const [sx, sz, ex, ez] = solidRect(b);
-    fill(sx, sz, ex, ez, Mark.Path, true);
+    fill(sx, sz, ex, ez, Mark.Ground + Mat.Soil, true);
   }
   return out;
 }
@@ -104,8 +106,8 @@ export class GroundMarks {
     const z0 = Math.round(focus.z / COLUMN_M / RECENTRE) * RECENTRE - half;
     let h = 0;
     for (const b of buildings.values()) {
-      if (b.owner >= 8) continue;
-      h = (Math.imul(h, 31) + b.id * 7 + b.kind * 13 + b.level * 17 + Math.max(b.level, b.upgrading) * 19 + b.variant + b.x * 3 + b.z * 5 + (b.kind === BuildingKind.Farm && fieldWet(b) ? 1 : 0) + (b.grass ?? 0) * 23) | 0;
+      if (b.owner >= 8 && !b.ground) continue;
+      h = (Math.imul(h, 31) + b.id * 7 + b.kind * 13 + b.level * 17 + Math.max(b.level, b.upgrading) * 19 + b.variant + b.x * 3 + b.z * 5 + (b.kind === BuildingKind.Farm && fieldWet(b) ? 1 : 0) + (b.ground ?? 0) * 23) | 0;
     }
     const sig = `${x0},${z0},${buildings.size},${h}`;
     if (sig === this.sig) return;

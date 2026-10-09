@@ -9,9 +9,9 @@
 // than the Fringe's, the Deepwoods' floor is leaf litter, the Barrens' stone
 // is red. The Deadlands' volcanic rock glows along its cracks, and the water
 // takes the art set's animated tiles: shallow, deep (where units cannot wade)
-// and bog, with foam along the shore. The players' buildings wear the ground
-// round them (ground-marks.ts): trodden paths, and a Farm's tilled field; the
-// Big House stands on the ground it is on, drawn as grass if any of it is.
+// and bog, with foam along the shore. The buildings wear the ground round
+// them (ground-marks.ts): trodden paths, a Farm's tilled field, and the
+// ground the Big House and each building with walk space stands on.
 import * as THREE from 'three';
 import { Mat } from '@blockyrts/sim';
 import type { ShaderPatch } from './fog-material.ts';
@@ -150,7 +150,7 @@ export function terrainUniforms(): TerrainUniforms {
 
 /** The first layer of a ground mark's tile set. */
 const markBase = (set: TileSet): number => TILE_SETS.indexOf(set) * LAYERS_PER_SET;
-/** Loose ground a path or a field can wear: grass, dry grass, soil, mud, sand, clay, ash and dead earth (not rock, ore or marble). */
+/** Loose ground a path can wear: grass, dry grass, soil, mud, sand, clay, ash and dead earth (not rock, ore or marble). */
 const LOOSE = [Mat.Grass, Mat.DryGrass, Mat.Soil, Mat.Mud, Mat.Sand, Mat.Clay, Mat.Ash, Mat.DeadEarth];
 
 /** Where the bands lie: the anchors (metres) and each band's start after the Heartland (metres). */
@@ -288,6 +288,9 @@ bool pathOpen(vec2 cell) {
     vec4 row = texelFetch(terrainTable, ivec2(int(vMat + 0.5), band), 0) * 255.0;
     bool top = abs(vFowN.y) > 0.5;
     float layer = top ? row.r : row.g;
+    // The material a top is drawn as and its set's first layer: a building's ground (ground-marks.ts) may differ from the column's own.
+    float drawMat = vMat;
+    float base = row.r;
     if (terrainOn > 0.5 && layer < 254.5) {
       vec2 uv;
       if (top) {
@@ -297,8 +300,17 @@ bool pathOpen(vec2 cell) {
         vec2 f = fract(c + 0.0005);
         float turn = floor(fract(h * 7.31) * 4.0);
         int m = int(vMat + 0.5);
-        float mark = ${LOOSE.map((m) => `m == ${m}`).join(' || ')} ? groundMark(cell) : 0.0;
-        if (mark > ${Mark.Path - 0.5} && mark < ${Mark.Path + 0.5}) {
+        bool loose = ${LOOSE.map((m) => `m == ${m}`).join(' || ')};
+        float mark = groundMark(cell);
+        if (mark > ${Mark.Ground - 0.5}) {
+          // A building's ground: its material's tiles in this band, on whatever the column is.
+          vec4 g = texelFetch(terrainTable, ivec2(int(mark - ${Mark.Ground}.0 + 0.5), band), 0) * 255.0;
+          if (g.r < 254.5) {
+            drawMat = mark - ${Mark.Ground}.0;
+            base = g.r;
+          }
+          layer = base + floor(h * 4.0);
+        } else if (loose && mark > ${Mark.Path - 0.5} && mark < ${Mark.Path + 0.5}) {
           // A path: plain inside; at its edge one of the tiles with a grassy edge along row 0, turned to face the unmarked ground (0 -z, 1 +x, 2 +z, 3 -x).
           layer = ${markBase('path')}.0;
           float edge = pathOpen(cell + vec2(0.0, -1.0)) ? 0.0 : pathOpen(cell + vec2(1.0, 0.0)) ? 1.0 : pathOpen(cell + vec2(0.0, 1.0)) ? 2.0 : pathOpen(cell + vec2(-1.0, 0.0)) ? 3.0 : -1.0;
@@ -307,14 +319,10 @@ bool pathOpen(vec2 cell) {
             turn = edge;
           }
         } else if (mark > ${Mark.Path + 0.5} && mark < ${Mark.TilledWet + 0.5}) {
-          // A field: its furrows run along x, so it turns only half way round.
+          // A field, on whatever ground (a Farm is always dirt): its furrows run along x, so it turns only half way round.
           layer = (mark > ${Mark.TilledWet - 0.5} ? ${markBase('soil_tilled_wet')}.0 : ${markBase('soil_tilled')}.0) + floor(h * 4.0);
           turn = turn >= 2.0 ? 2.0 : 0.0;
-        } else {
-          // Under the Big House: the band's grass (or dry grass) when any of it touches grass, else its own ground.
-          if (mark > ${Mark.Grass - 0.5} && mark < ${Mark.DryGrass + 0.5}) layer = texelFetch(terrainTable, ivec2(mark < ${Mark.Grass + 0.5} ? ${Mat.Grass} : ${Mat.DryGrass}, band), 0).r * 255.0;
-          layer += floor(h * 4.0);
-        }
+        } else layer += floor(h * 4.0);
         if (turn == 1.0) f = vec2(f.y, 1.0 - f.x);
         else if (turn == 2.0) f = 1.0 - f;
         else if (turn == 3.0) f = vec2(1.0 - f.y, f.x);
@@ -330,7 +338,7 @@ bool pathOpen(vec2 cell) {
       }
       diffuseColor.rgb = t.rgb;
       // The volcanic rock's cracks glow (the mask's crack pixels).
-      if (abs(vMat - ${Mat.Basalt}.0) < 0.5) terrainCrack = texture(terrainGlow, vec3(uv, top ? layer - row.r : 4.0)).a;
+      if (abs(drawMat - ${Mat.Basalt}.0) < 0.5) terrainCrack = texture(terrainGlow, vec3(uv, top ? layer - base : 4.0)).a;
     } else {
       vec3 cell = floor((vFowWorld - vFowN * 0.02) / 0.1125);
       float n = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);

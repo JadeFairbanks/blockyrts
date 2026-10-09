@@ -106,11 +106,11 @@ import {
   spellReadyAt,
 } from '@blockyrts/sim';
 import { barnOf, cloaked, crewOf, encounterRuns, graveNow, haulerOf, isCrystalGuardian, isWoodsman, keeperRuns, keeperWarns, menOnTop, rootedNow, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom, woodsmanLedger } from '@blockyrts/sim';
-import { footprintRect, OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
+import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type TavernPanel, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
-import { grassUnder, MATCHES_GROUND } from './world/ground-under.ts';
+import { GroundCache } from './world/ground-under.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 /** Never run more than this many steps in one tick; a long stall slows the game instead of freezing the tab. */
@@ -359,20 +359,8 @@ function tavernPanel(s: SimState, b: Building): TavernPanel | null {
   };
 }
 
-/** The grass under each Big House, by building id, kept while the land and its footprint stay as they were. */
-const grassSeen = new Map<number, { epoch: number; rect: string; grass: number }>();
-
-/** The grass a players' Big House stands on, so the ground drawn under it matches (ground-under.ts); undefined for other buildings. */
-function grassInfo(s: SimState, b: Building): number | undefined {
-  if (b.owner >= 8 || !MATCHES_GROUND.has(b.kind)) return undefined;
-  const r = footprintRect(b);
-  const rect = r.join();
-  const seen = grassSeen.get(b.id);
-  if (seen && seen.epoch === s.world.navEpoch && seen.rect === rect) return seen.grass;
-  const grass = grassUnder(s.world, r);
-  grassSeen.set(b.id, { epoch: s.world.navEpoch, rect, grass });
-  return grass;
-}
+/** The ground each building is drawn standing on (ground-under.ts), worked out again only when the land under it changes. */
+const grounds = new GroundCache();
 
 /** A building's queue for the panel: the head item's bar and the steps it has left at the sim's own pace (0 while on hold), the rest waiting. */
 function queueInfo(s: SimState, b: Building): BuildingInfo['queue'] {
@@ -441,7 +429,7 @@ function postInfo(s: SimState): void {
       farm: farmInfo(s, b),
       boost: farmBoost(s, b),
       tavern: tavernPanel(s, b),
-      grass: grassInfo(s, b),
+      ground: grounds.of(s.world, b),
     };
   });
   const e = s.entities;
@@ -687,7 +675,7 @@ function tick(): void {
 /** Starts (or restarts) from a state: everything the page draws is sent again. */
 function begin(s: SimState): void {
   state = s;
-  grassSeen.clear();
+  grounds.clear();
   clock = performance.now();
   lastHash = 0;
   lastHashStep = 0;
