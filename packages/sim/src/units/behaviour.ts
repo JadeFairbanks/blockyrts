@@ -17,7 +17,7 @@ import { HEX_SLOW_BP } from '../rules.ts';
 import { PERSON, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
 import { Species } from '../animals/species.ts';
 import { atGoal, pointGoal, type Goal } from '../nav/path.ts';
-import { HOP_SLOW_BP, hoppingUp, landAt, NO_CARRY, OrderKind, placeBuilding, standY, stepOffSolid, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
+import { HOP_SLOW_BP, hoppingUp, isGod, landAt, NO_CARRY, OrderKind, placeBuilding, standY, stepOffSolid, UnitKind, WARRIOR_HEALTH_BY_RANK, type SimState } from '../state.ts';
 import { WARRIOR_XP_TENTHS } from '../combat/combat.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool, ToolJob } from '../world/props.ts';
@@ -384,13 +384,14 @@ export function workOn(state: SimState, b: Building): void {
   if (!b.complete) {
     const total = workSteps(b.kind, 1);
     const before = constructionHealth(b.kind, b.progress);
-    b.progress++;
+    // Godmode (Jade's Patch 5: "you can build anything instantly"): one step of work finishes it.
+    b.progress = isGod(state, b.owner) ? total : b.progress + 1;
     b.hp += constructionHealth(b.kind, b.progress) - before;
     if (b.progress >= total) finishBuilding(state, b);
     return;
   }
   if (b.upgrading > 0) {
-    b.upProgress++;
+    b.upProgress = isGod(state, b.owner) ? workSteps(b.kind, b.upgrading) : b.upProgress + 1;
     if (b.upProgress >= workSteps(b.kind, b.upgrading)) {
       const oldMax = maxHealth(b);
       b.level = b.upgrading;

@@ -9,6 +9,7 @@ import {
   type AccountInfo,
   type ApiError,
   type MeResponse,
+  type OpenRoom,
   type RoomInfo,
   type SaveSummary,
   type SessionResponse,
@@ -47,6 +48,8 @@ export class ApiFailure extends Error {
 export interface Identity {
   name: string;
   account: AccountInfo | null;
+  /** The server lets this account open the debugger (Patch 5: only the admin accounts). */
+  debugger: boolean;
 }
 
 function readToken(): string {
@@ -82,7 +85,7 @@ export class Api {
   private setSession(s: SessionResponse): Identity {
     this.token = s.token;
     writeToken(s.token);
-    this.me = { name: s.name, account: s.account };
+    this.me = { name: s.name, account: s.account, debugger: s.debugger === true };
     for (const f of this.listeners) f(this.me);
     return this.me;
   }
@@ -124,7 +127,7 @@ export class Api {
     if (this.token) {
       const me = await this.request<MeResponse>('GET', ApiRoutes.me);
       if (me.name) {
-        this.me = { name: me.name, account: me.account };
+        this.me = { name: me.name, account: me.account, debugger: me.debugger === true };
         for (const f of this.listeners) f(this.me);
         return this.me;
       }
@@ -184,6 +187,11 @@ export class Api {
 
   room(code: string): Promise<RoomInfo> {
     return this.request('GET', ApiRoutes.room(code));
+  }
+
+  /** The lobbies waiting for players: public games first, then private ones (Patch 5). */
+  async openRooms(): Promise<OpenRoom[]> {
+    return (await this.request<{ rooms: OpenRoom[] }>('GET', ApiRoutes.rooms)).rooms;
   }
 }
 

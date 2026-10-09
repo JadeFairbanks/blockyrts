@@ -294,6 +294,18 @@ export class PostgresDatabase implements Database {
     await this.pool.query('DELETE FROM saves WHERE id = $1', [id]);
   }
 
+  async outdatedSaves(formatVersion: number, limit: number): Promise<SaveRow[]> {
+    const { rows } = await this.pool.query<SaveDb>(
+      "SELECT * FROM saves WHERE format_version < $1 AND blob_key <> '' ORDER BY created_at, id LIMIT $2",
+      [formatVersion, limit],
+    );
+    return rows.map(toSave);
+  }
+
+  async expireSave(id: string): Promise<void> {
+    await this.pool.query("UPDATE saves SET blob_key = '', size_bytes = 0 WHERE id = $1", [id]);
+  }
+
   async totalSaveBytes(accountId: string): Promise<number> {
     const { rows } = await this.pool.query<{ total: string | null }>('SELECT sum(size_bytes) AS total FROM saves WHERE account_id = $1', [accountId]);
     return Number(rows[0]?.total ?? 0);
