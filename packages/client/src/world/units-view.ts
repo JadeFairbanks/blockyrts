@@ -696,7 +696,7 @@ export class UnitsView {
     this.owned.length = 0;
     for (let i = 0; i < curr.count; i++) {
       const o = i * STATE_STRIDE;
-      // A cannon in a Citadel's port and the men up on a tower or a main base's top are drawn there; everything else inside a building is hidden.
+      // A Citadel's fixed engine and the men up on a tower or a main base's top are drawn there; everything else inside a building is hidden.
       if (d[o + S.inside] !== 0 && d[o + S.kind] !== UnitKind.Engine && !(d[o + S.flags]! & UnitFlag.OnTop)) continue;
       const id = d[o + S.id]!;
       const p = prev && alpha < 1 && prev.data[o + S.id] === id ? prev.data : d;
