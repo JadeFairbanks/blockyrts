@@ -17,6 +17,7 @@ import { floorDiv, headingTowards, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.
 import { Mount } from '../mounts/data.ts';
 import { PERSON, type Mover } from '../nav/grid.ts';
 import { OrderKind, UnitKind, type SimState } from '../state.ts';
+import { isDreadnought } from './dreadnought.ts';
 import { onWheels } from './weight.ts';
 import { isWoodsman } from './woodsman.ts';
 
@@ -67,7 +68,7 @@ export const GAITS: readonly GaitSpec[] = [
   { id: Gait.Fighter, name: 'Fighter on foot', runs: true, runFood: 1, paceBp: 10000, jump: 5, drop: 9, climb: 35 },
   // A horse jumps 2.5 m (22 units, 2.48 m); cavalry never climbs or runs (it is already faster than a runner).
   { id: Gait.Cavalry, name: 'Cavalry', runs: false, runFood: 0, paceBp: 10000, jump: 22, drop: 22, climb: 0 },
-  // The Dreadnought jumps 1.5 m (13 units, 1.46 m) and never climbs (the Tavern thread gives its unit this row).
+  // The Dreadnought (units/dreadnought.ts) jumps 1.5 m (13 units, 1.46 m) and never climbs.
   { id: Gait.Dreadnought, name: 'Dreadnought', runs: true, runFood: 2, paceBp: 8000, jump: 13, drop: 13, climb: 0 },
   // Engines roll (nav/grid.ts WHEELS): no running, jumping or climbing, at their own pace (siege/data.ts ARTILLERY_PACE_BP).
   { id: Gait.Engine, name: 'Siege engine', runs: false, runFood: 0, paceBp: 10000, jump: 0, drop: 0, climb: 0 },
@@ -81,6 +82,7 @@ export function gaitSpec(g: number): GaitSpec {
 export function gaitOf(state: SimState, i: number): Gait {
   const e = state.entities;
   if (e.kind[i] === UnitKind.Engine) return Gait.Engine;
+  if (isDreadnought(e, i)) return Gait.Dreadnought;
   if (e.mount[i] === Mount.Horse) return Gait.Cavalry;
   if (e.kind[i] === UnitKind.Worker) return Gait.Worker;
   if (isWoodsman(e, i)) return Gait.Woodsman;

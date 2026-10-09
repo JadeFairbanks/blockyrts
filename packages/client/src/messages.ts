@@ -272,6 +272,8 @@ export interface BuildingInfo {
   farm: FarmInfo | null;
   /** Finished farms: the bonemeal boost (Patch 5, UI-17; sim buildings/farm-boost.ts farmBoost), or null. */
   boost?: FarmBoost | null;
+  /** A finished Tavern (Patch 5): its till, its bar to the next silver ingot and its counters, or null. */
+  tavern?: TavernPanel | null;
 }
 
 /** A farm's boost (Patch 5): steps left of the one running and its whole, the boosts waiting, Auto fertilize, and a Sweet Hawthorne within 30 m. */
@@ -281,6 +283,25 @@ export interface FarmBoost {
   queued: number;
   auto: boolean;
   hawthorne: boolean;
+}
+
+/** A Tavern as the panel shows it (Patch 5, Jade, GP-20). */
+export interface TavernPanel {
+  open: boolean;
+  /** The till: whole silver ingots and the thousandths of the next (3 decimals). */
+  whole: number;
+  thousandths: number;
+  /** The bar to the next silver ingot, per mille, and its steps left (0 while it stands still: closed, or no food). */
+  done: number;
+  stepsLeft: number;
+  /** In all: silver made (whole and thousandths) and food burned. */
+  madeWhole: number;
+  madeThousandths: number;
+  food: number;
+  /** Why the local player cannot hire a Dreadnought now whatever the ingots (the cap, the food), or ''; and how many they have and may have. */
+  hireWhy: string;
+  dreadnoughts: number;
+  cap: number;
 }
 
 /** A farm's next harvest as the panel shows it (Jade, patch notes 1). */

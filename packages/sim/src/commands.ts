@@ -10,6 +10,8 @@ import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, main
 import { cancelProduct, queueProduct, queueStack, setKitLock, stacks, usableBy } from './buildings/production.ts';
 import { fertilizable, fertilize, setAutoFertilize } from './buildings/farm-boost.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
+import { isTavern, setTavernOpen, withdrawFunds } from './buildings/tavern.ts';
+import { isDreadnought } from './units/dreadnought.ts';
 import { costText, FOODS, refund, Res, RESOURCES, type Cost } from './economy/resources.ts';
 import { canAffordAny, haveOf, isAnyRes, payAny, shortOfAny } from './economy/food-kinds.ts';
 import { clamp, floorDiv, isqrt, WORLD_EDGE_WU, WU_PER_COLUMN, WU_PER_METRE } from './fixed.ts';
@@ -690,7 +692,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'trainRank': {
         const b = ownBuilding(state, o.player, o.building);
-        if (b) giveAll(state, o, (i) => (b.kind === rankTrainedAt(e.kind[i]!) ? { t: 'train', b: b.id } : null));
+        // The Dreadnought has no ranks to train (Patch 5).
+        if (b) giveAll(state, o, (i) => (b.kind === rankTrainedAt(e.kind[i]!) && !isDreadnought(e, i) ? { t: 'train', b: b.id } : null));
         break;
       }
       case 'retrain':
@@ -742,6 +745,16 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
             break;
           }
         }
+        break;
+      }
+      case 'tavernOpen': {
+        const b = usableBuilding(state, o.player, o.building);
+        if (b) setTavernOpen(b, o.open === 1, o.player);
+        break;
+      }
+      case 'tavernWithdraw': {
+        const b = usableBuilding(state, o.player, o.building);
+        if (b && isTavern(b) && withdrawFunds(state, b, o.player) === 0) alert(state, o.player, 'There is no whole silver ingot in the till yet.');
         break;
       }
       case 'cancelProduce': {

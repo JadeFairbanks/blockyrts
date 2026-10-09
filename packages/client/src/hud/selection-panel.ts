@@ -45,6 +45,8 @@ import {
   WAND_KITS,
   weaponPiece,
   ARMOUR_KITS,
+  DREADNOUGHT_KIT,
+  dreadnoughtArmour,
   type Piece,
 } from '@blockyrts/sim';
 import type { GameInfo, UnitInfo } from '../game/game-info.ts';
@@ -135,6 +137,7 @@ export function typeOrder(typeKey: string): number {
   if (typeKey === 'worker') return 0;
   if (typeKey === 'warrior') return 1;
   if (typeKey === 'warrior:woods') return 1.4;
+  if (typeKey === 'warrior:dreadnought') return 1.4;
   if (typeKey === 'warrior:crew') return 1.5;
   if (typeKey === 'mage:support') return 2;
   if (typeKey === 'mage:battle') return 3;
@@ -531,8 +534,8 @@ export class SelectionPanel {
       const pct = Math.max(0, Math.min(100, Math.round((h[0] * 100) / h[1])));
       return { pct, text: `${h[0]}/${h[1]}`, tip: `Health ${h[0]} of ${h[1]}.`, low: pct < 35 };
     }, 'Health');
-    // Another player's units show their experience too; the peoples' and the monsters' have no ranks.
-    if (u && hasRanks(u.kind) && u.owner < 8) {
+    // Another player's units show their experience too; the peoples' and the monsters' have no ranks, nor has the Dreadnought (Patch 5).
+    if (u && hasRanks(u.kind) && u.owner < 8 && !(u.kind === UnitKind.Warrior && u.troop === Troop.Dreadnought)) {
       const unit = u.id;
       label('XP:');
       this.bar('xp', box, () => {
@@ -628,7 +631,7 @@ export class SelectionPanel {
   // ---- One building ----
 
   private buildingSig(b: BuildingInfo): string {
-    return [b.queue.map((q) => `${q.product}x${q.count ?? 1}`).join('.'), b.inside.join('.'), b.up.join('.'), b.rally.length, b.assigned, b.working, b.complete, b.upgrading, b.level, b.lit, b.herd, b.rating, b.stock.join('.'), b.horses, b.farm ? `${Number(b.farm.grows)}${b.farm.res}${b.farm.band}` : ''].join('/');
+    return [b.queue.map((q) => `${q.product}x${q.count ?? 1}`).join('.'), b.inside.join('.'), b.up.join('.'), b.rally.length, b.assigned, b.working, b.complete, b.upgrading, b.level, b.lit, b.herd, b.rating, b.stock.join('.'), b.horses, b.farm ? `${Number(b.farm.grows)}${b.farm.res}${b.farm.band}` : '', b.tavern ? `${Number(b.tavern.open)}:${b.tavern.food}` : ''].join('/');
   }
 
   private oneBuilding(t: Selectable, b: BuildingInfo): void {
@@ -640,6 +643,7 @@ export class SelectionPanel {
     const cards = own && b.complete && cardsOf(b).length > 0 ? this.cards.render(this.body, [b]) : null;
     this.buildingFacts(b, own, cards ?? this.body);
     if (b.farm) this.farmBar(b);
+    if (own && b.tavern) this.tavernBar(b);
     if (own) this.garrison(b);
     if (!own && t.details) this.notes(t, t.details.slice(1));
   }
@@ -732,6 +736,30 @@ export class SelectionPanel {
       const time = v.stepsLeft > 0 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'still';
       return { pct: Math.max(0, Math.min(100, v.done / 10)), text: `${v.items} in ${time}`, tip: [harvestText(v), v.band].filter((x) => x).join('\n') };
     }, 'Harvest', true, 'farm-bar');
+  }
+
+  /**
+   * A Tavern's till (Jade, GP-20): the silver in it to 3 decimals on a bar
+   * that fills to the next ingot while it is open for business, then its
+   * running counts, the silver it has made and the food it has served.
+   */
+  private tavernBar(b: BuildingInfo): void {
+    const t = b.tavern!;
+    const silver = (whole: number, thousandths: number): string => `${whole}.${String(thousandths).padStart(3, '0')}`;
+    const row = this.strip('tavern');
+    this.chip('till', { icon: pic('icon_silver'), name: 'The till', description: 'The silver in the till. Withdraw funds takes the whole ingots into your stock and leaves the rest.', className: 'crop' }, row);
+    const id = b.id;
+    this.bar('meal', row, () => {
+      const v = this.a.game.buildings.get(id)?.tavern;
+      if (!v) return null;
+      const s = Math.ceil(v.stepsLeft / STEPS_PER_SECOND);
+      const tip = v.open ? `Open for business: the next silver ingot in ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}, while there is food to serve.` : 'Closed: no silver is made until it opens for business.';
+      return { pct: Math.max(0, Math.min(100, v.done / 10)), text: `${silver(v.whole, v.thousandths)} silver`, tip };
+    }, 'Silver in the till', true, 'tavern-bar');
+    const totals = this.strip('facts');
+    const made = silver(t.madeWhole, t.madeThousandths);
+    this.chip('made', { icon: pic('icon_silver'), face: made, name: 'Silver made', description: `This Tavern has made ${made} silver ingots in all.`, className: 'count' }, totals);
+    this.chip('served', { icon: pic('icon_food'), face: String(t.food), name: 'Food served', description: `This Tavern has served ${t.food} food in all.`, className: 'count' }, totals);
   }
 
   /** Up top and inside: a picture and a count, then their portraits, each one's tooltip saying what a click does. */
@@ -940,6 +968,15 @@ export class SelectionPanel {
       return [
         { pic: weaponPic(u.troop, u.wTier), tag: String(u.wTier), ...named(weaponPiece(u.troop, u.wTier), u.wTier, 'weapon'), line: 0 },
         { pic: { file: 'icon_fishing_rod' }, name: rod.name, text: 'He fishes with it; it comes with him. A woodsman wears no armour.', line: -1 },
+      ];
+    }
+    // The Dreadnought (Patch 5, GP-21): the mace and plate he came with, never changed.
+    if (u.troop === Troop.Dreadnought) {
+      const k = DREADNOUGHT_KIT;
+      const keeps = 'He keeps it: it is never upgraded or changed.';
+      return [
+        { pic: { file: 'icon_mace_iron_refined' }, name: k.mace, text: `A smash of ${k.smash.damage} at one enemy, then a sweep of ${k.swing.damage} at every enemy in front of him, by turns, one every ${k.attackDs / 10} s; reach ${k.reachCm / 100} m.\n${keeps}`, line: -1 },
+        { pic: armourPic(dreadnoughtArmour().tier), name: k.plate, text: `Protection ${dreadnoughtArmour().protectionPct}%, as a ${dreadnoughtArmour().name} of high carbon steel. No shield.\n${keeps}`, line: -1 },
       ];
     }
     const out: Array<{ pic: Pic; tag?: string; name: string; text: string; line: number }> = [

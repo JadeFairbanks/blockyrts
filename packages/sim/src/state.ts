@@ -893,10 +893,11 @@ export interface Site {
  * 'violet' Morvath's staff splash (MB-4), a ring of vivid purple; 'drain' life drained into a monster, white motes from
  * where it was taken to `to`, `n` of them (one for every 2 health); 'crimson' the necromancer's bolt bursting and his
  * dead rising (MB-5); 'summon' a summoner calling up its kin (the necromancer, Morvath opening the Rift), at the
- * summoner `id`. 'heart': two animals mating (BL-10), over each of them. 'catch': a woodsman's fish coming up out of the
- * water at (x, y, z) to him (id), its stretch's prop kind in mob (FR-1).
+ * summoner `id`. 'sweep': the Dreadnought's swing landing, its crescent drawn in front of him; 'warcry': a remark
+ * of his, said with his war cry. 'heart': two animals mating (BL-10), over each of them. 'catch': a woodsman's fish
+ * coming up out of the water at (x, y, z) to him (id), its stretch's prop kind in mob (FR-1).
  */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'heart' | 'catch';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'sweep' | 'warcry' | 'heart' | 'catch';
 
 export interface HitEvent {
   look: HitLook;
@@ -905,9 +906,10 @@ export interface HitEvent {
   z: number;
   /** The entity hit, swinging or dying (0 for none). */
   id: number;
-  /** Death: what died (UnitKind and mob), for the death animation; a 'heart' (Patch 5): the animal's species in mob. */
+  /** Death: what died (UnitKind and mob, and a warrior's troop type: the Dreadnought falls as himself, Patch 5), for the death animation; a 'heart' (Patch 5): the animal's species in mob. */
   kind?: number;
   mob?: number;
+  troop?: number;
   heading?: number;
   /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
   spell?: number;

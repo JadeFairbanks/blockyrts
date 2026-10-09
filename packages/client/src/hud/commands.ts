@@ -15,6 +15,9 @@ import {
   costText,
   FERTILIZE_BONEMEAL,
   craftRate,
+  DREADNOUGHT,
+  DREADNOUGHT_TEXT,
+  dreadnoughtProduct,
   CREWMAN_RETRAIN_STEPS,
   EAT_NUTRITION,
   ENGINE_PRODUCT,
@@ -37,6 +40,8 @@ import {
   MAGE_RANK_TRAINING,
   MONSTERS,
   FactionKind,
+  Gait,
+  gaitSpec,
   PEOPLES,
   OUT_OF_REACH,
   HAND_CART_TENTHS_LB,
@@ -48,6 +53,7 @@ import {
   RESEARCH_PRODUCT,
   recipeSpec,
   RESOURCES,
+  RUN_FOOD_METRES,
   schoolSpells,
   plannedSpots,
   chainPiece,
@@ -59,6 +65,7 @@ import {
   snapStretch,
   speciesSpec,
   STEPS_PER_SECOND,
+  TAVERN,
   stretchBetween,
   stretchCells,
   stretchSpots,
@@ -97,7 +104,7 @@ import {
 import type { UnitInfo } from '../game/game-info.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import { keyFor, spellAction } from '../input/bindings.ts';
-import { UnitFlag, type BuildingInfo, type PeopleInfo } from '../messages.ts';
+import { UnitFlag, type BuildingInfo, type PeopleInfo, type TavernPanel } from '../messages.ts';
 import { isOwn } from '../selection/rules.ts';
 import { buildingIdOf, entityIdOf, lootIdOf, type Selectable } from '../selection/types.ts';
 import type { Settings } from '../settings/settings.ts';
@@ -258,11 +265,11 @@ const TROOP_ACTIONS: Readonly<Record<number, readonly [string, string, number]>>
 };
 
 /** Whether a selectable's type is one of the player's units that wears gear and eats: workers, warriors and mages. */
-const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey === 'warrior' || u.typeKey === 'warrior:woods' || u.typeKey.startsWith('mage:');
+const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey === 'warrior' || u.typeKey === 'warrior:woods' || u.typeKey === 'warrior:dreadnought' || u.typeKey.startsWith('mage:');
 
 /** Whether a building trains workers, warriors or mages, which come out to its rally point. */
 const trainsUnits = (b: BuildingInfo): boolean =>
-  buildingSpec(b.kind).trainsWorkers || b.troops.length > 0 || (b.mages?.length ?? 0) > 0 || b.products.some(([p]) => p === Product.SupportMage || p === Product.BattleMage || p === Product.Woodsman);
+  buildingSpec(b.kind).trainsWorkers || b.troops.length > 0 || (b.mages?.length ?? 0) > 0 || b.products.some(([p]) => p === Product.SupportMage || p === Product.BattleMage || p === Product.Woodsman) || b.kind === BuildingKind.Tavern;
 
 export interface Targeting {
   command: TargetCommand;
@@ -314,6 +321,8 @@ export interface CommandDeps {
   confirmWar(faction: number, then: () => void): void;
   /** The trade menu, or a mercenary camp's hire box. */
   openPeople(faction: number): void;
+  /** The Tavern's Hire Dreadnought window (Patch 5, GP-21), for these Taverns. */
+  hireDreadnought?(buildings: readonly number[]): void;
   /** How many buttons the card can show at once, at the smallest size it may shrink them to (hud-layout.ts buttonRoom); 15 when left out. */
   slots?(): CardSize;
 }
@@ -454,7 +463,7 @@ export class Commands {
 
   private slotsFor(active: string, waiting: boolean): Slots {
     if (this.area && active === 'worker') return this.areaCard();
-    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active === 'warrior:woods' || active.startsWith('mage:')) {
+    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active === 'warrior:woods' || active === 'warrior:dreadnought' || active.startsWith('mage:')) {
       if (this.alliedOnly(active)) return this.alliedCard(active);
       if (this.menu.page === 'build' && active === 'worker') return this.buildMenuCard(waiting);
       return this.unitCard(active);
@@ -641,6 +650,19 @@ export class Commands {
       // The woodsman (Patch 5, Jade's WD-1 and WD-2): move and attack, Fish and Forage, Eat and Upgrade equipment, and Run or Walk as every unit on foot.
       const men = this.unitIds((u) => u.typeKey === 'warrior:woods');
       return [attack, move, this.woodsEntry(men, 1), this.woodsEntry(men, 2), this.eatEntry(), this.equipEntry(men), pace];
+    }
+    // The Dreadnought (Patch 5, GP-21): no Upgrade equipment (he keeps his mace and plate) and no Hunt (he is hired to fight);
+    // he never climbs, jumps higher and pays double for running (units/moves.ts Gait.Dreadnought).
+    if (active === 'warrior:dreadnought') {
+      const g = gaitSpec(Gait.Dreadnought);
+      const jump = Math.round((g.jump * WU_PER_TERRAIN_UNIT * 10) / WU_PER_METRE) / 10;
+      return [
+        attack,
+        patrol,
+        { ...move, description: `${move.description} A Dreadnought never climbs; he jumps rises up to ${jump} m.` },
+        this.eatEntry(),
+        { ...pace, description: `${pace.description} A Dreadnought pays ${g.runFood} food for every ${RUN_FOOD_METRES} m he runs.` },
+      ];
     }
     const troops = this.unitIds((u) => u.typeKey === 'warrior');
     return [
@@ -1096,6 +1118,8 @@ export class Commands {
     for (const [p, action, face, slot] of rows) card[slot] = this.productEntry(all, p, action, face);
     // Patch 5 (Jade's GP-38): Fertilize on a farm's card, beside Train worker.
     if (kind === BuildingKind.Farm && first.complete) card[1] = this.fertilizeEntry(all.filter((b) => b.complete));
+    // Patch 5: the Tavern's Open for business, Withdraw funds and Hire Dreadnought (GP-20, GP-21).
+    if (first.complete && first.tavern) [card[0], card[1], card[2]] = this.tavernEntries(all, first.tavern);
     if (first.complete) {
       for (const t of first.troops) {
         const [action, face, slot] = TROOP_ACTIONS[t.troop]!;
@@ -1107,8 +1131,8 @@ export class Commands {
         card[support ? 0 : 1] = this.mageEntry(all, mageLock(m.school), support ? 'trainSupportMage' : 'trainBattleMage', support ? 'Support' : 'Battle');
       }
     }
-    // A Citadel's fixed engines are in its Build defense menu (Patch 5), not with what it makes.
-    const made = first.complete ? first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT && !PLATFORM.has(p)) : [];
+    // A Citadel's fixed engines are in its Build defense menu (Patch 5), not with what it makes; the Lodge's woodsman is on its card.
+    const made = first.complete ? first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT && !PLATFORM.has(p) && p !== Product.Woodsman) : [];
     // A main base's mages sit on 4 and 5, so its K button moves along.
     const makeSlot = main ? 7 : 5;
     if (flatMake(kind) && made.length > 0) {
@@ -1172,6 +1196,55 @@ export class Commands {
       );
     }
     return card;
+  }
+
+  /**
+   * The Tavern's buttons (Jade, GP-20 and GP-21): Open for business, lit
+   * while open, which opens or closes every selected Tavern alike; Withdraw
+   * funds, which takes the whole silver ingots out of their tills; and Hire
+   * Dreadnought, which opens the window where the player sets how the price
+   * is paid. Its tooltip is his description and his price.
+   */
+  private tavernEntries(all: BuildingInfo[], t: TavernPanel): [CardEntry, CardEntry, CardEntry] {
+    const burn = `${TAVERN.burnSteps / STEPS_PER_SECOND} s`;
+    const open = this.entry(
+      'tavernOpen',
+      t.open ? 'Close' : 'Open',
+      t.open
+        ? `Close for business: the Tavern stops serving food and making silver. The silver in its till stays there.`
+        : `Open for business: the Tavern serves a food every ${burn} from your stock, and every ${TAVERN.foodPerSilver} food served make one silver ingot, kept in its till until you withdraw it.`,
+      () => {
+        for (const b of all) this.d.send({ kind: 'tavernOpen', player: this.d.player, building: b.id, open: t.open ? 0 : 1 });
+      },
+      { name: t.open ? 'Close for business' : 'Open for business', lit: t.open },
+    );
+    const whole = all.reduce((n, b) => n + (b.tavern?.whole ?? 0), 0);
+    const takes = 'Take the whole silver ingots in the till into your stock; the part of the next ingot stays in the till.';
+    const withdraw =
+      whole > 0
+        ? this.entry('tavernWithdraw', 'Withdraw', `${takes} ${whole} silver ingot${whole === 1 ? '' : 's'} now.`, () => {
+            for (const b of all) if ((b.tavern?.whole ?? 0) > 0) this.d.send({ kind: 'tavernWithdraw', player: this.d.player, building: b.id });
+          }, { name: 'Withdraw funds' })
+        : this.off('tavernWithdraw', 'Withdraw', takes, 'There is no whole silver ingot in the till yet.', 'Withdraw funds');
+    const info = this.d.game.info;
+    const g = this.d.game;
+    let why = t.hireWhy;
+    if (!why && Math.min(g.have(Res.Gold), DREADNOUGHT.gold) * DREADNOUGHT.silverPerGold + g.have(Res.Silver) < DREADNOUGHT.gold * DREADNOUGHT.silverPerGold) why = `Not enough gold and silver ingots (${DREADNOUGHT.gold} gold or ${DREADNOUGHT.gold * DREADNOUGHT.silverPerGold} silver).`;
+    if (!why && info && info.supplyUsed + DREADNOUGHT.supply > info.supplyCap) why = `Not enough supply for him (he takes ${DREADNOUGHT.supply}; ${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
+    if (!why && all.every((b) => b.queue.length >= 5)) why = 'The queue is full (5).';
+    const hire: CardEntry = {
+      action: 'hireDreadnought',
+      face: 'Dreadnought',
+      name: 'Hire Dreadnought',
+      key: this.key('hireDreadnought'),
+      description: productSpec(dreadnoughtProduct(DREADNOUGHT.gold, 0)).tooltip || DREADNOUGHT_TEXT,
+      icon: productIcon(dreadnoughtProduct(DREADNOUGHT.gold, 0)),
+      enabled: why === '',
+      reason: why,
+      run: () => this.d.hireDreadnought?.(all.map((b) => b.id)),
+      grey: () => this.greyed(Greyed.Product, dreadnoughtProduct(DREADNOUGHT.gold, 0), all[0]!.id),
+    };
+    return [open, withdraw, hire];
   }
 
   /** A training, making or research button, greyed out with the reason it cannot be queued; a K menu's products are menu buttons. */
@@ -1353,7 +1426,7 @@ export class Commands {
     const list: CardEntry[] = [];
     const sub = this.menu.sub;
     if (first) {
-      const made = first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT);
+      const made = first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT && p !== Product.Woodsman);
       for (const [p, why] of made) {
         if (makeSub(p) !== sub) continue;
         if (sub === SCRAP_SUB) {

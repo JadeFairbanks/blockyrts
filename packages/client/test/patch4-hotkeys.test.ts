@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, productsOf, productSpec, RESEARCH_PRODUCT, RESOURCE_COUNT, TROOP_PRODUCT, type Order } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, Product, productsOf, productSpec, RESEARCH_PRODUCT, RESOURCE_COUNT, TROOP_PRODUCT, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
 import { HUD_LETTERS, makeAction, makeList, makesOne, makeSub, menuLetters, MORE_ACTION, placeAction } from '../src/hud/menu-keys.ts';
@@ -92,7 +92,7 @@ describe('the build menu on letters (Patch 4)', () => {
     button(c.card(), 'Build').run(PRESS);
     expect(read(c.card())).toEqual([
       'Big House=H', 'Farm=F', 'Barn=R', 'Storehouse=S', 'Workshop=W', 'Forge=G',
-      'Artillery workshop=A', 'Barracks=B', 'Magi Sanctum=M', "Scholar's Lodge=C", 'Mineshaft=N', 'Defences=D', 'Lights=T', 'Back=Esc',
+      'Artillery workshop=A', 'Barracks=B', 'Magi Sanctum=M', "Scholar's Lodge=C", 'Mineshaft=N', 'Tavern=V', 'Defences=D', 'Lights=T', 'Back=Esc',
     ]);
     button(c.card(), 'Defences').run(PRESS);
     expect(read(c.card())).toEqual([
@@ -111,6 +111,7 @@ describe('the build menu on letters (Patch 4)', () => {
     // A phone's card shows 15, which holds Defences' 13 choices (Patch 5 cut the earthworks and added the earth rampart); on a card of 8 they take three pages.
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker', 15);
     button(c.card(), 'Build').run(PRESS);
+    // Patch 5: the Tavern in and the Fishing dock gone, the build menu fits a card of 15.
     button(c.card(), 'Defences').run(PRESS);
     small(c);
     const first = c.card();
@@ -220,7 +221,7 @@ describe('the menus\' hotkeys in the settings (Patch 4)', () => {
       if (b.slot === 0) continue;
       if (b.variants) b.variants.forEach((_, v) => expect(keyFor({}, placeAction(b.kind, v))).toMatch(/^Key[A-Z]$/));
       else expect(keyFor({}, placeAction(b.kind, 0))).toMatch(/^Key[A-Z]$/);
-      const made = productsOf({ kind: b.kind, complete: true } as Parameters<typeof productsOf>[0]).filter((p) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT);
+      const made = productsOf({ kind: b.kind, complete: true } as Parameters<typeof productsOf>[0]).filter((p) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT && p !== Product.Woodsman);
       // Patch 5: the Big House's Make rope and the Storehouse's Make sticks are on the card's K, not in a menu.
       for (const p of made) expect(ACTIONS.some((a) => a.id === makeAction(b.kind, p))).toBe(!makesOne(b.kind));
     }

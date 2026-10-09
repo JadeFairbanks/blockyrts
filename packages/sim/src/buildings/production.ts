@@ -16,8 +16,9 @@ import type { UnitOrder } from '../units/unit-orders.ts';
 import { Act, assigned, columnCentre, exitColumn, giveOrder, isFarm } from '../units/behaviour.ts';
 import { BARN_STALLS, BuildingKind, buildingName, buildingSpec, CAVALRY_BASE, CRAFT_PACE, FARM_HARVEST_STEPS, FORGE_STEP_BASE, forgeStep, levelSpec, QUEUE_LIMIT, WORKER_FOOD, WORKER_TRAIN_STEPS } from './data.ts';
 import { buildingCentre, dist2 } from './lights.ts';
-import { bandAt } from './placement.ts';
-import { ENGINE_PRODUCT, mageOf, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type QueueItem, type RallyPoint } from './store.ts';
+import { bandAt, mainBaseLevel } from './placement.ts';
+import { dreadnoughtOf, ENGINE_PRODUCT, mageOf, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type QueueItem, type RallyPoint } from './store.ts';
+import { addDreadnought, DREADNOUGHT, dreadnoughtCap, dreadnoughtHired, dreadnoughtPrice, dreadnoughtsAlive, paysForDreadnought, unitSupply } from '../units/dreadnought.ts';
 import { CREWMAN, engineSpec, PLAYER_ENGINES, upgradeOf } from '../siege/data.ts';
 import { addCrewman, crewSworn, engineName, spawnEngine } from '../siege/engines.ts';
 import { finishUpgrade, platformOf, platformProblem, platformProducts, spawnFixedEngine, spawnGarrisonCrewman, engineUpgradeCost, engineUpgradeCrew, engineUpgradeSteps } from '../siege/platform.ts';
@@ -86,6 +87,8 @@ export interface ProductSpec {
   troop?: { troop: number; w: number; a: number; s: number };
   /** A new mage trained at a Magi Sanctum with her kit picked (Patch 2): her school and wand and robe tiers. */
   mage?: { school: number; w: number; a: number };
+  /** A Dreadnought hired at the Tavern (Patch 5): the gold and silver ingots that pay him, in `cost`. */
+  dreadnought?: { gold: number; silver: number };
   /** A new unit's kit (units/kits.ts), paid when queued, whichever way the stock allows. */
   pieces?: readonly Piece[];
 }
@@ -134,6 +137,14 @@ export function productSpec(product: Product): ProductSpec {
     return {
       product, name: TROOP_NAMES[Troop.Crew]!, key: 'C', steps: CREWMAN.seconds * STEPS_PER_SECOND, cost: [], food: CREWMAN.food,
       tooltip: `A new artillery crewman (Patch 2): the only unit that crews catapults, ballistas and cannons; it fights with its fists. Pays ${CREWMAN.food} food. Needs free supply. It goes to crew the nearest of your engines that is a crewman short.`,
+    };
+  }
+  const d = dreadnoughtOf(product);
+  if (d) {
+    const cost: Cost = [...(d.gold > 0 ? [[Res.Gold, d.gold] as const] : []), ...(d.silver > 0 ? [[Res.Silver, d.silver] as const] : [])];
+    return {
+      product, name: TROOP_NAMES[Troop.Dreadnought]!, key: 'D', steps: DREADNOUGHT.trainS * STEPS_PER_SECOND, cost, food: DREADNOUGHT.food, dreadnought: d,
+      tooltip: `${DREADNOUGHT_TEXT} Price: ${DREADNOUGHT.food} food and ${DREADNOUGHT.gold} gold ingots or ${dreadnoughtPrice()} silver ingots.`,
     };
   }
   const m = mageOf(product);
@@ -195,6 +206,9 @@ export function productSpec(product: Product): ProductSpec {
   const tooltip = r.scrap !== undefined ? `Breaks one ${RESOURCES[r.scrap]!.name.toLowerCase()} from the stock back into ${costText(r.outputs)}. A stack of them takes one place in the queue.` : `Makes ${costText(r.outputs)}.`;
   return { product, name: r.name, key: '', steps: r.steps, cost: r.inputs[0] ?? [], food: 0, recipe: r.id, tooltip };
 }
+
+/** The Dreadnought's description (Jade, GP-21, her words): the Hire button's tooltip, with his price after it. */
+export const DREADNOUGHT_TEXT = 'THE Dreadnought. A giant of a man in plate armour and wielding a heavy mace mace. Rumors have it that his Mother was an Ogre, but don\'t tell him that! Dreadnoughts have an AOE attack every other hit, and a large health pool.';
 
 // ----- troops (Troops and gear: Barracks panel) -----
 
@@ -396,6 +410,8 @@ export function setKitLock(b: Building, card: number, lock: number): boolean {
 
 /** Whether a building offers a product at all (troops and Sanctum mages by type and tiers, the rest by productsOf). */
 export function offers(b: Building, product: Product): boolean {
+  const d = dreadnoughtOf(product);
+  if (d) return b.complete && b.kind === BuildingKind.Tavern && paysForDreadnought(d.gold, d.silver);
   const t = troopOf(product);
   if (t) return troopOffered(b, t.troop, t.w, t.a, t.s);
   const m = mageOf(product);
@@ -538,12 +554,25 @@ export function productProblem(state: SimState, b: Building, product: Product, u
     if (cavalry && !god && stalledHorses(state, b, user).length === 0) return 'Cavalry needs a tamed horse in a Barn.';
     if (!planPieces(spec.pieces, pool)) return `Not enough resources (${costText(spec.cost)}).`;
   }
-  if (spec.food > 0) {
-    if (eatableFood(player) < spec.food) return `Not enough food (${spec.food} food).`;
-  } else {
-    for (const [res, n] of spec.cost) if (haveOf(pool, res) < n) return `Not enough resources (${costText(spec.cost)}).`;
+  if (spec.dreadnought) {
+    const why = dreadnoughtProblem(state, user);
+    if (why) return why;
   }
+  // A unit's kit was checked above; anything else pays its cost as it stands (an engine's materials, a Dreadnought's ingots), then any food.
+  if (!spec.pieces) for (const [res, n] of spec.cost) if (haveOf(pool, res) < n) return `Not enough resources (${costText(spec.cost)}).`;
+  if (spec.food > 0 && eatableFood(player) < spec.food) return `Not enough food (${spec.food} food).`;
   return '';
+}
+
+/** Why a player cannot hire another Dreadnought, or '': the cap by main base tier (Jade: 1 at tier 3, 3 at tier 4), counting those being hired. */
+export function dreadnoughtProblem(state: SimState, player: number): string {
+  const cap = dreadnoughtCap(mainBaseLevel(state, player));
+  let n = dreadnoughtsAlive(state, player);
+  for (const b of state.buildings.list) for (const q of b.queue) if (q.by === player && dreadnoughtOf(q.product)) n++;
+  if (n < cap) return '';
+  if (cap === 0) return 'Needs a tier 3 main base.';
+  const most = `${cap} Dreadnought${cap === 1 ? '' : 's'}`;
+  return cap < dreadnoughtCap(Number.MAX_SAFE_INTEGER) ? `At most ${most} at this main base tier; a tier 4 main base allows ${dreadnoughtCap(Number.MAX_SAFE_INTEGER)}.` : `At most ${most} at a time.`;
 }
 
 /** Steps of work an item takes (a crafting building's pace and research's are in their rates, not here). */
@@ -593,8 +622,9 @@ export function trainsUnit(product: number): boolean {
   return product === Product.Worker || product === Product.SupportMage || product === Product.BattleMage || product === Product.Crewman || product === Product.GarrisonCrewman || product === Product.Woodsman || product >= TROOP_PRODUCT;
 }
 
-/** Supply a product's new units take: 1 for a unit trained, an engine's crew (Patch 2), else 0. */
+/** Supply a product's new units take: 1 for a unit trained (a Dreadnought 8, Patch 5), an engine's crew (Patch 2), else 0. */
 export function supplyNeed(product: number): number {
+  if (dreadnoughtOf(product)) return DREADNOUGHT.supply;
   if (trainsUnit(product)) return 1;
   if (product >= ENGINE_PRODUCT && product < TROOP_PRODUCT) {
     const up = upgradeOf(product - ENGINE_PRODUCT);
@@ -603,12 +633,12 @@ export function supplyNeed(product: number): number {
   return 0;
 }
 
-/** Supply in use: one per worker, warrior and mage, one per research facility, plus the units being made for the player (animals and engines use none; an engine's crew do). */
+/** Supply in use: one per worker, warrior and mage (a Dreadnought 8), one per research facility, plus the units being made for the player (animals and engines use none; an engine's crew do). */
 export function supplyUsed(state: SimState, player: number): number {
   const e = state.entities;
   let n = 0;
   // Hired mercenaries count like any troop: from Patch 5 they are the player's for good (s).
-  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage)) n++;
+  for (let i = 0; i < e.count; i++) if (e.owner[i] === player && (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage)) n += unitSupply(e, i);
   for (const b of state.buildings.list) {
     if (b.owner === player && b.kind === BuildingKind.ScholarsLodge && b.complete) n++;
     const h = b.queue[0];
@@ -667,7 +697,8 @@ export function queueProduct(state: SimState, b: Building, product: Product, by 
     const kit = spec.pieces ? planPieces(spec.pieces, pool) : null;
     if (spec.pieces && !kit) return `Not enough resources (${costText(spec.cost)}).`;
     if (kit) take(kit.cost);
-    if (spec.engine !== undefined) take(spec.cost);
+    // An engine's materials, a Dreadnought's ingots (Patch 5).
+    if (!spec.pieces) take(spec.cost);
     const food = payFood(player, spec.food);
     if (!food) {
       for (const [res, n] of paid) pool[res] = pool[res]! + n;
@@ -795,6 +826,19 @@ function spawnWoodsman(state: SimState, b: Building, owner: number): void {
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
   state.events.push({ player: owner, kind: 'info', text: 'A new woodsman is ready.', x, z });
+}
+
+/** A Dreadnought hired at the Tavern (Patch 5) walks out and says so. */
+function spawnDreadnought(state: SimState, b: Building, owner: number): void {
+  const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
+  const x = columnCentre(cx);
+  const z = columnCentre(cz);
+  const i = addDreadnought(state, owner, x, z);
+  state.entities.heading[i] = 32768;
+  const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
+  for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
+  state.events.push({ player: owner, kind: 'info', text: 'A Dreadnought is ready.', x, z });
+  dreadnoughtHired(state, i);
 }
 
 function spawnMage(state: SimState, b: Building, school: number, owner: number, wand = 1, robe = 1): void {
@@ -1109,7 +1153,8 @@ export function updateBuildings(state: SimState): void {
         if (head.progress >= pace.whole) {
           b.queue.shift();
           const m = mageOf(head.product);
-          if (m) spawnMage(state, b, m.school, head.by, m.w, m.a);
+          if (dreadnoughtOf(head.product)) spawnDreadnought(state, b, head.by);
+          else if (m) spawnMage(state, b, m.school, head.by, m.w, m.a);
           else if (head.product >= TROOP_PRODUCT) spawnTroop(state, b, head.product, head.by, head.horse);
           else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
           else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);

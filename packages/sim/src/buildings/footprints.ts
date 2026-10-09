@@ -373,6 +373,24 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
       ],
     },
   ],
+  // Patch 5: the Tavern, 10 x 10 columns; its woodshed's eave reaches 3.5 u past the back, over open ground.
+  [BuildingKind.Tavern]: [
+    {
+      models: [{ id: 'tavern', x: 80, z: 80 }],
+      rows: [
+        '..........',
+        '.##.......',
+        '##########',
+        '.########.',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '.######...',
+      ],
+    },
+  ],
 };
 
 /** A kind's footprint at a level. */

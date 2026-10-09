@@ -153,6 +153,21 @@ export interface FertilizeOrder {
   auto: number;
 }
 
+/** The Tavern's Open for business button (Patch 5): open 1 opens it, 0 closes it. */
+export interface TavernOpenOrder {
+  kind: 'tavernOpen';
+  player: number;
+  building: number;
+  open: number;
+}
+
+/** The Tavern's Withdraw funds button (Patch 5): the whole silver ingots in its till go to the player's stock. */
+export interface TavernWithdrawOrder {
+  kind: 'tavernWithdraw';
+  player: number;
+  building: number;
+}
+
 /** Cancel a queued item, refunded in full. */
 export interface CancelProduceOrder {
   kind: 'cancelProduce';
@@ -751,6 +766,8 @@ export type Order =
   | StackOrder
   | FertilizeOrder
   | WoodsOrder
+  | TavernOpenOrder
+  | TavernWithdrawOrder
   | CancelProduceOrder
   | UpgradeOrder
   | CancelBuildOrder
@@ -803,6 +820,8 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   stack: ['building', 'product', 'count'],
   fertilize: ['auto'],
   woods: ['what', 'on', 'cx', 'cz', 'index'],
+  tavernOpen: ['building', 'open'],
+  tavernWithdraw: ['building'],
   cancelProduce: ['building', 'index'],
   upgrade: ['building'],
   cancelBuild: ['building'],
@@ -894,6 +913,9 @@ export function validateOrder(o: Order): void {
       return;
     case 'fertilize':
       if (!Array.isArray(o.buildings) || o.buildings.length > 64 || !o.buildings.every(isInt) || (o.auto !== 0 && o.auto !== 1)) throw new Error('bad fertilize order');
+      return;
+    case 'tavernOpen':
+      if (o.open !== 0 && o.open !== 1) throw new Error('tavernOpen open must be 0 or 1');
       return;
     case 'dig':
       if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');

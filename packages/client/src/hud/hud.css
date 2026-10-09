@@ -1349,6 +1349,26 @@ body.playing * {
 .send-list {
   margin-bottom: 6px;
 }
+/* Patch 5: the Tavern's Hire Dreadnought window (GP-21), a trade-style panel like the mercenaries' hire box. */
+.dread-dialog {
+  z-index: 5;
+  left: 50%;
+  top: 120px;
+  transform: translateX(-50%);
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100vh - 120px - var(--card-top, 250px) - 8px);
+  padding: 10px 12px 12px;
+  background: rgba(18, 22, 28, 0.96);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dread-dialog .send-list > * {
+  flex: none;
+}
+.dread-worth.warn {
+  color: #e8a050;
+}
 .net-banner {
   z-index: 6;
   top: 52px;
@@ -2261,12 +2281,14 @@ body.playing.touch .hud {
   font-size: 13px;
   line-height: 16px;
 }
-.sel-strip.farm .hud-btn.sel-bar.meal {
+.sel-strip.farm .hud-btn.sel-bar.meal,
+.sel-strip.tavern .hud-btn.sel-bar.meal {
   flex: 1 1 auto;
   max-width: 260px;
   height: 16px;
 }
-.sel-strip.farm .hud-btn.sel-bar .num {
+.sel-strip.farm .hud-btn.sel-bar .num,
+.sel-strip.tavern .hud-btn.sel-bar .num {
   font-size: 14px;
   line-height: 16px;
 }

@@ -15,7 +15,7 @@ import { placedDims } from '../buildings/store.ts';
 import { SALVAGE } from '../peoples/data.ts';
 import { sayAttacked, sayUpTop } from '../peoples/speech.ts';
 import { Act, fleeFrom, moverOf, moveSpeed, resetWalk, unitLevel, walkTo } from '../units/behaviour.ts';
-import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, soaring, startSwing } from './combat.ts';
+import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, nextBlow, Side, sideOf, soaring, startSwing } from './combat.ts';
 import { MOUNTED } from '../mounts/data.ts';
 import { CREW_GUARD_WU } from '../siege/data.ts';
 import { cloaked } from '../threats/late-mobs.ts';
@@ -403,7 +403,13 @@ function engage(state: SimState, i: number, t: number, canMove: boolean): boolea
   // Up top only a swooping flyer comes within reach (combat.ts canReach); nobody climbs down to chase.
   if (canReach(state, i, t, w)) {
     face(state, i, t);
-    if (state.step >= e.atkNext[i]!) startSwing(state, i, e.id[t]!, w.attackSteps, Slot.Weapon);
+    if (state.step >= e.atkNext[i]!) {
+      // A weapon with a second blow swings its two in turn (Patch 5: the Dreadnought's smash, then his sweep).
+      const blow = nextBlow(state, i);
+      e.atkWith[i] = blow;
+      const next = meleeOf(state, i);
+      startSwing(state, i, e.id[t]!, next.attackSteps, blow, next.landSteps);
+    }
     return true;
   }
   if (!canMove || garrisoned) return false;

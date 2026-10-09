@@ -40,7 +40,9 @@ export type Product = number;
  * + type x 100 + weapon tier x 10 + armour tier (troopProduct; the shield
  * from Patch 5, GP-26); a new mage with her kit picked at a Magi Sanctum
  * (Patch 2), MAGE_PRODUCT + school x 100 + wand tier x 10 + robe tier
- * (mageProduct).
+ * (mageProduct); a Dreadnought hired at the Tavern (Patch 5) with the gold
+ * and silver ingots picked to pay him, DREADNOUGHT_PRODUCT + gold x 128 +
+ * silver (dreadnoughtProduct).
  */
 export const RESEARCH_PRODUCT = 8;
 export const RECIPE_PRODUCT = 512;
@@ -48,6 +50,7 @@ export const SLAUGHTER_PRODUCT = 1024;
 export const ENGINE_PRODUCT = 2048;
 export const TROOP_PRODUCT = 4096;
 export const MAGE_PRODUCT = 12288;
+export const DREADNOUGHT_PRODUCT = 16384;
 
 /** The product for a new troop of a type with a weapon tier, an armour tier and (close melee) a shield tier. */
 export function troopProduct(troop: number, weapon: number, armour: number, shield = 0): Product {
@@ -68,9 +71,21 @@ export function mageProduct(school: number, wand: number, robe: number): Product
 
 /** A Sanctum mage product's school and wand and robe tiers, or undefined for any other product. */
 export function mageOf(product: Product): { school: number; w: number; a: number } | undefined {
-  if (product < MAGE_PRODUCT) return undefined;
+  if (product < MAGE_PRODUCT || product >= DREADNOUGHT_PRODUCT) return undefined;
   const n = product - MAGE_PRODUCT;
   return { school: floorDiv(n, 100), w: floorDiv(n, 10) % 10, a: n % 10 };
+}
+
+/** The product for a Dreadnought paid with a number of gold and of silver ingots (Patch 5; units/dreadnought.ts paysForDreadnought says which pay). */
+export function dreadnoughtProduct(gold: number, silver: number): Product {
+  return DREADNOUGHT_PRODUCT + gold * 128 + silver;
+}
+
+/** A Dreadnought product's gold and silver ingots, or undefined for any other product. */
+export function dreadnoughtOf(product: Product): { gold: number; silver: number } | undefined {
+  if (product < DREADNOUGHT_PRODUCT || product >= DREADNOUGHT_PRODUCT + 16 * 128) return undefined;
+  const n = product - DREADNOUGHT_PRODUCT;
+  return { gold: floorDiv(n, 128), silver: n % 128 };
 }
 
 export interface QueueItem {

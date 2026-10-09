@@ -14,6 +14,7 @@ import { InstancedModel, type ModelLibrary } from '../models/index.ts';
 import { makeLook } from './building-looks.ts';
 import { catalogueIds } from './buildings-view.ts';
 import { COLUMN_M } from './mesher.ts';
+import { DREADNOUGHT_M, isDreadnoughtRow } from './dreadnought-look.ts';
 import { UnitsView } from './units-view.ts';
 
 /** How the camera looks at its subject: at a point, far enough to hold a sphere this big, from this side and height. */
@@ -68,7 +69,8 @@ export function unitFrame(row: Int32Array): PortraitFrame {
     return headshot(h);
   }
   // The peoples (and the mercenaries they hire out) have their own heights.
-  const tall = row[S.owner] === PEOPLES || row[S.group] !== 0 ? peopleUnitSpec(mob).heightCm / 100 : HUMAN_M;
+  // The Dreadnought (Patch 5) stands a head taller than his own men.
+  const tall = row[S.owner] === PEOPLES || row[S.group] !== 0 ? peopleUnitSpec(mob).heightCm / 100 : isDreadnoughtRow(row, 0) ? DREADNOUGHT_M : HUMAN_M;
   const mount = row[S.mount]!;
   if (mount !== 0) return whole(mountSpec(mount).shoulderCm / 100 + tall * 0.55, 2.4);
   return headshot(tall);

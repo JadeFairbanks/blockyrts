@@ -71,6 +71,10 @@ export const ACTIONS: readonly Action[] = [
   { id: 'fertilize', name: 'Fertilize (farms; right click turns Auto fertilize on or off)', key: 'KeyF', group: 'Buildings' },
   // Patch 5: the Citadel's Build defense menu, on D, a letter no building card uses.
   { id: 'buildDefense', name: 'Build defense (the Citadel\'s engine platform)', key: 'KeyD', group: 'Buildings' },
+  // Patch 5: the Tavern's buttons, on letters of their names (O is the Peoples panel's, W the Worker's).
+  { id: 'tavernOpen', name: 'Open for business or close (Tavern)', key: 'KeyF', group: 'Buildings' },
+  { id: 'tavernWithdraw', name: 'Withdraw funds (Tavern)', key: 'KeyI', group: 'Buildings' },
+  { id: 'hireDreadnought', name: 'Hire Dreadnought (Tavern)', key: 'KeyH', group: 'Buildings' },
   // Jade's Patch 4: and every product in the K menus (with more products than letters, the rest are clicks until given a key).
   ...makeMenuActions(),
   ...defenseMenuActions(),

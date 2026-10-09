@@ -18,7 +18,7 @@
 import { stretchBetween, stretchCells, stretchEnd, TUNNEL_WIDTH_COLUMNS } from '../buildings/chains.ts';
 import { Res } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, WU_PER_COLUMN, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
-import { NO_CARRY, OrderKind, SiteKind, tunnelSite, UnitKind, type Loot, type SimState, type Site } from '../state.ts';
+import { NO_CARRY, OrderKind, SiteKind, tunnelSite, UnitKind, WILD, type Loot, type SimState, type Site } from '../state.ts';
 import { DigClass, Mat, MATERIALS } from '../world/materials.ts';
 import { Tool, ToolJob } from '../world/props.ts';
 import { DIG_LIMIT_UNITS } from '../world/world.ts';
@@ -143,13 +143,23 @@ function inBand(state: SimState, s: Site, x: number, z: number, band: number): b
   return bite !== null && bite.y >= band;
 }
 
-/** Whether a unit stands on the bite (its feet within 2 units of its top): one on the hill over a tunnel, or under an overhang, is not in the way (BG-6). */
+/** Whether unit j stands on a bite of column (x, z) whose top is `top` (its feet within 2 units of it): one on the hill over a tunnel, or under an overhang, does not (BG-6). */
+function standsOn(state: SimState, j: number, x: number, z: number, top: number): boolean {
+  const e = state.entities;
+  if (e.inside[j] !== 0 || floorDiv(e.x[j]!, WU_PER_COLUMN) !== x || floorDiv(e.z[j]!, WU_PER_COLUMN) !== z) return false;
+  return Math.abs(floorDiv(e.y[j]!, WU_PER_TERRAIN_UNIT) - top) <= 2;
+}
+
+/**
+ * Whether someone stands on the bite, so the digger waits for them to move.
+ * A wild animal does not count: one that wandered into a pit may never walk
+ * out, so the ground under it is dug and it drops with the floor (s).
+ */
 function occupied(state: SimState, x: number, z: number, top: number, except: number): boolean {
   const e = state.entities;
   for (let j = 0; j < e.count; j++) {
-    if (j === except || e.inside[j] !== 0) continue;
-    if (floorDiv(e.x[j]!, WU_PER_COLUMN) !== x || floorDiv(e.z[j]!, WU_PER_COLUMN) !== z) continue;
-    if (Math.abs(floorDiv(e.y[j]!, WU_PER_TERRAIN_UNIT) - top) <= 2) return true;
+    if (j === except || (e.kind[j] === UnitKind.Animal && e.owner[j] === WILD)) continue;
+    if (standsOn(state, j, x, z, top)) return true;
   }
   return false;
 }
@@ -468,6 +478,8 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
       return false;
     }
     state.world.editBox(cx, cz, cx, cz, bite.y, bite.y + 1, Mat.Air);
+    // A wild animal standing on it drops with the floor.
+    for (let j = 0; j < e.count; j++) if (j !== i && standsOn(state, j, cx, cz, bite.y + 1)) e.y[j] = bite.y * WU_PER_TERRAIN_UNIT;
     e.carryAmt[i] = e.carryAmt[i]! + 1;
     e.carryRes[i] = res;
     state.hits.push({ look: bite.mat >= Mat.Stone && bite.mat !== Mat.Ash && bite.mat !== Mat.DeadEarth ? 'stone' : 'shake', x: tx, y: bite.y * 900, z: tz, id: e.id[i]! });
