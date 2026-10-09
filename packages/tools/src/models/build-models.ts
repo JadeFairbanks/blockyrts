@@ -22,6 +22,7 @@ import { deviationsFor, parseManifestDeviations } from './manifest.ts';
 import { CATEGORIES } from './rules.ts';
 import { pngSize } from './png.ts';
 import { STATE_SEP, STATE_SET_CATEGORIES, stateSetVariants } from './state-sets.ts';
+import { LOOK_SEP, textureLooks } from './texture-looks.ts';
 
 /**
  * Categories whose texture variants are written out as drawn models, and
@@ -150,6 +151,15 @@ export function buildModels(options: { assetsDir?: string; outDir?: string | nul
           const variant = convertModel(v.raw, { id: vid, category, source, layoutProblems, budgetCategory }, deviations);
           models.push(variant);
           if (variant.errors.length === 0 && variant.glb && variant.sidecar) index.push({ id: vid, category, glb: `${vid}.glb`, json: `${vid}.json`, ...(category === 'world-props' ? {} : { lazy: true as const }) });
+        }
+        // And a world prop's or a building's texture looks (texture-looks.ts: the stone circles' lunar and boneyard), the same way.
+        if (STATE_SET_CATEGORIES.includes(category)) {
+          for (const v of textureLooks(raw, id)) {
+            const vid = `${id}${LOOK_SEP}${v.look}`;
+            const look = convertModel(v.raw, { id: vid, category, source, layoutProblems, budgetCategory }, deviations);
+            models.push(look);
+            if (look.errors.length === 0 && look.glb && look.sidecar) index.push({ id: vid, category, glb: `${vid}.glb`, json: `${vid}.json`, ...(category === 'world-props' ? {} : { lazy: true as const }) });
+          }
         }
       }
     }

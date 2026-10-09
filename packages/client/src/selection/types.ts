@@ -26,6 +26,8 @@ export interface Selectable {
   details?: string[];
   /** Resource nodes: what gathering it gives ('' for nothing gatherable). */
   resource?: string;
+  /** Props (Patch 5): its kind, its variant, the column it stands on and what it holds, for the stone circles' right clicks. */
+  prop?: { kind: number; variant: number; gx: number; gz: number; amount: number };
 }
 
 /** Everything near the view; the selection code filters by screen. */

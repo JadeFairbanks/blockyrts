@@ -11,6 +11,8 @@
 import { claimShapes, dist2, isLit, type ClaimShapes } from '../buildings/lights.ts';
 import { buildingSpec } from '../buildings/data.ts';
 import { buildingCentre } from '../buildings/lights.ts';
+import { RUIN_CLEAR_M } from '../circles/data.ts';
+import { circleNear } from '../circles/place.ts';
 import { clockOf, Period } from '../clock.ts';
 import { costText, Res, type Cost } from '../economy/resources.ts';
 import { cos16, floorDiv, isqrt, length2d, sin16, TRIG_ONE, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
@@ -87,6 +89,8 @@ function claimGap2(s: ClaimShapes, x: number, z: number): number {
 /** Whether a lair may stand at a spot: far enough from claimed land, the players' units, other lairs and fresh ruins, on standable land. */
 function spotFree(state: SimState, places: Places, x: number, z: number): boolean {
   if (!state.nav.standable(floorDiv(x, COL), floorDiv(z, COL), WALKER)) return false;
+  // No lair on a stone circle's ruin (Patch 5).
+  if (circleNear(state.world.layout, x, z, RUIN_CLEAR_M)) return false;
   for (const s of places.shapes) if (claimGap2(s, x, z) < LAIR_CLAIM_GAP_WU * LAIR_CLAIM_GAP_WU) return false;
   for (const [ux, uz] of places.units) if (dist2(x, z, ux, uz) < LAIR_UNIT_GAP_WU * LAIR_UNIT_GAP_WU) return false;
   for (const [lx, lz] of places.lairs) if (dist2(x, z, lx, lz) < LAIR_GAP_WU * LAIR_GAP_WU) return false;

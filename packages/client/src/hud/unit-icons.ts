@@ -22,8 +22,8 @@ export function troopIconFile(troop: number, wTier: number): string {
     case Troop.Crew:
       return 'icon_train_warrior_cannon_crew';
     case Troop.Woodsman:
-      // His own picture once the catalogue has one; the spearman's until then (Patch 5).
-      return modelIconFile('woodsman') || 'icon_train_warrior_spear';
+      // Patch 5: rendered from his own model, woodsman.
+      return 'portrait_woodsman';
     case Troop.Dreadnought:
       // Patch 5: rendered from his own model, heavy_knight.
       return 'icon_dreadnought';

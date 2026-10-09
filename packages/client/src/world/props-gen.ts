@@ -284,6 +284,8 @@ const BERRY: Record<number, { leaf: number; berry: number; canes: boolean }> = {
   [PropKind.BlackBerryBush]: { leaf: 0x3e6a2e, berry: 0x2a1a34, canes: true },
   [PropKind.RaspberryBush]: { leaf: 0x5a8a3a, berry: 0xc8283e, canes: false },
   [PropKind.BlueberryBush]: { leaf: 0x4a6e52, berry: 0x4060c0, canes: false },
+  // GP-29: the bog pear's dark purple.
+  [PropKind.BogPearBush]: { leaf: 0x3a4a34, berry: 0x3a1a48, canes: false },
 };
 
 /** A berry bush: two leaf clumps on a short stem, its berries on the outside of the lower clump; picked, the berries are gone and the bush stays (s). */
@@ -348,6 +350,8 @@ function flaxCubes(look: number, tall: boolean, s: number, grown: boolean, r: Ra
 
 /** Adds one prop's cubes. */
 export function propCubes(p: PropLike, out: number[]): void {
+  // The stone circles' pieces are only ever Jade's models (prop-models.ts): nothing until they load.
+  if (p.kind >= PropKind.Trilithon && p.kind <= PropKind.CirclePine) return;
   const r = new Rand(p.variant);
   // Place within the column, off-centre a little.
   const x = (p.lx + 0.5) * COLUMN_M + r.range(-0.1, 0.1);
@@ -488,6 +492,7 @@ export function propCubes(p: PropLike, out: number[]): void {
     case PropKind.BlackBerryBush:
     case PropKind.RaspberryBush:
     case PropKind.BlueberryBush:
+    case PropKind.BogPearBush:
       berryBushCubes(BERRY[p.kind]!, p.stage === Stage.Grown, r, cube);
       return;
     case PropKind.Mushroom: {

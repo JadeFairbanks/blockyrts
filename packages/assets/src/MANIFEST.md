@@ -139,6 +139,12 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | myconid | models/monsters/myconid/myconid.bbmodel | 69 | 256x256 | Jade's own model (models/existing_mobs/myconid), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 69 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves) |
 | sapling_treant | models/monsters/sapling_treant/sapling_treant.bbmodel | 100 | 128x128 | Jade's own model (models/existing_mobs/sapling_treant), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 100 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves) |
 | slime | models/monsters/slime/slime.bbmodel | 34 | 256x128 | Jade's own model (models/existing_mobs/slime), kept as made: geometry, rig and motion unchanged; built at 1 unit = 5 cm and shown at 0.5625x its noted size (Jade's choice); cube budget: 34 cubes, Jade's full detail; texture: Jade's own texture density (most are 2 px per 5 cm unit, about the package's on-screen density); group names lowercased for the converter (keyframes bind by id, so nothing moves) |
+| great_white_ape | models/monsters/great_white_ape/great_white_ape.bbmodel | 80 | 512x512 | Jade's own model (Stone Circle set), kept as made: cube budget, 80 cubes |
+| lich | models/monsters/lich/lich.bbmodel | 127 | 512x512 | Jade's own model (Stone Circle set), kept as made: cube budget, 127 cubes; skeleton: it hovers (hips under a hover bone, head under a neck) with no legs under its robes |
+| sabretooth_tiger | models/monsters/sabretooth_tiger/sabretooth_tiger.bbmodel | 110 | 1024x1024 | Jade's own model (Stone Circle set), kept as made: cube budget, 110 cubes |
+| satyr_reveler | models/monsters/satyr_reveler/satyr_reveler.bbmodel | 194 | 512x512 | Jade's own model (Stone Circle set), kept as made: cube budget, 194 cubes with the cider bottle; skeleton: a neck between torso and head, goat ankles between shins and hooves; placement: the footprint sits back on the goat legs |
+| satyr_trickster | models/monsters/satyr_trickster/satyr_trickster.bbmodel | 190 | 512x512 | Jade's own model (Stone Circle set), kept as made: cube budget, 190 cubes with the two axes; skeleton: a neck between torso and head, goat ankles between shins and hooves; placement: the footprint sits back on the goat legs |
+| silenus | models/monsters/silenus/silenus.bbmodel | 222 | 1024x1024 | Jade's own model (Stone Circle set), kept as made: cube budget, 222 cubes; skeleton: a neck between torso and head, goat ankles between shins and hooves; placement: the footprint sits back on the goat legs |
 
 ## items
 
@@ -293,6 +299,18 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | pie | models/items/pie/pie.bbmodel | 4 | 32x32 |  |
 | bandage_roll | models/items/bandage_roll/bandage_roll.bbmodel | 3 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
 | healing_remedy | models/items/healing_remedy/healing_remedy.bbmodel | 4 | 32x32 | texture padded from 16x16 to the 32 px minimum (empty rows/columns, UVs unchanged) |
+| ancient_seed | models/items/ancient_seed/ancient_seed.bbmodel | 7 | 64x64 | Jade's own model (Stone Circle set) |
+| bluestone | models/items/bluestone/bluestone.bbmodel | 10 | 128x128 | Jade's own model (Stone Circle set) |
+| bluestone_trinket | models/items/bluestone_trinket/bluestone_trinket.bbmodel | 8 | 64x64 | Jade's own model (Stone Circle set) |
+| enchanted_wine | models/items/enchanted_wine/enchanted_wine.bbmodel | 11 | 128x128 | Jade's own model (Stone Circle set) |
+| hawthorne_cider | models/items/hawthorne_cider/hawthorne_cider.bbmodel | 20 | 128x128 | Jade's own model (Stone Circle set), kept as made: cube budget, 20 cubes for the bottle's detail |
+| hawthorne_fruit | models/items/hawthorne_fruit/hawthorne_fruit.bbmodel | 10 | 128x128 | Jade's own model (Stone Circle set) |
+| headless_god_idol | models/items/headless_god_idol/headless_god_idol.bbmodel | 85 | 256x256 | Jade's own model (Stone Circle set), kept as made: cube budget, 85 cubes for the figure |
+| honey_pot | models/items/honey_pot/honey_pot.bbmodel | 8 | 128x128 | Jade's own model (Stone Circle set) |
+| moon_goddess_idol | models/items/moon_goddess_idol/moon_goddess_idol.bbmodel | 166 | 512x512 | Jade's own model (Stone Circle set), kept as made: cube budget, 166 cubes for the figure |
+| obsidian_chunk | models/items/obsidian_chunk/obsidian_chunk.bbmodel | 6 | 128x128 | Jade's own model (Stone Circle set) |
+| obsidian_handaxe | models/items/obsidian_handaxe/obsidian_handaxe.bbmodel | 35 | 256x256 | Jade's own model (Stone Circle set), kept as made: cube budget, 35 cubes for the knapped blade |
+| pan_flute | models/items/pan_flute/pan_flute.bbmodel | 16 | 128x128 | Jade's own model (Stone Circle set), kept as made: cube budget, 16 cubes for its pipes |
 | sword_copper_short | models/items/sword_copper_short/sword_copper_short.bbmodel | 9 | 32x32 |  |
 | sword_basket_hilt | models/items/sword_basket_hilt/sword_basket_hilt.bbmodel | 11 | 32x64 |  |
 | cutlass | models/items/cutlass/cutlass.bbmodel | 9 | 32x32 |  |
@@ -309,14 +327,15 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | hat_farmer | models/items/hat_farmer/hat_farmer.bbmodel | 10 | 64x64 |  |
 | crew_outfit | models/items/crew_outfit/crew_outfit.bbmodel | 14 | 64x64 | cube budget: 14 cubes for the apron, cuffs, cap, pouch and sash on the warrior bones |
 | farm_fare | models/items/farm_fare/farm_fare.bbmodel | 11 | 32x32 |  |
-| bluestone | models/items/bluestone/bluestone.bbmodel | 10 | 32x32 |  |
 | moon_rose | models/items/moon_rose/moon_rose.bbmodel | 11 | 32x32 |  |
+| bog_pear | models/items/bog_pear/bog_pear.bbmodel | 10 | 64x64 |  |
 | obsidian | models/items/obsidian/obsidian.bbmodel | 10 | 32x32 |  |
 | armour_leather_boiled | models/items/armour_leather_boiled/armour_leather_boiled.bbmodel | 14 | 64x64 | cube budget: 14 cubes for the cuirass, cops, tassets and sash on the warrior bones |
 | black_berries | models/items/black_berries/black_berries.bbmodel | 11 | 32x16 |  |
 | raspberries | models/items/raspberries/raspberries.bbmodel | 11 | 32x16 |  |
 | blueberries | models/items/blueberries/blueberries.bbmodel | 11 | 32x16 |  |
 | mushroom | models/items/mushroom/mushroom.bbmodel | 10 | 32x32 |  |
+| bonemeal | models/items/bonemeal/bonemeal.bbmodel | 11 | 64x32 |  |
 
 ## mechanical
 
@@ -519,7 +538,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | crop_herbs | models/world-props/crop_herbs/crop_herbs.bbmodel | 46 | 32x64 | 40 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | rock_stone | models/world-props/rock_stone/rock_stone.bbmodel | 16 | 128x256 | 6 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | rock_flint | models/world-props/rock_flint/rock_flint.bbmodel | 24 | 128x256 | 9 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
-| rock_coal | models/world-props/rock_coal/rock_coal.bbmodel | 23 | 128x256 | 8 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
+| rock_coal | models/world-props/rock_coal/rock_coal.bbmodel | 31 | 256x256 | 7 cubes in state sets hidden by default (depleted); remade in Patch 5 |
 | rock_copper | models/world-props/rock_copper/rock_copper.bbmodel | 25 | 128x256 | 9 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | rock_tin | models/world-props/rock_tin/rock_tin.bbmodel | 25 | 64x256 | 9 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
 | rock_iron | models/world-props/rock_iron/rock_iron.bbmodel | 18 | 128x256 | 7 cubes in state sets hidden by default (construction stages, ruined, alternate states) |
@@ -566,6 +585,45 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | water_trough | models/world-props/water_trough/water_trough.bbmodel | 6 | 64x64 |  |
 | grave_marker | models/world-props/grave_marker/grave_marker.bbmodel | 10 | 64x64 |  |
 | bone_pile | models/world-props/bone_pile/bone_pile.bbmodel | 29 | 32x64 |  |
+| altar_boneyard | models/world-props/altar_boneyard/altar_boneyard.bbmodel | 58 | 512x512 + 1 variant (boneyard) | Jade's own model (Stone Circle set); its boneyard look is drawn as `altar_boneyard~boneyard` |
+| altar_lunar | models/world-props/altar_lunar/altar_lunar.bbmodel | 44 | 512x512 + 1 variant (lunar) | Jade's own model (Stone Circle set); its lunar look is drawn as `altar_lunar~lunar` |
+| bluestone_chest | models/world-props/bluestone_chest/bluestone_chest.bbmodel | 21 | 512x512 | Jade's own model (Stone Circle set) |
+| bluestone_rubble_large | models/world-props/bluestone_rubble_large/bluestone_rubble_large.bbmodel | 23 | 256x256 | Jade's own model (Stone Circle set) |
+| bluestone_rubble_small | models/world-props/bluestone_rubble_small/bluestone_rubble_small.bbmodel | 13 | 128x128 | Jade's own model (Stone Circle set) |
+| bone_pile_large | models/world-props/bone_pile_large/bone_pile_large.bbmodel | 63 | 256x256 | Jade's own model (Stone Circle set) |
+| bone_pile_small | models/world-props/bone_pile_small/bone_pile_small.bbmodel | 22 | 128x128 | Jade's own model (Stone Circle set), kept as made: placement, the heap lies a little off the middle |
+| boneyard_dead_tree | models/world-props/boneyard_dead_tree/boneyard_dead_tree.bbmodel | 27 | 256x256 | Jade's own model (Stone Circle set) |
+| boneyard_thorn_bush | models/world-props/boneyard_thorn_bush/boneyard_thorn_bush.bbmodel | 25 | 512x512 | Jade's own model (Stone Circle set) |
+| flower_bluebell | models/world-props/flower_bluebell/flower_bluebell.bbmodel | 16 | 128x128 | Jade's own model (Stone Circle set) |
+| flower_moon_daisy | models/world-props/flower_moon_daisy/flower_moon_daisy.bbmodel | 16 | 128x128 | Jade's own model (Stone Circle set) |
+| flower_moonflower | models/world-props/flower_moonflower/flower_moonflower.bbmodel | 16 | 128x128 | Jade's own model (Stone Circle set) |
+| moon_rose_bush_bloomed | models/world-props/moon_rose_bush_bloomed/moon_rose_bush_bloomed.bbmodel | 127 | 512x512 | Jade's own model (Stone Circle set) |
+| moon_rose_bush_closed | models/world-props/moon_rose_bush_closed/moon_rose_bush_closed.bbmodel | 72 | 512x512 | Jade's own model (Stone Circle set) |
+| moss_clump_a | models/world-props/moss_clump_a/moss_clump_a.bbmodel | 10 | 128x128 | Jade's own model (Stone Circle set) |
+| moss_clump_b | models/world-props/moss_clump_b/moss_clump_b.bbmodel | 18 | 128x128 | Jade's own model (Stone Circle set) |
+| ruin_bush | models/world-props/ruin_bush/ruin_bush.bbmodel | 24 | 512x512 | Jade's own model (Stone Circle set), kept as made: placement, it rests 2 units up |
+| ruin_fern | models/world-props/ruin_fern/ruin_fern.bbmodel | 10 | 256x256 | Jade's own model (Stone Circle set) |
+| softwood_pine | models/world-props/softwood_pine/softwood_pine.bbmodel | 51 | 512x512 | Jade's own model (Stone Circle set) |
+| sweet_hawthorne_sapling | models/world-props/sweet_hawthorne_sapling/sweet_hawthorne_sapling.bbmodel | 31 | 256x256 | Jade's own model (Stone Circle set) |
+| sweet_hawthorne_tree | models/world-props/sweet_hawthorne_tree/sweet_hawthorne_tree.bbmodel | 81 | 512x512 | Jade's own model (Stone Circle set) |
+| sweet_hawthorne_tree_fruit | models/world-props/sweet_hawthorne_tree_fruit/sweet_hawthorne_tree_fruit.bbmodel | 270 | 512x512 | Jade's own model (Stone Circle set) |
+| trilithon_crumbled | models/world-props/trilithon_crumbled/trilithon_crumbled.bbmodel | 83 | 512x512 + 2 variants (lunar, boneyard) | Jade's own model (Stone Circle set); its lunar and boneyard looks are drawn as `trilithon_crumbled~lunar`, `trilithon_crumbled~boneyard` |
+| trilithon_destroyed | models/world-props/trilithon_destroyed/trilithon_destroyed.bbmodel | 43 | 512x512 + 2 variants (lunar, boneyard) | Jade's own model (Stone Circle set); its lunar and boneyard looks are drawn as `trilithon_destroyed~lunar`, `trilithon_destroyed~boneyard` |
+| trilithon_intact | models/world-props/trilithon_intact/trilithon_intact.bbmodel | 58 | 512x512 + 2 variants (lunar, boneyard) | Jade's own model (Stone Circle set); its lunar and boneyard looks are drawn as `trilithon_intact~lunar`, `trilithon_intact~boneyard` |
+| trilithon_poor | models/world-props/trilithon_poor/trilithon_poor.bbmodel | 68 | 512x512 + 2 variants (lunar, boneyard) | Jade's own model (Stone Circle set); its lunar and boneyard looks are drawn as `trilithon_poor~lunar`, `trilithon_poor~boneyard` |
+| trilithon_worn | models/world-props/trilithon_worn/trilithon_worn.bbmodel | 226 | 512x512 + 2 variants (lunar, boneyard) | Jade's own model (Stone Circle set); its lunar and boneyard looks are drawn as `trilithon_worn~lunar`, `trilithon_worn~boneyard` |
+| bush_blackberry | models/world-props/bush_blackberry/bush_blackberry.bbmodel | 136 | 256x128 | 48 cubes in state sets hidden by default (picked) |
+| bush_blueberry | models/world-props/bush_blueberry/bush_blueberry.bbmodel | 63 | 256x128 | 15 cubes in state sets hidden by default (picked) |
+| bush_raspberry | models/world-props/bush_raspberry/bush_raspberry.bbmodel | 140 | 128x128 | 52 cubes in state sets hidden by default (picked) |
+| bush_bog_pear | models/world-props/bush_bog_pear/bush_bog_pear.bbmodel | 80 | 256x128 | 35 cubes in state sets hidden by default (picked) |
+| mushroom_edible | models/world-props/mushroom_edible/mushroom_edible.bbmodel | 21 | 128x64 | 5 cubes in state sets hidden by default (picked) |
+| flax_wild_2 | models/world-props/flax_wild_2/flax_wild_2.bbmodel | 34 | 64x64 | 9 cubes in state sets hidden by default (picked) |
+| flax_wild_3 | models/world-props/flax_wild_3/flax_wild_3.bbmodel | 54 | 64x64 | 12 cubes in state sets hidden by default (picked) |
+| flax_tall | models/world-props/flax_tall/flax_tall.bbmodel | 62 | 128x128 | 12 cubes in state sets hidden by default (picked) |
+| ore_node_silver | models/world-props/ore_node_silver/ore_node_silver.bbmodel | 18 | 256x128 |  |
+| ore_node_gold | models/world-props/ore_node_gold/ore_node_gold.bbmodel | 17 | 256x128 |  |
+| boulder_large | models/world-props/boulder_large/boulder_large.bbmodel | 81 | 1024x512 | 18 cubes in state sets hidden by default (depleted) |
+| hot_spring | models/world-props/hot_spring/hot_spring.bbmodel | 54 | 256x128 | ; the ground cubes sink up to 1.2 u |
 
 ## projectiles-and-spells
 
@@ -611,11 +669,18 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | ruin_column | models/projectiles-and-spells/spell_violet_ruin/ruin_column.bbmodel | 88 | 256x1024 | one of the two parts of spell_violet_ruin (its folder): the 640 u (18 m) column; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | ruin_warning | models/projectiles-and-spells/spell_violet_ruin/ruin_warning.bbmodel | 176 | 64x64 | one of the two parts of spell_violet_ruin (its folder): the warning ring on the ground; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | spell_crown_of_night | models/projectiles-and-spells/spell_crown_of_night/spell_crown_of_night.bbmodel | 72 | 16x16 | made by the model thread (the bot's batches left it out); `spread` stretches the `ring` bone in x and z to 66.75x (30 m radius); no hit box; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| acrid_wind | models/projectiles-and-spells/acrid_wind/acrid_wind.bbmodel | 61 | 512x512 | Jade's own model (Stone Circle set) |
 | arcane_bolt | models/projectiles-and-spells/arcane_bolt/arcane_bolt.bbmodel | 19 | 16x16 | Patch 5 spell projectile, made in Blockbench by the game's art direction: the battle mages' Arcane bolt in flight (replaces spell_bolt in play); head at the -Z end, `ripple` loops; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | energy_dart | models/projectiles-and-spells/energy_dart/energy_dart.bbmodel | 14 | 16x16 | Patch 5 spell projectile, made in Blockbench by the game's art direction: the support mages' Energy dart in flight: an arrow made of light; head at the -Z end, `ripple` loops; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| entangling_roots | models/projectiles-and-spells/entangling_roots/entangling_roots.bbmodel | 148 | 512x512 | Jade's own model (Stone Circle set) |
 | hellfire | models/projectiles-and-spells/hellfire/hellfire.bbmodel | 34 | 16x16 | Patch 5 spell projectile, made in Blockbench by the game's art direction: a flamecaller's hellfire in flight; head at the -Z end, `ripple` loops; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| lash_of_thorns | models/projectiles-and-spells/lash_of_thorns/lash_of_thorns.bbmodel | 179 | 256x256 | Jade's own model (Stone Circle set) |
 | mana_bolt | models/projectiles-and-spells/mana_bolt/mana_bolt.bbmodel | 12 | 16x16 | Patch 5 spell projectile, made in Blockbench by the game's art direction: a mana wraith's bolt in flight; head at the -Z end, `ripple` loops; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| reveler_bolt | models/projectiles-and-spells/reveler_bolt/reveler_bolt.bbmodel | 16 | 128x128 | Jade's own model (Stone Circle set) |
+| sacrificial_rite_beam | models/projectiles-and-spells/sacrificial_rite_beam/sacrificial_rite_beam.bbmodel | 12 | 256x256 | Jade's own model (Stone Circle set) |
+| sacrificial_rite_orb | models/projectiles-and-spells/sacrificial_rite_orb/sacrificial_rite_orb.bbmodel | 8 | 128x128 | Jade's own model (Stone Circle set) |
 | spark | models/projectiles-and-spells/spark/spark.bbmodel | 17 | 16x16 | Patch 5 spell projectile, made in Blockbench by the game's art direction: a goblin mage's Spark toss in flight; head at the -Z end, `ripple` loops; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| touch_of_the_grave_aura | models/projectiles-and-spells/touch_of_the_grave_aura/touch_of_the_grave_aura.bbmodel | 9 | 256x256 | Jade's own model (Stone Circle set) |
 | web_glob | models/projectiles-and-spells/web_glob/web_glob.bbmodel | 9 | 32x32 |  |
 
 ## textures
@@ -835,10 +900,12 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 
 | id | path | frames | size | notes, deviations and reasons |
 |---|---|---|---|---|
+| icon_ancient_seed | ui/icon_ancient_seed.png | 1 | 32x32 | K1 resource icon ancient_seed (rendered from ancient_seed.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_bandage | ui/icon_bandage.png | 1 | 32x32 | K1 resource icon bandage (rendered from bandage_roll.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_bluestone | ui/icon_bluestone.png | 1 | 32x32 | K1 resource icon bluestone (rendered from bluestone.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_bog_iron | ui/icon_bog_iron.png | 1 | 32x32 | K1 resource icon bog_iron (rendered from ore_bog_iron.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bone | ui/icon_bone.png | 1 | 32x32 | K1 resource icon bone (rendered from bone_bundle.bbmodel), 32x32, 1px outline, top-left light. |
-| icon_bonemeal | ui/icon_bonemeal.png | 1 | 32x32 | Patch 5 resource icon bonemeal: the sand sack paled to bonemeal cream, a bone on its front. |
+| icon_bonemeal | ui/icon_bonemeal.png | 1 | 32x32 | K1 resource icon bonemeal (rendered from bonemeal.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. |
 | icon_bread | ui/icon_bread.png | 1 | 32x32 | K1 resource icon bread (rendered from bread_loaf.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bricks | ui/icon_bricks.png | 1 | 32x32 | K1 resource icon bricks (rendered from bricks.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_carrots | ui/icon_carrots.png | 1 | 32x32 | K1 resource icon carrots (rendered from carrot_bunch.bbmodel), 32x32, 1px outline, top-left light. |
@@ -868,9 +935,13 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_hardened_leather | ui/icon_hardened_leather.png | 1 | 32x32 | K1 resource icon hardened_leather: icon_leather recoloured to dark oxblood boiled leather with a waxed gloss and a stitched hem. |
 | icon_hardwood_lumber | ui/icon_hardwood_lumber.png | 1 | 32x32 | K1 resource icon hardwood_lumber (rendered from log_hardwood.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_hardwood_sticks | ui/icon_hardwood_sticks.png | 1 | 32x32 | K1 resource icon hardwood_sticks (rendered from sticks_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_hawthorne_cider | ui/icon_hawthorne_cider.png | 1 | 32x32 | K1 resource icon hawthorne_cider (rendered from hawthorne_cider.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
+| icon_hawthorne_fruit | ui/icon_hawthorne_fruit.png | 1 | 32x32 | K1 resource icon hawthorne_fruit (rendered from hawthorne_fruit.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
+| icon_headless_idol | ui/icon_headless_idol.png | 1 | 32x32 | K1 resource icon headless_idol (rendered from headless_god_idol.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_healing_remedy | ui/icon_healing_remedy.png | 1 | 32x32 | K1 resource icon healing_remedy (rendered from healing_remedy.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_hexstone | ui/icon_hexstone.png | 1 | 32x32 | K1 resource icon hexstone (rendered from hexstone.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_hides | ui/icon_hides.png | 1 | 32x32 | K1 resource icon hides (rendered from hide_rolled.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_honey | ui/icon_honey.png | 1 | 32x32 | K1 resource icon honey (rendered from honey_pot.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_ingot_bronze | ui/icon_ingot_bronze.png | 1 | 32x32 | K1 resource icon ingot_bronze (rendered from ingot_bronze.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_ingot_carbon_steel | ui/icon_ingot_carbon_steel.png | 1 | 32x32 | K1 resource icon ingot_carbon_steel: icon_ingot_hq_steel recoloured to blued gunmetal, so it reads apart from steel and iron. |
 | icon_ingot_copper | ui/icon_ingot_copper.png | 1 | 32x32 | K1 resource icon ingot_copper (rendered from ingot_copper.bbmodel), 32x32, 1px outline, top-left light. |
@@ -907,7 +978,9 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_meat_venison | ui/icon_meat_venison.png | 1 | 32x32 | K1 resource icon meat_venison: a lean, deep dark red haunch on a long slim bone, one thin seam of fat (meat_haunch layout as a generated cube set, rendered at icon_meat's view), 32x32, 1px outline, top-left light. |
 | icon_meat_wolf | ui/icon_meat_wolf.png | 1 | 32x32 | K1 resource icon meat_wolf: a dull brownish-red haunch under a ragged grey fur edge (meat_haunch layout as a generated cube set, rendered at icon_meat's view), 32x32, 1px outline, top-left light. |
 | icon_medicinal_herbs | ui/icon_medicinal_herbs.png | 1 | 32x32 | K1 resource icon medicinal_herbs (rendered from herb_bundle.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_moon_idol | ui/icon_moon_idol.png | 1 | 32x32 | K1 resource icon moon_idol (rendered from moon_goddess_idol.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_ox_cart | ui/icon_ox_cart.png | 1 | 32x32 | K1 resource icon ox_cart (rendered from cart_ox.bbmodel, shafts drawn at 30% length), 32x32, 1px outline, top-left light; the plain item icon for the inventory grid (icon_train_ox_cart is the training button). |
+| icon_pan_flute | ui/icon_pan_flute.png | 1 | 32x32 | K1 resource icon pan_flute (rendered from pan_flute.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_pie | ui/icon_pie.png | 1 | 32x32 | K1 resource icon pie (rendered from pie.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_planks | ui/icon_planks.png | 1 | 32x32 | K1 resource icon planks (rendered from planks.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_potatoes | ui/icon_potatoes.png | 1 | 32x32 | K1 resource icon potatoes: sack + heap of contents. |
@@ -932,6 +1005,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_sulphur | ui/icon_sulphur.png | 1 | 32x32 | K1 resource icon sulphur (rendered from sulphur_lump.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_supply | ui/icon_supply.png | 1 | 32x32 | K1 supply total (resource bar): a small house with a figure beside it. |
 | icon_tin_ore | ui/icon_tin_ore.png | 1 | 32x32 | K1 resource icon tin_ore (rendered from ore_tin.bbmodel), 32x32, 1px outline, top-left light. |
+| icon_trinket_bluestone | ui/icon_trinket_bluestone.png | 1 | 32x32 | K1 resource icon trinket_bluestone (rendered from bluestone_trinket.bbmodel, Patch 5 stone circles), 32x32, 1px outline, top-left light. |
 | icon_vein_iron_ore | ui/icon_vein_iron_ore.png | 1 | 32x32 | K1 resource icon vein_iron_ore (rendered from ore_vein_iron.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_venom | ui/icon_venom.png | 1 | 32x32 | K1 resource icon venom (rendered from venom_vial.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_wheat | ui/icon_wheat.png | 1 | 32x32 | K1 resource icon wheat (rendered from wheat_sheaf.bbmodel), 32x32, 1px outline, top-left light. |
@@ -1584,7 +1658,6 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_armour_iron_plates | ui/icon_armour_iron_plates.png | 1 | 32x32 | K2 item icon armour_iron_plates (rendered from armour_iron_plates.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_axe_hand_obsidian | ui/icon_axe_hand_obsidian.png | 1 | 32x32 | K2 item icon axe_hand_obsidian (rendered from axe_hand_obsidian.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_barn | ui/icon_barn.png | 1 | 32x32 | K3 building icon barn (rendered from barn.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
-| icon_bluestone | ui/icon_bluestone.png | 1 | 32x32 | K1 resource icon bluestone (rendered from bluestone.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_bog_pear | ui/icon_bog_pear.png | 1 | 32x32 | K2 item icon bog_pear (rendered from bog_pear.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_bonfire | ui/icon_bonfire.png | 1 | 32x32 | K3 building icon bonfire (rendered from bonfire.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_bow_recurve | ui/icon_bow_recurve.png | 1 | 32x32 | K2 item icon bow_recurve (rendered from bow_recurve.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
@@ -1628,6 +1701,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | portrait_heavy_knight | ui/portrait_heavy_knight.png | 1 | 64x64 | K6 unit portrait heavy_knight (the Dreadnought): 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
 | portrait_wild_goose | ui/portrait_wild_goose.png | 1 | 64x64 | K6 unit portrait wild_goose: animal: wild goose. 64x64, head and neck, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
 | portrait_pheasant | ui/portrait_pheasant.png | 1 | 64x64 | K6 unit portrait pheasant: animal: pheasant. 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
+| portrait_woodsman | ui/portrait_woodsman.png | 1 | 64x64 | K6 unit portrait woodsman: 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the woodsman model (Jade's improved body) in Patch 5. |
 | icon_energy_dart | ui/icon_energy_dart.png | 1 | 32x32 | K4 spell Energy dart (support mage, Patch 5): a small arrow of gold light with sparkles. Magic colours are saturated by the style rule. 32x32, bottom-right 8x8 kept plain for the hotkey letter. |
 
 ## sky

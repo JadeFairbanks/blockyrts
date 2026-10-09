@@ -24,9 +24,16 @@ import { atWork, BuildingGlow } from './building-glow.ts';
 import { makeLook, type Look } from './building-looks.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
 import { COLUMN_M, UNIT_M } from './mesher.ts';
+import { FOG_HALO, lightSource } from './sky-light.ts';
 
 /** Point lights for the flames and lit windows nearest the camera (a fixed number, so shaders never recompile). */
 const POINT_LIGHTS = 6;
+const TORCH = lightSource('torch_post');
+const BONFIRE = lightSource('campfire');
+const LANTERN = lightSource('lantern');
+type LightSource = ReturnType<typeof lightSource>;
+/** A torch post lights 10 m; anything that reaches further is a bonfire. */
+const TORCH_REACH_M = 10;
 const MAX_TILES = 4096;
 const MAX_MODEL_INSTANCES = 64;
 /** Wall columns and rampart chunks come by the hundred (Patch 5: each is a catalogue model). */
@@ -53,6 +60,8 @@ interface LightSpot {
   r: number;
   k: number;
   d: number;
+  /** The lighting sheet's source it burns like. */
+  src: LightSource;
 }
 
 /** A catalogue model of a building: its id, where it goes from the anchor (metres), its size, any tint and its turn about +Y (radians). */
@@ -238,6 +247,8 @@ export class BuildingsView {
   private readonly modelFog: ModelShaderPatch;
   /** 0 by day, 1 at night: how bright the flames' lights are. */
   darkness = 0;
+  /** 0 to 1, how deep a fog night's fog is: the lights shrink to soft orange halos (the lighting sheet). */
+  fog = 0;
   /** Building ids the cursor is over, for their silhouette outline (Patch 5, UI-5). */
   hovered: ReadonlySet<number> = new Set();
 
@@ -380,7 +391,7 @@ export class BuildingsView {
       }
     }
     this.drawModels(info, now);
-    this.placeLights(info, focus);
+    this.placeLights(info, focus, now);
   }
 
   private make(b: BuildingInfo, sig: string, fallow: boolean, state: string, ids: CatalogueModel[]): Entry {
@@ -557,17 +568,18 @@ export class BuildingsView {
   }
 
   /** The flames and lit windows nearest the focus get the point lights, brighter in the dark. */
-  private placeLights(info: GameInfo, focus: THREE.Vector3): void {
+  private placeLights(info: GameInfo, focus: THREE.Vector3, now: number): void {
     this.spotCount = 0;
     for (const b of info.buildings.values()) {
       const e = this.entries.get(b.id);
       const light = buildingSpec(b.kind).light;
       if (!e || !light || !b.lit) continue;
-      for (const f of e.flames) this.addSpot(f.position, 0.3, light.lightM * 1.4, 9 * this.darkness, focus);
+      const src = light.lightM > TORCH_REACH_M ? BONFIRE : TORCH;
+      for (const f of e.flames) this.addSpot(f.position, 0.3, light.lightM * 1.4, 9 * this.darkness, focus, src);
     }
     for (let i = 0; i < this.glow.spotCount; i++) {
       const g = this.glow.spots[i]!;
-      this.addSpot(g.p, 0, g.r, g.k, focus);
+      this.addSpot(g.p, 0, g.r, g.k, focus, LANTERN);
     }
     // The nearest first, picked out without sorting.
     for (let i = 0; i < this.lights.length; i++) {
@@ -582,16 +594,20 @@ export class BuildingsView {
         continue;
       }
       best.d = Infinity;
+      // The lighting sheet's torch post and campfire (a bonfire) for flames, its lantern for lit windows, each flickering by its own amount.
+      const src = best.src;
+      const flicker = 1 - src.flicker * (0.5 + 0.5 * Math.sin(now * 0.011 + i * 2.3) * Math.sin(now * 0.0047 + i));
       l.position.copy(best.p);
-      l.distance = best.r;
-      l.intensity = best.k;
+      l.distance = best.r * (1 - 0.5 * this.fog);
+      l.intensity = best.k * flicker * (1 - 0.3 * this.fog);
+      l.color.copy(src.colour).lerp(FOG_HALO, this.fog);
     }
   }
 
-  private addSpot(p: THREE.Vector3, up: number, r: number, k: number, focus: THREE.Vector3): void {
+  private addSpot(p: THREE.Vector3, up: number, r: number, k: number, focus: THREE.Vector3, src: LightSource): void {
     let s = this.spots[this.spotCount];
     if (!s) {
-      s = { p: new THREE.Vector3(), r: 0, k: 0, d: 0 };
+      s = { p: new THREE.Vector3(), r: 0, k: 0, d: 0, src };
       this.spots.push(s);
     }
     this.spotCount++;
@@ -599,6 +615,7 @@ export class BuildingsView {
     s.r = r;
     s.k = k;
     s.d = s.p.distanceToSquared(focus);
+    s.src = src;
   }
 
   /** What the hover outline draws of the buildings the cursor is over: catalogue models (their hovered instances) and code-built blocks. */

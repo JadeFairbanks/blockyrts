@@ -48,6 +48,8 @@ import { MANA_SCALE, SPELLS } from './magic/spells.ts';
 import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, withoutTheirCrew } from './siege/engines.ts';
 import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
+import { actSpot, CircleAct, doAct, onColumn, planter, showCircle, unitAt } from './circles/act.ts';
+import { useItem } from './circles/items.ts';
 import { barnHandsIn, keepBarnHands } from './units/barn-hand.ts';
 
 /** Spacing of a group spread round its target (s): 1.2 m. */
@@ -544,6 +546,35 @@ function orderPickUp(state: SimState, o: Extract<Order, { kind: 'pickUp' }>): vo
   for (const i of pickers) giveOrder(state, i, { t: 'loot', id: o.target, hand: 0, back: 0, x: 0, z: 0 }, o.queued === true);
 }
 
+/**
+ * A unit at a stone circle (Patch 5): the selected unit nearest the altar or
+ * chest walks over and does it. Taking from a chest a unit already stands
+ * by happens at once (the chest's panel is open beside it).
+ */
+function orderCircle(state: SimState, o: Extract<Order, { kind: 'circle' }>): void {
+  const spot = actSpot(state, o.circle, o.act, o.arg);
+  if (!spot) return;
+  const e = state.entities;
+  let units = ownUnits(state, o.player, o.units, true).filter((i) => canLoot(state, i));
+  // SC-8: with no unit chosen, the nearest worker not at a farm or barn plants the seed.
+  if (units.length === 0 && o.act === CircleAct.Plant) {
+    const k = planter(state, o.player, spot[0], spot[1]);
+    if (k >= 0) units = [k];
+  }
+  const here = onColumn(o.act) ? -1 : unitAt(state, o.player, spot[0], spot[1]);
+  if (here >= 0 && (o.act === CircleAct.TakeChest || units.length === 0)) {
+    doAct(state, here, o.circle, o.act, o.arg);
+    return;
+  }
+  if (units.length === 0) {
+    alert(state, o.player, 'Select a unit to send to the stone circle.');
+    return;
+  }
+  let best = units[0]!;
+  for (const i of units) if (dist2(e.x[i]!, e.z[i]!, spot[0], spot[1]) < dist2(e.x[best]!, e.z[best]!, spot[0], spot[1])) best = i;
+  giveOrder(state, best, { t: 'circle', circle: o.circle, act: o.act, arg: o.arg }, o.queued === true);
+}
+
 /** Applies one step's orders, in the canonical order. */
 export function applyOrders(state: SimState, orders: readonly Order[]): void {
   const e = state.entities;
@@ -1020,6 +1051,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         else if (o.tool === DebugTool.HealAll) healAll(state, o.player);
         else if (o.tool === DebugTool.ClearFoes) clearFoes(state, o.player, o.x, o.z);
         else if (o.tool === DebugTool.ElfKingdom) showElves(state, o.player);
+        else if (o.tool === DebugTool.StoneCircle) showCircle(state, o.player, o.x, o.z);
         break;
       case 'debugKill':
         killUnits(state, o.units);
@@ -1050,6 +1082,14 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'greyed':
         askGreyed(state, o);
         break;
+      case 'circle':
+        orderCircle(state, o);
+        break;
+      case 'useItem': {
+        const k = o.unit ? e.indexOf(o.unit) : -1;
+        useItem(state, o.player, o.res, k >= 0 && e.owner[k] === o.player ? k : -1);
+        break;
+      }
       case 'leave':
         // Gone for good, the host carrying on without them: shared out as if eliminated.
         eliminate(state, o.player, `Player ${o.player + 1} has left the game.`);

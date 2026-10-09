@@ -9,6 +9,7 @@ import { Band, BAND_WANDER_M, caveFoot, EdgeType, Look, metresToColumns, metresT
 import { Mat } from './materials.ts';
 import { centred, hash2, valueNoise } from './noise.ts';
 import { PropKind, PROPS, PropShape } from './props.ts';
+import { circleRoom, circlesNearChunk, pieceRecord, piecesInChunk, ruinLevel, ruinWithin } from '../circles/place.ts';
 import { distanceToPlot, distanceToWater, falloff, ironReach, keepToStretch, ownSideRoom, polar, POCKET_BLEND_COLUMNS, POCKET_FLAT_COLUMNS, START_OUTCROP_FAR_M, START_OUTCROP_NEAR_M, StartBasin, yardStretch, type Pocket } from './start.ts';
 
 /** A generated prop: a resource node, tree or bush on the land. */
@@ -518,7 +519,7 @@ export class WorldGen {
         const hk = hash2(h, 0x73707267, k);
         const x = cx * N + SPRING_MARGIN + (hk % span);
         const z = cz * N + SPRING_MARGIN + ((hk >>> 16) % span);
-        if (this.columnBand(x, z) < Band.Barrens || this.start.flatness(x, z) > 0) continue;
+        if (this.columnBand(x, z) < Band.Barrens || this.start.flatness(x, z) > 0 || ruinWithin(this.layout, x, z, SPRING_REACH + 2)) continue;
         let lo = Infinity;
         let hi = -Infinity;
         for (const [ox, oz] of SPRING_PROBES) {
@@ -689,7 +690,9 @@ export class WorldGen {
     const clearOfPockets = (x: number, z: number, r: number): boolean =>
       this.start.pockets.every((p) => length2d(p.x - x, p.z - z) > POCKET_FLAT_COLUMNS + POCKET_BLEND_COLUMNS + r) &&
       this.start.villages.every((v) => length2d(v.x - x, v.z - z) > v.radius + POCKET_BLEND_COLUMNS + r) &&
-      length2d(lm.x - x, lm.z - z) > lm.radius + 6 + r;
+      length2d(lm.x - x, lm.z - z) > lm.radius + 6 + r &&
+      // Patch 5: no water or bog in a stone circle (circles/place.ts).
+      !ruinWithin(this.layout, x, z, r + 2);
     const band = cell.band;
     const pondOdds = [400, 600, 700, 150, 0][band]!;
     const ponds = (h(1) % 1000 < pondOdds ? 1 : 0) + (h(2) % 1000 < floorDiv(pondOdds, 3) ? 1 : 0);
@@ -953,6 +956,14 @@ export class WorldGen {
         ground += band >= Band.Barrens ? 4 + ((hb >>> 13) % 7) : 1 + ((hb >>> 13) & 1);
         p.stone = true;
       }
+    }
+
+    // Patch 5: a stone circle's ruin stands on level ground, the land's smooth shape with no terraces, mesas, ravines,
+    // boulders or small bumps under the stones (circles/place.ts ruinLevel).
+    const level = ruinLevel(this.layout, x, z);
+    if (level > 0) {
+      ground += ((smooth - ground) * level) >> 10;
+      if (level > 512) p.stone = false;
     }
 
     // Barriers: the edges between the three nearest cells.
@@ -1509,6 +1520,13 @@ export class WorldGen {
       props.push({ kind, lx, lz, y: top[lz * N + lx]!, variant, age, amount });
       taken[lz * N + lx] = 1;
     };
+    // Patch 5's stone circles: their pieces come first in the chunk (circles/place.ts pieceSlot counts on it), and
+    // nothing else is scattered in a ruin, nor any tree in its 60 m clearing (SC-2).
+    for (const piece of piecesInChunk(this.layout, cx, cz)) {
+      const rec = pieceRecord(this.layout, piece);
+      if (rec) add(rec.kind, piece.gx - x0, piece.gz - z0, rec.amount, rec.age, rec.variant);
+    }
+    const ruins = circlesNearChunk(this.layout, cx, cz);
     // Living trees' columns, for the mushrooms at their feet (GP-30) and the flax that wants few of them (WL-10).
     const trees: number[] = [];
     // Table 9: the pockets' guaranteed set.
@@ -1537,6 +1555,8 @@ export class WorldGen {
         const i = lz * N + lx;
         const f = flags[i]!;
         if (f & F_FLAT || taken[i]) continue;
+        const room = ruins.length > 0 ? circleRoom(ruins, x0 + lx, z0 + lz) : 2;
+        if (room === 0) continue;
         const rough = roughAt(top, lx, lz);
         const roll = (h >>> 4) % 10000;
         const variant = hash2(sd ^ 0x7777, gx, gz);
@@ -1570,6 +1590,7 @@ export class WorldGen {
         if (band === Band.Deepwoods) treeRate = floorDiv(treeRate, 2);
         if (stony || f & F_MARSH) treeRate = floorDiv(treeRate, 8);
         if (roll < treeRate) {
+          if (room < 2) continue;
           const kind = this.treeKind(band, look, variant);
           if (kind < 0) continue;
           if ((kind === PropKind.Oak || kind === PropKind.Beech) && ((bx + bz) & 4) !== 0) continue;
@@ -1630,7 +1651,7 @@ export class WorldGen {
       const hk = hash2(h, 0x626f, k);
       const lx = BOULDER_HALF + 1 + (hk % (N - 2 * BOULDER_HALF - 2));
       const lz = BOULDER_HALF + 1 + ((hk >>> 16) % (N - 2 * BOULDER_HALF - 2));
-      if (this.layout.startDistance(cx * N + lx, cz * N + lz) < clear) continue;
+      if (this.layout.startDistance(cx * N + lx, cz * N + lz) < clear || ruinWithin(this.layout, cx * N + lx, cz * N + lz, BOULDER_HALF + 2)) continue;
       const y = top[lz * N + lx]!;
       let fit = true;
       for (let dz = -BOULDER_HALF; dz <= BOULDER_HALF && fit; dz++) {
@@ -1659,8 +1680,10 @@ export class WorldGen {
     if ((h >>> 8) % 1000 >= FLAX_CHUNK_PM[bands[(N >> 1) * N + (N >> 1)]!]!) return;
     const R = metresToColumns(FLAX_FIELD_RADIUS_M);
     const span = N - 2 * (R + 1);
+    const ruins = circlesNearChunk(this.layout, cx, cz);
     const open = (j: number, lx: number, lz: number): boolean =>
-      bands[j]! <= Band.Deepwoods && (flags[j]! & (F_WATER | F_MARSH | F_FLAT | F_BANK | F_SALTPETRE)) === 0 && roughAt(top, lx, lz) <= 2;
+      bands[j]! <= Band.Deepwoods && (flags[j]! & (F_WATER | F_MARSH | F_FLAT | F_BANK | F_SALTPETRE)) === 0 && roughAt(top, lx, lz) <= 2 &&
+      (ruins.length === 0 || circleRoom(ruins, cx * N + lx, cz * N + lz) > 0);
     for (let k = 0; k < 4; k++) {
       const hk = hash2(h, 0x6d6964, k);
       const mx = R + 1 + (hk % span);

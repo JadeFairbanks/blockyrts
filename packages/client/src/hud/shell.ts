@@ -78,6 +78,8 @@ import { YesNoButtons } from './yes-no.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
 import { PeoplesUi } from './peoples-ui.ts';
+import { CirclesUi, registerCircleItemUses } from './circles-ui.ts';
+import { SkyDial } from './sky-dial.ts';
 import { HudPanels } from './panels.ts';
 import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
@@ -237,6 +239,10 @@ export class GameShell {
   readonly stackBars: Array<(key: string) => readonly StackBar[]> = [];
   private readonly tameTip: TameTip;
   readonly peoples: PeoplesUi;
+  /** The stone circles' chest and altar panels (Patch 5). */
+  readonly circles: CirclesUi;
+  /** The little sky by the day clock (Patch 5). */
+  private readonly skyDial: SkyDial;
   readonly allies: AlliesUi;
   /** The Tavern's Hire Dreadnought window (Patch 5). */
   readonly hire: DreadnoughtUi;
@@ -400,6 +406,11 @@ export class GameShell {
       message: (t, k) => this.message(t, k),
       addArea: (id, el, target) => this.input.addArea(id, el, target),
     });
+    this.skyDial = new SkyDial(this.layout.clock);
+    this.circles = new CirclesUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
+      send: (o) => opts.issueOrder(o),
+      units: () => this.selection.list().flatMap((t) => (t.kind === 'unit' && t.owner === this.player && entityIdOf(t.key) !== null ? [entityIdOf(t.key)!] : [])),
+    });
     this.selector = new SelectionController(this.cam, this.panels, this.selection, this.player, () => this.items, this.layout.dragBox);
     const session = opts.session;
     this.menu = new GameMenu(parent, this.settings, { seed: opts.seed, online: session.online, code: session.code }, {
@@ -435,11 +446,13 @@ export class GameShell {
       confirmWar: (faction, then) => this.peoples.confirmWar(faction, then),
       openPeople: (faction) => this.peoples.open(faction),
       hireDreadnought: (taverns) => this.hire.show(taverns),
+      openAltar: (circle, type) => this.circles.openAltar(circle, type),
       slots: () => {
         const room = buttonRoom(cardInner(this.geometry).w, this.geometry.maxH);
         return { most: room.cols * room.rows };
       },
     });
+    registerCircleItemUses(opts.game, opts.player, (o) => opts.issueOrder(o), () => this.commands.startPlant());
     this.input = new InputManager(
       {
         game: this.gameMouse(),
@@ -767,11 +780,14 @@ export class GameShell {
   /** Day N and the time left in the period; Dusk, Night N, Dawn (Day and night: 3 min, 40 s, 3 min, 40 s). */
   private updateClock(step: number): void {
     const c = clockAt(step);
-    const name = c.period === Period.Day ? `Day ${c.cycle + 1}` : c.period === Period.Dusk ? `Dusk · Day ${c.cycle + 1}` : c.period === Period.Night ? `Night ${c.cycle}` : `Dawn · Night ${c.cycle}`;
+    // A Bright Night (Patch 5 stone circles) names itself.
+    const night = this.game.info?.circles?.brightSky ? 'Bright Night' : 'Night';
+    const name = c.period === Period.Day ? `Day ${c.cycle + 1}` : c.period === Period.Dusk ? `Dusk · Day ${c.cycle + 1}` : c.period === Period.Night ? `${night} ${c.cycle}` : `Dawn · ${night} ${c.cycle}`;
     setText(this.layout.clockDay, name);
     setText(this.layout.clockTime, `${formatClock(c.left / 20)} left`);
     this.layout.clock.dataset.period = String(c.period);
     this.layout.clock.classList.toggle('fog', this.game.info?.fog === true);
+    this.skyDial.set(step, this.game.info?.circles?.brightSky === true, this.game.info?.fog === true);
   }
 
   private onInfo(info: InfoMessage): void {
@@ -792,6 +808,7 @@ export class GameShell {
     // Events into the message panel.
     for (const ev of info.events) this.onEvent(ev);
     this.peoples.refresh();
+    this.circles.refresh();
     this.allies.refresh();
     this.hire.refresh();
     // Idle gatherers and the dusk button.
@@ -869,6 +886,8 @@ export class GameShell {
     const at = ev.x !== undefined && ev.z !== undefined ? { x: ev.x / WU_PER_METRE, z: ev.z / WU_PER_METRE } : undefined;
     // The debugger's Elf kingdom button: the camera goes there at once.
     if (ev.look && at) this.jumpTo(at.x, at.z);
+    // One of the player's units opened a stone circle's chest: its spaces show (Patch 5, SC-6).
+    if (ev.chest !== undefined && ev.player === this.player) this.circles.openChest(ev.chest);
     if (ev.kind === 'question') {
       this.onQuestion(ev);
       return;
@@ -1690,6 +1709,7 @@ export class GameShell {
       else if (this.hire.closeTop()) return;
       else if (this.allies.closeTop()) return;
       else if (this.peoples.closeTop()) return;
+      else if (this.circles.closeTop()) return;
       else this.selection.clear();
       return;
     }
@@ -1854,6 +1874,7 @@ export class GameShell {
 
   /** Once a frame, before rendering. */
   frame(dt: number, now: number): void {
+    this.skyDial.draw(now);
     this.panels.measure();
     const panelRects = this.panels.rects();
     const pos = this.input.pos;
