@@ -11,6 +11,7 @@ import {
   decodeClient,
   encodeServer,
   MAX_SAVE_BYTES,
+  Presence,
   PROTOCOL_VERSION,
   RELAY_PATH,
   ROOM_CODE_ALPHABET,
@@ -18,17 +19,20 @@ import {
   RoomPhase,
   WireError,
   type ClientMessage,
+  type OpenRoom,
   type RoomInfo,
 } from '@blockyrts/protocol';
 import { guestName, type AccountService, type Identity } from '../accounts.ts';
 import type { Database } from '../db/types.ts';
 import type { SaveService } from '../saves.ts';
-import { Room, type Conn, type RoomTimings } from './room.ts';
+import { Room, type Conn, type RoomTimings, type Visitor } from './room.ts';
 
 /** Rooms one address may have open at once (hosting plan: a cap on rooms per address). */
 const ROOMS_PER_ADDRESS = 5;
 /** A socket must say hello within this time. */
 const HELLO_TIMEOUT_MS = 10_000;
+/** Most lobbies the open games list shows. */
+const OPEN_ROOMS_LISTED = 50;
 
 export interface RelayOptions {
   accounts: AccountService;
@@ -94,6 +98,25 @@ export class Relay {
     };
   }
 
+  /**
+   * The lobbies waiting for players, for the Join game list (Jade, Patch 5):
+   * public games first, then private ones without their codes, newest first
+   * within each. Full and running games, and games the host kicked this
+   * visitor from, are left out.
+   */
+  openRooms(visitor: Visitor): OpenRoom[] {
+    const rooms = [...this.rooms.values()].filter((r) => r.phase === RoomPhase.Lobby && r.openSlots > 0 && !r.bans(visitor));
+    rooms.sort((a, b) => Number(a.isPrivate) - Number(b.isPrivate) || b.openedAt - a.openedAt);
+    return rooms.slice(0, OPEN_ROOMS_LISTED).map((r) => ({
+      code: r.isPrivate ? '' : r.code,
+      hostName: r.hostName,
+      players: r.players.filter((p) => p && p.presence !== Presence.Reserved && p.presence !== Presence.Gone).length,
+      openSlots: r.openSlots,
+      private: r.isPrivate,
+      fromSave: r.fromSave,
+    }));
+  }
+
   /** For the HTTP server's 'upgrade' event. */
   handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
     const url = new URL(req.url ?? '/', 'http://x');
@@ -117,6 +140,7 @@ export class Relay {
       ws,
       address: this.opts.addressOf(req),
       identity: { tokenHash: '', account: null, name: guestName() },
+      debugger: false,
       room: null,
       ready: false,
       queue: Promise.resolve(),
@@ -164,8 +188,9 @@ export class Relay {
       }
       const who = (await this.opts.accounts.identify(msg.token || cookieToken)) ?? c.identity;
       c.identity = who;
+      c.debugger = this.opts.accounts.canDebug(who);
       c.ready = true;
-      c.send(encodeServer({ type: 'welcome', version: PROTOCOL_VERSION, name: who.name, accountId: who.account?.id ?? '', guest: who.account === null }));
+      c.send(encodeServer({ type: 'welcome', version: PROTOCOL_VERSION, name: who.name, accountId: who.account?.id ?? '', guest: who.account === null, debugger: c.debugger }));
       return;
     }
     const now = this.now();
@@ -173,7 +198,7 @@ export class Relay {
       case 'hello':
         return this.refuse(c, 'Already said hello.');
       case 'createRoom':
-        return this.createRoom(c, msg.seed, msg.saveId, now);
+        return this.createRoom(c, msg.seed, msg.saveId, msg.private, now);
       case 'joinRoom': {
         if (c.room) return this.error(c, 'in_room', 'Leave your current game first.');
         const room = this.rooms.get(msg.code.trim().toUpperCase());
@@ -185,8 +210,9 @@ export class Relay {
         const who = await this.opts.accounts.identify(msg.token);
         if (!who) return this.error(c, 'bad_token', 'That session has expired; sign in again.');
         c.identity = who;
+        c.debugger = this.opts.accounts.canDebug(who);
         c.room?.identityChanged(c);
-        c.send(encodeServer({ type: 'welcome', version: PROTOCOL_VERSION, name: who.name, accountId: who.account?.id ?? '', guest: who.account === null }));
+        c.send(encodeServer({ type: 'welcome', version: PROTOCOL_VERSION, name: who.name, accountId: who.account?.id ?? '', guest: who.account === null, debugger: c.debugger }));
         return;
       }
       default:
@@ -196,7 +222,7 @@ export class Relay {
     }
   }
 
-  private async createRoom(c: Client, seed: number | null, saveId: string, now: number): Promise<void> {
+  private async createRoom(c: Client, seed: number | null, saveId: string, isPrivate: boolean, now: number): Promise<void> {
     if (c.room) return this.error(c, 'in_room', 'Leave your current game first.');
     let open = 0;
     for (const a of this.roomAddress.values()) if (a === c.address) open++;
@@ -227,6 +253,7 @@ export class Relay {
         matchId,
         seed: roomSeed,
         save,
+        isPrivate,
         now,
         ...(this.opts.timings ? { timings: this.opts.timings } : {}),
         hooks: {
@@ -246,7 +273,7 @@ export class Relay {
     this.roomAddress.set(room, c.address);
     if (room.create(c, now)) {
       c.room = room;
-      this.log(`relay: room ${room.code} opened by ${c.identity.name}${save ? ' from a save' : ''}`);
+      this.log(`relay: room ${room.code} opened by ${c.identity.name}${save ? ' from a save' : ''}${isPrivate ? ' (private)' : ''}`);
     } else {
       this.forget(room);
     }

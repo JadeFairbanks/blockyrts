@@ -84,18 +84,13 @@ where you run it):
    values that changed with it (derived numbers such as the cycle length).
 5. Exits 1 if anything was left for a person. Run `pnpm check` after.
 
-## Serving it with the game
+## Where it runs
 
 The build is one file, `packages/balance/dist/index.html`, with relative
-paths only, so it works from disk, as an Artifact, or under `/balance` on the
-Pages site. The Deploy workflow (owned by the hosting thread) needs one line
-after the client build and before the Pages upload of `packages/client/dist`:
-
-```sh
-pnpm --filter @blockyrts/balance build && mkdir -p packages/client/dist/balance && cp packages/balance/dist/index.html packages/client/dist/balance/index.html
-```
-
-It then answers at https://play.surviveandconquer.cc/balance/.
+paths only, so it works from disk or as an Artifact. It is a private tool:
+since Patch 5 it is no longer published on the game's site (it used to answer
+at `/balance/`), and the game's How to play section shows the numbers players
+see.
 
 ## Tests
 

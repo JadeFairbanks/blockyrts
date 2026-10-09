@@ -15,7 +15,6 @@ The full hosting comparison and costs are in the project files under
 | Piece | Where | Address |
 |---|---|---|
 | Game client (static Vite build) | Cloudflare Pages project `blockyrts` | `https://play.<DOMAIN>` |
-| Balance editor (one static page from packages/balance) | Same Pages project | `https://play.<DOMAIN>/balance/` |
 | Server (API, lobby, relay) | DigitalOcean Droplet `blockyrts-1`, Toronto, Docker | `https://api.<DOMAIN>` through a Cloudflare Tunnel |
 | PostgreSQL 16 | Container on the Droplet, data on the volume `blockyrts-data` | inside the Droplet only |
 | Save files and nightly database dumps | Cloudflare R2 bucket `blockyrts-saves` | S3 API |
@@ -32,31 +31,28 @@ pushes two images, `server-live` and `bundle-live`. The bundle carries
 `compose.yml` and `droplet/backup.sh`. Every minute, a timer on the Droplet
 (`droplet/update.sh`) pulls both images and runs `docker compose up -d`.
 
-## Indev password gate and delisting
+## Public site and search
 
-While the game is indev, every page of the Pages project (`play.<DOMAIN>`,
-the `blockyrts.pages.dev` mirror and `/balance/`) asks for a browser login
-(username `admin`, password from Jade's patch notes 1). It is a deterrent,
-not security. The pieces, all in `deploy/pages/`:
+The site is public: no password, and search engines may list it (Patch 5;
+the indev password gate and its delisting came off then, and the deploy that
+ships Patch 5 is the one that removes them from the live site). The balance
+editor is no longer published at `/balance/`; it stays a private tool
+(`pnpm balance:dev`).
 
-- `functions/_middleware.ts`: the gate. It keeps only a SHA-256 of
-  `<username>:<password>`; to change the login, put
-  `printf 'admin:NEW' | sha256sum` into `LOGIN_SHA256`. It also answers
-  `/robots.txt` with `Disallow: /` and marks every page `noindex`.
-- `static/_routes.json`: the game's data files (`/assets/`, `/models/`,
-  `/audio/`) skip
-  the gate, because a page load fetches over a thousand of them and each
-  gated request would count against the free plan's 100,000 Functions
-  requests a day. Without the page they are just files.
-- `static/_headers`: `noindex` on those data files too.
+- `packages/client/index.html` carries the title, the description, the
+  link-preview tags, the icon and a short summary for readers without
+  JavaScript.
+- `packages/client/site.ts` is a Vite plugin. When the build is given the
+  site's address as `VITE_SITE_URL` (Deploy sets `https://play.<DOMAIN>`), it
+  adds the canonical link, the preview's address and picture
+  (`public/og-image.jpg`, 1200 by 630) and the game's structured data, and
+  writes `robots.txt` (open, with the sitemap) and `sitemap.xml`.
+- `deploy/pages/static/_headers`: `noindex` on the `blockyrts.pages.dev`
+  mirror and on each deploy's preview address only, so searches find the play
+  domain alone. Deploy copies it into the site.
 
-Deploy copies the two static files into the site and publishes from
-`deploy/pages` so Wrangler picks up `functions/`.
-
-**REMINDER: when the password gate comes off, remove the delisting at the
-same time and add SEO** (title and description meta tags, a sitemap, an
-open `robots.txt`). Taking the gate off means deleting `deploy/pages/functions`,
-`static/_headers` and the `robots.txt` answer together.
+The site has no Pages Functions, so nothing counts against the Functions
+request limit.
 
 ## Game version
 
@@ -110,6 +106,11 @@ The workflows expect these, and do not create them:
 | `ALLOWED_ORIGINS` | `https://play.<DOMAIN>` |
 | `SESSION_SECRET` | generated on first boot, kept on the volume |
 | `TRUSTED_PROXY` | `cloudflare` (read the client address from `CF-Connecting-IP`) |
+| `DEBUG_ACCOUNTS` | not set: the accounts that may open the debugger are `jade,proteus` (any capitals); set it, comma-separated, to change them |
+
+On start the server deletes the files of every save older than the live save
+format (Patch 5) and logs how many; the saves' owners still see them, marked
+out of date, until they remove them from Load game.
 
 The client is built with `VITE_SERVER_URL=https://api.<DOMAIN>`.
 
