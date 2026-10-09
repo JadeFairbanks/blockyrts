@@ -424,6 +424,7 @@ function entryMenu(ctx: Ctx, rec: Record<string, unknown>): string[] {
     case 'MAGE_RANKS': return ['Mage ranks'];
     case 'PEOPLE_UNITS': return [refName(ctx, 'people', rec.people as number)];
     case 'MOUNTS': return ['Mounts'];
+    case 'GAITS': return ['Running, jumping and climbing'];
     case 'ENGINES': return ['Siege engines and cannons'];
     case 'SHOTS': return ['Shots and projectiles'];
     default: return KIT_MENUS[ctx.exportName] ? [KIT_MENUS[ctx.exportName]!] : [];
