@@ -176,18 +176,19 @@ describe('the model converter on the base bodies', () => {
 });
 
 describe('the model converter on state sets hidden by default', () => {
-  const source = 'src/models/buildings/main_base_l1/main_base_l1.bbmodel';
+  const source = 'src/models/buildings/main_base_l2/main_base_l2.bbmodel';
   const raw = JSON.parse(readFileSync(join(ASSETS_DIR, source), 'utf8')) as {
     elements: { uuid: string; faces: Record<string, { texture: unknown } | undefined> }[];
     outliner: Array<{ name: string; visibility?: boolean; children: unknown[] }>;
   };
-  const r = convertModel(raw, { id: 'main_base_l1', category: 'buildings', source });
+  const r = convertModel(raw, { id: 'main_base_l2', category: 'buildings', source });
 
   /** Cubes under a group, however deep. */
   const cubesIn = (node: { children: unknown[] }): string[] =>
     node.children.flatMap((c) => (typeof c === 'string' ? [c] : cubesIn(c as { children: unknown[] })));
 
-  it('draws only the finished Big House, not its scaffolds and ruin', () => {
+  // main_base_l2 (unused since Patch 5) still carries its state sets; the remade tiers have none.
+  it('draws only the finished main base, not its scaffolds and ruin', () => {
     const root = raw.outliner[0]!;
     const groups = root.children.filter((c): c is { name: string; visibility?: boolean; children: unknown[] } => typeof c !== 'string');
     const finished = groups.find((g) => g.name === 'finished')!;
