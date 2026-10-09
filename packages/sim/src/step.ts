@@ -45,6 +45,7 @@ import { releaseSheltered } from './units/night-work.ts';
 import { updateSpacing } from './units/spacing.ts';
 import { updateWorkAsks } from './units/work-asks.ts';
 import { updateMakeAsks } from './units/make-asks.ts';
+import { circlesAtPeriod } from './circles/update.ts';
 import { updateGods } from './debug/god.ts';
 
 installDeathHooks();
@@ -125,6 +126,7 @@ function periodChange(state: SimState): void {
   state.events.push({ player: -1, kind: 'period', text: periodMessage(c) });
   threatsAtPeriod(state, p, c.cycle);
   peoplesAtPeriod(state, p);
+  circlesAtPeriod(state, p, c.cycle);
   if (p === Period.Dusk) {
     computeEnclosed(state);
     for (let player = 0; player < state.players.length; player++) {

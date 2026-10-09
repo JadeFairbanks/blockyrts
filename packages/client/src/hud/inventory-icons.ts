@@ -152,6 +152,18 @@ set(Res.BlackBerries, 'black_berries');
 set(Res.Raspberries, 'raspberries');
 set(Res.Blueberries, 'blueberries');
 set(Res.Mushrooms, 'mushrooms');
+set(Res.BogPear, 'bog_pear');
+// Patch 5's stone circles: each rendered from Jade's own model of it.
+set(Res.AncientSeed, 'ancient_seed');
+set(Res.HawthorneFruit, 'hawthorne_fruit');
+set(Res.PanFlute, 'pan_flute');
+set(Res.BluestoneTrinket, 'trinket_bluestone');
+set(Res.Honey, 'honey');
+set(Res.EnchantedWine, 'enchanted_wine');
+set(Res.HawthorneCider, 'hawthorne_cider');
+set(Res.MoonIdol, 'moon_idol');
+set(Res.HeadlessIdol, 'headless_idol');
+
 
 /** A good's icon. */
 export function goodIcon(res: number): GoodIcon | undefined {
@@ -171,11 +183,12 @@ const URLS = import.meta.glob<string>(
     '../../../assets/src/ui/icon_meat_{venison,boar,hare,goose,pheasant,beef,chicken,horse,wolf,lynx,badger,bear,frog,crab,crocodile,griffin,minotaur,rat}.png',
     '../../../assets/src/ui/icon_fish{,_salmon,_catfish}.png',
     '../../../assets/src/ui/icon_{eggs,farm_fare,bandage,healing_remedy}.png',
-    '../../../assets/src/ui/icon_{black_berries,raspberries,blueberries,mushrooms}.png',
+    '../../../assets/src/ui/icon_{black_berries,raspberries,blueberries,mushrooms,bog_pear}.png',
     '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,bonemeal,spider_silk,venom,demon_horn,bricks,glass,gunpowder}.png',
     '../../../assets/src/ui/icon_{hand_cart,ox_cart,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',
-    '../../../assets/src/ui/icon_trinket_{moonleaf_silver,sunheart_gold}.png',
+    '../../../assets/src/ui/icon_trinket_{moonleaf_silver,sunheart_gold,bluestone}.png',
+    '../../../assets/src/ui/icon_{ancient_seed,hawthorne_fruit,pan_flute,honey,enchanted_wine,hawthorne_cider,moon_idol,headless_idol}.png',
   ],
   { eager: true, query: '?no-inline', import: 'default' },
 );

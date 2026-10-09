@@ -12,6 +12,7 @@ import {
   BOOST_QUEUE_LIMIT,
   BOOST_STEPS,
   BuildingKind,
+  CircleAct,
   costText,
   FERTILIZE_BONEMEAL,
   craftRate,
@@ -96,6 +97,10 @@ import {
   fromItem,
   KIT_LINES,
   type EquipmentHolder,
+  PropKind,
+  variantCircle,
+  variantLook,
+  variantType,
   WU_PER_COLUMN,
   WU_PER_METRE,
   WU_PER_TERRAIN_UNIT,
@@ -174,7 +179,7 @@ type Slots = Array<CardEntry | null>;
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
 const ALLIED_ACTIONS = new Set(['attack', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'fish' | 'forage' | 'equip';
+type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'fish' | 'forage' | 'equip' | 'plant';
 
 /**
  * Pages of the command card: the main card, the build menu (Patch 2: one, in
@@ -333,6 +338,8 @@ export interface CommandDeps {
   openPeople(faction: number): void;
   /** The Tavern's Hire Dreadnought window (Patch 5, GP-21), for these Taverns. */
   hireDreadnought?(buildings: readonly number[]): void;
+  /** Opens a stone circle's altar panel (Patch 5, SCA-2): leave the Goddess her gifts, take the idol. */
+  openAltar?(circle: number, type: number): void;
   /** How many buttons the card can show at once, at the smallest size it may shrink them to (hud-layout.ts buttonRoom); 15 when left out. */
   slots?(): CardSize;
 }
@@ -1523,6 +1530,23 @@ export class Commands {
     this.d.changed();
   }
 
+  /** The item menu's Plant seed (Patch 5, SC-8): the next left click on grass or dirt sends a worker to plant an Ancient Seed there. */
+  startPlant(): void {
+    this.placing = null;
+    this.targeting = { command: 'plant', key: '' };
+    this.d.message('Left click grass or dirt to plant the Ancient Seed there. Right click or Esc cancels.');
+    this.d.changed();
+  }
+
+  /** The selected workers (or the nearest worker, when none is selected) go and plant the seed on that column (the sim says why when it cannot). */
+  private plantAt(ground: THREE.Vector3): boolean {
+    const x = Math.floor(ground.x / COLUMN_M);
+    const z = Math.floor(ground.z / COLUMN_M);
+    this.d.send({ kind: 'circle', player: this.d.player, units: this.unitIds((u) => u.typeKey === 'worker'), circle: x, act: CircleAct.Plant, arg: z, queued: this.d.queued() });
+    this.d.marker(ground, 'move');
+    return true;
+  }
+
   /** The clicked unit walks to the nearest place to upgrade and puts the item on (the sim says why when it cannot). */
   private equipOn(item: Selectable, res: number): boolean {
     const id = item.kind === 'unit' && item.owner === this.d.player && geared(item) ? entityIdOf(item.key) : null;
@@ -1776,6 +1800,10 @@ export class Commands {
         ok = item !== null && this.equipOn(item, t.res ?? -1);
         if (!ok) this.d.message('Pick one of your workers, troops or mages to equip it.', 'alert');
         break;
+      case 'plant':
+        ok = ground !== null && this.plantAt(ground);
+        if (!ok) this.d.message('Pick a spot of grass or dirt to plant the Ancient Seed.', 'alert');
+        break;
     }
     if (ok && !this.d.held(t.key) && !this.d.queued()) {
       this.targeting = null;
@@ -1884,6 +1912,38 @@ export class Commands {
     const why = f.kind === FactionKind.MercCamp ? (f.hire?.why ?? '') : f.tradeWhy;
     if (why === OUT_OF_REACH && this.unitIds().length > 0) this.moveTo(item.centre);
     return true;
+  }
+
+  /**
+   * Right click on a stone circle's piece (Patch 5): a unit opens a bluestone
+   * chest (SC-6), the altar's panel opens (SCA-2), a worker cuts down a bare
+   * Sweet Hawthorne (SC-9), and a shut Moon Rose bush says when it opens (SCA-8).
+   */
+  private circlePiece(item: Selectable, units: number[], workers: number[]): boolean {
+    const p = item.prop!;
+    const player = this.d.player;
+    const queued = this.d.queued();
+    switch (p.kind) {
+      case PropKind.BluestoneChest:
+        this.d.send({ kind: 'circle', player, units, circle: variantCircle(p.variant), act: CircleAct.OpenChest, arg: variantLook(p.variant), queued });
+        this.d.marker(item.centre, 'target');
+        return true;
+      case PropKind.CircleAltar:
+        if (!this.d.openAltar) return false;
+        this.d.openAltar(variantCircle(p.variant), variantType(p.variant));
+        return true;
+      case PropKind.SweetHawthorne:
+        if (workers.length === 0 || item.resource) return false;
+        this.d.send({ kind: 'circle', player, units: workers, circle: p.gx, act: CircleAct.Fell, arg: p.gz, queued });
+        this.d.marker(item.centre, 'target');
+        return true;
+      case PropKind.MoonRoseBush:
+        if (p.amount > 0) return false;
+        this.d.message('The Moon Roses open only on a Bright Night.');
+        return true;
+      default:
+        return false;
+    }
   }
 
   /** A wild animal on screen. */
@@ -2076,6 +2136,8 @@ export class Commands {
     const units = this.unitIds();
     if (units.length === 0) {
       if (this.buildings().length > 0) this.rally(item, ground);
+      // A stone circle's altar panel opens with nothing selected too, as the trade menus do.
+      else if (item?.prop && this.circlePiece(item, [], [])) return;
       // Their trade menu opens with nothing selected too (it says what is needed).
       else if (item) this.talkTo(item);
       return;
@@ -2104,6 +2166,7 @@ export class Commands {
       if (others.length > 0 && ground) this.d.send({ kind: 'move', player, units: others, x: Math.round(ground.x * WU_PER_METRE), z: Math.round(ground.z * WU_PER_METRE), queued });
       return;
     }
+    if (item?.prop && this.circlePiece(item, units, workers)) return;
     if (item && this.ownBuilding(item) && workers.length > 0) {
       const b = this.buildingOf(item);
       if (b) {

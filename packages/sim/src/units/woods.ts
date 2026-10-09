@@ -22,10 +22,11 @@ import { clockAt, isDark, Period } from '../clock.ts';
 import { fishOf } from '../economy/food-kinds.ts';
 import { atan2Angle, floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
+import { brightTonight } from '../threats/bright.ts';
 import { chatter } from '../peoples/speech.ts';
 import { OrderKind, standY, type SimState } from '../state.ts';
 import { CHUNK_SHIFT, chunkKey, NO_WATER, WATER_PER_UNIT } from '../world/chunk.ts';
-import { isFish, propInfo, PropShape } from '../world/props.ts';
+import { isFish, PropKind, propInfo, PropShape } from '../world/props.ts';
 import { FOG_TILE_COLUMNS, type PropView, type World } from '../world/world.ts';
 import { Act, besideBuilding, columnCentre, FAILED, giveOrder, MOVING, nearestDropoff, nodeResource, nodeView, resetWalk, walkTo } from './behaviour.ts';
 import { exploreTarget, fromHome, HOME_SLACK_M, homeBaseNear, homeOf, wanderTarget, type Home } from './forage.ts';
@@ -80,9 +81,22 @@ function fishToKeep(view: PropView, picked: boolean): number {
   return picked ? 2 : floorDiv(view.most + 1, 2);
 }
 
-/** Whether a spot is worth his while now: fish to spare on a stretch he fishes, wild food on a plant he forages. */
-function worthIt(o: WoodsOrder, view: PropView | undefined, picked: boolean): view is PropView {
+/**
+ * Whether he is out for the Moon Roses: on his owner's Bright Night a
+ * woodsman who forages stays out for them, since they bloom only then, from
+ * nightfall to daybreak (SCA-8; the Food thread's hand-off in
+ * patch5-food-picks.md; s: his owner's own Bright Nights, when no wave comes
+ * for them).
+ */
+function roseHours(state: SimState, i: number, o: WoodsOrder): boolean {
+  const p = clockAt(state.step).period;
+  return o.forage !== 0 && (p === Period.Night || p === Period.Dawn) && brightTonight(state, state.entities.owner[i]!);
+}
+
+/** Whether a spot is worth his while now: fish to spare on a stretch he fishes, wild food on a plant he forages; only an open Moon Rose in rose hours. */
+function worthIt(o: WoodsOrder, view: PropView | undefined, picked: boolean, roses: boolean): view is PropView {
   if (!view || view.amount <= 0) return false;
+  if (roses) return view.kind === PropKind.MoonRoseBush;
   if (isFish(view.kind)) return o.fish !== 0 && view.amount > fishToKeep(view, picked);
   return o.forage !== 0 && isForage(view.kind) && nodeResource(view.kind, view.variant) >= 0;
 }
@@ -124,6 +138,7 @@ function nearestSpot(state: SimState, i: number, h: Home | undefined, o: WoodsOr
   const x = e.x[i]!;
   const z = e.z[i]!;
   const world = state.world;
+  const roses = roseHours(state, i, o);
   const reach = (h ? h.reach + length2d(x - h.x, z - h.z) : WOODS.leashM * M + length2d(x - o.x, z - o.z)) + M;
   const rc = floorDiv(reach, WU_PER_COLUMN) + 1;
   const gx = col(x);
@@ -134,7 +149,7 @@ function nearestSpot(state: SimState, i: number, h: Home | undefined, o: WoodsOr
     for (let cx = (gx - rc) >> CHUNK_SHIFT; cx <= (gx + rc) >> CHUNK_SHIFT; cx++) {
       if (!world.explored.has(chunkKey(cx, cz))) continue;
       for (const p of world.props(cx, cz, state.step)) {
-        if (!worthIt(o, p, false)) continue;
+        if (!worthIt(o, p, false, roses)) continue;
         const px = (cx << CHUNK_SHIFT) + p.lx;
         const pz = (cz << CHUNK_SHIFT) + p.lz;
         const d = dist2(columnCentre(px), columnCentre(pz), x, z);
@@ -221,8 +236,22 @@ export function runWoods(state: SimState, i: number, o: WoodsOrder): boolean {
     e.act[i] = Act.Walk;
     e.timer[i] = 0;
   }
-  if (isDark(state.step)) return woodsHome(state, i, o);
+  const roses = roseHours(state, i, o);
+  if (isDark(state.step) && !roses) return woodsHome(state, i, o);
   if (o.k & WOODS_HOME) {
+    if (roses) {
+      // Out from home for the open Moon Roses, looked for once a second.
+      const s = (state.step + e.id[i]!) % STEPS_PER_SECOND === 0 ? nearestSpot(state, i, homeOf(state, i), o) : null;
+      if (!s) return woodsHome(state, i, o);
+      o.k = 0;
+      o.cx = s.cx;
+      o.cz = s.cz;
+      o.i = s.i;
+      e.act[i] = Act.Walk;
+      resetWalk(state, i);
+      chatter(state, i, Talk.Dusk, 60 * STEPS_PER_SECOND, 'The Moon Roses are open. Out to pick them.');
+      return CONTINUE;
+    }
     // Out again at daybreak; the dawn is still the monsters'.
     if (clockAt(state.step).period !== Period.Day) return CONTINUE;
     o.k = 0;
@@ -231,7 +260,7 @@ export function runWoods(state: SimState, i: number, o: WoodsOrder): boolean {
   const h = homeOf(state, i);
   const picked = (o.k & WOODS_PICKED) !== 0;
   let view = o.i >= 0 ? nodeView(state, o.cx, o.cz, o.i) : undefined;
-  if (o.i >= 0 && !worthIt(o, view, picked)) {
+  if (o.i >= 0 && !worthIt(o, view, picked, roses)) {
     o.i = -1;
     o.k &= ~WOODS_PICKED;
     view = undefined;
@@ -251,8 +280,16 @@ export function runWoods(state: SimState, i: number, o: WoodsOrder): boolean {
         resetWalk(state, i);
         return CONTINUE;
       }
+      if (roses) {
+        // No open Moon Rose left in reach: home till day.
+        o.k = WOODS_HOME;
+        o.i = -1;
+        resetWalk(state, i);
+        chatter(state, i, Talk.Dusk, 60 * STEPS_PER_SECOND, 'No more Moon Roses open. Heading home.');
+        return woodsHome(state, i, o);
+      }
     }
-    return lookAbout(state, i, h, o);
+    return roses ? CONTINUE : lookAbout(state, i, h, o);
   }
   // His bag cannot take the next catch: home with it, then back out.
   const res = spotRes(view);

@@ -35,6 +35,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'land', label: 'Claimed land and lights', blurb: 'Claimed land round buildings and lights, outlying lights and relighting. Lights need no fuel (Patch 2).' },
   { id: 'resources', label: 'Resources and trade', blurb: 'Every resource: weight, nutrition and the starting stock; trade values and trinkets.' },
   { id: 'world', label: 'World and terrain', blurb: 'Trees, rocks and other props, materials, mining and prospecting, digging and movement over terrain.' },
+  { id: 'circles', label: 'Stone circles', blurb: 'Patch 5\'s stone circles: how many stand in each band and how far apart, their tiers and types, the rings of trilithons and what each gives, the chests and their loot table, the dressing round each type, Sweet Hawthorne, the Pan Flute, the Moon Goddess\'s gifts and Bright Nights, the idols, and enchanted wine.' },
   { id: 'questions', label: 'Questions', blurb: 'The yes-or-no questions units and buildings ask their owner (Patch 2): how long one waits for an answer, how many a player has open at once, how hurt a unit is before it asks to eat and how long nothing must have hurt it first (Patch 3), and how near others must stand for one to speak for them; and (Patch 3) how many questions a click on a greyed-out button raises, and how far down their causes they go; and (Patch 4) how long a farm stands empty, a building goes unworked or a worker stands idle before it asks, and how near a worker must be to be sent.' },
   { id: 'pacing', label: 'Pacing', blurb: 'The day and night clock and the other timings everything else counts in.' },
   { id: 'other', label: 'Other numbers', blurb: 'Numbers in the sim that no other group claims yet. New tables show up here until they are given a home.' },
@@ -102,6 +103,10 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   // The Dreadnought (Patch 5): his lines and description are words, his gear is worked out from DREADNOUGHT_KIT, and his second blow's slot is plumbing.
   'units/dreadnought.ts:DREADNOUGHT_REMARKS', 'units/dreadnought.ts:DREADNOUGHT_HIRED', 'buildings/production.ts:DREADNOUGHT_TEXT',
   'units/kits.ts:DREADNOUGHT_GEAR', 'units/kits.ts:SECOND_BLOW',
+  // Stone circles (Patch 5): the kinds, states, acts and pieces are ids; the names and the idol's tool tip are words; the hook and the item uses are code.
+  'circles/data.ts:CircleType', 'circles/data.ts:CIRCLE_TYPE_NAMES', 'circles/data.ts:Trilithon', 'circles/data.ts:CircleProp', 'circles/data.ts:MOON_IDOL_TIP',
+  'circles/act.ts:CircleAct', 'circles/act.ts:CIRCLE_ACTS', 'circles/disturb.ts:Disturb', 'circles/disturb.ts:circleHooks', 'circles/place.ts:PIECE_KINDS',
+  'circles/items.ts:UseFrom', 'circles/items.ts:ITEM_USES',
 ]);
 
 /** Where each module's exports go; `exports` overrides a module's group for single exports. */
@@ -191,6 +196,12 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'threats/bright.ts': 'mobs',
   'threats/necromancer.ts': 'mobs',
   'threats/guardians.ts': 'mobs',
+  // Patch 5: the stone circles.
+  'circles/data.ts': 'circles',
+  'circles/place.ts': 'circles',
+  'circles/bright.ts': 'circles',
+  'circles/act.ts': 'circles',
+  'circles/items.ts': 'circles',
   'threats/springs.ts': 'lairs',
 };
 
@@ -268,7 +279,7 @@ export const ENTRY_ARRAYS: ReadonlySet<string> = new Set([
   'world/materials.ts:MATERIALS', 'world/props.ts:PROPS', 'threats/abilities.ts:ABILITIES', 'buildings/production.ts:PRODUCTS',
   'magic/spells.ts:SPELLS', 'magic/spells.ts:MAGE_RANKS', 'peoples/data.ts:PEOPLE_UNITS', 'mounts/data.ts:MOUNTS', 'siege/data.ts:ENGINES',
   'units/kits.ts:TIER_NEEDS', 'units/kits.ts:TOOL_KITS', 'units/kits.ts:CLOSE_KITS', 'units/kits.ts:LONG_KITS', 'units/kits.ts:RANGER_KITS',
-  'units/kits.ts:ARMOUR_KITS', 'units/kits.ts:SHIELD_KITS', 'units/kits.ts:WAND_KITS', 'units/kits.ts:ROBE_KITS', 'units/moves.ts:GAITS',
+  'units/kits.ts:ARMOUR_KITS', 'units/kits.ts:SHIELD_KITS', 'units/kits.ts:WAND_KITS', 'units/kits.ts:ROBE_KITS', 'units/moves.ts:GAITS', 'circles/data.ts:TRILITHONS',
 ]);
 
 /** Single records shown as an entry of their own, like one row of an entry array. */
@@ -318,6 +329,8 @@ export const REF_KEYS: Readonly<Record<string, RefKind>> = {
   need: 'tierNeed', 'TOOL_KITS:tools': 'tool',
   // Patch 3: a mob's listed traits (combat/threat.ts Trait).
   'MOBS:traits': 'trait',
+  // Patch 5: the bands that hold stone circles.
+  'CIRCLE_BANDS:*': 'band',
 };
 
 /** Keys that are identity, layout or prose: shown, not edited. */
@@ -339,6 +352,8 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   'MOBS:threatTenths', 'THREAT:overWallReachCm',
   // Patch 5: which mobile engine a fixed one is built from; its numbers are that engine's, tuned there.
   'ENGINES:mobile',
+  // Stone circles (Patch 5): a trilithon row's state is its SC-3 number, and a dressing row's piece is which kind it is.
+  'TRILITHONS:state', 'DRESSING:prop',
 ]);
 
 /** Keys whose text is the record's own words for the tooltip; other strings show as notes. */

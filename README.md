@@ -4173,7 +4173,9 @@ picking berries),
 2. **Training.** `pnpm dev`, open http://localhost:5173/?seed=2. Build a
    Scholar's Lodge: its card has Woodsman (W) for 32 food, 4 sticks, 1
    leather (or 1 hides) and 4 flax, in 50 s. He comes out with a wooden
-   spear in his hand and no armour.
+   spear in his hand and no armour. The Woodsman button, his place in the
+   queue and his picture in the selection grid are his own portrait, a
+   woodsman's head and shoulders, not the spearman's.
 3. **His card.** Attack (A), Move (M), Fish (I), Forage (G), Eat (F),
    Upgrade equipment (Q) and Run or Walk (H). F2 does not select him.
    Upgrade equipment offers only long weapons, and only at a main base; he
@@ -4212,7 +4214,9 @@ picking berries),
    every 3 meals, yellow between.
 8. **Fertilize.** At the Workshop, Bonemeal (N) grinds bone into bonemeal:
    click makes one, Shift + click ten, and a right click offers Make 1,
-   Make 10 or Make all, each order one stack in the queue counting down. On a farm's
+   Make 10 or Make all, each order one stack in the queue counting down.
+   Bonemeal's icon is a tied sack with a small bone leaning on it, and a
+   worker carrying bonemeal holds that sack. On a farm's
    card, Fertilize (F) costs 2 bonemeal and makes the farm grow 30% more for
    2 minutes; pressed again, more boosts wait behind it (up to 10). Right
    click turns Auto fertilize on or off. Beside the farm's workers,
@@ -4242,6 +4246,66 @@ picking berries),
     night, main bases are lit every night, an occupied farm's chimney
     smokes at night, and the Big House campfire burns with flames and smoke.
 14. **Saves.** No save format change; the snapshot version goes to 31.
+
+## How a tester checks the stone circles and the world look (Patch 5)
+
+Stone circles stand in the Fringe, the Deepwoods and the Barrens (0 to 4 in
+each), the land and water are drawn with the art set's pixel tiles, every
+world prop with its own model, and the day's light follows the art set's
+lighting sheet. Start a game with `?seed=3` (the same world each time).
+
+1. **Find a circle.** Open the debugger and press **Stone circle**: the
+   camera goes to the nearest circle and its land is revealed; press it
+   again there for the next. Seed 3 has nine: Lunar, Silenus, Boneyard and
+   plain circles. Each is one, two or three rings of trilithons, some
+   standing (intact or worn), some fallen, with bluestone rubble, one to
+   three bluestone chests and, on a Lunar or Boneyard circle, an altar with
+   its idol. A Lunar circle is mossy, with Moon Rose bushes and Sweet
+   Hawthornes; a Boneyard circle has bone piles, dead trees and thorns.
+2. **Pieces.** Hover any piece for its outline and name (a trilithon says
+   its state and its bluestone). Workers with iron tools or better quarry
+   trilithons and rubble for bluestone; bone piles give bone.
+3. **A chest.** Select a unit and right click a chest: the unit walks over
+   and opens it, and the chest panel lists the five spaces with Take and
+   Take everything. The chest stays open. Esc closes the panel.
+4. **The Goddess.** With a unit selected, right click a Lunar altar: the
+   altar panel asks for 5 gold (or 35 silver) and 3 Moon Roses (Leave gifts,
+   greyed with the reason when you lack them). Leaving them blesses you: a
+   Bright Night the next night and every tenth after. **Take the idol** asks
+   Yes or No first; once taken, the idol leaves the altar and the circle's
+   own Bright Nights stop.
+5. **Bright Night.** The night turns white and bright, the clock says Bright
+   Night, the moon by the clock is full and the far land glows pale; near a
+   Lunar circle the air is faintly rosy and the Moon Roses open. On your own
+   Bright Night a woodsman set to Forage with Moon Roses in his reach goes
+   out for them at nightfall and comes home when none are left.
+6. **Sweet Hawthorne.** Right click an Ancient Seed in the stock and pick
+   **Plant seed**, then left click grass or dirt: the selected workers (or
+   the nearest worker) plant it there; it grows over 5 nights. The same
+   menu plays the Pan Flute, uses the Moon Goddess idol and, on a mage's own
+   inventory, drinks enchanted wine for 50 mana. Farms and animals within 30 m do 35% better (the selection
+   panel says so). Right click a tree with no fruit with a worker to cut it
+   down for 15 hardwood lumber.
+7. **The land.** Grass, soil, sand, clay, stone and ore seams have pixel
+   tiles; the Heartland's grass is lusher than the Fringe's, the Deepwoods'
+   floor is brown leaf litter, the Barrens are ochre and red rock, the
+   Deadlands ash and black rock whose cracks glow orange. Water is animated:
+   shallow water is see-through blue-green, deep water (where units cannot
+   wade) a solid darker blue, bog water brown-green, with foam along the
+   shore. Before: flat colours with noise.
+8. **Props.** Trees, saplings, seeds, berry bushes and the bog pear bush,
+   mushrooms, flax, rocks, ore nodes, boulders, hot springs and carcasses
+   are each drawn with their own model (a fish stretch shows its live fish);
+   a picked bush shows bare, and a rock half mined shows worn down. A moment of coloured cubes may show
+   while a model loads.
+9. **The day.** Press **Speed** to watch a day turn: warm white light by
+   day, deep orange at dusk, blue moonlight at night, pink-gold at dawn,
+   the far land hazing over at dusk and night. The little sky beside the
+   clock shows the sun crossing from dawn to dusk, the moon at night, the
+   stars and clouds. **Fog** brings a fog night: fog drifts low over the
+   ground and the lights shrink to small orange halos.
+10. **Glitter.** Gold and silver on the ground and in ore nodes glitter in
+    their colour.
 
 ## How a tester checks mages and spells (Patch 5)
 
