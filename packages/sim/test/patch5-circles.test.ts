@@ -20,12 +20,15 @@ import {
   cloneState,
   createWorld,
   CYCLE_STEPS,
+  DAY_STEPS,
+  DUSK_STEPS,
   fairyHooks,
   hashState,
   haveOf,
   nextNight,
   RUIN_CLEAR_M,
   hawthorneNear,
+  idolNight,
   payAny,
   Period,
   pieceSlot,
@@ -35,6 +38,7 @@ import {
   Res,
   RESOURCE_COUNT,
   RINGS,
+  rosesOpen,
   showCircle,
   skyBright,
   step,
@@ -211,6 +215,24 @@ describe('stone circles in the world', () => {
     expect(s.world.prop(at.cx, at.cz, at.index, s.step)!.amount).toBe(0);
   });
 
+  it('lets a worker pick the open Moon Roses on a night the idol lights, before anyone is blessed (SCA-8, answer 2.8)', () => {
+    const { s, c } = withCircle(CircleType.Lunar);
+    const rose = circlePieces(s.world.layout, c.id).find((p) => p.prop === CircleProp.MoonRose)!;
+    const at = pieceSlot(s.world.layout, rose);
+    let night = nextNight(s.step);
+    while (!idolNight(s, c, night)) night++;
+    expect(rosesOpen(s, night)).toBe(true);
+    expect(skyBright(s, night)).toBe(false);
+    s.step = night * CYCLE_STEPS + DAY_STEPS + DUSK_STEPS + 1;
+    circlesAtPeriod(s, Period.Night, night);
+    expect(s.world.prop(at.cx, at.cz, at.index, s.step)!.amount).toBe(3);
+    const i = standBy(s, rose.gx * 3600, rose.gz * 3600);
+    step(s, [{ kind: 'gather', player: 0, units: [1], cx: at.cx, cz: at.cz, index: at.index }]);
+    for (let k = 0; k < 40 * STEPS_PER_SECOND && s.world.prop(at.cx, at.cz, at.index, s.step)!.amount === 3; k++) step(s);
+    expect(s.world.prop(at.cx, at.cz, at.index, s.step)!.amount).toBeLessThan(3);
+    expect(s.entities.carryRes[i]).toBe(Res.MoonRose);
+  });
+
   it('grows a Sweet Hawthorne from an Ancient Seed that a worker plants, which farms near it then feel (SC-8, SC-9)', () => {
     const s = createWorld(3, { players: 1, peaceful: true });
     const e = s.entities;
@@ -235,7 +257,7 @@ describe('stone circles in the world', () => {
     expect(fairyHooks.hawthorneNear).toBe(hawthorneNear);
   });
 
-  it('sends a woodsman who forages out for the open Moon Roses on his own Bright Night, then home (SCA-8)', () => {
+  it('sends a woodsman who forages out for the open Moon Roses on a bright night, then home (SCA-8)', () => {
     const s = createWorld(3, { players: 1, peaceful: true });
     const e = s.entities;
     const i = e.indexOf(1);

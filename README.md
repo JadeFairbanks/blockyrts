@@ -3651,16 +3651,17 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    and dark. The ball flies as its model (the bronze cannon's smaller) with a
    faint grey dash behind it by day and a bright orange streak at night.
    Each has its gun's sound.
-10. **Blasts.** A cannonball landing explodes in fire, dirt and smoke; on
-    grass or soil it leaves a heap of earth to pick up. One that hits a tree
-    fells it, leaving half its lumber. A catapult stone throws up dirt, no
+10. **Blasts.** A cannonball landing explodes with a flash of light (a blink
+    that lights the ground round it, strong at night, faint by day), fire,
+    dirt and smoke; on grass or soil it leaves a heap of earth to pick up.
+    One that hits a tree fells it, leaving half its lumber. A catapult stone throws up dirt, no
     fire, leaves less earth, and fells only small trees. A bronze cannon's
     shot is smaller, with a smaller blast.
 11. **The wall breaker.** A skeleton bomber, hooded with red eyes and a black
     skull-marked bomb, has its fuse fizzing with tiny sparks at the fuse's tip.
-    When it goes off: an explosion, smoke rising for 3 s and a shallow
-    crater; it hurts units half as much as before. Kill one before it reaches
-    a wall and nothing goes off, and no bomb falls.
+    When it goes off: a flash of light, an explosion, smoke rising for 3 s
+    and a shallow crater; it hurts units half as much as before. Kill one
+    before it reaches a wall and nothing goes off, and no bomb falls.
 12. **Engines on your own.** Select an engine, Attack, and click one of your
     own units: it fires at it.
 
@@ -4344,9 +4345,11 @@ lighting sheet. Start a game with `?seed=3` (the same world each time).
    own Bright Nights stop.
 5. **Bright Night.** The night turns white and bright, the clock says Bright
    Night, the moon by the clock is full and the far land glows pale; near a
-   Lunar circle the air is faintly rosy and the Moon Roses open. On your own
-   Bright Night a woodsman set to Forage with Moon Roses in his reach goes
-   out for them at nightfall and comes home when none are left.
+   Lunar circle the air is faintly rosy and the Moon Roses open. On any
+   bright night (your Bright Night, or one night in three near a Lunar circle
+   with its idol on the altar) a worker right clicked onto an open bush picks
+   it, and a woodsman set to Forage with open Moon Roses in his reach goes
+   out for them and comes home when none are left.
 6. **Sweet Hawthorne.** Right click an Ancient Seed in the stock and pick
    **Plant seed**, then left click grass or dirt: the selected workers (or
    the nearest worker) plant it there; it grows over 5 nights. The same
@@ -4359,8 +4362,12 @@ lighting sheet. Start a game with `?seed=3` (the same world each time).
    floor is brown leaf litter, the Barrens are ochre and red rock, the
    Deadlands ash and black rock whose cracks glow orange. Water is animated:
    shallow water is see-through blue-green, deep water (where units cannot
-   wade) a solid darker blue, bog water brown-green, with foam along the
-   shore. Before: flat colours with noise.
+   wade) a solid darker blue, bog water brown-green, a stream's shallows
+   rippling along, with foam along the shore. Your buildings stand on
+   trodden dirt that runs about a metre out round them, its edge blending
+   into the grass; a Farm's plot is tilled in furrows, darker and wet while
+   bonemeal works it or just after each harvest. Before: flat colours with
+   noise.
 8. **Props.** Trees, saplings, seeds, berry bushes and the bog pear bush,
    mushrooms, flax, rocks, ore nodes, boulders, hot springs and carcasses
    are each drawn with their own model (a fish stretch shows its live fish);
