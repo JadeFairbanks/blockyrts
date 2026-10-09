@@ -566,6 +566,8 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | water_trough | models/world-props/water_trough/water_trough.bbmodel | 6 | 64x64 |  |
 | grave_marker | models/world-props/grave_marker/grave_marker.bbmodel | 10 | 64x64 |  |
 | bone_pile | models/world-props/bone_pile/bone_pile.bbmodel | 29 | 32x64 |  |
+| silver_nugget | models/world-props/silver_nugget/silver_nugget.bbmodel | 9 | 32x32 |  |
+| mana_crystal_large | models/world-props/mana_crystal_large/mana_crystal_large.bbmodel | 64 | 512x256 | 18 cubes in state sets hidden by default (depleted) |
 
 ## projectiles-and-spells
 
