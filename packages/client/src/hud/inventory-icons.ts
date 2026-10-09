@@ -126,6 +126,61 @@ set(Res.MoonRose, 'moon_rose');
 set(Res.ObsidianHandAxe, 'axe_hand_obsidian');
 set(Res.Obsidian, 'obsidian');
 set(Res.PoisonTips, 'arrow_poison_flint');
+// Patch 7's looted pieces and the Dreadnought's mace: the icons rendered from their models (set before the kit
+// pictures below, so a piece that goes on as a ladder piece keeps its own). Witchwood borrows the sticks', tinted,
+// until its model is in.
+set(Res.GoblinDagger, 'dagger_goblin');
+set(Res.GoblinChiefCleaver, 'cleaver_goblin_chief');
+set(Res.HobgoblinSword, 'sword_hobgoblin');
+set(Res.BarrowKnightLongsword, 'sword_barrow_knight');
+set(Res.FiendCleaver, 'cleaver_fiend');
+set(Res.PlagueCenser, 'flail_plague_censer');
+set(Res.ChainAndHook, 'flail_chain_hook');
+set(Res.GoblinFeatheredSpear, 'spear_goblin_feathered');
+set(Res.KoboldSpear, 'spear_kobold');
+set(Res.GnollSpear, 'spear_gnoll');
+set(Res.MinotaurGreatAxe, 'axe_great_minotaur');
+set(Res.ArchfiendGreatsword, 'greatsword_archfiend');
+set(Res.BogGuardianClub, 'club_bog_guardian');
+set(Res.GoblinSling, 'sling_goblin');
+set(Res.GoblinBow, 'bow_goblin');
+set(Res.SkeletonRecurveBow, 'bow_skeleton_recurve');
+set(Res.GoblinHexStick, 'wand_goblin_hexstick');
+set(Res.HollowPriestStaff, 'staff_hollow_priest');
+set(Res.NecromancerStaff, 'staff_necromancer');
+set(Res.FlamecallerStaff, 'staff_flamecaller');
+set(Res.FaeStarWand, 'wand_fae_star');
+set(Res.MorvathStaff, 'staff_morvath');
+set(Res.GoblinPlankShield, 'shield_goblin_plank');
+set(Res.HobgoblinShield, 'shield_hobgoblin');
+set(Res.BarrowKnightKiteShield, 'shield_barrow_knight');
+set(Res.GnollBracer, 'gnoll_bracer');
+set(Res.HobgoblinArmour, 'hobgoblin_armour');
+set(Res.BarrowKnightMail, 'barrow_knight_mail');
+set(Res.VoidStalkerCloak, 'void_stalker_cloak');
+set(Res.FiendShoulderPlate, 'fiend_shoulder_plate');
+set(Res.MinotaurBracers, 'minotaur_bracers');
+set(Res.PlagueBearerRobe, 'plague_bearer_robe');
+set(Res.HollowPriestRobe, 'hollow_priest_robe');
+set(Res.NecromancerRobe, 'necromancer_robe');
+set(Res.FlamecallerRobe, 'flamecaller_robe');
+set(Res.FaeGuardianRobe, 'fae_guardian_robe');
+set(Res.GoblinLeathers, 'goblin_leathers');
+set(Res.GoblinChiefHelmet, 'goblin_chief_helmet');
+set(Res.ArchfiendPlate, 'archfiend_plate');
+set(Res.JuggernautPlating, 'juggernaut_plating');
+set(Res.HalflingIronCap, 'halfling_iron_cap');
+set(Res.DwarfPlate, 'dwarf_plate');
+set(Res.DwarfMail, 'dwarf_mail');
+set(Res.HalflingShortsword, 'halfling_shortsword');
+set(Res.HalflingShortbow, 'halfling_shortbow');
+set(Res.HalflingBuckler, 'halfling_buckler');
+set(Res.ElfGlaive, 'elf_glaive');
+set(Res.ElfLongbow, 'elf_longbow');
+set(Res.DwarfWarAxe, 'dwarf_war_axe');
+set(Res.DwarfWarHammer, 'dwarf_war_hammer');
+set(Res.HeavySpikedMace, 'mace_dreadnought');
+set(Res.Witchwood, 'hardwood_sticks', { tint: 'hue-rotate(250deg) saturate(1.6) brightness(0.8)' });
 // Patch 5 (Jade's GP-1): weapons, armour, shields, tools, wands and robes are goods in the stock, each with the picture its slot shows.
 const KIT_PICS: ReadonlyArray<readonly [readonly Piece[], (tier: number) => Pic]> = [
   [CLOSE_KITS, (t) => weaponPic(Troop.Close, t)],
@@ -147,24 +202,6 @@ for (const [table, picOf] of KIT_PICS) {
     }
   }
 }
-// Patch 7's looted pieces: until the icons rendered from their models come in, each borrows the picture
-// of the ladder piece it goes on as (the loop above), or of the nearest piece where it goes on as none
-// (the Dreadnought's weapons and armour, and the pieces that fit nobody). Witchwood borrows the sticks', tinted.
-set(Res.MinotaurGreatAxe, 'axe_hq_steel');
-set(Res.ArchfiendGreatsword, 'zweihander');
-set(Res.BogGuardianClub, 'club');
-set(Res.MorvathStaff, 'wand_grand_magician');
-set(Res.FiendShoulderPlate, 'armour_iron_plates');
-set(Res.MinotaurBracers, 'armour_steel_plate_steel');
-set(Res.GoblinLeathers, 'armour_leather');
-set(Res.GoblinChiefHelmet, 'helmet_bronze');
-set(Res.ArchfiendPlate, 'armour_steel_plate_hq_steel');
-set(Res.JuggernautPlating, 'armour_iron_plates');
-set(Res.HalflingIronCap, 'helmet_iron_nasal_iron_refined');
-set(Res.DwarfPlate, 'armour_steel_plate_steel');
-set(Res.DwarfMail, 'armour_iron_mail_iron_refined');
-set(Res.HeavySpikedMace, 'mace_iron_refined');
-set(Res.Witchwood, 'hardwood_sticks', { tint: 'hue-rotate(250deg) saturate(1.6) brightness(0.8)' });
 // Jade's Patch 5 wild foods (GP-30, GP-31).
 set(Res.BlackBerries, 'black_berries');
 set(Res.Raspberries, 'raspberries');

@@ -825,36 +825,37 @@ const L = Rarity.Legendary;
  * the archfiend's greatsword in 1.9 s (s, the plan's 1.3 s and 2.0 s), so
  * each is above the best ladder piece of its kind in damage a second as the
  * plan grades them (plan 3: epic is on par with the best ladder piece or
- * better). Models: weapons and shields cut from their monster's model (the
- * weapons thread), armour and robes from the Patch 7 model brief.
+ * better). Models: weapons and shields are the held pieces cut from their
+ * monster's model (packages/assets MANIFEST, Patch 7), armour and robes the
+ * Patch 7 model brief's (docs/patch7-model-brief.md).
  */
 export const LOOT_KITS: readonly LootKit[] = [
-  loot(Res.GoblinDagger, C, GearKind.OneHanded, 10, 5, 'goblin_dagger_held', [[Res.WroughtIron, 1]], swings(8, 9, 90, Hit.Stab)),
-  loot(Res.GoblinChiefCleaver, C, GearKind.OneHanded, 26, 5, 'goblin_chief_cleaver_held', [[Res.WroughtIron, 2], [LE, 1]], swings(11, 13, 120, Hit.Arc)),
-  loot(Res.HobgoblinSword, C, GearKind.OneHanded, 19, 6, 'hobgoblin_sword_held', [[IRON, 2], [LE, 1]], swings(13, 12, 120, Hit.Arc)),
-  loot(Res.BarrowKnightLongsword, R, GearKind.OneHanded, 35, 6, 'barrow_knight_longsword_held', [[IRON, 3], [Res.Silver, 1]], swings(18, 13, 140, Hit.Arc)),
-  loot(Res.FiendCleaver, E, GearKind.OneHanded, 62, 6, 'fiend_cleaver_held', [[IRON, 2], [Res.DemonHorn, 1]], swings(26, 12, 130, Hit.Arc)),
-  loot(Res.PlagueCenser, R, GearKind.Flail, 34, 6, 'plague_censer_held', [[IRON, 2], [Res.Sulphur, 1]], swings(11, 15, 160, Hit.Sweep, true)),
-  loot(Res.ChainAndHook, R, GearKind.Flail, 62, 6, 'chain_and_hook_held', [[IRON, 3]], swings(14, 16, 250, Hit.Sweep)),
-  loot(Res.GoblinFeatheredSpear, C, GearKind.Spear, 28, 4, 'spear_goblin_feathered_held', [[BZ, 1], [SW, 1], [FE, 1]], swings(16, 14, 230, Hit.Stab)),
-  loot(Res.KoboldSpear, C, GearKind.Spear, 42, 5, 'spear_kobold_held', [[WI, 1], [SW, 2]], swings(19, 14, 250, Hit.Stab)),
-  loot(Res.GnollSpear, C, GearKind.Spear, 41, 5, 'spear_gnoll_held', [[WI, 1], [SW, 2], [Res.Hides, 1]], swings(22, 15, 250, Hit.Stab)),
-  loot(Res.MinotaurGreatAxe, R, GearKind.Great, 134, 7, 'minotaur_great_axe_held', [[STEEL, 4], [SW, 3]], swings(29, 20, 220, Hit.Arc)),
-  loot(Res.ArchfiendGreatsword, E, GearKind.Great, 153, 6, 'archfiend_greatsword_held', [[IRON, 5], [Res.DemonHorn, 2], [Res.Rubies, 1]], swings(40, 19, 240, Hit.Arc)),
+  loot(Res.GoblinDagger, C, GearKind.OneHanded, 10, 5, 'dagger_goblin', [[Res.WroughtIron, 1]], swings(8, 9, 90, Hit.Stab)),
+  loot(Res.GoblinChiefCleaver, C, GearKind.OneHanded, 26, 5, 'cleaver_goblin_chief', [[Res.WroughtIron, 2], [LE, 1]], swings(11, 13, 120, Hit.Arc)),
+  loot(Res.HobgoblinSword, C, GearKind.OneHanded, 19, 6, 'sword_hobgoblin', [[IRON, 2], [LE, 1]], swings(13, 12, 120, Hit.Arc)),
+  loot(Res.BarrowKnightLongsword, R, GearKind.OneHanded, 35, 6, 'sword_barrow_knight', [[IRON, 3], [Res.Silver, 1]], swings(18, 13, 140, Hit.Arc)),
+  loot(Res.FiendCleaver, E, GearKind.OneHanded, 62, 6, 'cleaver_fiend', [[IRON, 2], [Res.DemonHorn, 1]], swings(26, 12, 130, Hit.Arc)),
+  loot(Res.PlagueCenser, R, GearKind.Flail, 34, 6, 'flail_plague_censer', [[IRON, 2], [Res.Sulphur, 1]], swings(11, 15, 160, Hit.Sweep, true)),
+  loot(Res.ChainAndHook, R, GearKind.Flail, 62, 6, 'flail_chain_hook', [[IRON, 3]], swings(14, 16, 250, Hit.Sweep)),
+  loot(Res.GoblinFeatheredSpear, C, GearKind.Spear, 28, 4, 'spear_goblin_feathered', [[BZ, 1], [SW, 1], [FE, 1]], swings(16, 14, 230, Hit.Stab)),
+  loot(Res.KoboldSpear, C, GearKind.Spear, 42, 5, 'spear_kobold', [[WI, 1], [SW, 2]], swings(19, 14, 250, Hit.Stab)),
+  loot(Res.GnollSpear, C, GearKind.Spear, 41, 5, 'spear_gnoll', [[WI, 1], [SW, 2], [Res.Hides, 1]], swings(22, 15, 250, Hit.Stab)),
+  loot(Res.MinotaurGreatAxe, R, GearKind.Great, 134, 7, 'axe_great_minotaur', [[STEEL, 4], [SW, 3]], swings(29, 20, 220, Hit.Arc)),
+  loot(Res.ArchfiendGreatsword, E, GearKind.Great, 153, 6, 'greatsword_archfiend', [[IRON, 5], [Res.DemonHorn, 2], [Res.Rubies, 1]], swings(40, 19, 240, Hit.Arc)),
   loot(Res.BogGuardianClub, E, GearKind.Great, 351, 1, '', [[HW, 10], [STONE, 20], [Res.Emeralds, 1]]),
-  loot(Res.GoblinSling, C, GearKind.Ranged, 10, 1, 'sling_goblin_held', [[LE, 1]], shoots(7, 20, 18, 8, Shot.SlingStone, true)),
-  loot(Res.GoblinBow, C, GearKind.Ranged, 17, 2, 'bow_goblin_held', [[ST, 2], [FE, 1]], shoots(9, 20, 22, 6, Shot.Arrow)),
-  loot(Res.SkeletonRecurveBow, C, GearKind.Ranged, 32, 4, 'bow_skeleton_recurve_held', [[Res.Bone, 2], [SW, 1], [ROPE, 1]], shoots(14, 20, 30, 6, Shot.Arrow)),
-  loot(Res.GoblinHexStick, C, GearKind.Wand, 21, 2, 'wand_goblin_hex_stick_held', [[Res.Witchwood, 1], [Res.Hexstone, 1]], asWand(2)),
-  loot(Res.HollowPriestStaff, R, GearKind.Wand, 49, 4, 'wand_hollow_priest_held', [[Res.Witchwood, 2]], asWand(4)),
-  loot(Res.NecromancerStaff, R, GearKind.Wand, 43, 5, 'wand_necromancer_held', [[Res.Witchwood, 2], [Res.Bone, 1], [MC, 1]], asWand(5)),
-  loot(Res.FlamecallerStaff, R, GearKind.Wand, 76, 5, 'wand_flamecaller_held', [[IRON, 2], [Res.Witchwood, 1], [Res.Sulphur, 1]], asWand(5)),
+  loot(Res.GoblinSling, C, GearKind.Ranged, 10, 1, 'sling_goblin', [[LE, 1]], shoots(7, 20, 18, 8, Shot.SlingStone, true)),
+  loot(Res.GoblinBow, C, GearKind.Ranged, 17, 2, 'bow_goblin', [[ST, 2], [FE, 1]], shoots(9, 20, 22, 6, Shot.Arrow)),
+  loot(Res.SkeletonRecurveBow, C, GearKind.Ranged, 32, 4, 'bow_skeleton_recurve', [[Res.Bone, 2], [SW, 1], [ROPE, 1]], shoots(14, 20, 30, 6, Shot.Arrow)),
+  loot(Res.GoblinHexStick, C, GearKind.Wand, 21, 2, 'wand_goblin_hexstick', [[Res.Witchwood, 1], [Res.Hexstone, 1]], asWand(2)),
+  loot(Res.HollowPriestStaff, R, GearKind.Wand, 49, 4, 'staff_hollow_priest', [[Res.Witchwood, 2]], asWand(4)),
+  loot(Res.NecromancerStaff, R, GearKind.Wand, 43, 5, 'staff_necromancer', [[Res.Witchwood, 2], [Res.Bone, 1], [MC, 1]], asWand(5)),
+  loot(Res.FlamecallerStaff, R, GearKind.Wand, 76, 5, 'staff_flamecaller', [[IRON, 2], [Res.Witchwood, 1], [Res.Sulphur, 1]], asWand(5)),
   // 130% spell power (plan 4.1), mana a step past the archstaff's (s), and the Fae's +25% regain.
-  loot(Res.FaeStarWand, L, GearKind.Wand, 14, 6, 'wand_fae_star_held', [[MC, 3], [Res.Diamonds, 1]], { wand: { powerPct: 130, mana: 60, regainPct: FAE_REGAIN_PCT } }),
+  loot(Res.FaeStarWand, L, GearKind.Wand, 14, 6, 'wand_fae_star', [[MC, 3], [Res.Diamonds, 1]], { wand: { powerPct: 130, mana: 60, regainPct: FAE_REGAIN_PCT } }),
   loot(Res.MorvathStaff, L, GearKind.Wand, 413, 6, '', [[IRON, 6], [Res.Witchwood, 4], [Res.Bone, 10], [MC, 8], [Res.Diamonds, 2]]),
-  loot(Res.GoblinPlankShield, C, GearKind.Shield, 20, 1, 'shield_goblin_plank_held', [[PL, 2], [ST, 1]], { blockPct: 12 }),
-  loot(Res.HobgoblinShield, C, GearKind.Shield, 44, 6, 'shield_hobgoblin_held', [[IRON, 2], [PL, 2]], { blockPct: 22 }),
-  loot(Res.BarrowKnightKiteShield, R, GearKind.Shield, 45, 6, 'shield_barrow_knight_kite_held', [[IRON, 3], [PL, 1]], { blockPct: 28 }),
+  loot(Res.GoblinPlankShield, C, GearKind.Shield, 20, 1, 'shield_goblin_plank', [[PL, 2], [ST, 1]], { blockPct: 12 }),
+  loot(Res.HobgoblinShield, C, GearKind.Shield, 44, 6, 'shield_hobgoblin', [[IRON, 2], [PL, 2]], { blockPct: 22 }),
+  loot(Res.BarrowKnightKiteShield, R, GearKind.Shield, 45, 6, 'shield_barrow_knight', [[IRON, 3], [PL, 1]], { blockPct: 28 }),
   loot(Res.GnollBracer, C, GearKind.Armour, 20, 1, 'armour_gnoll_bracer', [[Res.Hides, 1]], { protectionPct: 5 }),
   loot(Res.HobgoblinArmour, C, GearKind.Armour, 19, 6, 'armour_hobgoblin', [[IRON, 4], [LE, 2]], { protectionPct: 40 }),
   loot(Res.BarrowKnightMail, R, GearKind.Armour, 20, 6, 'armour_barrow_mail', [[IRON, 5], [Res.Silver, 1]], { protectionPct: 50 }),
