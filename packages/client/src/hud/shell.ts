@@ -2011,7 +2011,7 @@ export class GameShell {
     const worked = sitesInOrders(selected, this.game.queues);
     const traces = siteTraces(sites);
     for (const s of sites) {
-      const c = s.kind === SiteKind.Dig ? DIG : TUNNEL;
+      const c = s.kind === SiteKind.Dig || s.kind === SiteKind.Up ? DIG : TUNNEL;
       if (!worked.has(s.id)) {
         for (const r of traces.get(s.id) ?? []) {
           const y = r.y;
@@ -2025,7 +2025,7 @@ export class GameShell {
       if (s.kind === SiteKind.TunnelLine) {
         const { dir, length } = stretchBetween(s.x0, s.z0, s.x1, s.z1);
         stretch(s.x0, s.z0, dir, length, s.axis, s.level * tu, s.level2 * tu, c);
-      } else if (s.kind === SiteKind.Tunnel) box(s.x0, s.z0, s.x1, s.z1, s.level * tu, s.level2 * tu, c);
+      } else if (s.kind === SiteKind.Tunnel || s.kind === SiteKind.Up) box(s.x0, s.z0, s.x1, s.z1, s.level * tu, s.level2 * tu, c);
       else box(s.x0, s.z0, s.x1, s.z1, s.level * tu, ground + 0.1, c);
     }
     // A tunnel chain: its anchor, and the next stretch towards the cursor.
@@ -2039,7 +2039,8 @@ export class GameShell {
     }
     const plan = this.commands.areaPlan();
     if (!plan || !a) return;
-    if (plan.tunnel) box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.level2 * tu, TUNNEL);
+    // A box drawn upwards (GP-4) is what it digs; a dig down takes everything above its floor.
+    if (plan.up) box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.level2 * tu, DIG);
     else box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.top * tu + 0.05, DIG);
   }
 

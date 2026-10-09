@@ -194,11 +194,12 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * climbing; the crude stairs' order gone). 28: Patch 5's mobs (Morvath's wing
  * drain on each unit, the Deadlands' guarded mana crystals). 29: Patch 5's
  * gear (close melee's shield and a ranger's poison tips on every unit, the
- * shield in a troop's product and a Barracks padlock). Every patch raises it,
- * and a snapshot from any other version is refused, never carried over (Jade,
- * Patch 2: a standing rule).
+ * shield in a troop's product and a Barracks padlock). 30: Patch 5's digging
+ * (a dig order's layer and missed columns, and digs drawn upwards). Every
+ * patch raises it, and a snapshot from any other version is refused, never
+ * carried over (Jade, Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 29;
+export const SNAPSHOT_VERSION = 30;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
