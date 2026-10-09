@@ -1623,6 +1623,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | portrait_heavy_knight | ui/portrait_heavy_knight.png | 1 | 64x64 | K6 unit portrait heavy_knight (the Dreadnought): 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
 | portrait_wild_goose | ui/portrait_wild_goose.png | 1 | 64x64 | K6 unit portrait wild_goose: animal: wild goose. 64x64, head and neck, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
 | portrait_pheasant | ui/portrait_pheasant.png | 1 | 64x64 | K6 unit portrait pheasant: animal: pheasant. 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
+| portrait_woodsman | ui/portrait_woodsman.png | 1 | 64x64 | K6 unit portrait woodsman: 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the woodsman model (Jade's improved body) in Patch 5. |
 
 ## sky
 
