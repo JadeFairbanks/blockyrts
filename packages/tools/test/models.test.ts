@@ -165,7 +165,7 @@ describe('the model converter on the base bodies', () => {
       // Patch 5: the robe looks, a kit tier's metal look and a building's stages, ruins and damaged look, the last three loaded only when drawn.
       const lazy = new Map(index.models.map((m) => [m.id, m.lazy === true]));
       expect(lazy.get('mage_battle_6')).toBe(false);
-      for (const id of ['sword@iron_wrought', 'workshop_t1@construction_33', 'workshop_t1@ruined', 'workshop_t1@damaged']) expect(lazy.get(id), id).toBe(true);
+      for (const id of ['sword@iron_wrought', 'main_base_l2@construction_33', 'main_base_l2@ruined', 'main_base_l2@damaged']) expect(lazy.get(id), id).toBe(true);
       expect(lazy.get('bush_hazel@cut')).toBe(false);
       const sidecar = JSON.parse(readFileSync(join(out, 'mage.json'), 'utf8')) as { id: string };
       expect(sidecar.id).toBe('mage');
@@ -176,18 +176,19 @@ describe('the model converter on the base bodies', () => {
 });
 
 describe('the model converter on state sets hidden by default', () => {
-  const source = 'src/models/buildings/main_base_l1/main_base_l1.bbmodel';
+  const source = 'src/models/buildings/main_base_l2/main_base_l2.bbmodel';
   const raw = JSON.parse(readFileSync(join(ASSETS_DIR, source), 'utf8')) as {
     elements: { uuid: string; faces: Record<string, { texture: unknown } | undefined> }[];
     outliner: Array<{ name: string; visibility?: boolean; children: unknown[] }>;
   };
-  const r = convertModel(raw, { id: 'main_base_l1', category: 'buildings', source });
+  const r = convertModel(raw, { id: 'main_base_l2', category: 'buildings', source });
 
   /** Cubes under a group, however deep. */
   const cubesIn = (node: { children: unknown[] }): string[] =>
     node.children.flatMap((c) => (typeof c === 'string' ? [c] : cubesIn(c as { children: unknown[] })));
 
-  it('draws only the finished Big House, not its scaffolds and ruin', () => {
+  // main_base_l2 (unused since Patch 5) still carries its state sets; the remade tiers have none.
+  it('draws only the finished main base, not its scaffolds and ruin', () => {
     const root = raw.outliner[0]!;
     const groups = root.children.filter((c): c is { name: string; visibility?: boolean; children: unknown[] } => typeof c !== 'string');
     const finished = groups.find((g) => g.name === 'finished')!;
