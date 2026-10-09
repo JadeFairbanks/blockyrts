@@ -1561,6 +1561,10 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | team_swatch_6 | ui/team_swatch_6.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 6 (orange, RGB (200, 104, 36)), 12x12 swatch. |
 | team_swatch_7 | ui/team_swatch_7.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 7 (green, RGB (64, 128, 52)), 12x12 swatch. |
 | team_swatch_8 | ui/team_swatch_8.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 8 (pink, RGB (196, 100, 140)), 12x12 swatch. |
+| icon_dreadnought | ui/icon_dreadnought.png | 1 | 32x32 | K4 training icon for the Dreadnought (rendered from heavy_knight.bbmodel in Patch 5): the portrait framing at 32x32 on the portrait background. |
+| portrait_heavy_knight | ui/portrait_heavy_knight.png | 1 | 64x64 | K6 unit portrait heavy_knight (the Dreadnought): 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
+| portrait_wild_goose | ui/portrait_wild_goose.png | 1 | 64x64 | K6 unit portrait wild_goose: animal: wild goose. 64x64, head and neck, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
+| portrait_pheasant | ui/portrait_pheasant.png | 1 | 64x64 | K6 unit portrait pheasant: animal: pheasant. 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
 
 ## sky
 
