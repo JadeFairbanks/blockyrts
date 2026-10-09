@@ -338,6 +338,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | blueberries | models/items/blueberries/blueberries.bbmodel | 11 | 32x16 |  |
 | mushroom | models/items/mushroom/mushroom.bbmodel | 10 | 32x32 |  |
 | bonemeal | models/items/bonemeal/bonemeal.bbmodel | 11 | 64x32 |  |
+| obsidian_handaxe_held | models/items/obsidian_handaxe_held/obsidian_handaxe_held.bbmodel | 35 | 256x256 | cube budget: 35 cubes, Jade's obsidian_handaxe turned to the held convention |
 
 ## mechanical
 
@@ -1696,7 +1697,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_cannon_iron_fixed | ui/icon_cannon_iron_fixed.png | 1 | 32x32 | K4 unit card cannon_iron_fixed (rendered from its model in Patch 5), 32x32 on the portrait background. |
 | icon_catapult_fixed | ui/icon_catapult_fixed.png | 1 | 32x32 | K4 unit card catapult_fixed (rendered from its model in Patch 5), 32x32 on the portrait background. |
 | icon_dwarf_cannon_crew | ui/icon_dwarf_cannon_crew.png | 1 | 32x32 | K4 unit card dwarf_cannon_crew (rendered from its model in Patch 5), 32x32 on the portrait background. |
-| icon_obsidian | ui/icon_obsidian.png | 1 | 32x32 | K1/K2 icon obsidian (rendered from its model in Patch 5), 32x32, 1px dark outline, top-left light. |
+| icon_obsidian | ui/icon_obsidian.png | 1 | 32x32 | K1 resource icon obsidian (rendered from obsidian_chunk.bbmodel, Jade's model, in Patch 5), 32x32, 1px dark outline, top-left light. |
 | icon_spell_barkskin | ui/icon_spell_barkskin.png | 1 | 32x32 | K4 spell icon barkskin (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
 | icon_spell_call_wild | ui/icon_spell_call_wild.png | 1 | 32x32 | K4 spell icon call_wild (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
 | icon_spell_mending_bloom | ui/icon_spell_mending_bloom.png | 1 | 32x32 | K4 spell icon mending_bloom (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
