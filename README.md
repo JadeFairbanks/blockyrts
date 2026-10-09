@@ -3491,7 +3491,7 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
    no health bar; clicking it shows its health in the middle as before.
 3. **The earth rampart.** Defences, **Earth rampart** (M): placed in a chain
    from point to point like a wall, in chunks 2 by 2 columns (about 1 m
-   across), each 2 m tall and costing 5 earth (a worker's full load). It has
+   across), each 2 m tall and costing 10 earth (a worker's full load). It has
    the health of one wooden wall column, shows torn earth below 70% and 40%,
    and is not dug like the land. It is a wall in every other way: your units
    cannot climb it, and climbing monsters go over it as they go over any wall.
