@@ -306,6 +306,8 @@ export interface InfoMessage {
   starveTroops: boolean;
   /** Whether a fog night lies now. */
   fog: boolean;
+  /** The debugger's godmode is on for the local player (Jade's Patch 5); absent when it is off. */
+  god?: boolean;
   /** Destroyed lairs: the lair's mob kind and where it stood, wu. */
   ruins: Array<[number, number, number]>;
   /** Every standing lair (Patch 3: explored land or not) and the goblin villages the players have seen, for the minimap (wu). */

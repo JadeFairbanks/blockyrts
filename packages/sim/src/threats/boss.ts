@@ -14,7 +14,7 @@ import { spawnPoint } from '../combat/spawn.ts';
 export const BOSS_RETURN_NIGHTS = 10;
 
 /** His entity's index while he is out, or -1. */
-function bossIndex(state: SimState): number {
+export function bossIndex(state: SimState): number {
   const t = state.threats;
   if (!t.bossId) return -1;
   const i = state.entities.indexOf(t.bossId);

@@ -3,7 +3,7 @@
 // icon matches the unit's selection icon"; no more letters for workers and
 // mages). Troops show their weapon: the kit's training busts by troop type
 // and weapon tier. Creatures, animals and the peoples use their portraits.
-import { BuildingKind, engineSpec, MAIN_BASE_TIER_LEVELS, mobSpec, peopleUnitSpec, speciesSpec, Troop } from '@blockyrts/sim';
+import { BuildingKind, engineSpec, MAIN_BASE_TIER_LEVELS, mobSpec, peopleUnitSpec, School, speciesSpec, Troop, weaponTiers, type GodSpawn } from '@blockyrts/sim';
 import { firstKit } from './kit-icons.ts';
 
 /** A troop's picture by type and weapon tier (Troops and gear: the weapon ladders). */
@@ -149,5 +149,21 @@ export function selectableIconFile(typeKey: string, look?: UnitLook | null): str
       return modelIconFile(peopleUnitSpec(n).model);
     default:
       return '';
+  }
+}
+
+/** The picture of something godmode places (the debugger's spawn grid, Jade's Patch 5): the players' units as their training buttons show them, the rest by their model ('' for none). */
+export function godSpawnIconFile(g: GodSpawn): string {
+  switch (g.what) {
+    case 'worker':
+      return WORKER_ICON;
+    case 'troop':
+      return troopIconFile(g.id, weaponTiers(g.id)[1]);
+    case 'mage':
+      return g.id === School.Battle ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON;
+    case 'crewman':
+      return troopIconFile(Troop.Crew, 0);
+    default:
+      return modelIconFile(g.model);
   }
 }

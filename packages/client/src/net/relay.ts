@@ -41,7 +41,7 @@ export class RelayClient {
   private downSince = 0;
   status: RelayStatus = 'connecting';
   /** Who the relay says this page is. */
-  me = { name: '', accountId: '', guest: true };
+  me = { name: '', accountId: '', guest: true, debugger: false };
   /** The room, as the relay last described it. */
   room: RoomStateMessage | null = null;
   /** The step the game here is at, for a rejoin (-1 before a match starts). */
@@ -74,7 +74,7 @@ export class RelayClient {
         }
         if (m.type === 'welcome' && !welcomed) {
           welcomed = true;
-          this.me = { name: m.name, accountId: m.accountId, guest: m.guest };
+          this.me = { name: m.name, accountId: m.accountId, guest: m.guest, debugger: m.debugger };
           this.tries = 0;
           this.setStatus('open');
           resolve();
@@ -194,9 +194,9 @@ export class RelayClient {
     });
   }
 
-  /** Hosts a new game (seed) or continues a saved one (saveId); resolves with the room. */
-  host(seed: number | null, saveId = ''): Promise<RoomStateMessage> {
-    this.send({ type: 'createRoom', seed, saveId });
+  /** Hosts a new game (seed) or continues a saved one (saveId), public or private; resolves with the room. */
+  host(seed: number | null, saveId = '', isPrivate = false): Promise<RoomStateMessage> {
+    this.send({ type: 'createRoom', seed, saveId, private: isPrivate });
     return this.waitFor((m): m is RoomStateMessage => m.type === 'roomState');
   }
 
