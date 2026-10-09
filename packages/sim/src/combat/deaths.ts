@@ -15,7 +15,7 @@ import { peoplesHooks } from '../peoples/hooks.ts';
 import { askHooks } from '../peoples/speech.ts';
 import { killXpTenths } from '../rules.ts';
 import { destroyBuilding, dropQueue, isFarm } from '../units/behaviour.ts';
-import { blast, BURST_BLAST, deathHooks, fallText, shareKillXp } from './combat.ts';
+import { blast, BURST_BLAST, deathHooks, fallText, shareKillXp, wholeDamage } from './combat.ts';
 import { addMob, inheritRole } from './mob-ai.ts';
 import { BLAST, isLair, Mob, mobSpec } from './mobs.ts';
 import { clearLair } from '../threats/lairs.ts';
@@ -69,7 +69,7 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
   switch (spec.id) {
     case Mob.BloatedCorpse:
       // Bursts, even when the sun killed it.
-      blast(state, x, e.y[i]! + WU_PER_METRE, z, BURST_BLAST, null, e.id[i]!);
+      blast(state, x, e.y[i]! + WU_PER_METRE, z, { damage: wholeDamage(state, i, BURST_BLAST.damageTenths), radius: BURST_BLAST.radius }, null, e.id[i]!);
       break;
     case Mob.SkeletonBomber:
       // Killed before it went off: its bomb rolls loose and goes off 2 s later.

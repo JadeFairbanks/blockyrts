@@ -259,7 +259,7 @@ export function pickTarget(state: SimState, i: number, range: number, structures
     // Lairs and village buildings are broken on an order or an attack-move, never taken up by an idle unit (s).
     if (!structures && isMob(state, j) && isStructure(e.mob[j]!)) continue;
     if (cloaked(state, j, d)) continue;
-    const harmless = isMob(state, j) && mobSpec(e.mob[j]!).damage === 0;
+    const harmless = isMob(state, j) && mobSpec(e.mob[j]!).damageTenths === 0;
     const attacking = e.target[j] === e.id[i] || (e.attacker[i] === e.id[j] && state.step - e.hurtAt[i]! < 100);
     const tier = attacking ? 0 : e.mob[j] === Mob.BombKeg && isMob(state, j) ? 2 : harmless ? 2 : 1;
     if (tier < bestTier || (tier === bestTier && (d < bestD || (d === bestD && e.id[j]! < e.id[best]!)))) {

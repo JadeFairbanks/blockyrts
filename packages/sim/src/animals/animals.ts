@@ -24,7 +24,7 @@ import { Band } from '../world/layout.ts';
 import { distanceToWater } from '../world/start.ts';
 import { Mat } from '../world/materials.ts';
 import { PropKind } from '../world/props.ts';
-import { deathHooks, gap, hurtUnit, sideOf, Side } from '../combat/combat.ts';
+import { deathHooks, gap, hurtUnit, sideOf, Side, wholeDamage } from '../combat/combat.ts';
 import { stepToward } from '../combat/fight.ts';
 import { hasWaterAt } from '../buildings/placement.ts';
 import { rollDropList } from '../threats/loot.ts';
@@ -422,9 +422,9 @@ export function fight(state: SimState, i: number, t: number): void {
   }
   e.heading[i] = headingTowards(e.x[t]! - e.x[i]!, e.z[t]! - e.z[i]!);
   e.order[i] = OrderKind.Attack;
-  if (state.step < e.atkNext[i]! || s.damage <= 0) return;
+  if (state.step < e.atkNext[i]! || s.damageTenths <= 0) return;
   e.atkNext[i] = state.step + s.attackSteps;
-  const d = hurtUnit(state, t, { damage: s.damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false });
+  const d = hurtUnit(state, t, { damage: wholeDamage(state, i, s.damageTenths), from: e.id[i]!, projectile: false, blunt: false, pierce: false });
   if (d <= 0 || e.hp[t]! <= 0) return;
   // Venom (vipers, scorpions): more over 5 s, renewed rather than piled up (s).
   if (s.venom > 0) {

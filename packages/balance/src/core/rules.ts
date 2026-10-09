@@ -334,7 +334,7 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   RUNKIN_WOLF: 'Runkin camp animal', ELF_BEAR: 'Elf kingdom animal', ONE_IN: 'Found in one cell in so many (0 for never)',
   res: 'Resource', hexcraft: 'Needs Hexcraft', projectile: 'Flies (walls and trees stop it)', auto: 'Cast by herself', bp: 'Strength',
   refill: 'Refill (hundredths of a point a second)', crystals: 'Mana crystals', amount: 'Healing or damage', 'RESEARCH:at': 'Researched at',
-  'melee:min': 'Shortest reach', 'ranged:min': 'Shortest range', ws: 'Build work', hp: 'Health', health: 'Health', vsWalls: 'Damage to walls', threatTenths: 'Threat', xpTenths: 'Experience',
+  'melee:min': 'Shortest reach', 'ranged:min': 'Shortest range', ws: 'Build work', hp: 'Health', health: 'Health', damageTenths: 'Damage', poisonTenths: 'Poison over 5 s', perSecondTenths: 'Damage a second', vsWalls: 'Damage to walls', threatTenths: 'Threat', xpTenths: 'Experience',
   chancePm: 'Chance', weightTenthsLb: 'Weight', needsBase: 'Main base level needed', research: 'Research needed', research2: 'Also needs research',
   after: 'Research needed first', forge: 'Forge step needed first (1 any Forge; 2 to 4 its main base level)', made: 'Must have made first', supply: 'Supply given', shelters: 'Shelters at night',
   workers: 'Worker places', perDay: 'Made a day per farmer', steps: 'Time', attackSteps: 'Time between attacks', reach: 'Reach', range: 'Range',
@@ -439,7 +439,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
 
 /** Keys shown first in a record, in this order; the rest follow in source order. */
 export const KEY_ORDER: readonly string[] = [
-  'levels', 'cost', 'recipes', 'inputs', 'outputs', 'makes', 'ws', 'steps', 'health', 'hp', 'damage', 'attackSteps', 'reach', 'range',
+  'levels', 'cost', 'recipes', 'inputs', 'outputs', 'makes', 'ws', 'steps', 'health', 'hp', 'damage', 'damageTenths', 'attackSteps', 'reach', 'range',
   'speed', 'walk', 'run', 'armourBp', 'melee', 'ranged', 'firstNight', 'needsBase', 'research', 'research2', 'after', 'forge', 'made', 'madeAt', 'at',
   'supply', 'shelters', 'workers', 'light', 'crop',
 ];
@@ -447,7 +447,7 @@ export const KEY_ORDER: readonly string[] = [
 /** Unit by key; `EXPORT:key` overrides by export, and a bare export name sets a scalar's unit. */
 export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   speed10: 'speedTenths', price: 'vpTenths',
-  ws: 'workerSeconds', 'SPELLS:bp': 'percentBp', hp: 'health', health: 'health', damage: 'damage', vsWalls: 'damage', threatTenths: 'tenths', xpTenths: 'xpTenths',
+  ws: 'workerSeconds', 'SPELLS:bp': 'percentBp', hp: 'health', health: 'health', damage: 'damage', damageTenths: 'damageTenths', poisonTenths: 'damageTenths', perSecondTenths: 'damageTenths', vsWalls: 'damage', threatTenths: 'tenths', xpTenths: 'xpTenths',
   chancePm: 'percentPm', weightTenthsLb: 'lbTenths', needsBase: 'level', forge: 'level', supply: 'count', shelters: 'count', workers: 'count',
   reach: 'metresWu', range: 'metresWu', radius: 'metresWu', halfWidth: 'metresWu', height: 'metresWu', unitRadius: 'metresWu', buildingRadius: 'metresWu',
   'melee:min': 'metresWu', speed: 'speed', climbSpeed: 'speed', walk: 'speed', run: 'speed', cartSpeed: 'speed', heightCm: 'metresCm', lightM: 'metres',

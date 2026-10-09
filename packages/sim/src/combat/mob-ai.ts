@@ -17,7 +17,7 @@ import { hash32 } from '../rng.ts';
 import { burnThisStep } from '../rules.ts';
 import { HOP_SLOW_BP, hoppingUp, landAt, MONSTERS, OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
 import { Mat } from '../world/materials.ts';
-import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealt, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight } from './combat.ts';
+import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealtTenths, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight, wholeDamage } from './combat.ts';
 import { onTop } from '../units/top.ts';
 import { costAt, fieldFor, MobClass, nextStep, UNREACHED } from './fields.ts';
 import { Shot, spellShot } from './items.ts';
@@ -497,7 +497,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
       return;
     }
     const flags = spec.shot === Shot.GoblinStone ? ProjectileFlag.Blunt : spellShot(spec.shot) ? ProjectileFlag.Spell : 0;
-    fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, spec.shot, dealt(state, i, spec.damage), spec.spreadBp, flags);
+    fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, spec.shot, dealtTenths(state, i, spec.damageTenths), spec.spreadBp, flags);
     return;
   }
   if (what === With.Web) {
@@ -508,7 +508,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
   if (!inReach(state, i, t, { ...spec, reach: spec.reach + TOLERANCE })) return;
   // A charge doubles the blow and throws the smaller back (Table 14); a hidden void stalker's first strike is triple.
   const charge = takeCharge(state, i);
-  const blow = { damage: dealt(state, i, spec.damage) * (charge ? 2 : 1) * lateHooks.hitMul(state, i, spec), from: e.id[i]!, projectile: false, blunt: false, pierce: false };
+  const blow = { damage: dealtTenths(state, i, spec.damageTenths) * (charge ? 2 : 1) * lateHooks.hitMul(state, i, spec), from: e.id[i]!, projectile: false, blunt: false, pierce: false };
   if (spec.slamRadius > 0) {
     // The Rift colossus's ground slam: everything within 6 m.
     state.hits.push({ look: 'blast', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
@@ -535,8 +535,8 @@ function land(state: SimState, i: number, spec: MobSpec): void {
     if (charge) chargeKnock(state, i, t);
     lateHooks.hit(state, i, spec, t, d);
     // A giant centipede's bite poisons (roster 6.1): more damage over 5 s.
-    if (d > 0 && spec.poison > 0 && e.hp[t]! > 0) {
-      e.dotLeft[t] = (e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0) + spec.poison;
+    if (d > 0 && spec.poisonTenths > 0 && e.hp[t]! > 0) {
+      e.dotLeft[t] = (e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0) + wholeDamage(state, i, spec.poisonTenths);
       e.dotUntil[t] = state.step + POISON.steps;
       e.dotFrom[t] = e.id[i]!;
     }
