@@ -28,7 +28,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'food', label: 'Food and rations', blurb: 'Eating, healing, starving and the upkeep of units and facilities.' },
   { id: 'animals', label: 'Animals', blurb: 'Wild and tame animals: health, speed, meat and hides, taming and breeding, and the Barn: its stalls and the farm fare its animals eat.' },
   { id: 'loot', label: 'Loot, hunting and gathering', blurb: 'What kills drop and who carries it: the loot bag, how near units pick loot up by themselves, how long it lies, when a find is remarked on; how far Hunt and Gather go from home (back by nightfall), what Gather fetches and how far into the unknown it looks, and fighters coming to a worker\'s help.' },
-  { id: 'nightwork', label: 'Working through the night', blurb: 'Jade\'s Patch 4: how near a building and a troop a worker gathering by itself must be at dusk to ask "Should I keep working through the night?" instead of going home, how near the buildings it then gathers, how far one worker asks for the others, and when workers who went in for the night come out at dawn (no monster alive within this of their shelter).' },
+  { id: 'nightwork', label: 'Working through the night', blurb: 'Jade\'s Patch 4, tightened in Patch 5: how near a main base and a troop a worker gathering by itself (and its node) must be at dusk to ask "Should I keep working through the night?" instead of going in, how near the main base it then gathers, how far one worker asks for the others, and when workers who went in for the night come out at dawn (no monster alive within this of their shelter).' },
   { id: 'mobs', label: 'Mobs and nights', blurb: 'Night monsters, the first night, spawning, fog nights, special attacks, and (Patch 4) how a monster a troop hurts turns on the nearest troop.' },
   { id: 'lairs', label: 'Lairs, tribes and villages', blurb: 'Lairs and their hoards, hostile tribe bands, goblin villages and war.' },
   { id: 'peoples', label: 'Neutral peoples and trade', blurb: 'Halflings, Runkin, Elves and Dwarves, and the mercenary camps: their villages and people, what they pay and sell (Table 19), daily limits and restock, moods, war, surrender and plunder, raids, caravans and hiring.' },
@@ -65,6 +65,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'peoples/data.ts:SPECIAL_TRINKET_MULT_TENTHS', 'peoples/data.ts:THINK_STEPS', 'peoples/data.ts:RECAMP_SEARCH_CELLS', 'peoples/trade.ts:UNTIL_DAWN',
   'combat/mob-ai.ts:MOB_SEARCHES_PER_STEP', 'animals/animals.ts:STOCK_CHECK_STEPS',
   'economy/resources.ts:RESOURCE_COUNT',
+  // Patch 5's farms and Barn: the leave question's kind and the barn hand's line, a stacked queue item's storage limit, and the plant foods' list.
+  'units/barn-hand.ts:BARN_LEAVE_ASK', 'units/barn-hand.ts:BARN_HAND_TEXT', 'buildings/production.ts:STACK_MAX', 'animals/species.ts:PLANT_FOODS',
   // The longest timed action the 16-bit tinker column can count (Patch 2): a storage limit, not balance.
   'units/tinker.ts:TINKER_MAX_STEPS',
   // The food kinds' lists (which goods are meats and fish, in the inventory's order) and the meal accounts' unit.
@@ -93,6 +95,10 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'units/ranks.ts:WORKER_RANK_NAMES', 'units/ranks.ts:Work',
   // Working through the night (Patch 4): the question's kind, and the shelter and Gather orders' flags.
   'units/night-work.ts:NIGHT_WORK_ASK', 'units/unit-orders.ts:ENTER_NIGHT', 'units/unit-orders.ts:FORAGE_HOME', 'units/unit-orders.ts:FORAGE_NIGHT',
+  'units/unit-orders.ts:FORAGE_OWN',
+  // The woodsman (Patch 5): his woods order's flags, his line's colours and his key, and his kit (made of the kit rows).
+  'units/unit-orders.ts:WOODS_HOME', 'units/unit-orders.ts:WOODS_SEARCH', 'units/unit-orders.ts:WOODS_TURNED', 'units/unit-orders.ts:WOODS_PICKED',
+  'units/woodsman.ts:Keep', 'units/woodsman.ts:WOODSMAN_KEY', 'units/woodsman.ts:WOODSMAN_KIT',
   // The Dreadnought (Patch 5): his lines and description are words, his gear is worked out from DREADNOUGHT_KIT, and his second blow's slot is plumbing.
   'units/dreadnought.ts:DREADNOUGHT_REMARKS', 'units/dreadnought.ts:DREADNOUGHT_HIRED', 'buildings/production.ts:DREADNOUGHT_TEXT',
   'units/kits.ts:DREADNOUGHT_GEAR', 'units/kits.ts:SECOND_BLOW',
@@ -137,6 +143,8 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/loot.ts': 'loot',
   'threats/loot.ts': 'loot',
   'units/forage.ts': 'loot',
+  'units/woods.ts': 'loot',
+  'units/woodsman.ts': 'training',
   'units/night-work.ts': 'nightwork',
   'units/dig.ts': 'world',
   'units/repairs.ts': 'units',
@@ -146,6 +154,9 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'economy/resources.ts': 'resources',
   'animals/species.ts': 'animals',
   'animals/animals.ts': 'animals',
+  'animals/barn.ts': 'animals',
+  'units/barn-hand.ts': 'animals',
+  'buildings/farm-boost.ts': 'food',
   'threats/data.ts': 'lairs',
   'threats/abilities.ts': 'lairs',
   'magic/spells.ts': 'magic',
@@ -432,8 +443,8 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   GATHER_XP_TENTHS_PER_MINUTE: 'Experience for a minute of gathering (starting tools)',
   CREWMAN_RETRAIN_STEPS: 'Retraining a crewman as a worker takes',
   // Working through the night (Patch 4).
-  NIGHT_WORK_BUILDING_M: 'Asks at dusk when within this of a building', NIGHT_WORK_TROOP_M: '...and within this of a troop',
-  NIGHT_WORK_REACH_M: 'Working on, gathers only within this of a building', NIGHT_WORK_SPEAK_FOR_M: 'One worker asks for the others within',
+  NIGHT_WORK_BASE_M: 'Asks at dusk when it and its node are within this of a main base', NIGHT_WORK_TROOP_M: '...and within this of a troop',
+  NIGHT_WORK_REACH_M: 'Working on, gathers only within this of a main base', NIGHT_WORK_SPEAK_FOR_M: 'One worker asks for the others within',
   DAWN_CLEAR_M: 'Out at dawn once no monster is alive within this of the shelter', DAWN_LOOK_STEPS: 'Sheltering workers look out every',
   // Work that waits (Patch 4): an empty farm, a building no one works on, an idle worker.
   FARM_EMPTY_ASK_STEPS: 'An empty farm asks for a worker after', SITE_UNWORKED_ASK_STEPS: 'A building no one works on asks for a builder after',
@@ -444,6 +455,11 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   // Stone outcrops (Patch 4): the Heartland's scatter and each base's own.
   HEARTLAND_STONE_OUTCROPS_PER_10000: 'Stone outcrops in the Heartland, per 10,000 spots',
   START_OUTCROP_NEAR_M: 'Each base\'s stone outcrop, nearest its Big House\'s middle', START_OUTCROP_FAR_M: 'Each base\'s stone outcrop, farthest from its middle',
+  // Patch 5: fertilizing farms, the Barn and taming.
+  FERTILIZE_BONEMEAL: 'Bonemeal a boost costs', BOOST_STEPS: 'A boost lasts', BOOST_PCT: 'A boost makes a farm grow more by',
+  HAWTHORNE_PCT: 'A Sweet Hawthorne makes farms grow more by', HAWTHORNE_M: 'Farms and animals within this of a Sweet Hawthorne',
+  BOOST_QUEUE_LIMIT: 'Boosts that may wait behind the one running', FARM_PACE: 'A farmer\'s work a step on the harvest bar (units)',
+  BARN_YARD_WU: 'Barn animals graze within this of their Barn', GRAZE_SAVES_PM: 'Grazing saves (of a Barn animal\'s feed)', TAME_FOOD_PER_SECOND: 'Taming feeds an animal this much food a second',
 };
 
 /** Section titles for the rules entries, by module (otherwise the module's own first line). */
@@ -465,7 +481,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'threats/boss.ts': 'Morvath',
   'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'combat/blasts.ts': 'Blasts and craters', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
   'buildings/placement.ts': 'Placement', 'buildings/chains.ts': 'Wall chains', 'world:buildings/chains.ts': 'Tunnel chains', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
-  'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
+  'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'units/woods.ts': 'The woodsman fishing and foraging', 'units/woodsman.ts': 'The woodsman', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
   'combat/aims.ts': 'Waves: the bases and parties they go for', 'mobs:combat/aims.ts': 'Waves: the bases and parties they go for',
@@ -473,6 +489,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'threats/guardians.ts': 'Mana crystal guardians', 'mobs:threats/guardians.ts': 'Mana crystal guardians',
   'units/spacing.ts': 'Making room (bodies standing on one another)',
   'units/night-work.ts': 'Working through the night',
+  'buildings/farm-boost.ts': 'Fertilizing farms', 'animals/barn.ts': 'The Barn', 'units/barn-hand.ts': 'The barn hand',
   'units/work-asks.ts': 'Work that waits: an empty farm, an unworked building, an idle worker',
   'units/make-asks.ts': 'The Workshop\'s offer to make something',
   'threats/loot.ts': 'Weapons, armour and shields in the night waves',

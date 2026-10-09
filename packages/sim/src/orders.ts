@@ -131,6 +131,28 @@ export interface ProduceOrder {
   count: number;
 }
 
+/** Queue a stack of a recipe made in stacks (Patch 5: the Workshop's bonemeal, x1, x10 or all): `count` of them, or 0 for as many as the stock pays for, in one queue slot. */
+export interface StackOrder {
+  kind: 'stack';
+  player: number;
+  building: number;
+  product: number;
+  count: number;
+}
+
+/**
+ * Fertilize farms with bonemeal (Patch 5, Jade's GP-38 and decisions 2.5):
+ * auto 0 boosts each farm now, or queues one more boost behind the one it
+ * has; auto 1 turns Auto fertilize on for them all, or off when it is on for
+ * every one already.
+ */
+export interface FertilizeOrder {
+  kind: 'fertilize';
+  player: number;
+  buildings: number[];
+  auto: number;
+}
+
 /** The Tavern's Open for business button (Patch 5): open 1 opens it, 0 closes it. */
 export interface TavernOpenOrder {
   kind: 'tavernOpen';
@@ -512,6 +534,21 @@ export interface HuntOrder extends UnitsOrder {
   auto: number;
 }
 
+/**
+ * The woodsman's Fish and Forage buttons (Patch 5, Jade's WD-1, WD-5 and
+ * CT-1, units/woods.ts): `what` 1 fishing, 2 foraging; `on` 1 turns it on
+ * (auto), 0 off, the other one left as it is. A picked spot (cx, cz, index;
+ * index -1 for none) is worked first, then the work goes on as usual.
+ */
+export interface WoodsOrder extends UnitsOrder {
+  kind: 'woods';
+  what: number;
+  on: number;
+  cx: number;
+  cz: number;
+  index: number;
+}
+
 /** Pick up loot lying on the ground (a right-click on it): the units walk over, and those with room take it. */
 export interface PickUpOrder extends UnitsOrder {
   kind: 'pickUp';
@@ -759,6 +796,9 @@ export type Order =
   | TrainRankOrder
   | RetrainOrder
   | ProduceOrder
+  | StackOrder
+  | FertilizeOrder
+  | WoodsOrder
   | TavernOpenOrder
   | TavernWithdrawOrder
   | CancelProduceOrder
@@ -786,6 +826,7 @@ export function canonicalOrders(orders: readonly Order[]): Order[] {
 /** A deep copy of an order (the input log keeps its own). */
 export function copyOrder(o: Order): Order {
   if (o.kind === 'tradeOffer') return { ...o, goods: [...o.goods] };
+  if (o.kind === 'fertilize') return { ...o, buildings: [...o.buildings] };
   return 'units' in o ? { ...o, units: [...o.units] } : { ...o };
 }
 
@@ -809,6 +850,9 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   trainRank: ['building'],
   retrain: [],
   produce: ['building', 'product', 'count'],
+  stack: ['building', 'product', 'count'],
+  fertilize: ['auto'],
+  woods: ['what', 'on', 'cx', 'cz', 'index'],
   tavernOpen: ['building', 'open'],
   tavernWithdraw: ['building'],
   cancelProduce: ['building', 'index'],
@@ -871,7 +915,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   greyed: ['what', 'id', 'building'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'forage', 'answer', 'greyed', 'debugKill']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'forage', 'answer', 'greyed', 'debugKill', 'woods']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -897,6 +941,15 @@ export function validateOrder(o: Order): void {
     case 'produce':
       // 1, or 5 with Shift; a stack of scraps (Patch 5) any number to 9999.
       if (o.count < 1 || o.count > 9999) throw new Error('produce count must be 1 to 9999');
+      return;
+    case 'stack':
+      if (o.count < 0 || o.count > 9999) throw new Error('a stack is 0 (all) to 9999');
+      return;
+    case 'woods':
+      if ((o.what !== 1 && o.what !== 2) || (o.on !== 0 && o.on !== 1) || o.index < -1) throw new Error('bad woods order');
+      return;
+    case 'fertilize':
+      if (!Array.isArray(o.buildings) || o.buildings.length > 64 || !o.buildings.every(isInt) || (o.auto !== 0 && o.auto !== 1)) throw new Error('bad fertilize order');
       return;
     case 'tavernOpen':
       if (o.open !== 0 && o.open !== 1) throw new Error('tavernOpen open must be 0 or 1');

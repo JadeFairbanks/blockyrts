@@ -39,6 +39,7 @@ export function typeWorth(typeKey: string, kits: () => readonly UnitKit[] = () =
   if (typeKey === 'mage:support') return productWorth(Product.SupportMage);
   if (typeKey === 'mage:battle') return productWorth(Product.BattleMage);
   if (typeKey === 'warrior:crew') return productWorth(Product.Crewman);
+  if (typeKey === 'warrior:woods') return productWorth(Product.Woodsman);
   // Patch 5: the Dreadnought, at his price in gold.
   if (typeKey === 'warrior:dreadnought') return productWorth(dreadnoughtProduct(DREADNOUGHT.gold, 0));
   if (typeKey === 'warrior') {

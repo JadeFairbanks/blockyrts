@@ -189,9 +189,9 @@ const MAKERS: readonly number[] = BUILDINGS.filter((b) => b.slot > 0 && makeList
   .sort((a, b) => a.slot - b.slot)
   .map((b) => b.kind);
 
-/** The products of a building kind's K menu, in its order: everything it makes but workers, troops and mages. */
+/** The products of a building kind's K menu, in its order: everything it makes but workers, troops, mages and woodsmen (whose product, 8, sits where research None would). */
 export function makeList(kind: number): number[] {
-  return productsOf({ kind, complete: true, level: 1 } as Parameters<typeof productsOf>[0]).filter((p) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT);
+  return productsOf({ kind, complete: true, level: 1 } as Parameters<typeof productsOf>[0]).filter((p) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT && p !== Product.Woodsman);
 }
 
 /** Whether a building kind makes one good and no research, so its card has Make <good> on K and no menu (Patch 5). */

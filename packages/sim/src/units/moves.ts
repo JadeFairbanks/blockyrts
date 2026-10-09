@@ -19,6 +19,7 @@ import { PERSON, type Mover } from '../nav/grid.ts';
 import { OrderKind, UnitKind, type SimState } from '../state.ts';
 import { isDreadnought } from './dreadnought.ts';
 import { onWheels } from './weight.ts';
+import { isWoodsman } from './woodsman.ts';
 
 /** The ways the players' units get about: one row of GAITS each. */
 export const Gait = { Worker: 0, Woodsman: 1, Fighter: 2, Cavalry: 3, Dreadnought: 4, Engine: 5 } as const;
@@ -61,7 +62,7 @@ export const CLIMB_SLOW = 5;
 export const GAITS: readonly GaitSpec[] = [
   // Workers climb up to 7 m (62 units, 6.98 m).
   { id: Gait.Worker, name: 'Worker', runs: true, runFood: 1, paceBp: 10000, jump: 5, drop: 9, climb: 62 },
-  // Woodsmen climb as workers do (the Woodsman thread gives its unit this row).
+  // Woodsmen climb as workers do.
   { id: Gait.Woodsman, name: 'Woodsman', runs: true, runFood: 1, paceBp: 10000, jump: 5, drop: 9, climb: 62 },
   // Troops on foot, mages and artillery crewmen climb up to 4 m (35 units, 3.94 m).
   { id: Gait.Fighter, name: 'Fighter on foot', runs: true, runFood: 1, paceBp: 10000, jump: 5, drop: 9, climb: 35 },
@@ -84,6 +85,7 @@ export function gaitOf(state: SimState, i: number): Gait {
   if (isDreadnought(e, i)) return Gait.Dreadnought;
   if (e.mount[i] === Mount.Horse) return Gait.Cavalry;
   if (e.kind[i] === UnitKind.Worker) return Gait.Worker;
+  if (isWoodsman(e, i)) return Gait.Woodsman;
   return Gait.Fighter;
 }
 

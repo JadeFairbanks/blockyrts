@@ -58,6 +58,7 @@ export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res
       Res.Rope,
       Res.Feathers,
       Res.Bone,
+      Res.Bonemeal,
       Res.SpiderSilk,
       Res.Venom,
       Res.DemonHorn,

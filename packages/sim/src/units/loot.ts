@@ -32,6 +32,7 @@ import { speciesSpec } from '../animals/species.ts';
 import { accepts, Act, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk, unload, walkTo } from './behaviour.ts';
 import type { UnitOrder } from './unit-orders.ts';
 import { rawLimitTenthsLb, rawTenthsLb } from './weight.ts';
+import { foodIn, ledgerAdd } from './woodsman.ts';
 
 /** A unit's loot bag holds 25 lb, the Table 12 carrying limit, a worker's gathered load counting against it (s). */
 export const LOOT_BAG_TENTHS_LB = 250;
@@ -151,6 +152,8 @@ export function handIn(state: SimState, i: number): void {
   if (g.length === 0) return;
   const ps = state.players[e.owner[i]!];
   if (ps) for (let k = 0; k < g.length; k += 2) ps.pool[g[k]!] = ps.pool[g[k]!]! + g[k + 1]!;
+  // A woodsman's food line counts the food he brings in (Jade's WD-7).
+  if (ps) ledgerAdd(state, i, foodIn(g), 0);
   e.bag[i] = [];
 }
 

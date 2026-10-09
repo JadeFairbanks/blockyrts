@@ -7,7 +7,8 @@ import { BuildingKind, buildingName, buildingSpec, CANCEL_REFUND_PER_MILLE, leve
 import { buildingCentre, dist2 } from './buildings/lights.ts';
 import { chainPiece, plannedSpots, stretchRoom, stretchSpots } from './buildings/chains.ts';
 import { Blocked, BLOCKED_TEXT, buildCost, buildRequirement, growthBlocked, mainBaseLevel, placementBlocked } from './buildings/placement.ts';
-import { cancelProduct, queueProduct, setKitLock, stacks, usableBy } from './buildings/production.ts';
+import { cancelProduct, queueProduct, queueStack, setKitLock, stacks, usableBy } from './buildings/production.ts';
+import { fertilizable, fertilize, setAutoFertilize } from './buildings/farm-boost.ts';
 import { garrisonRoom, type Building } from './buildings/store.ts';
 import { isTavern, setTavernOpen, withdrawFunds } from './buildings/tavern.ts';
 import { isDreadnought } from './units/dreadnought.ts';
@@ -28,9 +29,12 @@ import { inFront, orderCart, orderEquip, orderUpgrade, orderUpgradeEquipment } f
 import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, carriedOf, dropItem, HAND_ONE, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
+import { isWoodsman } from './units/woodsman.ts';
+import { isForage, setWoods } from './units/woods.ts';
+import { isFish } from './world/props.ts';
 import { callRepairs } from './units/repairs.ts';
 import { hasRunButton } from './units/moves.ts';
-import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
+import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, nodeView, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
 import { menOnTop, platformCrew, topRoom } from './units/top.ts';
 import { goesInside, insideAuto, mayShelter, swapShelter } from './units/shelter.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
@@ -43,6 +47,7 @@ import { MANA_SCALE, SPELLS } from './magic/spells.ts';
 import { crewWhy, haulWhy, hitchEngine, isCrewman, mendWhy, withoutTheirCrew } from './siege/engines.ts';
 import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
+import { barnHandsIn, keepBarnHands } from './units/barn-hand.ts';
 
 /** Spacing of a group spread round its target (s): 1.2 m. */
 const SPREAD_WU = 12 * floorDiv(WU_PER_METRE, 10);
@@ -139,6 +144,17 @@ function giveAll(state: SimState, o: { player: number; units: number[]; queued?:
     const u = make(i);
     if (u) giveOrder(state, i, u, o.queued === true);
   }
+}
+
+/** Turns fishing or foraging on (or off) for the woodsmen among a command's units; with none of them, says who does it. */
+function woodsAt(state: SimState, o: { player: number; units: number[]; queued?: boolean }, what: number, spot: { cx: number; cz: number; i: number } | null, on = 1): void {
+  const e = state.entities;
+  const men = ownUnits(state, o.player, o.units).filter((i) => isWoodsman(e, i));
+  if (men.length === 0) {
+    alert(state, o.player, what === 1 ? 'Only woodsmen fish. Train them at the Scholar\'s Lodge.' : 'Only woodsmen forage. Train them at the Scholar\'s Lodge.');
+    return;
+  }
+  for (const i of men) setWoods(state, i, what, on, spot, o.queued === true);
 }
 
 /** Upgrades a building to its next level: paid now by `by` (the owner, or a player using an inherited building), then built by workers. Returns '' or why not. */
@@ -535,6 +551,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
     if (o.player >= state.players.length && o.kind !== 'terrain' && o.kind !== 'debugHarvest') continue;
     // An eliminated player gives no more orders.
     if (o.player < state.players.length && state.players[o.player]!.out) continue;
+    // Patch 5 (Jade): a barn hand asks before an order takes him off his job (units/barn-hand.ts).
+    const hands = barnHandsIn(state, o);
     switch (o.kind) {
       case 'move':
         applyMove(state, o);
@@ -545,9 +563,30 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'follow':
         giveAll(state, o, (i) => (e.id[i] === o.target ? null : { t: 'follow', id: o.target }), true, true);
         break;
-      case 'gather':
+      case 'gather': {
+        // Fish only woodsmen catch (Patch 5, Jade's FR-1): a fish stretch sends them fishing there, and workers nowhere.
+        const v = nodeView(state, o.cx, o.cz, o.index);
+        if (v && isFish(v.kind)) {
+          woodsAt(state, o, 1, { cx: o.cx, cz: o.cz, i: o.index });
+          break;
+        }
         giveAll(state, o, () => ({ t: 'gather', cx: o.cx, cz: o.cz, i: o.index }), true);
         break;
+      }
+      case 'woods': {
+        // The woodsman's Fish and Forage buttons (Patch 5): a picked spot must be what the button works.
+        let spot: { cx: number; cz: number; i: number } | null = null;
+        if (o.index >= 0) {
+          const v = nodeView(state, o.cx, o.cz, o.index);
+          if (!v || (o.what === 1 ? !isFish(v.kind) : !isForage(v.kind))) {
+            alert(state, o.player, o.what === 1 ? 'Woodsmen fish at a stretch of water with fish in it.' : 'Woodsmen forage wild food: berries, mushrooms and the like.');
+            break;
+          }
+          spot = { cx: o.cx, cz: o.cz, i: o.index };
+        }
+        woodsAt(state, o, o.what, spot, o.on);
+        break;
+      }
       case 'build': {
         const spec = buildingSpec(o.building);
         if (!spec.live || o.variant < 0 || o.variant >= Math.max(1, spec.variants?.length ?? 1)) break;
@@ -603,7 +642,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'forage': {
         const workers = ownUnits(state, o.player, o.units, true).filter((i) => e.kind[i] === UnitKind.Worker);
         if (workers.length === 0) alert(state, o.player, 'Only workers gather. Select workers.');
-        for (const i of workers) giveOrder(state, i, startForage(state, i), o.queued === true);
+        // The player's word: set gathering in the dark, it works on all that night (Jade's GP-24).
+        for (const i of workers) giveOrder(state, i, startForage(state, i, true), o.queued === true);
         break;
       }
       case 'dropoff': {
@@ -668,6 +708,33 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
             // Several selected buildings each train one (Jade's Patch 5, GP-15): those the stock runs out for say why once.
             if (!refused.has(`${o.player}:${why}`)) alert(state, o.player, why);
             refused.add(`${o.player}:${why}`);
+            break;
+          }
+        }
+        break;
+      }
+      case 'stack': {
+        const b = usableBuilding(state, o.player, o.building);
+        if (!b) break;
+        const why = queueStack(state, b, o.product, o.count, o.player);
+        if (why) alert(state, o.player, why);
+        break;
+      }
+      case 'fertilize': {
+        const farms: Building[] = [];
+        for (const id of o.buildings) {
+          const b = usableBuilding(state, o.player, id);
+          if (b && fertilizable(b) && !farms.includes(b)) farms.push(b);
+        }
+        if (o.auto === 1) {
+          const on = farms.some((b) => b.boostAuto === 0);
+          for (const b of farms) setAutoFertilize(b, on);
+          break;
+        }
+        for (const b of farms) {
+          const why = fertilize(state, b, o.player);
+          if (why) {
+            alert(state, o.player, why);
             break;
           }
         }
@@ -797,8 +864,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         if (o.target && (t < 0 || !huntable(state, t))) break;
         if (!o.target && !o.auto) break;
         const units = ownUnits(state, o.player, o.units, true);
-        // Artillery crewmen stay by their engines (Patch 2).
-        const hunters = units.filter((i) => e.kind[i] === UnitKind.Warrior && !isCrewman(state, i));
+        // Artillery crewmen stay by their engines (Patch 2); woodsmen forage and fish instead (Patch 5).
+        const hunters = units.filter((i) => e.kind[i] === UnitKind.Warrior && !isCrewman(state, i) && !isWoodsman(e, i));
         if (hunters.length === 0) {
           alert(state, o.player, 'Only warriors hunt. Select warriors, and workers to haul the meat.');
           break;
@@ -986,6 +1053,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         eliminate(state, o.player, `Player ${o.player + 1} has left the game.`);
         break;
     }
+    if (hands.length > 0) keepBarnHands(state, hands);
   }
 }
 

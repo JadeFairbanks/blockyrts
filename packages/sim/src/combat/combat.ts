@@ -18,6 +18,7 @@ import { speciesSpec } from '../animals/species.ts';
 import { Hit, type MeleeStats } from './items.ts';
 import { aTroop, CRIT, gearSpec, SECOND_BLOW, Slot, Troop } from '../units/kits.ts';
 import { workerMelee } from '../units/tools.ts';
+import { isWoodsman, WOODSMAN } from '../units/woodsman.ts';
 import { BLAST, BURST, CLIMBING_DAMAGE_BP, flies, Mob, mobSpec, Moves, SWOOP_HEIGHT } from './mobs.ts';
 import { engineSpec } from '../siege/data.ts';
 import { MOUNTED, mountSpec } from '../mounts/data.ts';
@@ -236,6 +237,8 @@ function handMelee(state: SimState, i: number, second = false): MeleeStats {
   if (id) {
     const g = gearSpec(id);
     const m = (second ? g.melee2 : undefined) ?? g.melee;
+    // A woodsman deals 2 less than a warrior with the same weapon (Jade's WD-3).
+    if (m && isWoodsman(e, i)) return { ...m, damage: Math.max(1, m.damage - WOODSMAN.damageLess) };
     if (m) return m;
   }
   return workerMelee(e, i);
