@@ -23,7 +23,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'training', label: 'Training and upgrades', blurb: 'Table 7. What a troop, worker or mage costs to train, what each material tier needs (Forge step and research; Patch 2: the steps come with main base levels), upgrade time and refund, and the artillery crewman\'s food and time (Patch 2).' },
   { id: 'wands', label: 'Wands and robes', blurb: 'Table 13. Mages\' wands (spell power and extra mana) and robes (protection and mana regain) by tier: cost, time to make and what they need.' },
   { id: 'magic', label: 'Mages and spells', blurb: 'Mage ranks, mana and refill, the combat pause, rank training at the Magi Sanctum, and every spell (Table 13): mana, cooldown, range, power, radius and duration.' },
-  { id: 'siege', label: 'Mounts, siege and guns', blurb: 'Mounts and charges (Table 14): health, armour, heights, paces, the charge run and knockback, the mounted rules and the riders\' upkeep; siege engines and cannons (Table 2f): health, damage, range, reload, crew, haul and push speeds, and the Citadel\'s cannon ports. Patch 2: engines take no munitions, and every engine rolls out with its crew of artillery crewmen.' },
+  { id: 'siege', label: 'Mounts, siege and guns', blurb: 'Mounts and charges (Table 14): health, armour, heights, paces, the charge run and knockback, the mounted rules and the riders\' upkeep; siege engines and cannons (Table 2f): health, damage, range, reload, crew, haul and push speeds, and the Citadel\'s engine platform (Patch 5: its fixed engines and their upgrades). Patch 2: engines take no munitions, and every engine rolls out with its crew of artillery crewmen.' },
   { id: 'recipes', label: 'Recipes', blurb: 'What production buildings turn into what: inputs, outputs, time and where.' },
   { id: 'food', label: 'Food and rations', blurb: 'Eating, healing, starving and the upkeep of units and facilities.' },
   { id: 'animals', label: 'Animals', blurb: 'Wild and tame animals: health, speed, meat and hides, taming and breeding, and the Barn: its stalls and the farm fare its animals eat.' },
@@ -78,6 +78,9 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'magic/spells.ts:MANA_SCALE', 'magic/spells.ts:MAGE_TOP_RANK', 'magic/mages.ts:MAGE_XP_TENTHS', 'magic/mages.ts:MAGE_RANK_NAMES',
   // The engines' shot ids and the list of engines a player can make.
   'siege/data.ts:ENGINE_SHOT', 'siege/data.ts:PLAYER_ENGINES',
+  // Patch 5: the engines' ids (the fixed ones are built from the mobile rows by id), the fixed ladder, the upgrade
+  // products' offset and the Citadel's tier are identity, not numbers to tune.
+  'siege/data.ts:Engine', 'siege/data.ts:FIXED_ENGINES', 'siege/data.ts:ENGINE_UPGRADE', 'siege/data.ts:CITADEL_LEVEL',
   // Troops and gear: the troop types' names and keys, the top tiers (the tables' lengths), and the gear catalogue, which
   // is worked out from the kit tables (change the kit rows instead) or holds the peoples' fixed gear.
   'units/kits.ts:TROOP_TYPES', 'units/kits.ts:TROOP_NAMES', 'units/kits.ts:TROOP_TIER_NAMES', 'units/kits.ts:TROOP_KEYS', 'units/kits.ts:TOP_TIER', 'units/kits.ts:TOP_MAGE_TIER',
@@ -107,6 +110,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/dreadnought.ts': 'training',
   'combat/items.ts': 'ranged',
   'combat/projectiles.ts': 'ranged',
+  'combat/blasts.ts': 'ranged',
   'combat/mobs.ts': 'mobs',
   'combat/threat.ts': 'mobs',
   'combat/spawn.ts': 'mobs',
@@ -123,6 +127,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/work-asks.ts': 'questions',
   'units/kits.ts': 'training',
   'units/weight.ts': 'units',
+  'units/moves.ts': 'units',
   'units/field.ts': 'animals',
   'units/loot.ts': 'loot',
   'units/forage.ts': 'loot',
@@ -242,7 +247,7 @@ export const ENTRY_ARRAYS: ReadonlySet<string> = new Set([
   'world/materials.ts:MATERIALS', 'world/props.ts:PROPS', 'threats/abilities.ts:ABILITIES', 'buildings/production.ts:PRODUCTS',
   'magic/spells.ts:SPELLS', 'magic/spells.ts:MAGE_RANKS', 'peoples/data.ts:PEOPLE_UNITS', 'mounts/data.ts:MOUNTS', 'siege/data.ts:ENGINES',
   'units/kits.ts:TIER_NEEDS', 'units/kits.ts:TOOL_KITS', 'units/kits.ts:CLOSE_KITS', 'units/kits.ts:LONG_KITS', 'units/kits.ts:RANGER_KITS',
-  'units/kits.ts:ARMOUR_KITS', 'units/kits.ts:SHIELD_KITS', 'units/kits.ts:WAND_KITS', 'units/kits.ts:ROBE_KITS',
+  'units/kits.ts:ARMOUR_KITS', 'units/kits.ts:SHIELD_KITS', 'units/kits.ts:WAND_KITS', 'units/kits.ts:ROBE_KITS', 'units/moves.ts:GAITS',
 ]);
 
 /** Single records shown as an entry of their own, like one row of an entry array. */
@@ -309,6 +314,8 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   // Patch 3: a night monster's threat is worked out from its numbers and traits (combat/threat.ts), never set by hand;
   // the reach that strikes over walls mirrors the combat rule (combat.ts OVER_WALL_REACH), set there.
   'MOBS:threatTenths', 'THREAT:overWallReachCm',
+  // Patch 5: which mobile engine a fixed one is built from; its numbers are that engine's, tuned there.
+  'ENGINES:mobile',
 ]);
 
 /** Keys whose text is the record's own words for the tooltip; other strings show as notes. */
@@ -425,15 +432,15 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'resources:buildings/recipes.ts': 'Trinkets', 'mobs:combat/spawn.ts': 'Spawning',
   'state.ts': 'Workers and warriors', 'units/behaviour.ts': 'Work and ranks', 'units/ranks.ts': 'Worker ranks', 'buildings/production.ts': 'Training',
   'buildings/data.ts': 'Buildings', 'combat/combat.ts': 'Combat and experience', 'combat/fight.ts': 'Fighting ranges', 'rules.ts': 'General rules',
-  'units/weight.ts': 'Carrying', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
+  'units/weight.ts': 'Carrying', 'units/moves.ts': 'Running and climbing', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
   'combat/mobs.ts': 'Mob abilities', 'combat/spawn.ts': 'Spawning', 'threats/data.ts': 'Lairs, tribes and villages', 'threats/lair-alert.ts': 'Lair alerts', 'world/props.ts': 'Props',
   'buildings/mining.ts': 'Mining, prospecting and fishing', 'units/dig.ts': 'Digging', 'nav/grid.ts': 'Moving over terrain', 'world/world.ts': 'Terrain',
   'world/start.ts': 'Start basins', 'world/generate.ts': 'World generation', 'clock.ts': 'Clock', 'animals/species.ts': 'Animals', 'units/field.ts': 'Hunting', 'threats/abilities.ts': 'Goblin mage spells',
   'magic/spells.ts': 'Spells and mage ranks', 'magic/mages.ts': 'Mage training and mana', 'magic/cast.ts': 'Casting',
-  'siege:mounts/data.ts': 'Riding and charges', 'siege:siege/data.ts': 'Siege engines and cannon ports', 'training:siege/data.ts': 'Artillery crewman', 'mobs:threats/late-mobs.ts': 'Late night mobs\' abilities',
-  'mobs:threats/boss.ts': 'Morvath', 'mounts/data.ts': 'Riding and charges', 'siege/data.ts': 'Siege engines and cannon ports', 'threats/late-mobs.ts': 'Late night mobs\' abilities',
+  'siege:mounts/data.ts': 'Riding and charges', 'siege:siege/data.ts': "Siege engines and the Citadel's engine platform", 'training:siege/data.ts': 'Artillery crewman', 'mobs:threats/late-mobs.ts': 'Late night mobs\' abilities',
+  'mobs:threats/boss.ts': 'Morvath', 'mounts/data.ts': 'Riding and charges', 'siege/data.ts': "Siege engines and the Citadel's engine platform", 'threats/late-mobs.ts': 'Late night mobs\' abilities',
   'threats/boss.ts': 'Morvath',
-  'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
+  'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'combat/blasts.ts': 'Blasts and craters', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
   'buildings/placement.ts': 'Placement', 'buildings/chains.ts': 'Wall chains', 'world:buildings/chains.ts': 'Tunnel chains', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
   'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
@@ -461,7 +468,7 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   claimM: 'metres', sightBonusM: 'metres', firstNight: 'night', cartTenthsLb: 'lbTenths', packTenthsLb: 'lbTenths',
   meat: 'count', makes: 'count', perCell: 'count', groupMin: 'count', groupMax: 'count', tameFood: 'count', upkeep: 'nutrition', barnFeed: 'nutrition',
   nutrition: 'nutrition', food: 'nutrition', tier: 'level', base: 'level', rank: 'level', mana: 'number', smoulderPerSecond: 'damage', perSecond: 'damage',
-  seconds: 'number', extra: 'number',
+  seconds: 'number', extra: 'number', runFood: 'nutrition',
   trot: 'speed', gallop: 'speed', chargeRun: 'metresWu', shoulderCm: 'metresCm', minRange: 'metresWu', reachBonus: 'metresWu', sight: 'metresWu', leash: 'metresWu',
   far: 'metresWu', near: 'metresWu', 'ENGINES:horse': 'speed', 'ENGINES:ox': 'speed', 'ENGINES:pushed': 'speed', 'ENGINES:crew': 'count',
   // Troops and gear: the kit tables are written in the blueprint's own units.

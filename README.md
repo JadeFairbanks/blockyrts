@@ -3101,11 +3101,9 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
    softwood takes it home before it digs; Unload sends a digger home and
    back to its dig; an earth bank still takes its Earth from the stock and
    nobody carries; four workers in a pit 12 columns square and 1 m deep
-   dig crude stairs out into its side, a clamber at a time, leave on the
-   ground what they cannot carry, pick it up when they come back, finish
-   the pit with every unit of earth accounted for and can all walk out,
-   and a save taken as one cuts its stairs carries on to the same hash;
-   four workers digging a pit 6 columns square and 3 m deep from its rim
+   get out of it with their loads, cutting no stairs (Patch 5), finish
+   the pit with every unit of earth accounted for, and a save taken half
+   way carries on to the same hash; four workers digging a pit 6 columns square and 3 m deep from its rim
    all get home with their loads. m4.test.ts still runs the miners' bag
    trips, a nearer Storehouse and the trip out at dawn.
 2. **A small dig.** `pnpm dev`, open http://localhost:5173/?seed=1, select
@@ -3129,8 +3127,10 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
 6. **Unload.** Select a digger carrying a load and press C (Unload): it
    takes the load home and goes back to the dig, where before it would
    have stopped.
-7. **Crude stairs (Jade).** Dig a square about 5 m across and three steps
-   deep (about 1 m) with all four workers. They step down into it to reach
+7. **Crude stairs (gone in Patch 5).** Patch 5 removed them: workers now
+   climb out of a pit with their loads (see "How a tester checks running,
+   climbing and jumping (Patch 5)"). [Before Patch 5: dig a square about
+   5 m across and three steps deep (about 1 m) with all four workers. They step down into it to reach
    its middle; once its sides are taller than a worker can step up (45 cm),
    a worker with a full load digs stairs out into the nearest side ("Digging
    stairs out" in its panel): a step 56 cm down beside the floor, then one
@@ -3138,7 +3138,7 @@ Picks in blueprint/patch4-dig-turn-in-picks.md. The code is
    left in a pile at their foot (an Earth icon on the ground); it walks up
    the stairs with its load, hands it in, and when it comes back it picks
    the pile up first ("Picking up loot") and then digs on. Later trips walk
-   up the same stairs, which stay when the pit is finished.
+   up the same stairs, which stay when the pit is finished.]
 8. **A deep pit.** Dig a square about 3 m across and 3 m deep: the workers
    dig it from its rim (they cannot drop that far) and all get home with
    their loads; before, one walking off from near the rim's corner could
@@ -3403,6 +3403,84 @@ blueprint/patch5-bugs-picks.md.*
    show pinned to its edge, fainter, on the side they lie; pings off it ring
    at the edge.
 
+## How a tester checks the defences and siege (Patch 5)
+
+*Patch 5's defences: wider gates, the earth rampart, walls that crack and
+break, the Citadel's engine platform and its fixed engines, lead ore in
+gunpowder kit, and guns and blasts that look and sound the part. Picks in
+blueprint/patch5-defences-picks.md.* `npx vitest run
+packages/sim/test/m8.test.ts packages/client/test/m8-controls.test.ts
+packages/client/test/patch4-hotkeys.test.ts` covers the platform, the cards
+and the keys headless. The debugger's **Godmode** makes the checks quick:
+buildings stand at once, upgrades and training finish at once, and its grid
+places monsters (a skeleton bomber is the wall breaker) and your own units.
+
+1. **Gates and towers.** Build, Defences: a gate is 6 columns wide, twice
+   what it was, drawn as its gate model (turned for north to south). Towers
+   are 4 by 4 columns. The stone tower is drawn as its model, with its men
+   on its top; the wooden and hardwood towers stay blocks until their models'
+   roofs are raised (too low for a man standing under them).
+2. **Walls.** Build a wall chain that turns a corner and runs on diagonally.
+   Each column is drawn as its wall model, turned along the run; where the
+   wall turns, and on a diagonal's steps, a corner post. Let monsters hit a
+   stretch (or hit it with an engine's Attack): below 70% health it shows
+   cracks, below 40% it is snapped with the top half hanging to the ground,
+   and it still blocks the same. Repair it and the looks go back. A wall has
+   no health bar; clicking it shows its health in the middle as before.
+3. **The earth rampart.** Defences, **Earth rampart** (M): placed in a chain
+   from point to point like a wall, in chunks 2 by 2 columns (about 1 m
+   across), each 2 m tall and costing 5 earth (a worker's full load). It has
+   the health of one wooden wall column, shows torn earth below 70% and 40%,
+   and is not dug like the land.
+4. **The Artillery workshop.** Its card shows Train artillery crewman (E) and
+   the four engines as buttons of their own: Catapult (C), Ballista (B),
+   Bronze cannon (N) and Iron cannon (I). There is no Engines button. The
+   Magi Sanctum's Hexcraft is on its card the same way (H).
+5. **The Citadel.** With an Artillery workshop standing, raise the main base
+   to tier 4 (the Citadel, drawn as its own model with a flat platform on
+   top and 8 men's places on the keep's wall walk). Its card has **Build
+   defense** (D), which opens:
+   Springald, Mangonel, Bronze culverin, Iron bombard (each on the letter of
+   its name) and Garrison (G). Each fixed engine costs what its mobile engine
+   does (lead ore and its crew's food too) and needs what that one needs
+   (research and tier). Build one: it stands on the flat platform at the top
+   with its garrison artillery crewmen (drawn as the mobile engine until the
+   fixed models land), and fires at monsters in reach. Stop, Unload and
+   right clicks never bring it or its crew down; its card has Attack only,
+   and an attack order out of its reach is dropped with "That is beyond the
+   ...'s reach." While one stands there the other buttons read **Upgrade to
+   ...** for the higher ones (the cost and time difference; it cannot fire
+   while the upgrade builds, and a springald becoming a mangonel brings a
+   second crewman free). **Garrison** stays greyed until the engine is short
+   of crew: kill one of its crew (Kill selected) and it lights up. Only
+   flyers and ranged monsters can hit the engine and the men up there.
+6. **Men up top.** With no fixed engine on the platform, select more men
+   than fit (archers, melee, mages, workers) and right click the Citadel:
+   the best ranged troops go up first, then mages, then melee; the panel's
+   count is out of 12 (8 on the parapets, 4 on the platform). Once an engine
+   is built up there, the platform's men come down to make room.
+7. **No cannon ports.** A cannon's card has Attack, Move and Hitch; right
+   clicking the Citadel with a cannon does nothing.
+8. **Lead ore.** A musketeer's kit takes 2 lead ore, a brawler's pistol 1, a
+   bronze cannon 4 (and 40 bronze ingots) and an iron cannon 6; the fixed
+   ones the same. Without it the buttons grey with the lead ore named.
+9. **Guns.** A musketeer firing shows a flash and a spray of sparks at the
+   muzzle and smoke rising for 4 s; a brawler's pistol 3 s; a cannon 5 s,
+   bigger. The ball flies as its model (the bronze cannon's smaller) with a
+   faint grey dash behind it by day and a bright orange streak at night.
+   Each has its gun's sound.
+10. **Blasts.** A cannonball landing explodes in fire, dirt and smoke; on
+    grass or soil it leaves a heap of earth to pick up. One that hits a tree
+    fells it, leaving half its lumber. A catapult stone throws up dirt, no
+    fire, leaves less earth, and fells only small trees. A bronze cannon's
+    shot is smaller, with a smaller blast.
+11. **The wall breaker.** A skeleton bomber's fuse fizzes with tiny sparks.
+    When it goes off: an explosion, smoke rising for 3 s and a shallow
+    crater; it hurts units half as much as before. Kill one before it reaches
+    a wall and nothing goes off, and no bomb falls.
+12. **Engines on your own.** Select an engine, Attack, and click one of your
+    own units: it fires at it.
+
 ## How a tester checks Patch 5's trade, mercenaries and carts
 
 *Jade's Patch 5, section 21: trade within 10 m of any of a people's
@@ -3518,6 +3596,120 @@ Picks in blueprint/patch5-client-ui-picks.md.*
    to a small button at the left edge over the minimap's buttons, counting
    other players' messages until opened. Bubbles stay a second longer.
 
+## How a tester checks unit and building looks (Patch 5)
+
+*Jade's Patch 5 file: every piece of gear a unit carries is drawn on it, at
+its tier (hard rule: no invisible equippable gear); shields are drawn; every
+task has its own worker clip; mages wear their robes, battle robes going blue
+to red with tier and support robes green to white, with a flaming halo on the
+top battle mage and a sparkling one on the top support mage; and every
+building looks like itself. Picks in blueprint/patch5-looks-picks.md. The
+units are drawn in `packages/client/src/world/units-view.ts`, the buildings
+in `packages/client/src/world/buildings-view.ts`, and their models placed by
+`packages/sim/src/buildings/footprints.ts`.*
+
+1. **The tests.** `pnpm test` measures every newly modelled footprint
+   against its model (`packages/tools/test/footprints.test.ts`) and builds
+   every model, each metal tier's look and each building's stages, ruins and
+   damaged look (`packages/tools/test/models.test.ts`).
+2. **Jade's bodies.** `pnpm dev`, open http://localhost:5173/?seed=1: the
+   workers, warriors and mages are Jade's improved models with her clips.
+   Each worker carries every tool of their kit: the one in use in the hand,
+   the rest on the hips and back.
+3. **Troops at every tier.** Type M N B V C X Z, press **Troop kit**, select
+   the Barracks and train each troop type at a few tiers (or press
+   **Godmode** and place each troop from the inventory grid: they come at
+   the top of their kit). Each weapon is its own model at its tier (a flint
+   spear, a bronze short sword, wrought then refined iron swords, steel and
+   high quality steel), held in the hand; a ranger's bow or crossbow is in
+   the left hand, the quiver or bolt case on the back or hip. Armour,
+   helmets and boots are worn on the body and move with it; close melee
+   troops carry their shield on the left arm, painted in the team colour.
+   Each attack, reload and block has its own clip.
+4. **Mages.** Press **Sanctum** and **Mage kit**, train a support and a
+   battle mage and upgrade their robes: each robe tier is its own look, the
+   battle robe from blue through purple to red, the support robe from green
+   to white. Every wand tier is its own model in the hand. Press **Max
+   rank**: the top battle mage wears a ring of flickering flames over the
+   head, the top support mage a ring of sparkling white and gold.
+5. **Work clips.** Send workers to chop, mine, gather, fish, butcher a
+   carcass, hoe a farm, build, relight an out torch (they carry a torch to
+   it), dig and tame: each has its own clip and the tool for it in hand
+   (a spade to dig, a rod to fish, casting then waiting). Prospecting (T)
+   shows the prospect clip with a hammer at a metal tier, and a progress bar
+   over the worker like tinkering.
+6. **Carried goods.** A worker carrying a load shows what it is, each good
+   its own model (long loads on the shoulder, the rest in the arms or one
+   hand), instead of a plain box (farm fare, with no model yet, keeps it); a worker with a hand cart pushes it ahead, and an ox or horse
+   hitched to a worker pulls an ox cart. A horse wears its tack under a rider
+   and its harness when hitched. Artillery crewmen work the rammer, ladle and
+   linstock as they load, aim and fire.
+7. **Monsters and peoples.** Monsters and peoples' units hold the weapons
+   their models come with.
+8. **Buildings.** With **Godmode**, place a Workshop, Forge, Barracks, Magi
+   Sanctum, Scholar's Lodge, Mineshaft (on flat bare stone), Barn and
+   Bonfire: each is its own model (before: the same plank house in different
+   sizes, the Barn a painted pen and the Bonfire a doubled campfire). Units
+   walk round what is drawn. Without godmode, a building being built shows its model's stage for the
+   work done (foundations, walls, roof, each with its own scaffolding);
+   at or below half health it shows its damaged look (walls and ramparts
+   crack and break instead, as the defences section says), an out torch post is drawn
+   unlit, and a building that falls leaves its ruins for 30 seconds before
+   they sink away.
+
+## How a tester checks running, climbing and jumping (Patch 5)
+
+*Patch 5's GP-16 (Run/Walk), GP-17 (no crude stairs), GP-18 (climbing and
+higher jumps) and MB-3 (monsters jump 1 m). Picks in
+blueprint/patch5-movement-picks.md. The code is
+`packages/sim/src/units/moves.ts` (the GAITS table: one row per kind of
+unit, in the balance editor under Units, "Running, jumping and climbing"),
+`packages/sim/src/nav/grid.ts` (what each mover can jump and climb) and
+`packages/sim/src/units/behaviour.ts` (moveSpeed, walkTo, runUnit).*
+
+1. **The tests.** `pnpm test` runs the "moving over the land" tests in
+   packages/sim/test/gap.test.ts: a 2 unit rise is a step, 5 units (56 cm)
+   a jump, 6 units a climb at 5 times a walk's cost a unit up; a worker
+   climbs a 4 m face that a fighter cannot; the peoples' units keep their
+   45 cm jump; monsters jump 1 m and a horse 2.5 m; a worker hops onto a
+   5 unit platform and climbs a 3 m block at a fifth of its walk, a save
+   taken while it climbs back down carries on to the same hash, and a
+   warrior never gets onto a 4.5 m one. patch4-dig-turn-in.test.ts runs
+   four workers out of a 1 m pit with their loads, cutting no stairs.
+2. **Slower walk.** `pnpm dev`, open http://localhost:5173/?seed=1. Units
+   on foot walk at 2.55 m/s, 15% slower than before; siege engines go 15%
+   slower too. Cavalry is unchanged and stays faster than a runner.
+3. **Run/Walk.** Select workers, warriors, mages or crewmen: the card has
+   a boot button marked Walk (H). Press it: it shows two boots
+   marked Run and they move 40% faster (3.57 m/s), with the run clip.
+   Every 50 m each one runs takes 1 food from the stock; a unit set back to
+   Walk keeps what it has run towards its next 50 m, so 40 m, Walk, then
+   10 m more of Run pays the 1 food. With no food in the stock runners walk
+   until there is some. A worker pulling a cart walks. With only cavalry
+   selected the button is greyed: horses do not run. The button is the
+   last on each card, so every other button keeps its place.
+4. **Climbing.** Raise a block with the tester tools, or find a cliff, and
+   Move a worker to its top: it walks to the foot of the face, turns to it
+   and climbs straight up at a fifth of its walk, then steps onto the top.
+   Workers climb faces up to 7 m, troops, mages and crewmen up to 4 m;
+   higher faces are walked round. Faces are climbed down the same way.
+   Units out by themselves on Hunt or Gather do not climb by day, nor jump
+   down more than they can jump back up; coming home at dusk they climb
+   where they must. Their reach from home (what they walk in dusk's 40 s)
+   counts each metre of height above or below the base as 5 m more, so a
+   deep ravine or a tall hill nearby is out of their reach. Units never climb walls or buildings; monsters that climbed walls
+   before still do. A climber plays its body's climb clip (Jade's improved
+   worker, warrior and mage bodies carry one).
+5. **Jumps.** Units on foot jump rises up to 56 cm (5 terrain units; 45 cm
+   before) and step up 22 cm. A horse jumps 2.5 m. Every monster jumps at
+   least 1 m; the ones that already climbed keep doing so.
+6. **Digging out.** Dig a pit about 5 m across and 1 m deep with four
+   workers: once its sides are taller than they can jump, workers with
+   full loads climb out up the side, take the load home and climb back
+   down. No stairs are cut.
+7. **Saves.** No save format change; the snapshot version goes to 27 (a
+   unit's Run/Walk, the run it owes food for, and the face it climbs).
+
 ## How a tester checks the Tavern and the Dreadnought (Patch 5)
 
 *Jade's Patch 5, GP-19 to GP-21: the Tavern, which turns food into silver
@@ -3525,16 +3717,18 @@ while it is open for business, and the Dreadnought it hires. Picks in
 blueprint/patch5-tavern-picks.md. The numbers are rows: `TAVERN` in
 `packages/sim/src/buildings/tavern.ts`, `DREADNOUGHT` in
 `packages/sim/src/units/dreadnought.ts`, his mace and plate in
-`DREADNOUGHT_KIT` (`packages/sim/src/units/kits.ts`) and the Tavern's cost
-in `packages/sim/src/buildings/data.ts`; the balance editor shows them under
-Buildings and Training.*
+`DREADNOUGHT_KIT` (`packages/sim/src/units/kits.ts`), his walk, jump, climb
+and run food in his row of `GAITS` (`packages/sim/src/units/moves.ts`) and
+the Tavern's cost in `packages/sim/src/buildings/data.ts`; the balance
+editor shows them under Buildings, Training and Units.*
 
 1. **The tests.** `npx vitest run packages/sim/test/patch5-tavern.test.ts`:
    the till fills to 1.055 silver after 19 foods, Withdraw funds takes the
    whole ingot and leaves the fraction, a closed Tavern serves nothing; the
    price takes 15 gold, 105 silver or a mix (a gold is worth 7 silver, a
    little over is fine, under never); the main base tier caps him; he
-   smashes, then sweeps, by turns.
+   smashes, then sweeps, by turns; he walks a fifth slower than a warrior,
+   never climbs, jumps 1.5 m and pays double for running.
 2. **Building it.** `pnpm dev`, open http://localhost:5173/?seed=1. The
    build menu has **Tavern** after the Mineshaft (key V; on a phone-size
    card the build menu now takes two pages, turned with **More**). Without a tier 3 main base it
@@ -3572,8 +3766,14 @@ Buildings and Training.*
    front of him for 70, every 3 s by turns; a pale crescent flashes where
    the sweep lands. Now and then he roars his war cry with a remark.
    Godmode's grid has him too.
-9. **Saves and checks.** No snapshot change: the Tavern's state is kept in
-   the building record as it was.
+9. **Getting about.** His card's last button is **Walk** (H): pressed, he
+   runs, 40% faster than his walk, paying 2 food for every 50 m (others pay
+   1). Send him at a rise of about 1.4 m: he jumps it, with his jump clip.
+   Send him at a cliff a warrior would climb: he walks round, or stops
+   where there is no way round. He never climbs.
+10. **Saves and checks.** No snapshot change: the Tavern's state is kept in
+    the building record as it was. The Tavern's kind id is 24 (the earth
+    rampart took 23).
 
 ## License
 

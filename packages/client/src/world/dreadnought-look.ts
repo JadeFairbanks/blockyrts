@@ -39,10 +39,11 @@ export class DreadnoughtLooks {
 
   /**
    * His clip and its time this frame: a hop's jump; a blow, played to its
-   * end; hurt; walking or running; his war cry; else idle. swingT is how far
-   * into the swing under way (s); clipT the looping clips' time.
+   * end; hurt; walking (or running away); his war cry; else idle. swingT is
+   * how far into the swing under way (s); clipT the looping clips' time;
+   * moving whether he moved since the last state.
    */
-  clip(d: Int32Array, o: number, id: number, now: number, swingT: number, clipT: number, clips: ReadonlyMap<string, { length: number }>, hop: { t: number } | null): [string, number] {
+  clip(d: Int32Array, o: number, id: number, now: number, swingT: number, clipT: number, clips: ReadonlyMap<string, { length: number }>, hop: { t: number } | null, moving: boolean): [string, number] {
     const swing = d[o + S.swing]!;
     const order = d[o + S.order]!;
     const flags = d[o + S.flags]!;
@@ -61,7 +62,8 @@ export class DreadnoughtLooks {
       this.blows.delete(id);
     }
     if (flags & UnitFlag.Hurt) return ['injured', clipT];
-    if (order !== OrderKind.Idle) return [flags & UnitFlag.Fleeing ? 'run' : 'walk', clipT];
+    // Standing at a foe between blows is no walk.
+    if (moving) return [flags & UnitFlag.Fleeing ? 'run' : 'walk', clipT];
     const c = this.cries.get(id);
     if (c !== undefined) {
       const age = (now - c) / 1000;

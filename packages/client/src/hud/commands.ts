@@ -16,7 +16,12 @@ import {
   dreadnoughtProduct,
   CREWMAN_RETRAIN_STEPS,
   EAT_NUTRITION,
+  ENGINE_PRODUCT,
+  type Engine,
   engineSpec,
+  engineUpgrade,
+  engineUpgradeCrew,
+  FIXED_ENGINES,
   holderKind,
   Line,
   linePiece,
@@ -30,6 +35,8 @@ import {
   MAGE_RANK_TRAINING,
   MONSTERS,
   FactionKind,
+  Gait,
+  gaitSpec,
   PEOPLES,
   OUT_OF_REACH,
   HAND_CART_TENTHS_LB,
@@ -40,8 +47,11 @@ import {
   Res,
   RESEARCH_PRODUCT,
   RESOURCES,
+  RUN_FOOD_METRES,
   schoolSpells,
   plannedSpots,
+  chainPiece,
+  platformProducts,
   siteCells,
   SiteKind,
   SITE_MAX_COLUMNS,
@@ -51,6 +61,7 @@ import {
   TAVERN,
   stretchBetween,
   stretchCells,
+  stretchSpots,
   stretchEnd,
   stretchRoom,
   STRETCH_DIRS,
@@ -66,6 +77,7 @@ import {
   TROOP_PRODUCT,
   troopOf,
   troopProduct,
+  upgradeClimbs,
   Greyed,
   mageLock,
   School,
@@ -91,7 +103,7 @@ import type { Ghost, GhostSpot } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { ButtonIcon, ButtonPress } from './buttons.ts';
 import { buildIcon, buildingUpgradeIcon, equipIcon, productIcon, trainTroopIcon } from './card-icons.ts';
-import { makeAction, menuSlots, MORE_ACTION, placeAction, submenuAction, submenuChoices } from './menu-keys.ts';
+import { defenseAction, flatMake, makeAction, menuSlots, MORE_ACTION, placeAction, submenuAction, submenuChoices } from './menu-keys.ts';
 import { buildingIconFile } from './unit-icons.ts';
 import { cardChoice, cardCostText, cardOffered, cardProduct, cardTrainsText, cardWhy, troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
 import { count } from './wording.ts';
@@ -135,10 +147,14 @@ type Slots = Array<CardEntry | null>;
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
 const ALLIED_ACTIONS = new Set(['attack', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'repair' | 'port' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt';
+type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt';
 
-/** Pages of the command card: the main card, the build menu (Patch 2: one, in place of Basic and Advanced) and a building's K menu (smelting, research and the rest). */
-export type CardPage = 'main' | 'build' | 'make';
+/**
+ * Pages of the command card: the main card, the build menu (Patch 2: one, in
+ * place of Basic and Advanced), a building's K menu (smelting, research and
+ * the rest) and the Citadel's Build defense menu (Patch 5, CT-3).
+ */
+export type CardPage = 'main' | 'build' | 'make' | 'defense';
 
 /**
  * Dig (D): an area dragged on the ground, then confirmed with a left click
@@ -412,6 +428,7 @@ export class Commands {
     if (active.startsWith('building:')) {
       const kind = Number(active.split(':')[1]);
       if (this.menu.page === 'make') return this.makeCard(kind, waiting);
+      if (this.menu.page === 'defense') return this.defenseCard(kind, waiting);
       const card = this.buildingCard(kind, waiting);
       // Jade's Patch 3: a card whose one button only opens a bigger menu (the Forge's Smelt) opens on that menu, with no Back.
       if (Commands.lone(card)) return this.makeCard(kind, waiting, false);
@@ -507,7 +524,14 @@ export class Commands {
       { lit: t === 'attack', double: () => this.pickOwn(PickOwn.Attack, 'Each one attacks the nearest enemy it can see.') },
     );
     const patrol = this.entry('patrol', 'Patrol', 'Then left click ground: they walk back and forth between here and there, fighting whatever they meet.', () => this.target('patrol', 'patrol'), { lit: t === 'patrol' });
-    const move = this.entry('move', 'Move', 'Then left click ground or the minimap to move there, or a unit to follow it. Right click or Esc cancels. Hold M (or Shift) to give several.', () => this.target('move', 'move'), { lit: t === 'move' });
+    const move = this.entry(
+      'move',
+      'Move',
+      'Then left click ground or the minimap to move there, or a unit to follow it. Right click or Esc cancels. Hold M (or Shift) to give several. Units on foot jump small rises and climb cliffs of earth and rock by themselves where the way needs it, at a fifth of their walking pace: workers up to 7 m, troops and mages up to 4 m. They never climb walls or buildings.',
+      () => this.target('move', 'move'),
+      { lit: t === 'move' },
+    );
+    const pace = this.paceEntry(active);
     if (active === 'worker') {
       const workers = this.workerIds();
       const carrying = workers.some((id) => {
@@ -551,13 +575,14 @@ export class Commands {
         this.eatEntry(),
         this.equipEntry(workers),
         this.cartEntry(workers),
+        pace,
       ];
     }
     if (active.startsWith('mage:')) {
       const ids = this.unitIds((u) => u.typeKey === active);
       const school = active === 'mage:battle' ? 2 : 1;
       // F is Fortify and Fireball on this card, so Eat has no key here; it is a click.
-      return [attack, patrol, move, ...schoolSpells(school).slice(0, 5).map((spell) => this.spellEntry(ids, spell)), { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids)];
+      return [attack, patrol, move, ...schoolSpells(school).slice(0, 5).map((spell) => this.spellEntry(ids, spell)), { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids), pace];
     }
     if (active === 'warrior:crew') {
       // The artillery crewman (Patch 2): siege, so no Hunt and no Upgrade equipment (it has no kit); Crew sends it to an engine, and Retrain makes it a worker (Patch 3).
@@ -574,10 +599,22 @@ export class Commands {
         ),
         this.eatEntry(),
         this.retrainEntry(),
+        pace,
       ];
     }
-    // The Dreadnought (Patch 5, GP-21): no Upgrade equipment (he keeps his mace and plate) and no Hunt (he is hired to fight).
-    if (active === 'warrior:dreadnought') return [attack, patrol, move, this.eatEntry()];
+    // The Dreadnought (Patch 5, GP-21): no Upgrade equipment (he keeps his mace and plate) and no Hunt (he is hired to fight);
+    // he never climbs, jumps higher and pays double for running (units/moves.ts Gait.Dreadnought).
+    if (active === 'warrior:dreadnought') {
+      const g = gaitSpec(Gait.Dreadnought);
+      const jump = Math.round((g.jump * WU_PER_TERRAIN_UNIT * 10) / WU_PER_METRE) / 10;
+      return [
+        attack,
+        patrol,
+        { ...move, description: `${move.description} A Dreadnought never climbs; he jumps rises up to ${jump} m.` },
+        this.eatEntry(),
+        { ...pace, description: `${pace.description} A Dreadnought pays ${g.runFood} food for every ${RUN_FOOD_METRES} m he runs.` },
+      ];
+    }
     const troops = this.unitIds((u) => u.typeKey === 'warrior');
     return [
       attack,
@@ -592,7 +629,27 @@ export class Commands {
       ),
       this.eatEntry(),
       this.equipEntry(troops),
+      pace,
     ];
+  }
+
+  /**
+   * Run or Walk (Patch 5): every unit on foot has it, starting at Walk; it
+   * shows Run once all the selected units on foot run, and a press sets them
+   * all to the other. Cavalry and siege engines never run.
+   */
+  private paceEntry(active: string): CardEntry {
+    const units = this.unitIds((u) => u.typeKey === active)
+      .map((id) => this.d.game.unit(id))
+      .filter((u): u is UnitInfo => u !== null && u.mount === 0);
+    const running = units.length > 0 && units.every((u) => (u.flags & UnitFlag.RunMode) !== 0);
+    const face = running ? 'Run' : 'Walk';
+    const name = running ? 'Running (press to walk)' : 'Walking (press to run)';
+    const desc =
+      'Units on foot walk until told to run. Running is 40% faster than walking and costs 1 food from the stock for every 50 m each unit runs. A unit owes for every metre it runs, even if it walks for a while in between, and pays when it has run the full 50 m. With no food in the stock, runners walk until there is some. A worker pulling a cart walks. Cavalry and siege engines never run: a horse is already faster than a runner.';
+    if (units.length === 0) return this.off('pace', face, desc, 'Cavalry does not run: a horse is already faster than a runner.', name);
+    const run = running ? 0 : 1;
+    return this.entry('pace', face, desc, () => this.d.send({ kind: 'pace', player: this.d.player, units: units.map((u) => u.id), run }), { name, lit: running });
   }
 
   /** A spell button: greyed with the reason when none of the selected mages can cast it now (a cooldown only delays it). */
@@ -789,24 +846,24 @@ export class Commands {
 
   /**
    * A siege engine's or cannon's card (Table 2f): attack and move; Hitch a
-   * horse or ox to haul it, or let it go; Port takes a cannon up into a
-   * Citadel's cannon port. [Before Patch 2 also Stop and Hold.]
+   * horse or ox to haul it, or let it go. A Citadel's fixed engine only
+   * shoots (Patch 5, CT-3; the cannon ports and their Port button are gone).
+   * [Before Patch 2 also Stop and Hold.]
    */
   private engineCard(): Slots {
     const t = this.targeting?.command;
     const ids = this.unitIds((u) => u.typeKey.startsWith('engine:'));
     const u = ids.length > 0 ? this.d.game.unit(ids[0]!) : null;
     const hauled = u !== null && u.partner !== 0;
-    const cannon = u !== null && engineSpec(u.mob).cannon;
+    if (u !== null && engineSpec(u.mob).mobile >= 0) {
+      return [this.entry('attack', 'Attack', 'Then left click a unit in its reach to shoot at it (one of your own too, on this order). It stands on the Citadel\'s engine platform for good, and fires only while its crew stand by it.', () => this.target('attack', 'attack'), { lit: t === 'attack' })];
+    }
     return [
-      this.entry('attack', 'Attack', 'Then left click an enemy or one of its buildings to shoot at it (it closes in while hauled or pushed), or ground to move and shoot whatever comes in range. It fires only while its crew stand by it.', () => this.target('attack', 'attack'), { lit: t === 'attack' }),
+      this.entry('attack', 'Attack', 'Then left click a unit to shoot at it (it closes in while hauled or pushed; one of your own too, on this order), or ground to move and shoot whatever comes in range. It fires only while its crew stand by it.', () => this.target('attack', 'attack'), { lit: t === 'attack' }),
       this.entry('move', 'Move', 'Then left click ground. It moves only while a horse or ox is hitched to it, or while enough of its crew push it, and its wheels take gentle slopes, not steps.', () => this.target('move', 'move'), { lit: t === 'move' }),
       hauled
         ? this.entry('hitch', 'Let go', 'Unhitch the horse or ox hauling it.', () => this.d.send({ kind: 'hitch', player: this.d.player, units: ids.slice(0, 1), target: 0, queued: false }), { name: 'Let the animal go' })
         : this.entry('hitch', 'Hitch', 'Then left click one of your horses or oxen: it walks over and hauls the engine wherever it is sent (a horse is faster; an ox is slower but steadier). Right clicking the animal does the same.', () => this.target('hitch', 'hitch'), { lit: t === 'hitch', name: 'Hitch an animal' }),
-      cannon
-        ? this.entry('port', 'Port', 'Then left click your Citadel (main base tier 4): the cannon is hauled to its door and up into one of the 4 cannon ports on the roof, where its crew fire it from behind the walls. Right clicking the Citadel does the same.', () => this.target('port', 'port'), { lit: t === 'port', name: 'Into a cannon port' })
-        : this.off('port', 'Port', 'Cannons go up into a Citadel\'s cannon ports.', 'Only cannons go in the cannon ports.', 'Into a cannon port'),
     ];
   }
 
@@ -959,7 +1016,7 @@ export class Commands {
         const at = main ? 4 : 0;
         rows.push([Product.SupportMage, 'trainSupportMage', 'Support', at], [Product.BattleMage, 'trainBattleMage', 'Battle', at + 1]);
       }
-      // Patch 2: the Artillery workshop trains the artillery crewman, first on its card; its engines are in its Make menu.
+      // Patch 2: the Artillery workshop trains the artillery crewman, first on its card; its engines follow it (Patch 5, flatMake).
       if (first.products.some(([p]) => p === Product.Crewman)) rows.push([Product.Crewman, 'trainCrewman', 'Crewman', 0]);
     }
     for (const [p, action, face, slot] of rows) card[slot] = this.productEntry(all, p, action, face);
@@ -976,10 +1033,18 @@ export class Commands {
         card[support ? 0 : 1] = this.mageEntry(all, mageLock(m.school), support ? 'trainSupportMage' : 'trainBattleMage', support ? 'Support' : 'Battle');
       }
     }
-    const made = first.complete ? first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT) : [];
+    // A Citadel's fixed engines are in its Build defense menu (Patch 5), not with what it makes.
+    const made = first.complete ? first.products.filter(([p]) => p >= RESEARCH_PRODUCT && p < TROOP_PRODUCT && !PLATFORM.has(p)) : [];
     // A main base's mages sit on 4 and 5, so its K button moves along.
     const makeSlot = main ? 7 : 5;
-    if (made.length === 1 && productSpec(made[0]![0]).recipe !== undefined) {
+    if (flatMake(kind) && made.length > 0) {
+      // Jade's decisions 2.17: a short list is on the card itself, a button each after what the building trains, with no menu.
+      let slot = 0;
+      for (const [p, why] of made) {
+        while (card[slot] !== null && slot < 8) slot++;
+        card[slot] = this.productEntry(all, p, makeAction(kind, p), shortFace(productSpec(p).name), why);
+      }
+    } else if (made.length === 1 && productSpec(made[0]![0]).recipe !== undefined) {
       // Patch 5: a building that makes one good has it on its own card (the main base's Make rope, the Storehouse's Make sticks), not in a menu.
       const [p, why] = made[0]!;
       const name = `Make ${shortFace(productSpec(p).name).toLowerCase()}`;
@@ -987,6 +1052,10 @@ export class Commands {
     } else if (made.length > 0) {
       const what = MAKE_WORDS[kind] ?? ['Make', 'Open the production menu. Each item\'s key is on its button; Esc goes back.'];
       card[makeSlot] = this.entry('craft', what[0], what[1], () => this.openMenu('make'), { name: what[0] });
+    }
+    // The Citadel's engine platform (Patch 5, Jade's CT-3): its fixed engine, their upgrades and garrison crewmen, in their own menu.
+    if (first.complete && first.products.some(([p]) => PLATFORM.has(p))) {
+      card[8] = this.entry('buildDefense', 'Defense', 'Open the Build defense menu: a fixed engine for the engine platform on the Citadel\'s top, its upgrades, and garrison artillery crewmen for it. Each one\'s key is on its button; Esc goes back.', () => this.openMenu('defense'), { name: 'Build defense' });
     }
     if (first.complete && trainsUnits(first)) {
       card[9] = this.entry('rally', 'Rally', 'Then left click ground, a unit or a resource node: new units go there (workers gather, on a node). Shift adds a waypoint. Right click with the building selected does the same.', () => this.target('rally', 'rally'), {
@@ -1092,8 +1161,9 @@ export class Commands {
     else if (ps.food > 0 && g.food() < ps.food) reason = `Not enough food (needs ${ps.food}).`;
     // An engine pays its resources and its crew's food (Patch 2).
     if (!reason && (ps.food === 0 || ps.engine !== undefined)) reason = g.costProblem(ps.cost);
-    const unit = p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage || p === Product.Crewman;
-    const crew = ps.engine !== undefined ? engineSpec(ps.engine).crew : 0;
+    const unit = p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage || p === Product.Crewman || p === Product.GarrisonCrewman;
+    // A fixed engine's upgrade brings only the crewmen it adds (Patch 5).
+    const crew = ps.engine === undefined ? 0 : ps.upgrade !== undefined ? engineUpgradeCrew(ps.upgrade as Engine, ps.engine as Engine) : engineSpec(ps.engine).crew;
     if (!reason && unit && info && info.supplyUsed >= info.supplyCap) reason = `Not enough supply (${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
     if (!reason && crew > 0 && info && info.supplyUsed + crew > info.supplyCap) reason = `Not enough supply for its crew of ${crew} (${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
     if (why !== undefined) reason = why;
@@ -1233,6 +1303,30 @@ export class Commands {
     return this.paged(list, waiting || !back ? [] : [this.backEntry('Back to the building commands.')]);
   }
 
+  /**
+   * The Citadel's Build defense menu (Patch 5, Jade's CT-3): a button per
+   * fixed engine, which builds it while the platform is empty and upgrades
+   * the one up there to it when it is higher on the ladder (s), each greyed
+   * out with the sim's reason; then Train garrison artillery crewman, greyed
+   * unless the engine up there is short of crew. Back (Esc) returns.
+   */
+  private defenseCard(kind: number, waiting: boolean): Slots {
+    const all = this.buildings().filter((b) => b.kind === kind && b.complete && b.products.some(([p]) => PLATFORM.has(p)));
+    const first = all[0];
+    const list: CardEntry[] = [];
+    if (first) {
+      const why = (p: number): string => first.products.find(([q]) => q === p)?.[1] ?? 'Only a Citadel has an engine platform.';
+      const on = first.fixedEngine ? (this.d.game.unit(first.fixedEngine)?.mob ?? -1) : -1;
+      for (const id of FIXED_ENGINES) {
+        const name = engineSpec(id).name;
+        const p = on >= 0 && upgradeClimbs(on as Engine, id) ? ENGINE_PRODUCT + engineUpgrade(on as Engine, id) : ENGINE_PRODUCT + id;
+        list.push({ ...this.productEntry(all, p, defenseAction(id), shortFace(name), why(p), true), name: productSpec(p).name });
+      }
+      list.push(this.productEntry(all, Product.GarrisonCrewman, defenseAction(-1), 'Garrison', why(Product.GarrisonCrewman), true));
+    }
+    return this.paged(list, waiting ? [] : [this.backEntry('Back to the building commands.')]);
+  }
+
   private backEntry(description: string): CardEntry {
     return { action: 'back', face: 'Back', name: 'Back', key: 'Escape', menu: true, description, enabled: true, reason: '', run: () => this.back() };
   }
@@ -1329,9 +1423,6 @@ export class Commands {
       case 'repair':
         ok = this.ownBuilding(item) ? this.work(item!) : item && this.ownEngine(item) ? this.mend(item) : false;
         if (!ok) this.d.message('Pick one of your buildings, siege engines or cannons to build or repair.', 'alert');
-        break;
-      case 'port':
-        ok = this.ownBuilding(item) ? this.enter(item!) : false;
         break;
       case 'hitch':
         ok = item ? this.hitchTo(item) : false;
@@ -1703,11 +1794,8 @@ export class Commands {
     const engines = this.unitIds((u) => u.typeKey.startsWith('engine:'));
     const men = units.length > workers.length + engines.length;
     if (item && engines.length < units.length && this.ownBuilding(item) && (this.isTower(item) || (men && this.hasTop(item))) && this.enter(item)) return;
-    // Engines and cannons: an own horse or ox hitches, the Citadel takes a cannon into a port.
-    if (item && engines.length > 0 && engines.length === units.length) {
-      if (item.typeKey.startsWith('animal:own:') && this.hitchTo(item)) return;
-      if (this.ownBuilding(item) && this.enter(item)) return;
-    }
+    // Engines and cannons: an own horse or ox hitches (Patch 5: no engine goes into a building).
+    if (item && engines.length > 0 && engines.length === units.length && item.typeKey.startsWith('animal:own:') && this.hitchTo(item)) return;
     if (item && this.ownEngine(item)) {
       // Artillery crewmen crew one of the player's engines (anyone else follows it); workers repair a damaged one.
       const u = this.d.game.unit(entityIdOf(item.key) ?? -1);
@@ -2002,7 +2090,8 @@ export class Commands {
     if (est.open === 0 && est.blocked === 0) return p.chain ? { text: 'Walled already', hint: 'Click to go on from its end, right click to finish', short: false } : { text: 'Click to go on from this wall', hint: 'Then click further on to build a stretch', short: false };
     const name = buildingSpec(p.kind).name.toLowerCase();
     const n = Math.min(est.open, est.room);
-    const parts = [est.open === 1 && est.blocked === 0 ? `1 ${name}: ${costLine(est.cost)}` : `${count(est.open, 'wall')}: ${costLine(est.cost.map(([r, k]) => [r, k * est.open] as const))}`];
+    const piece = chainPiece(buildingSpec(p.kind)) > 1 ? 'chunk' : 'wall';
+    const parts = [est.open === 1 && est.blocked === 0 ? `1 ${name}: ${costLine(est.cost)}` : `${count(est.open, piece)}: ${costLine(est.cost.map(([r, k]) => [r, k * est.open] as const))}`];
     if (est.blocked > 0) parts.push(`${est.blocked} skipped`);
     if (n < est.open) parts.push(n === 0 ? `not enough ${RESOURCES[est.short]!.name.toLowerCase()}` : `enough for ${n}`);
     const hint = p.chain ? 'Click to build to here, right click to finish' : 'Click to place it, then click further on for a stretch';
@@ -2031,10 +2120,9 @@ export class Commands {
     return s.w === 1 && s.d === 1 && !Commands.chained(kind);
   }
 
-  /** Whether a building kind is placed in chains of stretches, click by click (walls; Building placement: wall chains). */
+  /** Whether a building kind is placed in chains of stretches, click by click (walls, and the earth rampart's chunks from Patch 5; Building placement: wall chains). */
   static chained(kind: number): boolean {
-    const s = buildingSpec(kind);
-    return s.defence === 'wall' && s.w === 1 && s.d === 1;
+    return chainPiece(buildingSpec(kind)) > 0;
   }
 
   /** Each frame while placing: the corner under the cursor and the spots of a drag; asks the sim for tiles when they change. */
@@ -2107,9 +2195,15 @@ export class Commands {
     return out;
   }
 
-  /** The columns with a wall standing or started on them: a stretch passes over them without a word, as the sim does, so a chain can close on its anchor or go on from a wall built before. */
+  /** The columns with a wall (or an earth rampart) standing or started on them: a stretch passes over them without a word, as the sim does, so a chain can close on its anchor or go on from a wall built before. */
   private walledColumns(): Set<string> {
-    return new Set([...this.d.game.buildings.values()].filter((b) => buildingSpec(b.kind).defence === 'wall').map((b) => `${b.x},${b.z}`));
+    const out = new Set<string>();
+    for (const b of this.d.game.buildings.values()) {
+      const s = buildingSpec(b.kind);
+      if (s.defence !== 'wall') continue;
+      for (let dz = 0; dz < s.d; dz++) for (let dx = 0; dx < s.w; dx++) out.add(`${b.x + dx},${b.z + dz}`);
+    }
+    return out;
   }
 
   /** The wall chain's next stretch: from the anchor towards the cursor, or the one wall under the cursor before the first click. */
@@ -2117,8 +2211,11 @@ export class Commands {
     const p = this.placing;
     if (!p || Number.isNaN(p.x)) return null;
     if (!p.chain) return { x: p.x, z: p.z, dir: 0, length: 0, cells: [[p.x, p.z]] };
-    const { dir, length } = snapStretch(p.chain.x, p.chain.z, p.x, p.z, WALL_STRETCH_MAX_COLUMNS);
-    return { x: p.chain.x, z: p.chain.z, dir, length, cells: stretchCells(p.chain.x, p.chain.z, dir, length) };
+    const snap = snapStretch(p.chain.x, p.chain.z, p.x, p.z, WALL_STRETCH_MAX_COLUMNS);
+    // The earth rampart goes a 2 x 2 chunk at a time (Patch 5): its stretch ends on a whole chunk.
+    const size = chainPiece(buildingSpec(p.kind));
+    const length = snap.length - (snap.length % size);
+    return { x: p.chain.x, z: p.chain.z, dir: snap.dir, length, cells: stretchSpots(p.chain.x, p.chain.z, snap.dir, length, size) };
   }
 
   /**
@@ -2309,6 +2406,9 @@ const MAKE_WORDS: Record<number, [string, string]> = {
   [BuildingKind.Workshop]: ['Make', 'Open the workshop menu: planks, leather, rope, bandages and remedies, sticks, carts and trinkets, the better ones with the main base\'s tiers. It works with no workers. Each one\'s key is on its button; More (+) shows the next page; Esc goes back.'],
   [BuildingKind.ArtilleryWorkshop]: ['Engines', 'Open the artillery menu: catapults and ballistas from main base tier 3, bronze and iron cannons at tier 4. It works with no workers. Esc goes back.'],
 };
+
+/** What a Citadel makes for its engine platform (Patch 5): its Build defense menu, not its Make. */
+const PLATFORM: ReadonlySet<number> = new Set(platformProducts());
 
 /** A short button face from a product name. */
 export function shortFace(name: string): string {

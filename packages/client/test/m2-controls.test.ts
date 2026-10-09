@@ -20,7 +20,7 @@ function sel(key: string, kind: Selectable['kind'], typeKey: string, owner = ME,
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, farm: null, ...o,
+    queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: 'Big House', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, farm: null, room: 0, fixedEngine: 0, ...o,
   };
 }
 
@@ -98,7 +98,7 @@ describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => 
     // Patch 4: no place kept for Back on the grid's B.
     expect(slots).toHaveLength(15);
     expect(submenuChoices(slots[13]!).map((c) => c.name)).toEqual([
-      'Wooden wall', 'Hardwood wall', 'Stone wall',
+      'Wooden wall', 'Hardwood wall', 'Stone wall', 'Earth rampart',
       'Wooden gate (east to west)', 'Wooden gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
       'Stone gate (east to west)', 'Stone gate (north to south)',
       'Wooden tower', 'Hardwood tower', 'Stone tower',
@@ -111,9 +111,9 @@ describe('the worker card', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     const card = c.card();
     // Move, Jade's gather, unload, repair, dig and prospect, one Build, then Eat, Upgrade equipment and the cart
-    // (Jade's Patch 3 cut rank training: a worker ranks up by working).
-    expect(card.map((e) => e.action)).toEqual(['move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'build', 'eat', 'equip', 'cart']);
-    expect(card.map((e) => e.face)).toEqual(['Move', 'Gather', 'Unload', 'Repair', 'Dig', 'Prospect', 'Build', 'Eat', 'Equip', 'Cart']);
+    // (Jade's Patch 3 cut rank training: a worker ranks up by working), and Patch 5's Run/Walk last.
+    expect(card.map((e) => e.action)).toEqual(['move', 'gather', 'returnCargo', 'repair', 'dig', 'prospect', 'build', 'eat', 'equip', 'cart', 'pace']);
+    expect(card.map((e) => e.face)).toEqual(['Move', 'Gather', 'Unload', 'Repair', 'Dig', 'Prospect', 'Build', 'Eat', 'Equip', 'Cart', 'Walk']);
     expect(button(card, 'prospect').enabled).toBe(true); // Prospect (milestone 4)
     expect(button(card, 'returnCargo').enabled).toBe(true); // worker 2 carries something
     expect(button(card, 'returnCargo').name).toBe('Unload');
@@ -145,9 +145,9 @@ describe('the worker card', () => {
     expect(card[15]!.key).toBe('Escape');
     card[13]!.run({ shift: false, ctrl: false });
     card = c.card();
-    // Defences' 12 choices fit a desktop card, every one on a letter of its own (Patch 5: earthworks and ramps are gone).
+    // Defences' 13 choices fit a desktop card, every one on a letter of its own (Patch 5: earthworks and ramps are gone, the earth rampart joins).
     expect(card.map((e) => e.face)).toEqual([
-      'Wooden wall', 'Hardwood wall', 'Stone wall',
+      'Wooden wall', 'Hardwood wall', 'Stone wall', 'Earth rampart',
       'Wooden gate (east to west)', 'Wooden gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
       'Stone gate (east to west)', 'Stone gate (north to south)',
       'Wooden tower', 'Hardwood tower', 'Stone tower', 'Back',

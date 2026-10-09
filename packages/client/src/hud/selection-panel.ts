@@ -718,7 +718,8 @@ export class SelectionPanel {
 
   /** Up top and inside: a picture and a count, then their portraits, each one's tooltip saying what a click does. */
   private garrison(b: BuildingInfo): void {
-    const top = garrisonRoom(b);
+    // The sim's count: a Citadel's engine platform adds 4 while no fixed engine stands there (Patch 5).
+    const top = garrisonRoom(b) > 0 ? Math.max(garrisonRoom(b), b.room ?? 0) : 0;
     if (top > 0) {
       const row = this.strip('garrison');
       this.chip('top', {

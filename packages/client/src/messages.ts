@@ -44,9 +44,10 @@ export type ToWorker =
  * and a mage's school, mana, the spell she is casting, her beam and the
  * spells on her; the faction of one of the neutral peoples' units; what it
  * rides and the mount's health; an engine's crew standing by and whether
- * something hauls it; its meal and hunger; a timed action under way.
+ * something hauls it; its meal and hunger; a timed action under way; what
+ * work it is at, for its clip and the tool in its hand.
  */
-export const STATE_STRIDE = 56;
+export const STATE_STRIDE = 57;
 export const S = {
   id: 0,
   owner: 1,
@@ -132,13 +133,23 @@ export const S = {
   /** A timed action beside a building (Jade's Patch 2, sim units/tinker.ts): the steps done and the steps it takes, 0 when the unit is not sitting at one. */
   tinkerDone: 54,
   tinkerOf: 55,
+  /** A worker's work now (Task), for its clip and the tool in its hand (Patch 5); 0 for none. */
+  task: 56,
 } as const;
+
+/** What a worker is at (S.task): each has a clip of its own and the tool for it in hand (Patch 5, units-view.ts). */
+export const Task = { None: 0, Chop: 1, Mine: 2, Gather: 3, Fish: 4, Butcher: 5, Field: 6, Clear: 7, Build: 8, Relight: 9, Prospect: 10, Dig: 11, Tame: 12, Crew: 13 } as const;
 
 /** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */
 export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 16, Hexed: 32 } as const;
 
-/** Bits of S.flags (OnTop: up on a tower or a main base's top, drawn there though it is inside). */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192 } as const;
+/**
+ * Bits of S.flags (OnTop: up on a tower or a main base's top, drawn there
+ * though it is inside; Climbing: a monster on a wall or one of the players'
+ * units on a face; Running: moving at its run; RunMode: its Run/Walk button
+ * is on Run).
+ */
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192, Running: 16384, RunMode: 32768 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;
@@ -212,8 +223,12 @@ export interface BuildingInfo {
   working: number;
   /** Units in it: sheltering inside, and up on its top (also in `up`). */
   inside: number[];
-  /** The units up on its top (towers, a main base from tier 2), entity ids. */
+  /** The men up on its top (towers, a main base from tier 2), entity ids: not a Citadel's fixed engine and its crew (Patch 5). */
   up: number[];
+  /** How many men its top takes now: a Citadel's engine platform takes 4 more while no fixed engine stands there (Patch 5). */
+  room: number;
+  /** A Citadel's fixed engine on its engine platform, entity id, or 0 (Patch 5). */
+  fixedEngine: number;
   /** The panel's status line. */
   status: string;
   name: string;

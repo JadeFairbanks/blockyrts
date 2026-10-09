@@ -9,7 +9,7 @@ import { computeEnclosed, buildingCentre, dist2, isSnuffed, relight } from '../b
 import { payFood, STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
 import { canAffordAny, fishOf, meatOf, payAny, shortOfAny } from '../economy/food-kinds.ts';
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, clearingOn, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
-import { constructionHealth, footprintRect, garrisonRoom, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
+import { constructionHealth, footprintRect, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
 import { buildingWorth, repairCost } from '../buildings/repair.ts';
 import { autoRepairStep, repairShort } from './repairs.ts';
 import { isDark } from '../clock.ts';
@@ -28,9 +28,10 @@ import type { PropView } from '../world/world.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './unit-orders.ts';
 import { carryCapacity, cartSpeed, onWheels, rawLimitTenthsLb } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
-import { freePost, onTop, spreadTop, unitsOnTop } from './top.ts';
+import { freePost, menOnTop, onTop, spreadTop, topRoom as roomUpTop } from './top.ts';
 import { refundKit, runCart, runKitUp } from './gear.ts';
-import { digStairsOut, runDig, runStairs } from './dig.ts';
+import { runDig } from './dig.ts';
+import { addRun, climbOn, gaitMover, gaitOf, gaitSpec, payForRunning, RUN_BONUS_BP, runsNow, selfLed, startClimb } from './moves.ts';
 import { toolNeeded, toolTier } from './tools.ts';
 import { aTroop } from './kits.ts';
 import { runEat, runHitch, runHunt, runProspect, runTame } from './field.ts';
@@ -197,9 +198,9 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
   const level = unitLevel(state, i);
   if (ncx !== cx && ncz !== cz && state.nav.stepCost(cx, cz, ncx, ncz, m, level) < 0) {
     // A straight line from off the column's centre clips a corner the path goes round: slide along
-    // whichever side is open this step (a hunter kneeling by a carcass at a column's edge got stuck here).
-    if (state.nav.stepCost(cx, cz, ncx, cz, m, level) >= 0) nz = e.z[i]!;
-    else if (state.nav.stepCost(cx, cz, cx, ncz, m, level) >= 0) nx = e.x[i]!;
+    // whichever side is open this step without a climb (a hunter kneeling by a carcass at a column's edge got stuck here).
+    if (state.nav.hopCost(cx, cz, ncx, cz, m, level) >= 0) nz = e.z[i]!;
+    else if (state.nav.hopCost(cx, cz, cx, ncz, m, level) >= 0) nx = e.x[i]!;
     ncx = col(nx);
     ncz = col(nz);
   }
@@ -220,6 +221,12 @@ export function walkTo(state: SimState, i: number, goal: Goal, exactX?: number, 
     e.pathOk[i] = 2;
     return MOVING;
   }
+  // A face of land or rock too high to jump (Patch 5 GP-18): onto it, and up or down at a climber's pace (units/moves.ts).
+  if ((ncx !== cx || ncz !== cz) && state.nav.climbStep(cx, cz, ncx, ncz, m, level)) {
+    const to = state.nav.layerTo(cx, cz, state.nav.layerAt(cx, cz, level), ncx, ncz, m);
+    startClimb(state, i, cx, cz, ncx, ncz, state.nav.levelOf(ncx, ncz, to) * WU_PER_TERRAIN_UNIT);
+    return MOVING;
+  }
   landAt(state, i, nx, nz);
   if (nx === tx && nz === tz) e.pathAt[i] = e.pathAt[i]! + 1;
   return MOVING;
@@ -232,8 +239,10 @@ export function unitLevel(state: SimState, i: number): number {
 
 /**
  * How a unit gets about: on wheels with a cart (and the animal pulling it),
- * wild animals as walkers that never pass gates, everyone else as a person.
- * Armour no longer stops anyone swimming (Jade, 2026-10-03).
+ * wild animals as walkers that never pass gates, the peoples' units as a
+ * person, and the players' by their gait (units/moves.ts: Patch 5's
+ * climbing and higher jumps). Armour no longer stops anyone swimming (Jade,
+ * 2026-10-03).
  */
 export function moverOf(state: SimState, i: number): Mover {
   const e = state.entities;
@@ -243,17 +252,22 @@ export function moverOf(state: SimState, i: number): Mover {
     return w >= 0 && onWheels(state, w) ? WHEELS : PERSON;
   }
   if (onWheels(state, i)) return WHEELS;
-  return PERSON;
+  if (e.owner[i]! >= state.players.length) return PERSON;
+  return gaitMover(gaitOf(state, i), selfLed(state, i));
 }
 
-/** A unit's speed this step, wu: slowed by starving, by a grasp or a web, hastened by a howl or a shout (gear and loads weigh nothing, Jade). */
-export function moveSpeed(state: SimState, i: number): number {
+/** A unit's speed this step, wu: 40% faster running (Patch 5 GP-16), slowed by starving, by a grasp or a web, hastened by a howl or a shout (gear and loads weigh nothing, Jade). */
+export function moveSpeed(state: SimState, i: number, run = runsNow(state, i)): number {
   const e = state.entities;
   const cart = cartSpeed(state, i);
   // A mount goes at its own pace (Table 14 speeds: a trot, a gallop at a foe).
   const mounted = e.mount[i] !== 0;
-  const base = mounted ? mountedSpeed(state, i) : cart > 0 ? Math.min(cart, e.speed[i]!) : e.speed[i]!;
+  // On foot, a slower kind (the Dreadnought) walks, and so runs, at its own share of the pace.
+  const pace = mounted ? 10000 : gaitSpec(gaitOf(state, i)).paceBp;
+  const own = pace === 10000 ? e.speed[i]! : floorDiv(e.speed[i]! * pace, 10000);
+  const base = mounted ? mountedSpeed(state, i) : cart > 0 ? Math.min(cart, own) : own;
   let bp = 10000;
+  if (run) bp += RUN_BONUS_BP;
   if (starvingSince(state, i)) bp -= STARVING_SLOW_BP;
   if (e.slowUntil[i]! > state.step) bp -= e.slowBp[i]!;
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
@@ -514,7 +528,8 @@ export function destroyBuilding(state: SimState, id: number): void {
     dropQueue(state, j);
     e.act[j] = Act.Start;
     resetWalk(state, j);
-    e.hp[j] = e.hp[j]! - floorDiv(e.maxHp[j]! * SHELTER_LOSS_PER_MILLE, 1000);
+    // A fixed engine falls with its Citadel's platform (Patch 5); its crew come down as the men up top do.
+    e.hp[j] = e.kind[j] === UnitKind.Engine ? 0 : e.hp[j]! - floorDiv(e.maxHp[j]! * SHELTER_LOSS_PER_MILLE, 1000);
     // Killed by the fall: settled with the step's other deaths.
     if (e.hp[j]! <= 0) {
       e.hp[j] = 0;
@@ -555,8 +570,10 @@ export function fleeFrom(state: SimState, i: number, ax: number, az: number): vo
 // ----- the orders -----
 
 /** Whether an order keeps a unit inside the building it is in. */
-function keepsInside(o: UnitOrder | undefined, inside: number): boolean {
+function keepsInside(state: SimState, o: UnitOrder | undefined, inside: number): boolean {
   if (!o || inside === 0) return false;
+  // A garrison crewman stays up on the Citadel's platform with his fixed engine (Patch 5).
+  if (o.t === 'crew') return state.entities.inside[state.entities.indexOf(o.id)] === inside;
   return (o.t === 'enter' || o.t === 'job' || o.t === 'train') && o.b === inside;
 }
 
@@ -588,7 +605,8 @@ export function stopUnit(state: SimState, i: number): void {
   e.act[i] = Act.Start;
   e.timer[i] = 0;
   resetWalk(state, i);
-  if (e.inside[i] !== 0) leaveBuilding(state, i);
+  // A fixed engine never comes down from its Citadel's platform (Patch 5).
+  if (e.inside[i] !== 0 && e.kind[i] !== UnitKind.Engine) leaveBuilding(state, i);
 }
 
 /** A new order (not queued) or Stop breaks off a spell being cast (nothing is paid until it lands) or a Beam being held. */
@@ -818,11 +836,10 @@ export const RESIN_PER_SOFTWOOD_TREE = 2;
 
 /**
  * Walks the unit's load (or, with none, its loot bag) to a drop-off (a given
- * one, or the nearest that takes it) and unloads it there. With no way
- * there and `stairs`, a worker shut in a hole digs crude stairs out first
- * (units/dig.ts digStairsOut, Patch 4), and the walk goes on after.
+ * one, or the nearest that takes it) and unloads it there. [Patch 4's crude
+ * stairs out of a hole went with Patch 5 (GP-17): workers climb out.]
  */
-export function toDropoff(state: SimState, i: number, target: Building | null, stairs = false): WalkResult {
+export function toDropoff(state: SimState, i: number, target: Building | null): WalkResult {
   const e = state.entities;
   const res = e.carryAmt[i]! > 0 ? e.carryRes[i]! : -1;
   const b = target ?? nearestDropoff(state, i, res);
@@ -832,10 +849,7 @@ export function toDropoff(state: SimState, i: number, target: Building | null, s
   }
   const r = walkTo(state, i, besideBuilding(b));
   if (r === ARRIVED) unload(state, i, b);
-  if (r === FAILED) {
-    if (stairs && digStairsOut(state, i)) return MOVING;
-    alert(state, e.owner[i]!, 'I cannot reach a drop-off.', e.x[i]!, e.z[i]!, i);
-  }
+  if (r === FAILED) alert(state, e.owner[i]!, 'I cannot reach a drop-off.', e.x[i]!, e.z[i]!, i);
   return r;
 }
 
@@ -855,8 +869,7 @@ function backToNode(state: SimState, i: number): boolean {
 function runReturn(state: SimState, i: number, target: Building | null): boolean {
   const e = state.entities;
   if (e.carryAmt[i] === 0 && bagEmpty(state, i)) return backToNode(state, i);
-  // Unload in a hole a digger is shut in: it digs its way out first (Patch 4).
-  const r = toDropoff(state, i, target, true);
+  const r = toDropoff(state, i, target);
   if (r === MOVING) return CONTINUE;
   if (r === FAILED) return DONE;
   return backToNode(state, i);
@@ -1029,7 +1042,8 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   const e = state.entities;
   const b = state.buildings.get(o.b);
   const worker = e.kind[i] === UnitKind.Worker;
-  const topRoom = b && canGarrison(state, i) ? garrisonRoom(b) : 0;
+  // A Citadel's engine platform takes men too while no engine stands there (Patch 5).
+  const topRoom = b && canGarrison(state, i) ? roomUpTop(state, b) : 0;
   const shelter = b && worker ? shelterRoom(b) : 0;
   const up = topRoom > 0 && (!worker || o.auto === ENTER_TOP);
   if (!b || b.owner !== e.owner[i] || (!up && shelter === 0)) return DONE;
@@ -1042,7 +1056,7 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   if (r === MOVING) return CONTINUE;
   if (r === FAILED) return DONE;
   // The top's places and the shelter's are counted apart.
-  const top = up && unitsOnTop(state, b.id).length < topRoom;
+  const top = up && menOnTop(state, b.id).length < topRoom;
   if (!top && (shelter === 0 || shelteredIn(state, b.id).length >= shelter)) {
     alert(state, b.owner, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} is full.`, e.x[i]!, e.z[i]!, i);
     return DONE;
@@ -1066,7 +1080,7 @@ function shelterFallback(state: SimState): number {
 /** Up onto a building's top, on the first free place its level has for a man; a worker finding it full stays in the shelter below. */
 function climbUp(state: SimState, i: number, b: Building, o: Extract<UnitOrder, { t: 'enter' }>, room: number): void {
   const e = state.entities;
-  if (unitsOnTop(state, b.id).filter((j) => j !== i).length >= room) {
+  if (menOnTop(state, b.id).filter((j) => j !== i).length >= room) {
     if (e.kind[i] === UnitKind.Worker) o.auto = shelterFallback(state);
     return;
   }
@@ -1409,8 +1423,6 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runCart(state, i, o);
     case 'dig':
       return runDig(state, i, o);
-    case 'stairs':
-      return runStairs(state, i, o);
     case 'hunt':
       return runHunt(state, i, o);
     case 'tame':
@@ -1430,9 +1442,6 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runMend(state, i, o);
     case 'retrain':
       return runRetrain(state, i, o);
-    case 'port':
-      // Only an engine takes a cannon port (siege/engines.ts runEngine).
-      return DONE;
     case 'loot':
       return runLoot(state, i, o);
     case 'forage':
@@ -1453,12 +1462,34 @@ function runPatrol(state: SimState, i: number, o: Extract<UnitOrder, { t: 'patro
   return CONTINUE;
 }
 
-/** One step for one of the players' units. */
+/**
+ * One step for one of the players' units. On a face it climbs on, whatever
+ * else it was told (orders wait until it is off); running, what it runs is
+ * counted and paid for in food every 50 m (Patch 5, units/moves.ts).
+ */
 export function runUnit(state: SimState, i: number): void {
   const e = state.entities;
   e.order[i] = OrderKind.Idle;
   // A timed action sets it again on each step it goes on (units/tinker.ts).
   e.tinker[i] = 0;
+  if (e.onFace[i] !== 0) {
+    climbOn(state, i, moveSpeed(state, i, false));
+    return;
+  }
+  payForRunning(state, i);
+  if (!runsNow(state, i)) {
+    unitStep(state, i);
+    return;
+  }
+  const x = e.x[i]!;
+  const z = e.z[i]!;
+  unitStep(state, i);
+  if (e.onFace[i] === 0) addRun(state, i, length2d(e.x[i]! - x, e.z[i]! - z), moveSpeed(state, i, true));
+}
+
+/** A step of a unit's orders and fighting. */
+function unitStep(state: SimState, i: number): void {
+  const e = state.entities;
   // Held by a slime: it cannot act until let go.
   if (e.heldUntil[i]! > state.step) return;
   // Inside a building's walls (a game saved before they were walls): out first.
@@ -1476,13 +1507,13 @@ export function runUnit(state: SimState, i: number): void {
       else if (guard === 0) lootIdle(state, i);
       return;
     }
-    if (e.act[i] === Act.Start && e.inside[i] !== 0 && !keepsInside(o, e.inside[i]!)) leaveBuilding(state, i);
+    if (e.act[i] === Act.Start && e.inside[i] !== 0 && !keepsInside(state, o, e.inside[i]!)) leaveBuilding(state, i);
     if (!runOrder(state, i, o)) return;
     // Done: on to the next order.
     if (e.queue[i]![0] === o) e.queue[i]!.shift();
     e.act[i] = Act.Start;
     e.timer[i] = 0;
     resetWalk(state, i);
-    if (e.queue[i]!.length > 0 && e.inside[i] !== 0 && !keepsInside(e.queue[i]![0], e.inside[i]!)) leaveBuilding(state, i);
+    if (e.queue[i]!.length > 0 && e.inside[i] !== 0 && !keepsInside(state, e.queue[i]![0], e.inside[i]!)) leaveBuilding(state, i);
   }
 }

@@ -3,7 +3,9 @@
 // Withdraw funds takes the whole ingots; it hires the Dreadnought for 100
 // food and 15 gold ingots' worth of gold and silver (a gold is worth 7
 // silver; a little over, never under), at most 1 at a tier 3 main base and 3
-// at tier 4. He strikes a smash, then a sweep, by turns.
+// at tier 4. He strikes a smash, then a sweep, by turns. He gets about by his
+// own gait (decisions 3.8): 20% slower, never climbing, jumping 1.5 m, and
+// running at double the food.
 import { describe, expect, it } from 'vitest';
 import {
   BuildingKind,
@@ -11,9 +13,13 @@ import {
   DREADNOUGHT,
   dreadnoughtProduct,
   dreadnoughtProblem,
+  Gait,
+  gaitOf,
+  gaitSpec,
   Hit,
   isDreadnought,
   meleeOf,
+  moveSpeed,
   nextBlow,
   paysForDreadnought,
   placeBuilding,
@@ -25,6 +31,9 @@ import {
   step,
   supplyUsed,
   tavernInfo,
+  UnitKind,
+  WU_PER_METRE,
+  WU_PER_TERRAIN_UNIT,
   type Building,
   type Order,
   type SimState,
@@ -122,5 +131,21 @@ describe('Patch 5: the Dreadnought', () => {
     expect(e.atkWith[i]).toBe(SECOND_BLOW);
     expect(meleeOf(s, i)).toMatchObject({ damage: 70, hit: Hit.Sweep });
     expect(nextBlow(s, i)).toBe(Slot.Weapon);
+  });
+
+  it('walks a fifth slower than a warrior, never climbs, jumps 1.5 m and pays double for running', () => {
+    const { s, tavern } = setup(3);
+    s.players[0]!.pool[Res.Gold] = 15;
+    run(s, 1, [{ kind: 'produce', player: 0, building: tavern.id, product: dreadnoughtProduct(15, 0), count: 1 }]);
+    run(s, DREADNOUGHT.trainS * 20 + 40);
+    const i = dreadnoughts(s)[0]!;
+    const e = s.entities;
+    const warrior = [...Array(e.count).keys()].find((k) => e.owner[k] === 0 && e.kind[k] === UnitKind.Warrior && !dreadnoughts(s).includes(k))!;
+    expect(gaitOf(s, i)).toBe(Gait.Dreadnought);
+    const g = gaitSpec(gaitOf(s, i));
+    expect(g.climb).toBe(0);
+    expect(Math.abs(g.jump * WU_PER_TERRAIN_UNIT - 1.5 * WU_PER_METRE)).toBeLessThan(WU_PER_TERRAIN_UNIT);
+    expect(g.runFood).toBe(2 * gaitSpec(Gait.Fighter).runFood);
+    expect(moveSpeed(s, i, false)).toBe(Math.floor((moveSpeed(s, warrior, false) * 8) / 10));
   });
 });

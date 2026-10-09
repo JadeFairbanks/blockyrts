@@ -5,14 +5,15 @@
 // ingots' worth of gold and silver, mixed as the player likes (one gold
 // ingot is worth 7 silver), never under and at most a little over; he eats
 // 3 food a meal and takes 8 supply; a player has at most 1 alive at a tier 3
-// main base and 3 at tier 4. He walks 20% slower than the standard units,
-// never climbs and jumps rises up to 1.5 m (decisions 3.8: the movement
-// data takes `jumpCm`, `climbs` and `runFoodMul` from here). Now and then he
-// says something, with his war cry.
+// main base and 3 at tier 4. How he gets about is his row of the movement
+// table (units/moves.ts GAITS, Gait.Dreadnought): he walks, and so runs, 20%
+// slower than the standard units, pays double food for running, never climbs
+// and jumps rises up to 1.5 m (decisions 3.8). Now and then he says
+// something, with his war cry.
 
 import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { hash32 } from '../rng.ts';
-import { addWarrior, OrderKind, UnitKind, WALK_SPEED_WU, type EntityStore, type SimState } from '../state.ts';
+import { addWarrior, OrderKind, UnitKind, type EntityStore, type SimState } from '../state.ts';
 import { say } from '../peoples/speech.ts';
 import { Troop } from './kits.ts';
 
@@ -33,13 +34,6 @@ export const DREADNOUGHT = {
   supply: 8,
   /** Food he eats each meal (Jade: 3 every eating tick). */
   mealFood: 3,
-  /** His walk, and so his run, as a percentage of the standard units' (Jade: 20% less). */
-  speedPct: 80,
-  /** What running costs him in food, times a standard unit's (Jade: double). */
-  runFoodMul: 2,
-  /** The highest rise he jumps, cm (Jade: up to 1.5 m); he never climbs (decisions 3.8). */
-  jumpCm: 150,
-  climbs: false,
   /** The most a player may have alive (and being hired) by main base tier, [tier 0, ..., tier 4] (Jade: 1 at tier 3, 3 at tier 4). */
   capByTier: [0, 0, 0, 1, 3] as readonly number[],
   /** Seconds between his remarks on average (s). */
@@ -118,7 +112,7 @@ export function addDreadnought(state: SimState, owner: number, x: number, z: num
   const e = state.entities;
   e.hp[i] = DREADNOUGHT.hp;
   e.maxHp[i] = DREADNOUGHT.hp;
-  e.speed[i] = floorDiv(WALK_SPEED_WU * DREADNOUGHT.speedPct, 100);
+  // His slower walk is his gait's (units/moves.ts), on the standard walk addWarrior gives him.
   return i;
 }
 

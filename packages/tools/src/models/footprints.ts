@@ -31,14 +31,16 @@ export interface Box {
   inverse: Mat4;
   /** Where the model's origin sits, units from the footprint corner. */
   at: [number, number];
+  /** The size it is drawn at (ModelAt scale). */
+  scale: number;
   /** Bounds from the footprint corner. */
   min: Vec3;
   max: Vec3;
   name: string;
 }
 
-/** Every drawn cube of a model whose origin sits at (x, z) units from the footprint corner. */
-export function placedBoxes(raw: unknown, x = 0, z = 0): Box[] {
+/** Every drawn cube of a model whose origin sits at (x, z) units from the footprint corner, drawn at a scale. */
+export function placedBoxes(raw: unknown, x = 0, z = 0, scale = 1): Box[] {
   const model = parseBbmodel(raw, []);
   const cubes = new Map(model.cubes.map((c) => [c.uuid, c]));
   const out: Box[] = [];
@@ -46,7 +48,7 @@ export function placedBoxes(raw: unknown, x = 0, z = 0): Box[] {
     if (typeof node === 'string') {
       const c = cubes.get(node);
       if (!c || skip || !c.exported || c.type !== 'cube') return;
-      out.push(cubeBox(c, parent, x, z));
+      out.push(cubeBox(c, parent, x, z, scale));
       return;
     }
     const m = multiply(parent, pivoted(node.origin, node.rotation));
@@ -62,7 +64,7 @@ function pivoted(origin: Vec3, rotation: Vec3): Mat4 {
   return multiply(compose(origin, quatFromEulerDegZYX(rotation)), compose([-origin[0], -origin[1], -origin[2]], [0, 0, 0, 1]));
 }
 
-function cubeBox(c: BbCube, m: Mat4, x: number, z: number): Box {
+function cubeBox(c: BbCube, m: Mat4, x: number, z: number, scale: number): Box {
   const t = multiply(m, pivoted(c.origin, c.rotation));
   const from: Vec3 = [c.from[0] - c.inflate, c.from[1] - c.inflate, c.from[2] - c.inflate];
   const to: Vec3 = [c.to[0] + c.inflate, c.to[1] + c.inflate, c.to[2] + c.inflate];
@@ -70,14 +72,15 @@ function cubeBox(c: BbCube, m: Mat4, x: number, z: number): Box {
   const max: Vec3 = [-Infinity, -Infinity, -Infinity];
   for (let k = 0; k < 8; k++) {
     const p = transformPoint(t, [k & 1 ? to[0] : from[0], k & 2 ? to[1] : from[1], k & 4 ? to[2] : from[2]]);
-    p[0] += x;
-    p[2] += z;
+    p[0] = p[0]! * scale + x;
+    p[1] = p[1]! * scale;
+    p[2] = p[2]! * scale + z;
     for (let a = 0; a < 3; a++) {
       min[a] = Math.min(min[a]!, p[a]!);
       max[a] = Math.max(max[a]!, p[a]!);
     }
   }
-  return { from, to, inverse: invertRigid(t), at: [x, z], min, max, name: c.name };
+  return { from, to, inverse: invertRigid(t), at: [x, z], scale, min, max, name: c.name };
 }
 
 /** The inverse of a rotation and translation. */
@@ -91,7 +94,7 @@ function invertRigid(m: Mat4): Mat4 {
 /** Whether a point (units from the footprint corner) lies inside a cube. */
 export function inside(b: Box, p: Vec3): boolean {
   if (p[0] < b.min[0] || p[0] > b.max[0] || p[1] < b.min[1] || p[1] > b.max[1] || p[2] < b.min[2] || p[2] > b.max[2]) return false;
-  const q = transformPoint(b.inverse, [p[0] - b.at[0], p[1], p[2] - b.at[1]]);
+  const q = transformPoint(b.inverse, [(p[0] - b.at[0]) / b.scale, p[1] / b.scale, (p[2] - b.at[1]) / b.scale]);
   return q[0] >= b.from[0] && q[0] <= b.to[0] && q[1] >= b.from[1] && q[1] <= b.to[1] && q[2] >= b.from[2] && q[2] <= b.to[2];
 }
 
@@ -150,14 +153,14 @@ function fillClosedPockets(solid: boolean[][], w: number, d: number): void {
   for (let j = 0; j < d; j++) for (let i = 0; i < w; i++) if (!seen[j]![i]) solid[j]![i] = true;
 }
 
-/** The height (units) of the highest surface under a point, or 0 for bare ground. */
-export function topAt(boxes: readonly Box[], x: number, z: number): number {
-  const near = boxes.filter((b) => b.min[0] <= x && b.max[0] >= x && b.min[2] <= z && b.max[2] >= z);
+/** The height (units) of the highest surface under a point, at or below `below` (a deck under a roof, Patch 5's wooden towers), or 0 for bare ground. */
+export function topAt(boxes: readonly Box[], x: number, z: number, below = Infinity): number {
+  const near = boxes.filter((b) => b.min[0] <= x && b.max[0] >= x && b.min[2] <= z && b.max[2] >= z && b.min[1] < below);
   let top = 0;
   for (const b of near) {
     if (b.max[1] <= top) continue;
-    // Down from the cube's top in quarter units to where the point first enters it.
-    for (let y = Math.ceil(b.max[1] * 4) / 4; y > top; y -= 0.25) {
+    // Down from the cube's top (or from `below`) in quarter units to where the point first enters it.
+    for (let y = Math.min(Math.ceil(b.max[1] * 4) / 4, Math.floor(below * 4) / 4); y > top; y -= 0.25) {
       if (inside(b, [x, y, z])) {
         top = y;
         break;
@@ -198,12 +201,12 @@ export function checkFootprints(read: (id: string) => unknown): LevelCheck[] {
   for (const [k, levels] of Object.entries(FOOTPRINTS)) {
     levels.forEach((f, n) => {
       if (!f.models || f.models.length === 0) return;
-      const boxes = f.models.flatMap((m) => placedBoxes(read(m.id), m.x, m.z));
+      const boxes = f.models.flatMap((m) => placedBoxes(read(m.id), m.x, m.z, (m.scalePm ?? 1000) / 1000));
       const w = f.rows[0]!.length;
       const d = f.rows.length;
       const posts: string[] = [];
       for (const [x, z, y] of f.posts ?? []) {
-        const top = topAt(boxes, x, z);
+        const top = topAt(boxes, x, z, y + POST_SLACK);
         if (Math.abs(top - y) > POST_SLACK) posts.push(`post (${x}, ${z}) at ${y} units, but the top under it is at ${top}`);
         else if (!roomToStand(boxes, x, top, z)) posts.push(`post (${x}, ${z}) has no room for a man standing at ${top} units`);
       }

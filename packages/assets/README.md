@@ -21,7 +21,8 @@ packages/assets/src/
   models/<category>/<id>/
     <id>.bbmodel                    the model, texture embedded
     <id>.png                        its texture
-    <id>_<variant>.png              colour variants (metal tiers, young animals, ranks)
+    <id>_<variant>.png              colour variants (metal tiers, young animals, ranks;
+                                    a building's `damaged`)
   textures/                         terrain textures (wishlist section I)
   effects/                          effect sprites and particle textures (section J)
   ui/                               interface art and 32 x 32 icons (section K)

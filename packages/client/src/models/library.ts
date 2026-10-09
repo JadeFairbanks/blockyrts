@@ -3,8 +3,10 @@
 //
 // The library streams: it opens as soon as index.json is in, then loads the
 // models a few at a time, the ones asked for first (the starting bodies, then
-// whatever comes into view), the rest in the background. A clip is baked the
-// first time it is drawn. One model failing to load drops only that model.
+// whatever comes into view), the rest in the background. A model the index
+// lists lazy (a kit tier's or a building's other looks) loads only when asked
+// for. A clip is baked the first time it is drawn. One model failing to load
+// drops only that model.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { ModelIndex, ModelSidecar } from './format.ts';
@@ -53,13 +55,13 @@ export interface ModelLibrary {
   get(id: string): ModelData;
   /** Whether index.json lists this id (it may still be loading, or have failed). */
   listed(id: string): boolean;
-  /** Moves a listed model that is not loaded yet to the front of the queue. */
+  /** Moves a listed model that is not loaded yet to the front of the queue (a lazy one joins it). */
   request(id: string): void;
-  /** Resolves once each of these ids is loaded or has failed; ids not listed are skipped. */
+  /** Loads these ids first and resolves once each is loaded or has failed; ids not listed are skipped. */
   ready(ids: readonly string[]): Promise<void>;
   /** Calls back after each model arrives. */
   onLoad(cb: (model: ModelData) => void): void;
-  /** Resolves once every listed model is loaded or has failed. */
+  /** Resolves once every listed model that is not lazy is loaded or has failed. */
   readonly done: Promise<void>;
   dispose(): void;
 }
@@ -225,9 +227,13 @@ export async function openModelLibrary(baseUrl = '/models/', first: readonly str
   };
   const firstIds = first.filter((id) => entries.has(id));
   const firstSet = new Set(firstIds);
-  // The queue is taken from the end: the background in reverse order, then the first ids on top.
-  const queue = [...index.models].filter((e) => !firstSet.has(e.id)).sort((a, b) => rank(b) - rank(a)).map((e) => e.id);
+  // The queue is taken from the end: the background in reverse order, then the first ids on top. Lazy models wait to be asked for.
+  const queue = [...index.models].filter((e) => !firstSet.has(e.id) && !e.lazy).sort((a, b) => rank(b) - rank(a)).map((e) => e.id);
   for (let k = firstIds.length - 1; k >= 0; k--) queue.push(firstIds[k]!);
+  /** Ids queued or loading: the rest are lazy models nobody has asked for. */
+  const queued = new Set(queue);
+  /** How many queued models must settle before `done`. */
+  let eager = queue.length;
 
   const models = new Map<string, ModelData>();
   const settled = new Set<string>();
@@ -242,7 +248,8 @@ export async function openModelLibrary(baseUrl = '/models/', first: readonly str
     settled.add(id);
     for (const w of waiters.get(id) ?? []) w();
     waiters.delete(id);
-    if (settled.size === entries.size) finish();
+    if (!entries.get(id)?.lazy || firstSet.has(id)) eager--;
+    if (eager === 0) finish();
   };
   const pump = (): void => {
     while (!disposed && running < PARALLEL_LOADS && queue.length > 0) {
@@ -263,8 +270,24 @@ export async function openModelLibrary(baseUrl = '/models/', first: readonly str
         });
     }
   };
-  if (entries.size === 0) finish();
+  if (eager === 0) finish();
   pump();
+
+  const request = (id: string): void => {
+    if (!entries.has(id) || settled.has(id)) return;
+    // A lazy model nobody asked for yet joins the queue on top.
+    if (!queued.has(id)) {
+      queued.add(id);
+      queue.push(id);
+      pump();
+      return;
+    }
+    // Queued but not in the queue any more means it is loading now.
+    const k = queue.lastIndexOf(id);
+    if (k < 0 || k === queue.length - 1) return;
+    queue.splice(k, 1);
+    queue.push(id);
+  };
 
   return {
     models,
@@ -274,15 +297,9 @@ export async function openModelLibrary(baseUrl = '/models/', first: readonly str
       return m;
     },
     listed: (id) => entries.has(id),
-    request(id: string): void {
-      if (!entries.has(id) || settled.has(id)) return;
-      // Not in the queue any more means it is loading now.
-      const k = queue.lastIndexOf(id);
-      if (k < 0 || k === queue.length - 1) return;
-      queue.splice(k, 1);
-      queue.push(id);
-    },
+    request,
     ready(ids: readonly string[]): Promise<void> {
+      for (const id of ids) if (entries.get(id)?.lazy) request(id);
       const wait = ids.filter((id) => entries.has(id) && !settled.has(id));
       return Promise.all(
         wait.map(
