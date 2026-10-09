@@ -454,8 +454,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   // ---- Messages from the relay ----
   const onRelay = (m: ServerMessage): void => {
     switch (m.type) {
-      case 'frame':
-        send({ type: 'frames', frames: [m.frame] });
+      case 'frames':
+        send({ type: 'frames', frames: m.frames });
         break;
       case 'inputDelay':
         send({ type: 'inputDelay', steps: m.steps });

@@ -17,7 +17,7 @@ import {
 } from '@blockyrts/protocol';
 import type { AccountService } from '../src/accounts.ts';
 import { Relay } from '../src/relay/relay.ts';
-import { Room, type Conn } from '../src/relay/room.ts';
+import { FRAME_HOLD_MS, Room, type Conn } from '../src/relay/room.ts';
 
 class FakeConn implements Conn {
   static next = 1;
@@ -116,14 +116,27 @@ describe('lobby', () => {
 });
 
 describe('match', () => {
-  it('relays each frame to everyone, in order, and flags a gap', () => {
-    const { conns, send, start } = setup(2);
+  it('relays a step\'s frames to everyone together once all are in, and flags a gap', () => {
+    const { conns, send, start, advance } = setup(3);
     start();
+    const sent = (i: number): number[][][] => conns[i]!.all('frames').map((m) => m.frames.map((f) => [f.slot, f.step]));
     send(0, { type: 'frame', step: 0, orders: NO_ORDERS });
     send(0, { type: 'frame', step: 0, orders: NO_ORDERS }); // duplicate: dropped
     send(1, { type: 'frame', step: 2, orders: NO_ORDERS }); // gap
     expect(conns[1]!.last('error')?.code).toBe('frame_gap');
-    expect(conns[1]!.all('frame').map((f) => [f.frame.slot, f.frame.step])).toEqual([[0, 0]]);
+    send(1, { type: 'frame', step: 0, orders: NO_ORDERS });
+    send(0, { type: 'frame', step: 1, orders: NO_ORDERS });
+    expect(sent(1)).toEqual([]); // step 0 waits for slot 2's frame
+    send(2, { type: 'frame', step: 0, orders: NO_ORDERS });
+    for (const i of [0, 1, 2]) expect(sent(i)).toEqual([[[0, 0], [1, 0], [2, 0]]]);
+    // A stalled step's frames go out after a short wait, so every page can see whose is missing.
+    send(1, { type: 'frame', step: 1, orders: NO_ORDERS });
+    advance(FRAME_HOLD_MS - 50);
+    expect(sent(2)).toHaveLength(1);
+    advance(50);
+    expect(sent(2)).toEqual([[[0, 0], [1, 0], [2, 0]], [[0, 1], [1, 1]]]);
+    send(2, { type: 'frame', step: 1, orders: NO_ORDERS });
+    expect(sent(2).at(-1)).toEqual([[2, 1]]);
   });
 
   it('pauses for a dropped player, asks the host after the wait, and carries on without them at their next step', () => {
@@ -147,8 +160,10 @@ describe('match', () => {
     send(1, { type: 'hostChoice', slot: 2, choice: HostChoice.CarryOn }); // not the host: ignored
     expect(room.players[2]!.presence).toBe(Presence.Disconnected);
     send(0, { type: 'hostChoice', slot: 2, choice: HostChoice.CarryOn });
-    const leave = conns[1]!.last('frame')!.frame;
-    expect(leave).toMatchObject({ slot: 2, step: 5, flags: FrameFlag.Leave });
+    for (const i of [0, 1]) send(i, { type: 'frame', step: 5, orders: NO_ORDERS });
+    const step5 = conns[1]!.last('frames')!.frames;
+    expect(step5.map((f) => f.slot)).toEqual([2, 0, 1]);
+    expect(step5[0]).toMatchObject({ slot: 2, step: 5, flags: FrameFlag.Leave });
     expect(room.players[2]!.presence).toBe(Presence.Gone);
     expect(conns[0]!.last('pauseState')).toMatchObject({ paused: false });
     // The gone player cannot come back to this match.
@@ -292,7 +307,7 @@ describe('Patch 5: kicks, private games and the debugger', () => {
     const orders = encodeOrders([{ kind: 'debugGod', player: 0, on: true }, { kind: 'hold', player: 0, units: [] }]);
     send(0, { type: 'frame', step: 0, orders });
     send(1, { type: 'frame', step: 0, orders });
-    const frames = conns[1]!.all('frame').map((m) => decodeOrders(m.frame.orders).map((o) => o['kind']));
+    const frames = conns[1]!.all('frames').flatMap((m) => m.frames.map((f) => decodeOrders(f.orders).map((o) => o['kind'])));
     expect(frames).toEqual([['debugGod', 'hold'], ['hold']]);
   });
 
