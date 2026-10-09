@@ -822,7 +822,8 @@ export interface Site {
 }
 
 /** What a hit looks like (Generated rocks and trees: hit particles). */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell';
+/** 'tick': no look of its own, only the damage of a blow that lands every step (a beam), which the screen adds up for its number (Patch 5, UI-10). */
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick';
 
 export interface HitEvent {
   look: HitLook;
@@ -837,6 +838,8 @@ export interface HitEvent {
   heading?: number;
   /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
   spell?: number;
+  /** The health a blow took, for the damage number over what it hit (Patch 5, UI-10); none on a look that only shows. */
+  dmg?: number;
 }
 
 /** Fresh nav caches over a state's world and buildings. */
