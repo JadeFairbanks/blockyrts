@@ -190,6 +190,8 @@ describe('gathering', () => {
     runUntil(s, () => pool[Res.SoftwoodLumber] === 60, 12000);
     expect(pool[Res.Resin]).toBe(2);
     expect(s.world.prop(node.cx, node.cz, node.index, s.step)).toBeUndefined();
+    // Its last load handed in by itself near the main base (Jade's Patch 5, GP-6), it moves on at its next step.
+    run(s, 1);
     const o = s.entities.queue[0]![0]!;
     expect(o.t).toBe('gather');
     expect(o.t === 'gather' && (o.cx !== node.cx || o.cz !== node.cz || o.i !== node.index)).toBe(true);

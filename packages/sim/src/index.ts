@@ -70,6 +70,7 @@ export * from './units/tools.ts';
 export * from './units/dig.ts';
 export * from './units/moves.ts';
 export * from './units/weight.ts';
+export * from './units/shelter.ts';
 export * from './animals/species.ts';
 export * from './animals/animals.ts';
 export * from './threats/types.ts';

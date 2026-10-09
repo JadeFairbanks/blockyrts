@@ -13,7 +13,7 @@ import type { Order } from './orders.ts';
 import { hashState } from './serialize.ts';
 import { FOG_INTERVAL_STEPS, NEUTRAL, OrderKind, revealVision, UnitKind, visionSources, type SimState } from './state.ts';
 import { Act, leaveBuilding, resetWalk, runUnit } from './units/behaviour.ts';
-import { updateLoot } from './units/loot.ts';
+import { autoDropoff, updateLoot } from './units/loot.ts';
 import { hurtHooks, settleDeaths } from './combat/combat.ts';
 import { installDeathHooks, updateElimination } from './combat/deaths.ts';
 import { forgetSideSight, onUnitHurt } from './combat/fight.ts';
@@ -195,6 +195,8 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateMakeAsks(state);
   settleDeaths(state);
   updateLoot(state);
+  // Patch 5 (GP-6): units near a drop-off hand in what they carry.
+  autoDropoff(state);
   updateBuildings(state);
   // Patch 5: open Taverns burn food into silver, and Dreadnoughts speak their minds.
   updateTaverns(state);

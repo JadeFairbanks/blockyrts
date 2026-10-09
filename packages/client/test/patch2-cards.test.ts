@@ -38,7 +38,7 @@ function game(buildings: BuildingInfo[], stock: Array<[number, number]> = []): G
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
-    loot: [], bags: [],
+    loot: [], bags: [], carry: [], effects: [],
   };
   g.onInfo(info);
   return g;
@@ -100,7 +100,7 @@ describe('the Sanctum cards', () => {
 describe('the card tooltips', () => {
   it('name the kit, its numbers, its cost with counted ingots, and the card state', () => {
     expect(cardTrainsText(Troop.Close, 4, 3, 2)).toBe('Trains a Bronze swordsman: bronze shortsword, copper scale jack, boiled-leather targe.');
-    expect(cardCostText(Troop.Close, 4, 3, 2)).toBe('30 food, 2 bronze ingots, 1 lumber, 2 leather, 5 copper ingots, 3 hardened leather, 3 planks. 2 minutes 54 seconds, 1 supply.');
+    expect(cardCostText(Troop.Close, 4, 3, 2)).toBe('30 food, 2 bronze ingots, 1 lumber, 2 leather, 5 copper ingots, 3 hardened leather, 3 planks. 2 minutes 55 seconds, 1 supply.');
     expect(cardTooltip(Troop.Long, { w: 2, a: 1, picked: true, locked: false }, 'Barracks').split('\n')).toEqual([
       'Trains a Flint spearman: flint-headed spear, leather jerkin.',
       'Damage 12, a swing every 1.4 s, reach 2.5 m. Protection 10%.',

@@ -31,6 +31,7 @@ import {
   NIGHT_WORK_BUILDING_M,
   NIGHT_WORK_REACH_M,
   NIGHT_WORK_TROOP_M,
+  onTop,
   nightReach,
   openQuestions,
   placeBuilding,
@@ -424,7 +425,7 @@ describe('out again at dawn (Jade\'s Patch 4)', () => {
     expect(e.inside[w1!]).toBe(b.id);
   });
 
-  it('a worker sent up a full main base top by night shelters inside for the night, and comes out at dawn', () => {
+  it('a worker sent into a main base by night, its top full, shelters inside for the night, and comes out at dawn', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const b = bigHouse(s);
@@ -437,6 +438,9 @@ describe('out again at dawn (Jade\'s Patch 4)', () => {
     expect(men).toEqual(expect.arrayContaining(crew));
     run(s, 1, [{ kind: 'enter', player: 0, units: ids(s, men), building: b.id }]);
     runUntil(s, () => men.every((j) => e.inside[j] === b.id), 60 * SEC);
+    // Melee and crewmen go deeper inside (Jade's Patch 5, decisions 3.8): the panel sends them up on the ramparts.
+    run(s, 1, men.filter((j) => !onTop(s, j)).map((j) => ({ kind: 'shelter' as const, player: 0, building: b.id, unit: e.id[j]! })));
+    expect(men.every((j) => onTop(s, j))).toBe(true);
     const [w] = units(s, UnitKind.Worker);
     s.step = NIGHT + 5 * SEC;
     run(s, 1, [{ kind: 'enter', player: 0, units: [e.id[w!]!], building: b.id }]);
