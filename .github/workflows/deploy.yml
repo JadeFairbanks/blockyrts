@@ -36,7 +36,7 @@ jobs:
       - name: Check the site login is set
         run: |
           # The sign-in page's password, as a bcrypt hash (deploy/README.md).
-          bcrypt='^\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}$'
+          bcrypt='^[$]2[aby][$][0-9]{2}[$][./A-Za-z0-9]{53}$'
           if [[ ! "$SITE_LOGIN_HASH" =~ $bcrypt ]]; then
             echo "::error::The SITE_LOGIN_HASH secret is missing or is not a bcrypt hash; add it in Settings > Secrets and variables > Actions (see deploy/README.md)."
             exit 1
