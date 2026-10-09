@@ -24,7 +24,6 @@ import {
   ToolJob,
   TUNNEL_HEIGHT_UNITS,
   TUNNEL_WIDTH_COLUMNS,
-  UnitKind,
   WU_PER_COLUMN,
   WILD,
   WU_PER_TERRAIN_UNIT,
@@ -105,12 +104,6 @@ function digInLayers(s: SimState, x0: number, z0: number, x1: number, z1: number
   let spread = 0;
   let reach = -Infinity;
   runUntil(s, () => {
-    // Wild animals stocked meanwhile are kept off the dig too: one that wanders into the pit stays on its column, which no digger takes from under it.
-    for (let j = e.count - 1; j >= 0; j--) {
-      const cx = col(e.x[j]!);
-      const cz = col(e.z[j]!);
-      if (e.kind[j] === UnitKind.Animal && cx >= x0 - 1 && cx <= x1 + 1 && cz >= z0 - 1 && cz <= z1 + 1) e.remove(e.id[j]!);
-    }
     const [hi, lo] = tops(s, x0, z0, x1, z1);
     spread = Math.max(spread, hi - lo);
     if (e.act[0] === Act.Work && e.waitUntil[0]! > 0) reach = Math.max(reach, s.world.topAt(e.climbX[0]!, e.climbZ[0]!) - Math.floor(e.y[0]! / WU_PER_TERRAIN_UNIT));
