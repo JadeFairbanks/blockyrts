@@ -77,14 +77,14 @@ export function itemChoices(at: ItemAt, a: ItemMenuActions): CardChoice[] {
   out.push(use ? greyed({ name: use.name ?? 'Use', description: use.description, run: () => use.run(at) }, use.why(at)) : { name: 'Use', description: `Use the ${name}.`, why: NO_USE, run: () => undefined });
   const none = stock && a.have(at.res) <= 0 ? 'There is none in the stock.' : '';
   if (stock && equippable(at.res)) {
-    // Patch 7 (plan section 7): with units selected, Equip gives one piece to each it fits; Equip… still picks one unit with a click.
+    // Patch 7 (plan section 7): with units selected, Equip gives one piece to each it betters (one unit takes it whatever it has); Equip… still picks one unit with a click.
     const n = a.selected();
     if (n > 0) {
       out.push(
         greyed(
           {
             name: 'Equip',
-            description: `${n === 1 ? 'The selected unit walks' : `Each of the ${n} selected units it fits takes one while the stock lasts, best first: it walks`} to the nearest main base, Storehouse, Barracks or Forge (a mage also a Magi Sanctum) and puts on the ${name} there. Its old piece goes to the stock. A unit it does not fit says why.`,
+            description: `${n === 1 ? 'The selected unit walks' : `Each of the ${n} selected units it would better takes one while the stock lasts, best first: it walks`} to the nearest main base, Storehouse, Barracks or Forge (a mage also a Magi Sanctum) and puts on the ${name} there. Its old piece goes to the stock. When nobody can take it, a unit says why.`,
             run: () => a.equipSelected(at.res),
           },
           none,

@@ -49,7 +49,7 @@ describe('one item menu for the stock and a unit (decisions 3.6)', () => {
     const { a, done } = actions({ selected: () => 3 });
     const c = itemChoices({ res: Res.SteelSideSword, unit: null }, a);
     expect(names(c)).toEqual(['Use', 'Equip', 'Equip…', 'Scrap']);
-    expect(c[1]!.description).toContain('Each of the 3 selected units it fits takes one');
+    expect(c[1]!.description).toContain('Each of the 3 selected units it would better takes one');
     c[1]!.run();
     c[2]!.run();
     expect(done).toEqual([`equipSelected ${Res.SteelSideSword}`, `equip ${Res.SteelSideSword}`]);
