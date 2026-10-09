@@ -191,6 +191,8 @@ export const Res = {
   Raspberries: 174,
   Blueberries: 175,
   Mushrooms: 176,
+  /** Patch 5 (Jade): ground from bone at the Workshop, 1 to 1; 2 fertilize a farm. */
+  Bonemeal: 177,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -425,6 +427,7 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Raspberries, 'Raspberries', 'Raspberries', F, 5, 'Raspberry bushes, in the Heartland and the Fringe: a bunch is 1 food.', 1),
   r(Res.Blueberries, 'Blueberries', 'Blueberries', F, 5, 'Blueberry bushes, in the Fringe and the Deepwoods: a bunch is 1 food.', 1),
   r(Res.Mushrooms, 'Edible mushrooms', 'Mushrooms', F, 3, 'At the feet of trees, from the Heartland to the Deepwoods: 1 food each.', 1),
+  r(Res.Bonemeal, 'Bonemeal', 'Bonemeal', A, 10, 'Ground from bone at the Workshop. Fertilize a farm with 2 for 30% more farm fare for 2 minutes.'),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;

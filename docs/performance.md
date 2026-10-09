@@ -92,6 +92,10 @@ All of the caches above are "not state": they live beside the sim in WeakMaps ke
   - Breakers pay to go through walls, climbers to go over them, walkers to go round.
   - The field is rebuilt only when the walk map round the town changes (a wall breaks or is built). That rebuild is the main cost of a wall break after the enclosure flood.
   - Next step to cut it: rebuild only the coarse tiles round the columns that changed, not the nine chunks round them.
+- **Unit paths (Patch 5, GP-22).**
+  - Each 4-column tile is split, per mover, into regions a unit can walk between (nav/regions.ts); a long search runs over regions, then over the columns along them (nav/path.ts). Labels and the ways between regions are made lazily per tile and redone only for tiles a changed column touches.
+  - A 300 m search takes about 3 ms once the land round it is labelled, about 39 ms the first time (180 ms before). Group moves no longer build a flow field (20 units sent 300 m stalled the step 874 ms); each member searches as it sets off, within the 8 searches a step.
+  - A unit whose walk fails floods at most 12,000 columns to see whether it is shut in (units/stuck.ts): about 2 ms on open ground, once per 10 s per unit at most, shared by units failing together in one step.
 - **Chunk streaming.**
   - The sim generates chunks lazily when something looks at them, and caches walk maps per chunk version, keeping up to 1,024.
   - The client meshes explored chunks in mesh workers in rings round the camera focus: full detail within 2 chunks, half within 4, a quarter out to the view distance setting (7 by default). Farther chunks are dropped.

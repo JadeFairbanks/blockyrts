@@ -44,6 +44,7 @@ import {
   replacedItem,
   takesTips,
   TIPS_KIT,
+  Troop,
   upgradePieces,
   upgradeSteps,
   upgradeTarget,
@@ -78,11 +79,19 @@ export function techOf(state: SimState, player: number): TechView {
   };
 }
 
-/** Whether a building is a place a unit can upgrade beside: a Forge, Barracks or main base; the Magi Sanctum for mages. */
+/** Whether a building is a place a unit can upgrade beside: a Forge, Barracks or main base; the Magi Sanctum for mages; only a main base for a woodsman (Jade's WD-3). */
 export function upgradesAt(h: KitHolder, kind: number): boolean {
+  if (h.kind === 'warrior' && h.troop === Troop.Woodsman) return kind === BuildingKind.MainBase;
   if (kind === BuildingKind.Forge || kind === BuildingKind.Barracks || kind === BuildingKind.MainBase) return true;
   if (kind === BuildingKind.MagiSanctum) return h.kind === 'mage';
   return false;
+}
+
+/** What a unit with nowhere to upgrade hears. */
+function noPlaceText(h: KitHolder): string {
+  if (h.kind === 'mage') return 'There is no Forge, Barracks, main base or Magi Sanctum to upgrade at.';
+  if (h.kind === 'warrior' && h.troop === Troop.Woodsman) return 'A woodsman upgrades his weapon only at a main base.';
+  return 'There is no Forge, Barracks or main base to upgrade at.';
 }
 
 /** The finished building of the unit's owner nearest it that passes a test, or undefined. */
@@ -110,6 +119,26 @@ export function nearestMainBase(state: SimState, i: number): Building | undefine
 /** The nearest place a unit can upgrade beside, or undefined. */
 export function nearestUpgradePlace(state: SimState, i: number, h: KitHolder): Building | undefined {
   return nearestOwn(state, i, (b) => upgradesAt(h, b.kind));
+}
+
+/**
+ * Whether a unit sent to put on an item from the stock (Equip) can take it
+ * beside a building: a place to upgrade, or the Storehouse, a drop-off for
+ * everything (Jade's GP-2: "return to a drop off point to receive it").
+ */
+export function equipsAt(h: KitHolder, kind: number): boolean {
+  return kind === BuildingKind.Storehouse || upgradesAt(h, kind);
+}
+
+/** The nearest place a unit can take an item from the stock at, or undefined. */
+export function nearestEquipPlace(state: SimState, i: number, h: KitHolder): Building | undefined {
+  return nearestOwn(state, i, (b) => equipsAt(h, b.kind));
+}
+
+/** Whether an upgrade puts a ready item from the stock on, so it can be taken at any drop-off. */
+function putsItemOn(h: KitHolder, o: KitUpOrder): boolean {
+  const p = linePiece(h, o.line, o.to);
+  return p !== undefined && planItem(p, o.ways) !== undefined;
 }
 
 /** The upgrade a unit has queued on a line, or undefined. */
@@ -182,7 +211,7 @@ export function orderUpgrade(state: SimState, player: number, units: readonly nu
     const place = nearestUpgradePlace(state, i, h);
     if (!place) {
       if (!why) {
-        why = h.kind === 'mage' ? 'There is no Forge, Barracks, main base or Magi Sanctum to upgrade at.' : 'There is no Forge, Barracks or main base to upgrade at.';
+        why = noPlaceText(h);
         whoWhy = i;
       }
       continue;
@@ -228,7 +257,7 @@ export function orderUpgradeEquipment(state: SimState, player: number, units: re
     const place = nearestUpgradePlace(state, i, h);
     if (!place) {
       if (!why) {
-        why = h.kind === 'mage' ? 'There is no Forge, Barracks, main base or Magi Sanctum to upgrade at.' : 'There is no Forge, Barracks or main base to upgrade at.';
+        why = noPlaceText(h);
         whoWhy = i;
       }
       continue;
@@ -301,7 +330,8 @@ export function equipTarget(h: KitHolder, res: number): { line: Line; to: number
  * want to equip it to, causing them to return to a drop off point to receive
  * it, and upgrade to that item via the usual process"): the first of the
  * units that can take the stock's item pays it now and walks to the nearest
- * place to upgrade, where it puts it on in a fifth of its time, as Upgrade
+ * drop-off or place to upgrade (main base, Storehouse, Forge, Barracks; the
+ * Magi Sanctum for mages), where it puts it on in a fifth of its time, as Upgrade
  * equipment does with a ready item. Returns how many went (0 or 1); a unit
  * that cannot says why.
  */
@@ -326,9 +356,9 @@ export function orderEquip(state: SimState, player: number, units: readonly numb
       say(state, i, 'I am already on my way to upgrade that.', true);
       continue;
     }
-    const place = nearestUpgradePlace(state, i, h);
+    const place = nearestEquipPlace(state, i, h);
     if (!place) {
-      say(state, i, h.kind === 'mage' ? 'There is no Forge, Barracks, main base or Magi Sanctum to upgrade at.' : 'There is no Forge, Barracks or main base to upgrade at.', true);
+      say(state, i, h.kind === 'mage' ? 'There is no main base, Storehouse, Forge, Barracks or Magi Sanctum to take it at.' : 'There is no main base, Storehouse, Forge or Barracks to take it at.', true);
       continue;
     }
     pay(p.pool, [[res as Res, 1]]);
@@ -378,8 +408,9 @@ export function runKitUp(state: SimState, i: number, o: KitUpOrder): boolean {
   const h = kitHolder(state, i);
   if (!h) return true;
   let b = state.buildings.get(o.b);
-  if (!b || b.owner !== e.owner[i] || !b.complete || !upgradesAt(h, b.kind)) {
-    b = nearestUpgradePlace(state, i, h);
+  const item = putsItemOn(h, o);
+  if (!b || b.owner !== e.owner[i] || !b.complete || !(item ? equipsAt(h, b.kind) : upgradesAt(h, b.kind))) {
+    b = item ? nearestEquipPlace(state, i, h) : nearestUpgradePlace(state, i, h);
     if (!b) {
       refundKit(state, i, o);
       say(state, i, 'There is nowhere left to upgrade. I kept the materials in stock.', true);

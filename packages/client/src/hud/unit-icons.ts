@@ -21,9 +21,12 @@ export function troopIconFile(troop: number, wTier: number): string {
       return 'icon_train_warrior_mounted';
     case Troop.Crew:
       return 'icon_train_warrior_cannon_crew';
+    case Troop.Woodsman:
+      // His own picture once the catalogue has one; the spearman's until then (Patch 5).
+      return modelIconFile('woodsman') || 'icon_train_warrior_spear';
     case Troop.Dreadnought:
-      // Patch 5: the brawler's mace-man stands in until the Dreadnought has a picture of his own.
-      return 'icon_train_warrior_mace';
+      // Patch 5: rendered from his own model, heavy_knight.
+      return 'icon_dreadnought';
     default:
       return 'icon_train_warrior_club';
   }
@@ -132,6 +135,7 @@ export function selectableIconFile(typeKey: string, look?: UnitLook | null): str
   if (typeKey === 'worker') return WORKER_ICON;
   if (typeKey === 'warrior') return troopIconFile(look?.troop ?? Troop.Close, look?.wTier ?? 1);
   if (typeKey === 'warrior:crew') return troopIconFile(Troop.Crew, 0);
+  if (typeKey === 'warrior:woods') return troopIconFile(Troop.Woodsman, 1);
   if (typeKey === 'warrior:dreadnought') return troopIconFile(Troop.Dreadnought, 0);
   if (typeKey === 'mage:support') return mageIconFile(false, look?.aTier ?? 0);
   if (typeKey === 'mage:battle') return mageIconFile(true, look?.aTier ?? 0);

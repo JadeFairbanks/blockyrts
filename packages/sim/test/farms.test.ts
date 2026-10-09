@@ -2,7 +2,9 @@
 // bar each farmer at work fills by a step a step, a harvest that stays the
 // same whatever the number of farmers, and what the selection panel reads.
 // Patch 2: one Farm of farm fare, in full in every band, and the Barn's hens
-// and its animals, which eat farm fare every morning (they cannot graze).
+// and its animals. Patch 5: 10 farm fare a farmer-day (Jade's BL-8), the bar
+// counted in FARM_PACE units so boosts are whole, and a Barn that needs its
+// hand, whose animals eat plant food as night falls, less what they grazed.
 import { describe, expect, it } from 'vitest';
 import {
   addAnimal,
@@ -14,7 +16,10 @@ import {
   BuildingKind,
   CYCLE_STEPS,
   createWorld,
+  DAY_STEPS,
+  DUSK_STEPS,
   FARM_HARVEST_STEPS,
+  FARM_PACE,
   farmBandLine,
   farmHarvest,
   harvestPerMille,
@@ -94,20 +99,21 @@ describe('farm harvests', () => {
     manned(s, farm, 1);
     const before = farm.farmAcc;
     run(s, 10);
-    expect(farm.farmAcc).toBe(before + 10);
+    expect(farm.farmAcc).toBe(before + 10 * FARM_PACE);
     expect(s.buildings.list.some((b) => b.id === farm.id)).toBe(true);
   });
 
-  it('one farmer of two still brings in a harvest: one farmer-day of work gives 8 farm fare (Patch 2: the tier 1 crop field\'s pace)', () => {
+  it('one farmer of two still brings in a harvest: one farmer-day of work gives 10 farm fare (Patch 5, Jade: 20% more than 8)', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const farm = farmNearCamp(s, BuildingKind.Farm);
     manned(s, farm, 1);
-    expect(farmHarvest(s, farm)).toMatchObject({ res: Res.FarmFare, items: 8, food: 16, grows: true, perStep: 1, whole: FARM_HARVEST_STEPS });
-    farm.farmAcc = FARM_HARVEST_STEPS - 1;
+    const whole = FARM_HARVEST_STEPS * FARM_PACE;
+    expect(farmHarvest(s, farm)).toMatchObject({ res: Res.FarmFare, items: 10, food: 20, grows: true, perStep: FARM_PACE, whole });
+    farm.farmAcc = whole - FARM_PACE;
     const fare = pool[Res.FarmFare]!;
     run(s, 1);
-    expect(pool[Res.FarmFare]).toBe(fare + 8);
+    expect(pool[Res.FarmFare]).toBe(fare + 10);
     expect(farm.farmAcc).toBe(0);
   });
 
@@ -116,16 +122,16 @@ describe('farm harvests', () => {
     const pool = s.players[0]!.pool;
     const farm = farmNearCamp(s, BuildingKind.Farm);
     manned(s, farm, 2);
-    expect(farmHarvest(s, farm)).toMatchObject({ items: 8, perStep: 2 });
+    expect(farmHarvest(s, farm)).toMatchObject({ items: 10, perStep: 2 * FARM_PACE });
     const before = farm.farmAcc;
     run(s, 10);
-    expect(farm.farmAcc).toBe(before + 20);
-    farm.farmAcc = FARM_HARVEST_STEPS - 1;
+    expect(farm.farmAcc).toBe(before + 20 * FARM_PACE);
+    farm.farmAcc = FARM_HARVEST_STEPS * FARM_PACE - FARM_PACE;
     const fare = pool[Res.FarmFare]!;
     run(s, 1);
-    expect(pool[Res.FarmFare]).toBe(fare + 8);
+    expect(pool[Res.FarmFare]).toBe(fare + 10);
     // The extra farmer's step of work carries into the next bar.
-    expect(farm.farmAcc).toBe(1);
+    expect(farm.farmAcc).toBe(FARM_PACE);
   });
 
   it('an unmanned Farm stands still', () => {
@@ -133,7 +139,7 @@ describe('farm harvests', () => {
     const farm = farmNearCamp(s, BuildingKind.Farm);
     run(s, 50);
     expect(farm.farmAcc).toBe(0);
-    expect(farmHarvest(s, farm)).toMatchObject({ res: Res.FarmFare, items: 8, food: 16, done: 0, perStep: 0 });
+    expect(farmHarvest(s, farm)).toMatchObject({ res: Res.FarmFare, items: 10, food: 20, done: 0, perStep: 0 });
   });
 
   it('a Farm from a save made before harvest bars starts its bar afresh, with no windfall', () => {
@@ -141,7 +147,7 @@ describe('farm harvests', () => {
     const pool = s.players[0]!.pool;
     const farm = farmNearCamp(s, BuildingKind.Farm);
     // The old count was thousandths of an item times steps per day.
-    farm.farmAcc = 3_000_000;
+    farm.farmAcc = 3_000_000 * FARM_PACE;
     run(s, 1);
     expect(farm.farmAcc).toBe(0);
     expect(pool[Res.FarmFare]).toBe(0);
@@ -152,15 +158,15 @@ describe('farm harvests', () => {
     expect(farmBandLine(s, farmNearCamp(s, BuildingKind.Farm))).toBe('Full yield in the Heartland: the Farm grows in full in every band.');
     for (const band of [Band.Fringe, Band.Barrens]) {
       const farm = farmInBand(s, BuildingKind.Farm, band);
-      expect(harvestPerMille(s, farm)).toBe(8000);
-      expect(farmHarvest(s, farm)).toMatchObject({ grows: true, items: 8 });
+      expect(harvestPerMille(s, farm)).toBe(10000);
+      expect(farmHarvest(s, farm)).toMatchObject({ grows: true, items: 10 });
     }
     expect(farmBandLine(s, farmInBand(s, BuildingKind.Farm, Band.Barrens))).toBe('Full yield in the Barrens: the Farm grows in full in every band.');
     // Other buildings have no band line.
     expect(farmBandLine(s, farmNearCamp(s, BuildingKind.Barn))).toBe('');
   });
 
-  it('a Barn\'s bar runs to the day\'s turn, when its hens lay', () => {
+  it('a Barn\'s bar runs to the day\'s turn, when its hens lay, once its hand is at work (Patch 5)', () => {
     const s = createWorld(1, { peaceful: true });
     const pool = s.players[0]!.pool;
     const farm = farmNearCamp(s, BuildingKind.Barn);
@@ -169,6 +175,9 @@ describe('farm harvests', () => {
       const hen = addAnimal(s, Species.Chicken, 0, farm.x * WU_PER_COLUMN + k * 8000, farm.z * WU_PER_COLUMN, 0, 0);
       s.entities.home[hen] = farm.id;
     }
+    // No barn hand, no eggs.
+    expect(farmHarvest(s, farm)).toBeNull();
+    manned(s, farm, 1);
     // Kept back from the meals, so the count is the hens' alone.
     run(s, 5, [{ kind: 'dontEat', player: 0, res: Res.Eggs, on: 1 }]);
     const h = farmHarvest(s, farm)!;
@@ -180,7 +189,7 @@ describe('farm harvests', () => {
   });
 });
 
-describe('the Barn (Patch 2)', () => {
+describe('the Barn (Patch 2; Patch 5: its hand and its animals\' feed)', () => {
   /** A finished Barn by the camp with these grown animals at home (sex 0, hens that lay). */
   function barnWith(s: SimState, animals: readonly number[]): [Building, number[]] {
     const barn = farmNearCamp(s, BuildingKind.Barn);
@@ -192,46 +201,50 @@ describe('the Barn (Patch 2)', () => {
     return [barn, out];
   }
 
-  /** Runs the step on which a new day starts, when the Barn's animals eat and its hens lay. */
-  function dayTurn(s: SimState): void {
-    s.step = CYCLE_STEPS * 2;
+  /** Runs the step on which night falls, when the Barn's animals eat (Patch 5). */
+  function nightfall(s: SimState): void {
+    s.step = CYCLE_STEPS * 2 + DAY_STEPS + DUSK_STEPS;
     step(s);
   }
 
-  it('its animals eat farm fare every morning, even farm fare kept back from meals, whatever grass is near', () => {
+  it('its animals eat plant food as night falls, even food kept back from meals; with its hand at work on grass they eat a quarter less', () => {
     const s = createWorld(1, { peaceful: true });
     const p = s.players[0]!;
     // Two cows and six hens: three stalls, and 2 + 2 + 6 x 1 = 10 food, 5 farm fare a day.
     const [barn] = barnWith(s, [Species.Cattle, Species.Cattle, ...Array<number>(6).fill(Species.Chicken)]);
-    expect(buildingStatus(s, barn)).toBe(`8 animals; 3 of ${BARN_STALLS} stalls taken; they eat 5 farm fare a day`);
+    const none = '. No barn hand: nothing grazes, breeds, lays or is slaughtered until a worker is assigned';
+    expect(buildingStatus(s, barn)).toBe(`8 animals; 3 of ${BARN_STALLS} stalls taken; they eat 10 food a day${none}`);
     p.pool[Res.FarmFare] = 12;
     p.kept[Res.FarmFare] = 1;
-    const eggs = p.pool[Res.Eggs]!;
-    dayTurn(s);
+    nightfall(s);
     expect(p.pool[Res.FarmFare]).toBe(7);
-    expect(p.pool[Res.Eggs]).toBe(eggs + 6);
-    // A single hen eats half a farm fare: the rest of the one she opened waits for the next day.
+    // A single hen eats half a farm fare: the rest of the one she opened waits for the next night.
     const s2 = createWorld(1, { peaceful: true });
     const [barn2] = barnWith(s2, [Species.Chicken]);
-    expect(buildingStatus(s2, barn2)).toBe(`1 animal; 1 of ${BARN_STALLS} stalls taken; they eat ½ farm fare a day`);
+    expect(buildingStatus(s2, barn2)).toBe(`1 animal; 1 of ${BARN_STALLS} stalls taken; they eat 1 food a day${none}`);
     s2.players[0]!.pool[Res.FarmFare] = 1;
     s2.players[0]!.kept[Res.FarmFare] = 1;
-    dayTurn(s2);
+    nightfall(s2);
     expect([s2.players[0]!.pool[Res.FarmFare], s2.players[0]!.open[Res.FarmFare]]).toEqual([0, 4]);
+    // With a hand at work in the Heartland the cows eat 1½ and the hens ¾: 7½ food.
+    const s3 = createWorld(1, { peaceful: true });
+    const [barn3] = barnWith(s3, [Species.Cattle, Species.Cattle, ...Array<number>(6).fill(Species.Chicken)]);
+    manned(s3, barn3, 1);
+    expect(buildingStatus(s3, barn3)).toBe(`8 animals; 3 of ${BARN_STALLS} stalls taken; they eat 7½ food a day`);
   });
 
-  it('with no farm fare its animals go hungry and lose a tenth of their health, and the owner hears of it once', () => {
+  it('with no plant food its animals go hungry and lose a tenth of their health, and the owner hears of it once', () => {
     const s = createWorld(1, { peaceful: true });
     const [, [cow, hen]] = barnWith(s, [Species.Cattle, Species.Chicken]);
     const e = s.entities;
     s.players[0]!.pool[Res.FarmFare] = 0;
     const hp = [e.hp[cow!]!, e.hp[hen!]!];
-    dayTurn(s);
+    nightfall(s);
     expect([e.hp[cow!], e.hp[hen!]]).toEqual([hp[0]! - e.maxHp[cow!]! / 10, hp[1]! - e.maxHp[hen!]! / 10]);
     expect(s.events.filter((v) => v.kind === 'alert' && v.text.startsWith('Your Barn animals went hungry')).length).toBe(1);
     // Never the last of it.
     e.hp[hen!] = 1;
-    dayTurn(s);
+    nightfall(s);
     expect(e.hp[hen!]).toBe(1);
   });
 

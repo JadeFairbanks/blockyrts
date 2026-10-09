@@ -1,11 +1,13 @@
 // Working through the night (Jade's Patch 4). Workers gathering by
-// themselves (the Gather button) stop at dusk and go home for the night.
-// Those gathering within 25 m of a building and within 50 m of a troop ask
-// instead, "Should I keep working through the night?" (one speaking for the
-// others near it that may too, as every question does). Yes, or no answer at
-// all (Jade: not answering counts as Yes for this one), and they work on
-// through the night; No, and they go to work an empty Farm, or shelter in the
-// main base when there is none.
+// themselves (the Gather button) stop at dusk and go in for the night (a farm
+// or barn with room first, units/forage.ts). Since Patch 5 (Jade's GP-24)
+// only those that stand, with what they gather, within 5 m of a main base and
+// within 10 m of a troop ask instead, "Should I keep working through the
+// night?" (one speaking for the others near it that may too, as every
+// question does). Yes, or no answer at all (Jade: not answering counts as Yes
+// for this one), and they work on through the night; No, and they go to work
+// an empty Farm, or go in for the night when there is none. Workers their
+// player sets gathering in the dark work on all that night as by day.
 //
 // Workers who went into a shelter for the night (sent home at dusk, by
 // Everyone Home in the dark, by that No, or by their player) come out in the
@@ -20,6 +22,7 @@
 import { BuildingKind, levelSpec } from '../buildings/data.ts';
 import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import { solidRect, type Building } from '../buildings/store.ts';
+import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { clockAt, isDark, Period } from '../clock.ts';
 import { combatTroop } from '../combat/mob-ai.ts';
 import { length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
@@ -27,18 +30,19 @@ import type { AnswerOrder } from '../orders.ts';
 import { say } from '../peoples/speech.ts';
 import { MONSTERS, UnitKind, type SimState } from '../state.ts';
 import { Role } from '../threats/types.ts';
-import { Act, assigned, giveOrder, isFarm, leaveBuilding, resetWalk, takesWorkers } from './behaviour.ts';
+import { Act, assigned, columnCentre, giveOrder, isFarm, leaveBuilding, nodeView, resetWalk, takesWorkers } from './behaviour.ts';
 import { fromBuilding, nightHooks, startForage } from './forage.ts';
+import { isWoodsman } from './woodsman.ts';
 import { bagEmpty } from './loot.ts';
 import { answerKinds, askNow, isAsking } from './questions.ts';
-import { ENTER_NIGHT, FORAGE_HOME, FORAGE_NIGHT, type UnitOrder } from './unit-orders.ts';
+import { ENTER_NIGHT, FORAGE_HOME, FORAGE_NIGHT, FORAGE_OWN, type UnitOrder } from './unit-orders.ts';
 
-/** At dusk, a worker gathering by itself this near one of the players' buildings (measured from its walls; lights are not buildings here) may ask to work on through the night (Jade): 25 m. */
-export const NIGHT_WORK_BUILDING_M = 25;
-/** ...and this near a troop: any combat unit of the players', a warrior of any type, a mage or an engine (Jade): 50 m. */
-export const NIGHT_WORK_TROOP_M = 50;
-/** Working on through the night, a worker gathers only nodes this near one of the players' buildings, and comes in once none is left (s): 25 m, as near as it had to be to ask. */
-export const NIGHT_WORK_REACH_M = 25;
+/** At dusk, a worker gathering by itself may ask to work on through the night only while it, and what it gathers, are this near a main base, measured from its walls (Jade's GP-24; 25 m of any building in Patch 4): 5 m. */
+export const NIGHT_WORK_BASE_M = 5;
+/** ...and this near a troop: any combat unit of the players', a warrior of any type, a mage or an engine (Jade's GP-24; 50 m in Patch 4): 10 m. */
+export const NIGHT_WORK_TROOP_M = 10;
+/** Working on through the night, a worker gathers only nodes this near a main base, and comes in once none is left (s): 5 m, as near as it had to be to ask. */
+export const NIGHT_WORK_REACH_M = 5;
 /** One worker asks for every other that may work on within this of it, one bubble for the workers round a base (s): 30 m, wider than other questions' 10 m because dusk finds them spread round it. */
 export const NIGHT_WORK_SPEAK_FOR_M = 30;
 /** Workers sheltering for the night come out at dawn once no monster this near their shelter (from its walls) is alive (Jade): 25 m. In the day they come out whatever the monsters do. */
@@ -55,17 +59,11 @@ type ForageOrder = Extract<UnitOrder, { t: 'forage' }>;
 
 // ----- where it may work on -----
 
-/** What counts as a building here: a finished one standing, not a light (torch post, bonfire) (s). */
-function counts(b: Building): boolean {
-  if (!b.complete || b.hp <= 0) return false;
-  return b.kind !== BuildingKind.TorchPost && b.kind !== BuildingKind.Bonfire;
-}
-
-/** Whether a point (wu) lies within `m` metres of a building of any player's (co-op: the players' side), from its walls. */
-export function nearBuilding(state: SimState, x: number, z: number, m: number): boolean {
+/** Whether a point (wu) lies within `m` metres of a finished main base of any player's (co-op: the players' side), from its walls. */
+export function byMainBase(state: SimState, x: number, z: number, m: number): boolean {
   const r = m * WU_PER_METRE;
   for (const b of state.buildings.list) {
-    if (b.owner >= state.players.length || !counts(b)) continue;
+    if (b.owner >= state.players.length || b.kind !== BuildingKind.MainBase || !b.complete || b.hp <= 0) continue;
     if (fromBuilding(b, x, z) <= r) return true;
   }
   return false;
@@ -74,7 +72,8 @@ export function nearBuilding(state: SimState, x: number, z: number, m: number): 
 /** A troop, as Jade means it: any combat unit (combat/mob-ai.ts combatTroop, the same as Patch 4's monsters turning on the troops: every warrior type, an artillery crewman too, a mage or an engine) of any player's, a hired mercenary too, alive. */
 function isTroop(state: SimState, j: number): boolean {
   const e = state.entities;
-  return e.hp[j]! > 0 && e.owner[j]! < state.players.length && combatTroop(state, j);
+  // A woodsman is a gatherer, not a guard (s).
+  return e.hp[j]! > 0 && e.owner[j]! < state.players.length && combatTroop(state, j) && !isWoodsman(e, j);
 }
 
 /** Whether a troop stands within NIGHT_WORK_TROOP_M of a point (wu), on the ground or up on a building's top. */
@@ -86,15 +85,20 @@ export function nearTroop(state: SimState, x: number, z: number): boolean {
   return false;
 }
 
-/** Whether a worker stands where it may ask to work on through the night: within 25 m of a building and 50 m of a troop (Jade). */
+/** Whether a worker may ask to work on through the night: it, and the node it gathers at or walks to, within 5 m of a main base, and a troop within 10 m of it (Jade's GP-24). */
 export function mayWorkOn(state: SimState, i: number): boolean {
   const e = state.entities;
-  return nearBuilding(state, e.x[i]!, e.z[i]!, NIGHT_WORK_BUILDING_M) && nearTroop(state, e.x[i]!, e.z[i]!);
+  if (!byMainBase(state, e.x[i]!, e.z[i]!, NIGHT_WORK_BASE_M) || !nearTroop(state, e.x[i]!, e.z[i]!)) return false;
+  const h = e.queue[i]![0];
+  if (h?.t !== 'gather') return true;
+  const p = nodeView(state, h.cx, h.cz, h.i);
+  if (!p) return true;
+  return byMainBase(state, columnCentre((h.cx << CHUNK_SHIFT) + p.lx), columnCentre((h.cz << CHUNK_SHIFT) + p.lz), NIGHT_WORK_BASE_M);
 }
 
-/** Working on through the night: only nodes within NIGHT_WORK_REACH_M of a building. */
+/** Working on through the night: only nodes within NIGHT_WORK_REACH_M of a main base. */
 export function nightReach(state: SimState): (x: number, z: number) => boolean {
-  return (x, z) => nearBuilding(state, x, z, NIGHT_WORK_REACH_M);
+  return (x, z) => byMainBase(state, x, z, NIGHT_WORK_REACH_M);
 }
 
 /** The Gather order a worker is gathering by itself under: its first order, or the one behind the node it is at. */
@@ -131,7 +135,7 @@ function noText(state: SimState, player: number, n: number, x: number, z: number
   const toFarm = Math.min(n, farms.reduce((s, f) => s + f.places, 0));
   const farm = toFarm === 1 || farms.length === 1 ? 'the nearest empty farm' : 'the nearest empty farms';
   const there = 'shelter in the farmhouse tonight and farm from daybreak';
-  const base = `the main base for the night, coming out at dawn once no monster within ${DAWN_CLEAR_M} m is alive`;
+  const base = `a farm or barn with room for the night, else the main base, coming out at dawn once no monster within ${DAWN_CLEAR_M} m is alive`;
   if (n === 1) return toFarm === 1 ? `It drops off its load and goes to work ${farm}: it shelters in the farmhouse tonight and farms from daybreak.` : `It drops off its load and shelters in ${base}.`;
   if (toFarm === n) return `They drop off their loads and go to work ${farm}: they ${there}.`;
   if (toFarm === 0) return `They drop off their loads and shelter in ${base}.`;
@@ -161,14 +165,14 @@ export function workOnTonight(state: SimState, i: number, o: ForageOrder): boole
     if (j === i || e.owner[j] !== player || e.kind[j] !== UnitKind.Worker || e.hp[j]! <= 0 || e.role[j] === Role.Mercenary) continue;
     if (length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!) > r) continue;
     const f = forageOf(state, j);
-    if (!f || f.k === FORAGE_HOME || f.k === FORAGE_NIGHT || isAsking(state, e.id[j]!, false) || !mayWorkOn(state, j)) continue;
+    if (!f || f.k === FORAGE_HOME || f.k === FORAGE_NIGHT || (f.k & FORAGE_OWN) !== 0 || isAsking(state, e.id[j]!, false) || !mayWorkOn(state, j)) continue;
     f.k = FORAGE_NIGHT;
     group.push(j);
   }
   o.k = FORAGE_NIGHT;
   const n = group.length;
   const text = n === 1 ? 'Should I keep working through the night?' : `Should the ${NUMBER_WORDS[n] ?? String(n)} of us keep working through the night?`;
-  const yes = `${n === 1 ? 'It keeps' : 'They keep'} gathering through the night, taking only what lies within ${NIGHT_WORK_REACH_M} m of a building, and ${n === 1 ? 'comes' : 'come'} in once nothing is left there. Not answering counts as Yes. Takes nothing from the stock.`;
+  const yes = `${n === 1 ? 'It keeps' : 'They keep'} gathering through the night, taking only what lies within ${NIGHT_WORK_REACH_M} m of the main base, and ${n === 1 ? 'comes' : 'come'} in once nothing is left there. Not answering counts as Yes. Takes nothing from the stock.`;
   const ids = group.map((j) => e.id[j]!);
   askNow(state, player, e.id[i]!, false, { q: NIGHT_WORK_ASK, units: ids, res: -1, yes, no: noText(state, player, n, e.x[i]!, e.z[i]!) }, text, () => isDark(state.step) && ids.some((id) => workingOn(state, id, player)));
   return true;
@@ -214,7 +218,7 @@ export function answerNightWork(state: SimState, o: AnswerOrder): void {
       if (i === first) say(state, i, 'Off to work the farm.', false, true);
       continue;
     }
-    // Home for the night, as at any dusk: its load to the stock, then into the nearest main base.
+    // In for the night, as at any dusk: its load to the stock, then into a farm or barn with room, else the main base (units/forage.ts).
     for (const f of e.queue[i]!) if (f.t === 'forage' && f.k === FORAGE_NIGHT) f.k = FORAGE_HOME;
     if (i === first) say(state, i, 'Heading in for the night.', false, true);
   }
@@ -264,6 +268,8 @@ export function releaseSheltered(state: SimState): void {
   if (p !== Period.Dawn && p !== Period.Day) return;
   if (c.into !== 0 && state.step % DAWN_LOOK_STEPS !== 0) return;
   const e = state.entities;
+  // As dawn begins, a player's word to gather on through the night is spent (Jade's GP-24): the next dusk's rules hold.
+  if (p === Period.Dawn && c.into === 0) for (let i = 0; i < e.count; i++) for (const o of e.queue[i]!) if (o.t === 'forage') o.k &= ~FORAGE_OWN;
   const clear = new Map<number, boolean>();
   for (let i = 0; i < e.count; i++) {
     const h = e.queue[i]![0];

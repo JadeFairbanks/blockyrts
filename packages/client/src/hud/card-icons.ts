@@ -41,6 +41,10 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   // Patch 2: the artillery crewman's Crew order shows the engine it goes to; its training button is its own bust.
   crew: one('icon_train_cannon'),
   trainCrewman: one(troopIconFile(Troop.Crew, 0)),
+  // Patch 5: the woodsman's rod and the wild berries he forages, and his training button.
+  fish: one('icon_fishing_rod'),
+  forage: one('icon_black_berries'),
+  trainWoodsman: one(troopIconFile(Troop.Woodsman, 1)),
   // Patch 5: the Citadel's Build defense menu.
   buildDefense: one('icon_train_cannon'),
   // Patch 3: Retrain shows what the crewman becomes.
@@ -119,6 +123,7 @@ export function productIcon(product: number): ButtonIcon | undefined {
   if (product === Product.SupportMage) return one(SUPPORT_MAGE_ICON);
   if (product === Product.BattleMage) return one(BATTLE_MAGE_ICON);
   if (product === Product.Crewman || product === Product.GarrisonCrewman) return one(troopIconFile(Troop.Crew, 0));
+  if (product === Product.Woodsman) return one(troopIconFile(Troop.Woodsman, 1));
   const t = troopOf(product);
   if (t) return one(troopIconFile(t.troop, t.w));
   if (dreadnoughtOf(product)) return one(troopIconFile(Troop.Dreadnought, 0));

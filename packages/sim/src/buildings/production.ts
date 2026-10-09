@@ -24,9 +24,11 @@ import { addCrewman, crewSworn, engineName, spawnEngine } from '../siege/engines
 import { finishUpgrade, platformOf, platformProblem, platformProducts, spawnFixedEngine, spawnGarrisonCrewman, engineUpgradeCost, engineUpgradeCrew, engineUpgradeSteps } from '../siege/platform.ts';
 import { Species, speciesSpec } from '../animals/species.ts';
 import { addAnimal, animalsAt, barnFeedText, layingHens, stallsTaken } from '../animals/animals.ts';
-import { dockStretch, RATING_NAMES, workedOut } from './mining.ts';
+import { RATING_NAMES, workedOut } from './mining.ts';
 import { hasResearch, Made, RESEARCH, Research, type ResearchSpec } from '../combat/items.ts';
 import { madeAt, payableInputs, RECIPES, recipeSpec } from './recipes.ts';
+import { FARM_PACE, farmPace, updateFarmBoost } from './farm-boost.ts';
+import { barnTended } from '../animals/barn.ts';
 import { addMage, MAGE_FOOD, MAGE_MAIN_BASE_LEVEL, MAGE_TRAIN_STEPS } from '../magic/mages.ts';
 import { School } from '../magic/spells.ts';
 import type { crewHooks } from '../units/questions.ts';
@@ -58,6 +60,7 @@ import {
   type Piece,
 } from '../units/kits.ts';
 import { Mount } from '../mounts/data.ts';
+import { openLedger, WOODSMAN, WOODSMAN_KEY, WOODSMAN_KIT } from '../units/woodsman.ts';
 import { seatOnHorse } from '../mounts/riding.ts';
 
 export interface ProductSpec {
@@ -117,6 +120,12 @@ export function productSpec(product: Product): ProductSpec {
     return {
       product, name: support ? 'Support mage' : 'Battle mage', key: support ? 'S' : 'M', steps: MAGE_TRAIN_STEPS + kitSteps(MAGE_KIT), cost: mainCost(MAGE_KIT), pieces: MAGE_KIT, food: MAGE_FOOD,
       tooltip: `A new Novice Acolyte who ${support ? 'heals and strengthens your units' : 'attacks with spells'}, with a hazel wand and a homespun robe (Table 7). Needs free supply.`,
+    };
+  }
+  if (product === Product.Woodsman) {
+    return {
+      product, name: TROOP_NAMES[Troop.Woodsman]!, key: WOODSMAN_KEY, steps: (WOODSMAN.trainS + piecesTime(WOODSMAN_KIT)) * STEPS_PER_SECOND, cost: mainCost(WOODSMAN_KIT), pieces: WOODSMAN_KIT, food: WOODSMAN.food,
+      tooltip: `A new woodsman (Patch 5): he forages wild food and fishes, both at once if you like, and fights back with his wooden spear when attacked. Pays ${WOODSMAN.food} food, 1 leather or 1 hides, 4 sticks and 4 flax. Needs free supply.`,
     };
   }
   if (product === Product.GarrisonCrewman) {
@@ -200,7 +209,7 @@ export function productSpec(product: Product): ProductSpec {
 }
 
 /** The Dreadnought's description (Jade, GP-21, her words): the Hire button's tooltip, with his price after it. */
-export const DREADNOUGHT_TEXT = 'THE Dreadnought. A giant of a man in plate armour and wielding a heavy mace mace. Rumors have it that his Mother was an Ogre, but don\'t tell him that! Dreadnoughts have an AOE attack every other hit, and a large health pool.';
+export const DREADNOUGHT_TEXT = 'THE Dreadnought. A giant of a man in plate armour and wielding a heavy mace. Rumors have it that his Mother was an Ogre, but don\'t tell him that! Dreadnoughts have an AOE attack every other hit, and a large health pool.';
 
 // ----- troops (Troops and gear: Barracks panel) -----
 
@@ -433,6 +442,8 @@ export function productsOf(b: Building): Product[] {
     // Its mages come from its cards with their kit picked (mageSchoolsAt, Patch 2); research is made here.
     for (const r of RESEARCH) if (r.at === b.kind && !r.retired) out.push(RESEARCH_PRODUCT + r.id);
   } else if (b.kind === BuildingKind.ScholarsLodge) {
+    // The woodsman first (Patch 5, Jade's WD-1), then its research.
+    out.push(Product.Woodsman);
     for (const r of RESEARCH) if (r.id !== Research.None && !r.retired && r.at === undefined) out.push(RESEARCH_PRODUCT + r.id);
   } else if (buildingSpec(b.kind).trainsWorkers) out.push(Product.Worker);
   if (b.kind === BuildingKind.Barn) for (const s of SLAUGHTERED) out.push(SLAUGHTER_PRODUCT + s);
@@ -609,7 +620,7 @@ export function researchFacilities(state: SimState, player: number): number {
 
 /** Products that are new units: workers, troops, mages and artillery crewmen (garrison ones too). */
 export function trainsUnit(product: number): boolean {
-  return product === Product.Worker || product === Product.SupportMage || product === Product.BattleMage || product === Product.Crewman || product === Product.GarrisonCrewman || product >= TROOP_PRODUCT;
+  return product === Product.Worker || product === Product.SupportMage || product === Product.BattleMage || product === Product.Crewman || product === Product.GarrisonCrewman || product === Product.Woodsman || product >= TROOP_PRODUCT;
 }
 
 /** Supply a product's new units take: 1 for a unit trained (a Dreadnought 8, Patch 5), an engine's crew (Patch 2), else 0. */
@@ -707,8 +718,50 @@ export function queueProduct(state: SimState, b: Building, product: Product, by 
     e.hp[h] = -1;
     state.dying.push(e.id[h]!);
   }
-  b.queue.push({ product, paid, progress: 0, by, horse, engine });
+  b.queue.push({ product, paid, progress: 0, by, horse, engine, count: 0 });
   return '';
+}
+
+/** The most one stack holds (Patch 5): the count is 16 bits in a save. */
+export const STACK_MAX = 9999;
+
+/**
+ * Queues a stack of a recipe made in stacks (Patch 5, recipes.ts stack: the
+ * Workshop's bonemeal, x1, x10 or all): `n` of them, or 0 for as many as the
+ * stock pays for, all in one queue slot, paid in full now. Returns '' or why
+ * it could not be queued.
+ */
+export function queueStack(state: SimState, b: Building, product: Product, n: number, by = b.owner): string {
+  const spec = productSpec(product);
+  if (spec.recipe === undefined || !recipeSpec(spec.recipe).stack) return queueProduct(state, b, product, by);
+  if (!offers(b, product)) return 'This building cannot make that.';
+  if (b.queue.length >= QUEUE_LIMIT) return 'The queue is full.';
+  const why = productProblem(state, b, product, by);
+  if (why) return why;
+  const batch = recipeSpec(spec.recipe).inputs[0] ?? [];
+  const pool = state.players[by]!.pool;
+  let most = STACK_MAX;
+  for (const [res, k] of batch) if (k > 0) most = Math.min(most, floorDiv(pool[res]!, k));
+  const count = n > 0 ? Math.min(n, most) : most;
+  if (count <= 0) return `Not enough resources (${costText(batch)}).`;
+  const paid: Array<[number, number]> = [];
+  for (const [res, k] of batch) {
+    pool[res] = pool[res]! - k * count;
+    paid.push([res, k * count]);
+  }
+  b.queue.push({ product, paid, progress: 0, by, horse: 0, engine: 0, count: count - 1 });
+  return '';
+}
+
+/** One of a stack is done: the bar starts again for the next, and what was paid for the one done is no longer refunded. */
+function nextOfStack(head: QueueItem): void {
+  const batch = recipeSpec(productSpec(head.product).recipe!).inputs[0] ?? [];
+  for (const [res, k] of batch) {
+    const at = head.paid.findIndex(([r]) => r === res);
+    if (at >= 0) head.paid[at] = [res, Math.max(0, head.paid[at]![1] - k)];
+  }
+  head.count--;
+  head.progress = 0;
 }
 
 /** Cancels a queued item and refunds what was paid, in full (and a new cavalry's horse goes back to the nearest Barn). */
@@ -764,6 +817,19 @@ function spawnTroop(state: SimState, b: Building, product: number, owner: number
   const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
   for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
   state.events.push({ player: owner, kind: 'info', text: `A new ${troopTierName(t.troop, t.w).toLowerCase()} is ready.`, x, z });
+}
+
+/** A new woodsman (Patch 5) comes out with his wooden spear and follows the rally route. */
+function spawnWoodsman(state: SimState, b: Building, owner: number): void {
+  const [cx, cz] = exitColumn(state, b, state.nextEntityId % 4);
+  const x = columnCentre(cx);
+  const z = columnCentre(cz);
+  const i = addWarrior(state, owner, x, z, Troop.Woodsman, 1, 0);
+  state.entities.heading[i] = 32768;
+  openLedger(state, i);
+  const orders = rallyOrders(b.rally).filter((o) => o.t !== 'gather');
+  for (let k = 0; k < orders.length; k++) giveOrder(state, i, orders[k]!, k > 0);
+  state.events.push({ player: owner, kind: 'info', text: 'A new woodsman is ready.', x, z });
 }
 
 /** A Dreadnought hired at the Tavern (Patch 5) walks out and says so. */
@@ -920,7 +986,7 @@ function finishProduct(state: SimState, b: Building, item: QueueItem): void {
   }
 }
 
-/** Workers at work in a building now (farmers in the field or sheltering in their farmhouse, miners, dock hands). */
+/** Workers at work in a building now (farmers in the field or sheltering in their farmhouse, miners, the barn hand). */
 export function workersAt(state: SimState, b: Building): number {
   const e = state.entities;
   let n = 0;
@@ -955,8 +1021,10 @@ export function harvestPerMille(state: SimState, b: Building): number {
 
 /**
  * A farm's work for one step (Jade, patch notes 1): each farmer at work adds a
- * step to the harvest bar, and a full bar puts the harvest straight into the
- * pool, whole items only, the thousandths carried to the next one.
+ * step to the harvest bar (Patch 5: FARM_PACE units, more while fertilized or
+ * by a Sweet Hawthorne, buildings/farm-boost.ts), and a full bar puts the
+ * harvest straight into the pool, whole items only, the thousandths carried
+ * to the next one.
  */
 function growFarm(state: SimState, b: Building, pool: Int32Array): void {
   const crop = buildingSpec(b.kind).crop;
@@ -965,8 +1033,10 @@ function growFarm(state: SimState, b: Building, pool: Int32Array): void {
   // A save from before harvest bars kept thousandths times steps here: start its bar afresh.
   if (b.farmAcc >= 2 * whole) b.farmAcc = 0;
   const per = harvestPerMille(state, b);
+  const farmers = workersAt(state, b);
+  updateFarmBoost(state, b, farmers > 0);
   if (per <= 0) return;
-  b.farmAcc += workersAt(state, b);
+  b.farmAcc += farmers * farmPace(state, b);
   while (b.farmAcc >= whole) {
     b.farmAcc -= whole;
     const total = (b.acc[0] ?? 0) + per;
@@ -976,9 +1046,9 @@ function growFarm(state: SimState, b: Building, pool: Int32Array): void {
   }
 }
 
-/** The harvest bar's length in farmer-steps, never below one. */
+/** The harvest bar's length in FARM_PACE units of farmers' work (Patch 5; a farmer-step before), never below one. */
 function harvestSteps(): number {
-  return Math.max(1, FARM_HARVEST_STEPS);
+  return Math.max(1, FARM_HARVEST_STEPS) * FARM_PACE;
 }
 
 /** What the panel's harvest bar shows (Jade, patch notes 1): what the next harvest brings in and how far along it is. */
@@ -1008,10 +1078,10 @@ export function farmHarvest(state: SimState, b: Building): FarmHarvest | null {
     const items = floorDiv((b.acc[0] ?? 0) + per, 1000);
     const whole = harvestSteps();
     const done = Math.min(b.farmAcc, whole);
-    return { res: crop.res, items, food: items * RESOURCES[crop.res]!.nutrition, grows: per > 0, done, whole, perStep: per > 0 ? workersAt(state, b) : 0 };
+    return { res: crop.res, items, food: items * RESOURCES[crop.res]!.nutrition, grows: per > 0, done, whole, perStep: per > 0 ? workersAt(state, b) * farmPace(state, b) : 0 };
   }
   if (b.kind !== BuildingKind.Barn) return null;
-  const hens = layingHens(state, b);
+  const hens = barnTended(state, b) ? layingHens(state, b) : 0;
   if (hens === 0) return null;
   // The hens lay in the step that starts on the day's turn, so the bar is full just before it.
   const done = (state.step + CYCLE_STEPS - 1) % CYCLE_STEPS;
@@ -1051,6 +1121,8 @@ export function queuePace(state: SimState, b: Building, head: QueueItem): QueueP
   const whole = productSteps(state, b, head.product);
   if (head.product < RECIPE_PRODUCT) return { whole: whole * 4, perStep: state.players[b.owner]!.starveLodge > 0 ? 0 : RESEARCH_QUARTERS };
   if (head.product < SLAUGHTER_PRODUCT) return { whole, perStep: craftRate(b.kind) };
+  // Patch 5 (Jade): a Barn works only with its barn hand there, slaughter too.
+  if (head.product < ENGINE_PRODUCT && b.kind === BuildingKind.Barn && !barnTended(state, b)) return { whole, perStep: 0 };
   return { whole, perStep: 1 };
 }
 
@@ -1091,6 +1163,7 @@ export function updateBuildings(state: SimState): void {
           else if (head.product === Product.SupportMage) spawnMage(state, b, School.Support, head.by);
           else if (head.product === Product.BattleMage) spawnMage(state, b, School.Battle, head.by);
           else if (head.product === Product.Crewman) spawnCrewman(state, b, head.by, head.engine);
+          else if (head.product === Product.Woodsman) spawnWoodsman(state, b, head.by);
           // A garrison crewman with no fixed engine short of crew any more comes out as an artillery crewman.
           else if (head.product === Product.GarrisonCrewman) {
             if (!spawnGarrisonCrewman(state, b)) spawnCrewman(state, b, head.by, 0);
@@ -1102,8 +1175,11 @@ export function updateBuildings(state: SimState): void {
         head.progress += pace.perStep;
         if (head.progress >= pace.whole) {
           const left = stackLeft(head);
-          if (left > 1) {
-            // A stack: one done, the bar starts again on the next (Patch 5, GP-3).
+          if (head.count > 0) {
+            // A bonemeal stack (Patch 5, decisions 2.5) keeps its slot until the last of it is done.
+            nextOfStack(head);
+          } else if (left > 1) {
+            // A scrap stack: one done, the bar starts again on the next (Patch 5, GP-3).
             const at = head.paid.findIndex(([r]) => r === recipeOf(head.product)!.scrap);
             head.paid[at] = [head.paid[at]![0], left - 1];
             head.progress = 0;
@@ -1126,8 +1202,9 @@ export function buildingStatus(state: SimState, b: Building): string {
   if (isFarm(b.kind)) return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} farmers at work`;
   if (b.kind === BuildingKind.Barn) {
     const n = animalsAt(state, b.id).length;
-    const feed = n > 0 ? `; they eat ${barnFeedText(state, b)} farm fare a day` : '';
-    return `${n} animal${n === 1 ? '' : 's'}; ${stallsTaken(state, b)} of ${BARN_STALLS} stalls taken${feed}`;
+    const feed = n > 0 ? `; they eat ${barnFeedText(state, b)} food a day` : '';
+    const hand = barnTended(state, b) ? '' : '. No barn hand: nothing grazes, breeds, lays or is slaughtered until a worker is assigned';
+    return `${n} animal${n === 1 ? '' : 's'}; ${stallsTaken(state, b)} of ${BARN_STALLS} stalls taken${feed}${hand}`;
   }
   if (b.kind === BuildingKind.Mineshaft) {
     const most = levelSpec(b.kind, b.level).workers;
@@ -1136,6 +1213,5 @@ export function buildingStatus(state: SimState, b: Building): string {
     const waiting = b.stock.length > 0 ? `; dug out for the next bag: ${costText(b.stock.map(([r, n]) => [r as Res, n] as const))}` : '';
     return `${workedOut(state, b) ? 'Worked out' : miners}${rating}${waiting}`;
   }
-  if (b.kind === BuildingKind.FishingDock) return `${workersAt(state, b)} of ${levelSpec(b.kind, b.level).workers} fishing${dockStretch(state, b) ? '' : '; no stretch within 30 m has fish to spare'}`;
   return '';
 }

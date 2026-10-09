@@ -16,10 +16,14 @@
 // with a picture and a count, and portraits with their bars. The title row
 // and all under it grow together to fill the section (middle-fit.ts).
 import {
+  BARN_HAND_TEXT,
+  BOOST_PCT,
   BuildingKind,
   buildingSpec,
   CLOSE_KITS,
   engineSpec,
+  FERTILIZE_BONEMEAL,
+  HAWTHORNE_PCT,
   isGame,
   itemsText,
   kitName,
@@ -37,6 +41,7 @@ import {
   speciesSpec,
   STEPS_PER_SECOND,
   TOOL_KITS,
+  WOODSMAN_KIT,
   TOP_TIER,
   troopOf,
   Troop,
@@ -72,6 +77,7 @@ import { UNIT_SLOTS, unitGoods, weightView } from './unit-inventory.ts';
 import { cardsOf, keepPicks } from './troops.ts';
 import { buildingIconFile, mageIconFile, selectableIconFile, troopIconFile, WORKER_ICON, type UnitLook } from './unit-icons.ts';
 import { oneIsSingular } from './wording.ts';
+import { woodsLineClass, woodsLineText } from './woods.ts';
 import { hasRanks, xpView } from './xp-bar.ts';
 
 /** Most portraits shown at once; the rest are counted ("+8"). */
@@ -150,6 +156,7 @@ const layer = (p: Pic, tag?: string): ButtonIcon => ({ layers: [p.filter ? { fil
 export function typeOrder(typeKey: string): number {
   if (typeKey === 'worker') return 0;
   if (typeKey === 'warrior') return 1;
+  if (typeKey === 'warrior:woods') return 1.4;
   if (typeKey === 'warrior:dreadnought') return 1.4;
   if (typeKey === 'warrior:crew') return 1.5;
   if (typeKey === 'mage:support') return 2;
@@ -509,7 +516,7 @@ export class SelectionPanel {
   // ---- The title row ----
 
   /** A bar, with its numbers on it (health, a farm's harvest) or with them only in its tooltip. */
-  private bar(kind: 'hp' | 'xp' | 'mana' | 'horse' | 'build' | 'meal' | 'up', parent: HTMLElement, read: LiveBar['read'], name: string, withNum = true, id = `bar-${kind}`): HTMLElement {
+  private bar(kind: 'hp' | 'xp' | 'mana' | 'horse' | 'build' | 'meal' | 'up' | 'boost', parent: HTMLElement, read: LiveBar['read'], name: string, withNum = true, id = `bar-${kind}`): HTMLElement {
     const btn = this.button(id, { face: '', name, keys: [], description: '', className: `sel-bar ${kind}` });
     const fill = document.createElement('span');
     fill.className = 'fill';
@@ -613,12 +620,12 @@ export class SelectionPanel {
       const ps = productSpec(item.product);
       const t = troopOf(item.product);
       const name = t ? `${ps.name} (${kitName(t.troop, t.w, t.a, t.s).toLowerCase()})` : `${ps.name}${item.count ? ` (${item.count} left)` : ''}`;
-      // The same picture as the unit once it is out, and as the button that queued it.
+      // The same picture as the unit once it is out, and as the button that queued it; a stack (Patch 5: bonemeal, scrapping) says how many it has left.
       const icon = productIcon(item.product);
       const btn = this.button(`queue${k}`, {
         face: icon ? '' : name.slice(0, 1),
         icon,
-        name: `${name}: cancel`,
+        name: item.count ? `${name}: cancel the stack` : `${name}: cancel`,
         keys: [],
         description: queueText(k === 0, k === 0 ? (this.a.queueLeft?.(b) ?? null) : null),
         className: 'portrait queue-item',
@@ -631,7 +638,7 @@ export class SelectionPanel {
         btn.el.append(bar);
         this.head = { btn, bar };
       }
-      // A stack being scrapped: how many are left, one fewer each time the bar fills (Patch 5, GP-3).
+      // A stack (bonemeal, or gear being scrapped): how many are left, one fewer each time the bar fills (Patch 5).
       if (item.count) btn.el.append(tag(String(item.count)));
       q.append(btn.el);
     });
@@ -683,6 +690,7 @@ export class SelectionPanel {
         description: [at, `${b.working} at work now.`, 'Right-click it with workers to assign them.'].filter((x) => x).join('\n'),
         className: `count${b.status.includes('no stretch') ? ' warn' : ''}`,
       }, row);
+      if (b.boost) this.boostBar(b, row);
     }
     if (own && b.herd > 0) {
       this.chip('herd', { icon: pic('icon_pen_barn'), face: String(b.herd), name: `${b.herd} animal${b.herd === 1 ? '' : 's'}`, description: b.status ? `${b.status}.` : '', className: 'count' }, row);
@@ -703,6 +711,39 @@ export class SelectionPanel {
     });
     if (own && b.rally.length > 0) this.chip('rally', { icon: pic('icon_cmd_rally'), face: String(b.rally.length), name: 'Rally route', description: `New units go along ${b.rally.length} point${b.rally.length > 1 ? 's' : ''}. Right-click the ground with it selected to set another.`, className: 'count' }, row);
     if (row.childElementCount === 0) row.remove();
+  }
+
+  /**
+   * Beside a farm's workers (Jade's UI-17): "Boost remaining:" and a bar that
+   * empties as the bonemeal boost wears off, the seconds left in its
+   * tooltip, with the boosts waiting (+2) and Auto fertilize on it.
+   */
+  private boostBar(b: BuildingInfo, row: HTMLElement): void {
+    const box = document.createElement('span');
+    box.className = 'boost-box';
+    const label = document.createElement('span');
+    label.className = 'bar-label';
+    label.textContent = 'Boost remaining:';
+    box.append(label);
+    row.append(box);
+    const id = b.id;
+    this.bar('boost', box, () => {
+      const v = this.a.game.buildings.get(id)?.boost;
+      if (!v) return null;
+      const s = Math.ceil(v.left / STEPS_PER_SECOND);
+      const waiting = v.queued > 0 ? ` +${v.queued}` : '';
+      // The Sweet Hawthorne's share on the bar too (Jade's decisions 3.6).
+      const tree = v.hawthorne ? ` (+${HAWTHORNE_PCT}%)` : '';
+      const text = `${v.left > 0 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}${waiting}` : v.auto ? 'Auto' : 'None'}${tree}`;
+      const whole = Math.round(v.whole / STEPS_PER_SECOND);
+      const tip = [
+        v.left > 0 ? `${s} s of boost left: the farm grows ${BOOST_PCT}% more farm fare.` : `No boost. Fertilize: ${FERTILIZE_BONEMEAL} bonemeal for ${BOOST_PCT}% more farm fare for ${whole} s.`,
+        v.queued > 0 ? `${v.queued} more boost${v.queued === 1 ? '' : 's'} waiting: ${v.queued * whole} s more after this one.` : '',
+        v.auto ? 'Auto fertilize is on: a new boost whenever one runs out and a farmer is at work, while the bonemeal lasts.' : '',
+        v.hawthorne ? `A Sweet Hawthorne stands within 30 m: ${HAWTHORNE_PCT}% more besides, always.` : '',
+      ].filter((x) => x).join('\n');
+      return { pct: Math.max(0, Math.min(100, Math.round((v.left * 100) / Math.max(1, v.whole)))), text, tip };
+    }, 'Boost remaining', true, 'boost-bar');
   }
 
   /** A farm's harvest: the crop's picture and "6 in 3:40" on its bar, the sentences in the tooltip. */
@@ -903,7 +944,8 @@ export class SelectionPanel {
     const u = id === null ? null : this.a.game.unit(id);
     if (!u) return '';
     const bag = this.a.game.info?.bags.find(([x]) => x === u.id)?.[1] ?? [];
-    return [u.kind, u.troop, u.wTier, u.aTier, u.sTier, u.tips, u.rank, u.upLine, u.upTo, u.mount, u.carryRes, u.carryAmt, u.spells, u.meal > 0, u.crew, bag.map(([r, n]) => `${r}x${n}`).join('.')].join('/');
+    const woods = this.a.game.woodsLine(u.id);
+    return [u.kind, u.troop, u.wTier, u.aTier, u.sTier, u.tips, u.rank, u.upLine, u.upTo, u.mount, u.carryRes, u.carryAmt, u.spells, u.meal > 0, u.crew, bag.map(([r, n]) => `${r}x${n}`).join('.'), woods ? `${woodsLineText(woods)}.${woods.keep}` : ''].join('/');
   }
 
   private oneThing(t: Selectable): void {
@@ -1018,9 +1060,15 @@ export class SelectionPanel {
         },
       });
     }
+    // A woodsman's food line, as large as his name, red, yellow or green (Patch 5, Jade's WD-7).
+    const woods = u.owner === this.a.player ? this.a.game.woodsLine(u.id) : null;
+    if (woods) this.row(`woods-line ${woodsLineClass(woods.keep)}`, woodsLineText(woods));
     if (u.owner === this.a.player) {
       const q = this.a.game.queues.get(u.id) ?? [];
-      this.row('doing', `${unitOrderText(q[0])}${q.length > 1 ? ` +${q.length - 1}` : ''}`, left);
+      // A Barn's hand (Jade's GP-37: "he is operating the barn/tending to livestock").
+      const head = q[0];
+      const doing = head?.t === 'job' && this.a.game.buildings.get(head.b)?.kind === BuildingKind.Barn ? BARN_HAND_TEXT : unitOrderText(head);
+      this.row('doing', `${doing}${q.length > 1 ? ` +${q.length - 1}` : ''}`, left);
     }
     if (carry) this.inventory(u, carry);
   }
@@ -1095,6 +1143,14 @@ export class SelectionPanel {
       return [
         { pic: wandPic(u.wTier), tag: String(u.wTier), ...named(WAND_KITS[u.wTier], u.wTier, 'wand'), line: 0 },
         { pic: robePic(u.aTier), tag: String(u.aTier), ...named(ROBE_KITS[u.aTier], u.aTier, 'robe'), line: 1 },
+      ];
+    }
+    // The woodsman (Patch 5): his long weapon, and his rod and line, drawn while he fishes; no armour (Jade's WD-2).
+    if (u.troop === Troop.Woodsman) {
+      const rod = WOODSMAN_KIT[1]!;
+      return [
+        { pic: weaponPic(u.troop, u.wTier), tag: String(u.wTier), ...named(weaponPiece(u.troop, u.wTier), u.wTier, 'weapon'), line: 0 },
+        { pic: { file: 'icon_fishing_rod' }, name: rod.name, text: 'He fishes with it; it comes with him. A woodsman wears no armour.', line: -1 },
       ];
     }
     // The Dreadnought (Patch 5, GP-21): the mace and plate he came with, never changed.

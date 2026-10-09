@@ -1,17 +1,22 @@
-// Pathfinding (technical decision 6): A* on the 1.8 m coarse tiles to find a
-// corridor, then A* on the 45 cm columns inside it, with the doc's step,
-// clamber and drop rules; a flow field over the coarse tiles for groups of 8
-// or more; and straightening over plain ground so units walk in straight
-// lines rather than along the grid. Integer costs, binary heaps with fixed
-// tie-breaking and bounded searches keep every machine on the same path.
+// Pathfinding (technical decision 6; Patch 5, Jade's GP-22): A* on the
+// 45 cm columns for a short trip; for a longer one, A* over the regions of
+// the 1.8 m coarse tiles (nav/regions.ts) to find a corridor, then A* on the
+// columns inside it, with the doc's step, clamber, drop and climb rules. A
+// long trip is walked a leg at a time, each leg planned from the end of the
+// last, so no one search ranges over the whole of it. Paths are straightened
+// over plain ground so units walk in straight lines rather than along the
+// grid. Integer costs, binary heaps with fixed tie-breaking and bounded
+// searches keep every machine on the same path. The coarse tiles' own
+// crossings (edgeCost) stay for the monsters' fields round the towns
+// (combat/fields.ts).
 
 import { floorDiv } from '../fixed.ts';
 import { chunkKey, CHUNK_SHIFT } from '../world/chunk.ts';
-import { PERSON, TOP, type Mover, type NavGrid } from './grid.ts';
+import { NO_FLOOR, PERSON, TOP, UNDER, type Mover, type NavGrid } from './grid.ts';
+import { NO_REGION, NODES_PER_TILE, RegionMap, SAME_TILE, TILE_SHIFT, wayCost, wayDir, wayFrom, wayTo } from './regions.ts';
 
 /** Coarse tiles are 4 x 4 columns (1.8 m), 16 x 16 per chunk. */
 export const TILE_COLUMNS = 4;
-const TILE_SHIFT = 2;
 const TILES_PER_CHUNK = 16;
 
 /**
@@ -65,15 +70,11 @@ export interface PathResult {
   points: number[];
   /** False when the goal could not be reached; the path then ends at the nearest place found. */
   reached: boolean;
+  /** A long trip's first leg (Patch 5, GP-22): the way goes on, so plan the next leg from its end. */
+  more?: boolean;
 }
 
 export const DIRS: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-/** The opposite of each direction in DIRS. */
-const BACK = [1, 0, 3, 2, 7, 6, 5, 4] as const;
-
-function sign(v: number): number {
-  return v > 0 ? 1 : v < 0 ? -1 : 0;
-}
 
 /** A binary min-heap of (key, value) with ties broken by insertion order, so pops are the same everywhere. */
 export class Heap {
@@ -165,8 +166,37 @@ interface CoarseChunk {
 /** Search limits (s): enough for a long walk round a barrier, small enough for the step budget. */
 export const FINE_BUDGET_SHORT = 6000;
 export const FINE_BUDGET_LONG = 20000;
-export const COARSE_BUDGET = 6000;
+/** Regions a search over the regions expands at most (s): a walk round a ridge or a lake a few hundred metres long. */
+export const COARSE_BUDGET = 20000;
+/** Regions it expands to come near a goal whose regions are shut off (s). */
+export const NEAR_BUDGET = 2000;
+/** Regions a goal's regions are walked back over to see whether they are shut off (s). */
+const SHUT_OFF_LIMIT = 512;
+/**
+ * The estimate a search over the regions makes of the way left, per tile of
+ * octile distance: a tile's cheapest crossing is 4 columns' walk (x4), and
+ * the estimate is a quarter more (s), so a search heads for the goal and
+ * looks round far less, for a way at most a quarter dearer than the
+ * cheapest (a 300 m walk over hills: 600 regions looked at, not 4,000).
+ */
+const HEURISTIC_PER_TILE = 5;
+/** Regions a search over the regions looks at before it asks whether the goal is shut off. */
+const SHUT_OFF_AFTER = 1000;
+/** Slack round the start and the goal of a search over the regions, tiles (s: 173 m). */
+const REGION_PAD_TILES = 96;
+/** Regions in a leg of a long trip (Patch 5, GP-22) (s: about 58 m on open ground). */
+export const LEG_REGIONS = 32;
+/** A goal of up to this many columns has its regions listed; a bigger one is any region of its tiles. */
+const GOAL_COLUMNS_LISTED = 4096;
 const SHORT_COLUMNS = 48;
+/** Tiles of the world each way from 0 (it ends at 100 km, 55,556 tiles), for regionKey(). */
+const TILE_OFFSET = 1 << 16;
+const TILE_SPAN = 1 << 17;
+
+/** One number for a region of a tile (the search's keys). */
+export function regionKey(tx: number, tz: number, r: number): number {
+  return ((tz + TILE_OFFSET) * TILE_SPAN + (tx + TILE_OFFSET)) * NODES_PER_TILE + r;
+}
 
 export class Pathfinder {
   private g = new Int32Array(0);
@@ -179,8 +209,23 @@ export class Pathfinder {
   private readonly coarse = new Map<number, Map<number, CoarseChunk>>();
   /** Searches run since the counter was last reset (the step budget). */
   searches = 0;
+  /** Regions expanded by searches over the regions, all told (a measure for tests). */
+  regionExpansions = 0;
+  /** The regions of the coarse tiles (Patch 5, GP-22). */
+  readonly regions: RegionMap;
+  /** A search over the regions: each window tile's first node (-1 until touched), the touched tiles, and per node its cost, parent, state, tile and region. */
+  private tileSlot = new Int32Array(0);
+  private readonly slotted: number[] = [];
+  private nodes = 0;
+  private rg = new Int32Array(0);
+  private rparent = new Int32Array(0);
+  private rstate = new Uint8Array(0);
+  private rtile = new Int32Array(0);
+  private rregion = new Uint8Array(0);
 
-  constructor(readonly grid: NavGrid) {}
+  constructor(readonly grid: NavGrid) {
+    this.regions = new RegionMap(grid);
+  }
 
   private ensure(n: number): void {
     if (this.g.length >= n) return;
@@ -202,7 +247,17 @@ export class Pathfinder {
    * or to the explored column nearest the goal when it cannot be reached
    * within the budget.
    */
-  private fine(m: Mover, sx: number, sz: number, sl: number, goal: Goal, win: Window, budget: number, tileMask: { x0: number; z0: number; w: number; bits: Uint8Array } | null): { cols: number[]; layers: number[]; reached: boolean } {
+  private fine(
+    m: Mover,
+    sx: number,
+    sz: number,
+    sl: number,
+    goal: Goal,
+    win: Window,
+    budget: number,
+    tileMask: { x0: number; z0: number; w: number; bits: Uint8Array } | null,
+    accept: ((x: number, z: number, layer: number) => boolean) | null = null,
+  ): { cols: number[]; layers: number[]; reached: boolean } {
     const W = win.w;
     const H = win.h;
     this.ensure(W * H * 2);
@@ -235,7 +290,7 @@ export class Pathfinder {
       const cc = cur >> 1;
       const cx = (cc % W) + win.x0;
       const cz = floorDiv(cc, W) + win.z0;
-      if (atGoal(goal, cx, cz, grid.levelOf(cx, cz, cl))) {
+      if (atGoal(goal, cx, cz, grid.levelOf(cx, cz, cl)) && (accept === null || accept(cx, cz, cl))) {
         found = cur;
         break;
       }
@@ -395,8 +450,117 @@ export class Pathfinder {
     return c.edges[((tz - (cz << 4)) * 16 + (tx - (cx << 4))) * 8 + d]!;
   }
 
-  /** A* over coarse tiles from the start tile towards the goal's tiles. Returns the tiles on the way, start first. */
-  private coarsePath(m: Mover, sx: number, sz: number, goal: Goal, budget: number): { tiles: number[]; reached: boolean } {
+  // ----- regions (Patch 5, Jade's GP-22) -----
+
+  /** A search's tile slot for the regions of a window tile, made the first time the search touches the tile. */
+  private regionNode(wt: number, tx: number, tz: number, r: number, m: Mover): number {
+    let base = this.tileSlot[wt]!;
+    if (base < 0) {
+      const n = this.regions.count(tx, tz, m);
+      base = this.nodes;
+      this.nodes += n;
+      if (this.rg.length < this.nodes) {
+        const size = Math.max(this.nodes, this.rg.length * 2, 4096);
+        const grow = <T extends Int32Array | Uint8Array>(a: T, make: (k: number) => T): T => {
+          const b = make(size);
+          b.set(a);
+          return b;
+        };
+        this.rg = grow(this.rg, (k) => new Int32Array(k));
+        this.rparent = grow(this.rparent, (k) => new Int32Array(k));
+        this.rstate = grow(this.rstate, (k) => new Uint8Array(k));
+        this.rtile = grow(this.rtile, (k) => new Int32Array(k));
+        this.rregion = grow(this.rregion, (k) => new Uint8Array(k));
+      }
+      for (let k = 0; k < n; k++) {
+        this.rstate[base + k] = 0;
+        this.rtile[base + k] = wt;
+        this.rregion[base + k] = k;
+      }
+      this.tileSlot[wt] = base;
+      this.slotted.push(wt);
+    }
+    return base + r;
+  }
+
+  /** Readies the window's tile slots for a search over a window of W x H tiles. */
+  private regionWindow(n: number): void {
+    for (const wt of this.slotted) this.tileSlot[wt] = -1;
+    this.slotted.length = 0;
+    this.nodes = 0;
+    this.heap.clear();
+    if (this.tileSlot.length < n) this.tileSlot = new Int32Array(n).fill(-1);
+  }
+
+  /**
+   * The regions holding a goal's columns (on the walk levels it allows), as
+   * regionKey()s; null for a goal too big to list, which any region of its
+   * tiles then stands for.
+   */
+  private goalRegions(goal: Goal, m: Mover): Set<number> | null {
+    const x0 = goal.x0 - goal.max;
+    const z0 = goal.z0 - goal.max;
+    const x1 = goal.x1 + goal.max;
+    const z1 = goal.z1 + goal.max;
+    if ((x1 - x0 + 1) * (z1 - z0 + 1) > GOAL_COLUMNS_LISTED) return null;
+    const out = new Set<number>();
+    for (let z = z0; z <= z1; z++) {
+      for (let x = x0; x <= x1; x++) {
+        const d = rectDistance(goal, x, z);
+        if (d < goal.min || d > goal.max) continue;
+        for (let layer = TOP; layer <= UNDER; layer++) {
+          const level = this.grid.levelOf(x, z, layer);
+          if (level === NO_FLOOR || !atGoal(goal, x, z, level)) continue;
+          const r = this.regions.regionAt(x, z, layer, m);
+          if (r !== NO_REGION) out.add(regionKey(x >> TILE_SHIFT, z >> TILE_SHIFT, r));
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Whether the regions a goal's columns lie in are shut off: walking
+   * backwards from them over the ways into them, the regions that can reach
+   * them run out within `limit` regions, and the start's is not among them.
+   * Then no path there exists, and a long search for one is spared.
+   */
+  private goalShutOff(goals: Set<number>, start: number, m: Mover, limit: number): boolean {
+    const seen = new Set<number>(goals);
+    const queue = [...goals];
+    for (let q = 0; q < queue.length; q++) {
+      if (seen.size > limit) return false;
+      const key = queue[q]!;
+      const r = key % NODES_PER_TILE;
+      const tile = floorDiv(key, NODES_PER_TILE);
+      const tx = (tile % TILE_SPAN) - TILE_OFFSET;
+      const tz = floorDiv(tile, TILE_SPAN) - TILE_OFFSET;
+      // Ways into it: from the tiles round it, and from its own tile's other regions.
+      for (let d = 0; d <= SAME_TILE; d++) {
+        const ftx = d === SAME_TILE ? tx : tx - DIRS[d]![0];
+        const ftz = d === SAME_TILE ? tz : tz - DIRS[d]![1];
+        for (const w of this.regions.waysOut(ftx, ftz, m)) {
+          if (wayDir(w) !== d || wayTo(w) !== r) continue;
+          const from = regionKey(ftx, ftz, wayFrom(w));
+          if (from === start) return false;
+          if (seen.has(from)) continue;
+          seen.add(from);
+          queue.push(from);
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * A* over the regions of the coarse tiles from a column's walk level to
+   * the regions of a goal (Patch 5, GP-22). Returns the regions on the way,
+   * start first, as tile x, tile z, region triples; when the goal is out of
+   * reach (or past the budget), the way to the region found nearest it.
+   */
+  private regionPath(m: Mover, sx: number, sz: number, sl: number, goal: Goal, budget: number): { regions: number[]; reached: boolean } {
+    const R = this.regions;
+    const grid = this.grid;
     const tg: Goal = {
       x0: (goal.x0 - goal.max) >> TILE_SHIFT,
       z0: (goal.z0 - goal.max) >> TILE_SHIFT,
@@ -407,74 +571,103 @@ export class Pathfinder {
     };
     const stx = sx >> TILE_SHIFT;
     const stz = sz >> TILE_SHIFT;
-    // A window of tiles round the start and the goal, 64 tiles (115 m) of slack each way.
-    const pad = 64;
-    const win: Window = {
-      x0: Math.min(stx, tg.x0) - pad,
-      z0: Math.min(stz, tg.z0) - pad,
-      w: Math.max(stx, tg.x1) - Math.min(stx, tg.x0) + 1 + 2 * pad,
-      h: Math.max(stz, tg.z1) - Math.min(stz, tg.z0) + 1 + 2 * pad,
-    };
-    const W = win.w;
-    this.ensure(W * win.h);
-    this.reset();
-    const idx = (x: number, z: number): number => (z - win.z0) * W + (x - win.x0);
-    const hc = (x: number, z: number): number => heuristic(tg, x, z) * 4;
-    const s = idx(stx, stz);
-    this.g[s] = 0;
-    this.state[s] = 1;
-    this.touched.push(s);
-    this.heap.push(hc(stx, stz), s);
-    let best = s;
-    let bestH = hc(stx, stz);
+    const pad = REGION_PAD_TILES;
+    const wx0 = Math.min(stx, tg.x0) - pad;
+    const wz0 = Math.min(stz, tg.z0) - pad;
+    const W = Math.max(stx, tg.x1) - wx0 + 1 + pad;
+    const H = Math.max(stz, tg.z1) - wz0 + 1 + pad;
+    const goals = this.goalRegions(goal, m);
+    const inGoal = (tx: number, tz: number, r: number): boolean => (goals ? goals.has(regionKey(tx, tz, r)) : atGoal(tg, tx, tz));
+    // A unit off any region (where its mover cannot stand) starts from the regions it can step onto.
+    const seeds: number[] = [];
+    const r0 = R.regionAt(sx, sz, sl, m);
+    if (r0 !== NO_REGION) seeds.push(stx, stz, r0, 0);
+    else {
+      for (const [dx, dz] of DIRS) {
+        const nx = sx + dx;
+        const nz = sz + dz;
+        const lb = grid.layerTo(sx, sz, sl, nx, nz, m);
+        if (lb < 0) continue;
+        const c = grid.stepCostFrom(sx, sz, sl, nx, nz, m);
+        const r = c < 0 ? NO_REGION : R.regionAt(nx, nz, lb, m);
+        if (r !== NO_REGION) seeds.push(nx >> TILE_SHIFT, nz >> TILE_SHIFT, r, c);
+      }
+    }
+    if (seeds.length === 0) return { regions: [], reached: false };
+    // A goal its regions shut off: only far enough to come near it.
+    const startKey = regionKey(stx, stz, r0);
+    if (goals && goals.size === 0) budget = Math.min(budget, NEAR_BUDGET);
+    // Whether the goal is shut off is asked only of a search that has not found it soon.
+    let asked = !goals || r0 === NO_REGION || goals.has(startKey);
+    this.regionWindow(W * H);
+    const hc = (tx: number, tz: number): number => heuristic(tg, tx, tz) * HEURISTIC_PER_TILE;
+    let best = -1;
+    let bestH = Infinity;
+    for (let k = 0; k < seeds.length; k += 4) {
+      const tx = seeds[k]!;
+      const tz = seeds[k + 1]!;
+      const n = this.regionNode((tz - wz0) * W + (tx - wx0), tx, tz, seeds[k + 2]!, m);
+      if (this.rstate[n] === 1 && this.rg[n]! <= seeds[k + 3]!) continue;
+      this.rstate[n] = 1;
+      this.rg[n] = seeds[k + 3]!;
+      this.rparent[n] = -1;
+      const h = hc(tx, tz);
+      this.heap.push(seeds[k + 3]! + h, n);
+      if (h < bestH) {
+        bestH = h;
+        best = n;
+      }
+    }
     let found = -1;
     let expanded = 0;
     while (this.heap.size > 0) {
       const cur = this.heap.pop();
-      if (this.state[cur] === 2) continue;
-      this.state[cur] = 2;
-      const cx = (cur % W) + win.x0;
-      const cz = floorDiv(cur, W) + win.z0;
-      if (atGoal(tg, cx, cz)) {
+      if (this.rstate[cur] === 2) continue;
+      this.rstate[cur] = 2;
+      const wt = this.rtile[cur]!;
+      const tx = (wt % W) + wx0;
+      const tz = floorDiv(wt, W) + wz0;
+      const r = this.rregion[cur]!;
+      if (inGoal(tx, tz, r)) {
         found = cur;
         break;
       }
       if (++expanded > budget) break;
-      for (let d = 0; d < 8; d++) {
-        const nx = cx + DIRS[d]![0];
-        const nz = cz + DIRS[d]![1];
-        if (nx < win.x0 || nz < win.z0 || nx >= win.x0 + W || nz >= win.z0 + win.h) continue;
-        const ni = idx(nx, nz);
-        if (this.state[ni] === 2) continue;
-        const c = this.edgeCost(cx, cz, d, m);
-        if (c === 0) continue;
-        const ng = this.g[cur]! + c;
-        if (this.state[ni] === 1 && ng >= this.g[ni]!) continue;
-        if (this.state[ni] === 0) this.touched.push(ni);
-        this.state[ni] = 1;
-        this.g[ni] = ng;
-        this.from[ni] = d;
-        const h = hc(nx, nz);
+      if (!asked && expanded > SHUT_OFF_AFTER) {
+        asked = true;
+        // A goal its regions shut off: only far enough to come near it.
+        if (this.goalShutOff(goals!, startKey, m, SHUT_OFF_LIMIT)) budget = Math.min(budget, Math.max(NEAR_BUDGET, expanded));
+      }
+      const gc = this.rg[cur]!;
+      for (const w of R.waysOut(tx, tz, m)) {
+        if (wayFrom(w) !== r) continue;
+        const d = wayDir(w);
+        const ntx = d === SAME_TILE ? tx : tx + DIRS[d]![0];
+        const ntz = d === SAME_TILE ? tz : tz + DIRS[d]![1];
+        if (ntx < wx0 || ntz < wz0 || ntx >= wx0 + W || ntz >= wz0 + H) continue;
+        const nn = this.regionNode((ntz - wz0) * W + (ntx - wx0), ntx, ntz, wayTo(w), m);
+        if (this.rstate[nn] === 2) continue;
+        const ng = gc + wayCost(w);
+        if (this.rstate[nn] === 1 && ng >= this.rg[nn]!) continue;
+        this.rstate[nn] = 1;
+        this.rg[nn] = ng;
+        this.rparent[nn] = cur;
+        const h = hc(ntx, ntz);
         if (h < bestH) {
           bestH = h;
-          best = ni;
+          best = nn;
         }
-        this.heap.push(ng + h, ni);
+        this.heap.push(ng + h, nn);
       }
     }
-    const end = found >= 0 ? found : best;
-    const tiles: number[] = [];
-    let at = end;
-    for (;;) {
-      const x = (at % W) + win.x0;
-      const z = floorDiv(at, W) + win.z0;
-      tiles.push(z, x);
-      if (at === s) break;
-      const d = DIRS[this.from[at]!]!;
-      at = idx(x - d[0], z - d[1]);
+    this.regionExpansions += expanded;
+    const regions: number[] = [];
+    for (let at = found >= 0 ? found : best; at >= 0; at = this.rparent[at]!) {
+      const wt = this.rtile[at]!;
+      regions.push(this.rregion[at]!, floorDiv(wt, W) + wz0, (wt % W) + wx0);
     }
-    tiles.reverse();
-    return { tiles, reached: found >= 0 };
+    regions.reverse();
+    return { regions, reached: found >= 0 };
   }
 
   /** A mask of the given tiles, each grown by one tile, for the fine search. */
@@ -508,10 +701,13 @@ export class Pathfinder {
 
   /**
    * A path for a mover from column (sx, sz) to a goal. Short trips search
-   * the columns directly; long ones, or short ones that fail, find a
-   * corridor on the coarse tiles first.
+   * the columns directly; long ones, or short ones that fail, plan over the
+   * regions first and walk the fine path inside their tiles. A long trip is
+   * walked a leg at a time (more): the fine path goes as far as the
+   * LEG_REGIONS-th region of the way, and the unit plans the next leg from
+   * there, so no one search ever ranges over the whole trip.
    */
-  find(m: Mover, sx: number, sz: number, goal: Goal, sl = TOP): PathResult {
+  find(m: Mover, sx: number, sz: number, goal: Goal, sl = TOP, budget = COARSE_BUDGET): PathResult {
     this.searches++;
     if (atGoal(goal, sx, sz, this.grid.levelOf(sx, sz, sl))) return { points: [], reached: true };
     const far = rectDistance(goal, sx, sz);
@@ -528,96 +724,38 @@ export class Pathfinder {
       const r = this.fine(m, sx, sz, sl, goal, win, FINE_BUDGET_SHORT, null);
       if (r.reached) return { points: this.straighten(m, sx, sz, sl, r.cols, r.layers), reached: true };
     }
-    const cp = this.coarsePath(m, sx, sz, goal, COARSE_BUDGET);
-    return this.alongTiles(m, sx, sz, sl, goal, cp.tiles, cp.reached);
-  }
-
-  /** Fine search inside a corridor of coarse tiles; towards the corridor's end when the goal itself is out of reach. */
-  private alongTiles(m: Mover, sx: number, sz: number, sl: number, goal: Goal, tiles: readonly number[], reached: boolean): PathResult {
-    const { mask, win } = this.corridor(tiles);
-    let g = goal;
-    if (!reached) {
-      const n = tiles.length;
-      const tx = tiles[n - 2]!;
-      const tz = tiles[n - 1]!;
-      g = { x0: tx << TILE_SHIFT, z0: tz << TILE_SHIFT, x1: (tx << TILE_SHIFT) + 3, z1: (tz << TILE_SHIFT) + 3, min: 0, max: 0 };
-    }
-    const r = this.fine(m, sx, sz, sl, g, win, FINE_BUDGET_LONG, mask);
-    return { points: this.straighten(m, sx, sz, sl, r.cols, r.layers), reached: reached && r.reached };
+    const rp = this.regionPath(m, sx, sz, sl, goal, budget);
+    return this.alongRegions(m, sx, sz, sl, goal, rp.regions, rp.reached);
   }
 
   /**
-   * A flow field over coarse tiles towards a goal, for a group of 8 or more:
-   * one search shared by the whole group (technical decision 6). Covers the
-   * box round the group and the goal with 32 tiles of slack.
+   * The fine path along a way over regions (tile x, tile z, region triples):
+   * to the goal when the way reaches it within a leg, else to the end of the
+   * first leg, on a column of that leg's last region (more: plan again from
+   * there). A way that does not reach the goal is walked to its end.
    */
-  flowField(goal: Goal, box: { x0: number; z0: number; x1: number; z1: number }): FlowField {
-    this.searches++;
-    const gx = (goal.x0 + goal.x1) >> (1 + TILE_SHIFT);
-    const gz = (goal.z0 + goal.z1) >> (1 + TILE_SHIFT);
-    const pad = 32;
-    const x0 = Math.min(gx, box.x0 >> TILE_SHIFT) - pad;
-    const z0 = Math.min(gz, box.z0 >> TILE_SHIFT) - pad;
-    const x1 = Math.max(gx, box.x1 >> TILE_SHIFT) + pad;
-    const z1 = Math.max(gz, box.z1 >> TILE_SHIFT) + pad;
-    const W = x1 - x0 + 1;
-    const H = z1 - z0 + 1;
-    const cost = new Int32Array(W * H).fill(-1);
-    const done = new Uint8Array(W * H);
-    const heap = new Heap();
-    const s = (gz - z0) * W + (gx - x0);
-    cost[s] = 0;
-    heap.push(0, s);
-    let expanded = 0;
-    while (heap.size > 0 && expanded < COARSE_BUDGET * 2) {
-      const cur = heap.pop();
-      if (done[cur] === 1) continue;
-      done[cur] = 1;
-      expanded++;
-      const cx = (cur % W) + x0;
-      const cz = floorDiv(cur, W) + z0;
-      const cc = cost[cur]!;
-      for (let d = 0; d < 8; d++) {
-        const nx = cx + DIRS[d]![0];
-        const nz = cz + DIRS[d]![1];
-        if (nx < x0 || nz < z0 || nx > x1 || nz > z1) continue;
-        // The way from the neighbour back to this tile: the opposite direction.
-        const back = BACK[d]!;
-        const c = this.edgeCost(nx, nz, back);
-        if (c === 0) continue;
-        const ni = (nz - z0) * W + (nx - x0);
-        const nc = cc + c;
-        if (cost[ni]! >= 0 && cost[ni]! <= nc) continue;
-        cost[ni] = nc;
-        heap.push(nc, ni);
-      }
+  private alongRegions(m: Mover, sx: number, sz: number, sl: number, goal: Goal, regions: readonly number[], reached: boolean): PathResult {
+    const n = floorDiv(regions.length, 3);
+    if (n === 0) return { points: [], reached: false };
+    const leg = reached && n - 1 > LEG_REGIONS;
+    const last = leg ? LEG_REGIONS : n - 1;
+    const tiles: number[] = [];
+    for (let k = 0; k <= last; k++) tiles.push(regions[3 * k]!, regions[3 * k + 1]!);
+    const { mask, win } = this.corridor(tiles);
+    let g = goal;
+    let accept: ((x: number, z: number, layer: number) => boolean) | null = null;
+    if (leg || !reached) {
+      // The leg ends on a column of its last region.
+      const tx = regions[3 * last]!;
+      const tz = regions[3 * last + 1]!;
+      const r = regions[3 * last + 2]!;
+      g = { x0: tx << TILE_SHIFT, z0: tz << TILE_SHIFT, x1: (tx << TILE_SHIFT) + 3, z1: (tz << TILE_SHIFT) + 3, min: 0, max: 0 };
+      accept = (x, z, layer) => this.regions.regionAt(x, z, layer, m) === r;
     }
-    return new FlowField(this, x0, z0, W, H, cost, gx, gz);
-  }
-
-  /** A path for one member of a group: the field gives its corridor, then a fine search inside it. */
-  findWithField(field: FlowField, m: Mover, sx: number, sz: number, goal: Goal, sl = TOP): PathResult {
-    this.searches++;
-    if (atGoal(goal, sx, sz, this.grid.levelOf(sx, sz, sl))) return { points: [], reached: true };
-    const tiles = field.tilesFrom(sx >> TILE_SHIFT, sz >> TILE_SHIFT);
-    if (!tiles) return this.find(m, sx, sz, goal, sl);
-    // The field leads to the goal's tile; the member's own goal may sit a few tiles off it.
-    const gx = (goal.x0 + goal.x1) >> (1 + TILE_SHIFT);
-    const gz = (goal.z0 + goal.z1) >> (1 + TILE_SHIFT);
-    const extra: number[] = [];
-    if (gx !== field.gx || gz !== field.gz) {
-      let x = field.gx;
-      let z = field.gz;
-      while (x !== gx || z !== gz) {
-        x += sign(gx - x);
-        z += sign(gz - z);
-        extra.push(x, z);
-      }
-    }
-    const all = tiles.concat(extra);
-    const r = this.alongTiles(m, sx, sz, sl, goal, all, true);
-    if (r.reached) return r;
-    return this.find(m, sx, sz, goal, sl);
+    const f = this.fine(m, sx, sz, sl, g, win, FINE_BUDGET_LONG, mask, accept);
+    const points = this.straighten(m, sx, sz, sl, f.cols, f.layers);
+    if (leg) return f.reached && points.length > 0 ? { points, reached: false, more: true } : { points, reached: false };
+    return { points, reached: reached && f.reached };
   }
 
   /**
@@ -678,56 +816,6 @@ export class Pathfinder {
       z = nz;
     }
     return l;
-  }
-}
-
-/** Coarse tile costs to a goal; a member walks downhill on them. */
-export class FlowField {
-  constructor(
-    private readonly pf: Pathfinder,
-    readonly x0: number,
-    readonly z0: number,
-    readonly w: number,
-    readonly h: number,
-    readonly cost: Int32Array,
-    readonly gx: number,
-    readonly gz: number,
-  ) {}
-
-  costAt(tx: number, tz: number): number {
-    const x = tx - this.x0;
-    const z = tz - this.z0;
-    if (x < 0 || z < 0 || x >= this.w || z >= this.h) return -1;
-    return this.cost[z * this.w + x]!;
-  }
-
-  /** The tiles from (tx, tz) down the field to the goal, as x, z pairs; null if the start is outside the field. */
-  tilesFrom(tx: number, tz: number): number[] | null {
-    let c = this.costAt(tx, tz);
-    if (c < 0) return null;
-    const out: number[] = [tx, tz];
-    let x = tx;
-    let z = tz;
-    let guard = this.w * this.h;
-    while (c > 0 && guard-- > 0) {
-      let bestD = -1;
-      let bestC = c;
-      for (let d = 0; d < 8; d++) {
-        const nx = x + DIRS[d]![0];
-        const nz = z + DIRS[d]![1];
-        const nc = this.costAt(nx, nz);
-        if (nc < 0 || nc >= bestC) continue;
-        if (this.pf.edgeCost(x, z, d) === 0) continue;
-        bestC = nc;
-        bestD = d;
-      }
-      if (bestD < 0) break;
-      x += DIRS[bestD]![0];
-      z += DIRS[bestD]![1];
-      c = bestC;
-      out.push(x, z);
-    }
-    return out;
   }
 }
 

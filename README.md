@@ -1528,7 +1528,7 @@ before. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    (N) once. They say what they are doing ("Spotted a deer.", "Taking the meat
    home.", "No game in sight. Looking farther out.") and what they got, hunt
    hares, deer and wild birds their side can see, and take the meat home when
-   their bags are half full. They never go farther than they could walk back
+   their bags are full (half full before Patch 5). They never go farther than they could walk back
    from in dusk's 40 s (about 100 m from the Big House at a warrior's 3 m/s):
    at dusk they say "Getting dark. Heading home." and are within 4 m of the
    main base by nightfall, and at daybreak they go out again. Wild boar, giant
@@ -3883,9 +3883,10 @@ blueprint/patch5-gear-picks.md (section 12).*
    the Big House and another at the Barracks with a better sword, and raise
    the second one's weapon with **Upgrade equipment**: its old sword goes to
    the stock. Right click that sword in the stockpile, pick **Equip** and
-   left click the first swordsman: it says it is off to the nearest
-   Barracks, Forge or main base for it, walks there and puts it on in a
-   fifth of the time, and its old sword goes to the stock in turn. Left
+   left click the first swordsman: it says it is off to the nearest main
+   base, Storehouse, Barracks or Forge for it (build a Storehouse near it
+   and it goes there), walks there and puts it on in a fifth of the time,
+   and its old sword goes to the stock in turn. Left
    click a spearman instead: "I cannot use a …"; the second swordsman: "I
    already have better." Right click or Esc cancels the pick.
 5. **Drop-offs by themselves.** Send a worker gathering beside the main
@@ -4028,6 +4029,60 @@ the box and the press on a face).*
 7. **Saves.** No save format change; the snapshot version goes to 30 (a
    dig order's layer and missed columns, and digs drawn upwards).
 
+## How a tester checks pathing and stuck units (Patch 5)
+
+*Patch 5's GP-22 (pathing), with the 3 m boulders World generation added.
+Picks in blueprint/patch5-movement-picks.md. The code is
+`packages/sim/src/nav/regions.ts` (each 4 by 4 column tile split into the
+parts a unit can walk between), `packages/sim/src/nav/path.ts` (the search
+over those parts, then over the columns along them), `packages/sim/src/units/stuck.ts`
+(the stuck line), `packages/sim/src/nav/grid.ts` (the boulders) and
+`packages/client/src/hud/shell.ts` (the stuck unit's pings).*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-pathing.test.ts:
+   seven units leave a walled village through its gate, or through a gap in
+   its wall, and cross a village crowded with storehouses; they walk round
+   a 72 m stone ridge too high to climb and back out of a U-shaped trap; go
+   150 m in legs; and take a tunnel through a 180 m ridge rather than the
+   long way round. A boulder raises the walk map 3 m on its footprint:
+   walkers go round, a worker or a fighter can climb it, a horse cannot
+   jump onto it, and mined away it is ground again. A unit walled in says
+   where it is stuck and why, once a minute at most; one shut in by 9 m of
+   stone, or sent into a walled yard, says so too.
+2. **Leaving a village.** `pnpm dev`, open http://localhost:5173/?seed=1.
+   Wall the main base in with a gate (or leave a gap), select units inside
+   and Move them to a spot outside: they head for the gate or the gap and
+   out, without catching on the wall. Crowd buildings close together:
+   units thread between them.
+3. **Long trips round obstacles.** Move a unit 200 m or more over rough
+   land, past ridges, lakes and cliffs: it walks round them. It plans about
+   50 m at a time and the next stretch as it gets there, so it never stands
+   still to think. A worker or a fighter climbs a face in its way when that
+   is shorter than going round. A large group sent far no longer holds the
+   game up (20 units sent 300 m had stalled it most of a second).
+4. **Tunnels.** With a tunnel through a cliff (digging and tunnels, above),
+   units sent to the far side take it when it is the shorter way.
+5. **Boulders.** The 3 m boulders now stand in the way: units walk round
+   them; a worker or a fighter may climb onto one; horses, the Dreadnought,
+   engines and carts never do. Miners stand round its foot. Mined away,
+   the ground there is walkable again.
+6. **Stuck units.** Wall a unit in on every side (or leave it in a pit too
+   deep to climb out of) and Move it out: it says, in a bubble and as an
+   urgent line in the message panel, "I'm stuck to the north-east, about
+   40 m from our main base: there are walls and buildings all round me, and
+   I can't figure out how to get out." The reason is the commonest thing
+   round it: walls and buildings, faces of land and rock too high for it to
+   climb, drops too deep for it to climb down, deep water, or slopes too
+   steep for wheels. Sent into a walled yard it cannot get into, a unit
+   that stops more than 5 m short says "... there are walls and buildings
+   all round where you sent me, and I can't figure out a way there." The
+   minimap pings the unit every 5 s until the camera shows it (or it gets
+   5 m clear, goes inside, or dies); other players see nothing. A unit says
+   it at most once a minute, and the order's own "I cannot reach that."
+   stays unsaid then.
+7. **Saves.** No save format change; the snapshot version goes to 31 (when
+   a stuck unit may next say so).
+
 ## How a tester checks the Tavern and the Dreadnought (Patch 5)
 
 *Jade's Patch 5, GP-19 to GP-21: the Tavern, which turns food into silver
@@ -4048,8 +4103,8 @@ editor shows them under Buildings, Training and Units.*
    smashes, then sweeps, by turns; he walks a fifth slower than a warrior,
    never climbs, jumps 1.5 m and pays double for running.
 2. **Building it.** `pnpm dev`, open http://localhost:5173/?seed=1. The
-   build menu has **Tavern** after the Mineshaft (key V; on a phone-size
-   card the build menu now takes two pages, turned with **More**). Without a tier 3 main base it
+   build menu has **Tavern** after the Mineshaft (key V; with the Fishing
+   dock gone it still fits a phone-size card). Without a tier 3 main base it
    is greyed and says so. It costs 80 lumber, 60 stone, 5 leather and a
    gold ingot, or 7 silver ingots when there is no gold. For a quick look,
    type M N B V C X Z and press **Godmode**: it builds at once.
@@ -4068,7 +4123,8 @@ editor shows them under Buildings, Training and Units.*
    door lights the ground, and the chimney smokes well. Closed, the windows
    and lantern go dark and the chimney gives a thin wisp.
 6. **Hiring.** At a tier 3 main base, press **Hire Dreadnought**: its
-   tooltip is his description and price. The window lists 100 food (not
+   tooltip is his description and price, and the button wears his own
+   picture. The window shows his portrait by the price and lists 100 food (not
    negotiable) and gold and silver boxes with your stock; type or use − and
    + in either, and the other fills to the price. **All gold** and **All
    silver** pay all one way. The worth line warns when the mix is under the
@@ -4092,6 +4148,100 @@ editor shows them under Buildings, Training and Units.*
 10. **Saves and checks.** No snapshot change: the Tavern's state is kept in
     the building record as it was. The Tavern's kind id is 24 (the earth
     rampart took 23).
+## How a tester checks the woodsman, fishing, farms and the Barn (Patch 5)
+
+*Patch 5's WD-1 to WD-7 (the woodsman), FR-1 and FR-2 (fishing), CT-1's
+Fish button, GP-24 (the night retreat), GP-30 to GP-32 and QoL 2 (wild
+food), GP-35 to GP-38 (taming, the Barn, bonemeal and Fertilize), UI-17
+(Boost remaining), BL-8, BL-10, VX-2, VX-3 and QoL 3. Picks in
+blueprint/patch5-food-picks.md. The code is
+`packages/sim/src/units/woodsman.ts` and `woods.ts` (the woodsman and his
+woods order), `world/world.ts` `spread` (mushrooms coming back),
+`buildings/farm-boost.ts` (Fertilize), `animals/barn.ts` and
+`units/barn-hand.ts` (the Barn), `units/field.ts` (taming, and hunters
+picking berries),
+`animals/animals.ts` (following, grazing, breeding),
+`units/night-work.ts` and `forage.ts` (the night retreat); on the screen
+`hud/woods.ts`, `world/fish-view.ts` and `world/building-glow.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-woodsman.test.ts
+   (training, damage, no dock, fishing by himself and a picked stretch, the
+   save round trip, the food line's colours), packages/sim/test/patch5-forage.test.ts
+   (Forage, mushrooms coming back, hunters picking berries),
+   packages/client/test/patch5-woodsman.test.ts (his card, keys and orders)
+   and the farm and Barn tests in farms.test.ts.
+2. **Training.** `pnpm dev`, open http://localhost:5173/?seed=2. Build a
+   Scholar's Lodge: its card has Woodsman (W) for 32 food, 4 sticks, 1
+   leather (or 1 hides) and 4 flax, in 50 s. He comes out with a wooden
+   spear in his hand and no armour.
+3. **His card.** Attack (A), Move (M), Fish (I), Forage (G), Eat (F),
+   Upgrade equipment (Q) and Run or Walk (H). F2 does not select him.
+   Upgrade equipment offers only long weapons, and only at a main base; he
+   hits 2 less than a warrior with the same weapon and fights back when
+   struck. He climbs faces up to 7 m, as workers do.
+4. **Fishing.** There is no Fishing dock in the build menu, and workers sent
+   to fish are told "Only woodsmen fish. Train them at the Scholar's Lodge."
+   Near water, fish swim in the stretches (trout, salmon, giant catfish),
+   up to 8 drawn per stretch, fewer as it is fished down. Right click Fish:
+   the woodsman walks to the nearest stretch with fish to spare, puts his
+   spear on his back, takes out his rod, casts and waits; every 12 s a fish
+   comes up on the line in an arc to him and goes in his bag. He leaves each
+   stretch half its fish so it breeds back, takes his bag home when it
+   cannot take another fish, and goes back out. Left click Fish, then a
+   stretch (or right click a stretch with him selected): he fishes that one
+   down to its last pair, then goes on by himself. Fish and Forage can both
+   be on; each button shows its auto mark while on. At dusk he hands in his
+   catch and waits by the main base until day.
+5. **Foraging.** Right click Forage (its picture is black berries): the
+   woodsman goes to the nearest wild food ready to pick, a berry bush
+   (black berries, raspberries, blueberries) or edible mushrooms, picks it
+   (reaching up at a bush, stooping for mushrooms) and takes his bag home
+   when it is full. A bush stays where it is, its berries back in 2
+   minutes. A picked mushroom is gone, and another comes up within 3 m of
+   it 1 to 3.5 minutes later, so mushrooms wander over time; select one and
+   the panel says so. Left click Forage, then a bush: he picks that one
+   first. Bog pears, hawthorne fruit and Moon Roses come with the stone
+   circles.
+6. **Hunters and berries.** Select a warrior near a berry bush and press
+   Hunt (N) twice: it picks the bush first (any within 20 m), the bush left
+   standing, then goes after game. Hunters take their bags home only when
+   they are full, or when the next animal's meat would not fit.
+7. **His food line.** Select one woodsman: under his name, "Food in 24,
+   eaten 2.5 (last 10 min)" (or his life, if shorter), red while he eats
+   more than he brings in, green once he brings in more than 3 food over
+   every 3 meals, yellow between.
+8. **Fertilize.** At the Workshop, Bonemeal (N) grinds bone into bonemeal:
+   click makes one, Shift + click ten, and a right click offers Make 1,
+   Make 10 or Make all, each order one stack in the queue counting down. On a farm's
+   card, Fertilize (F) costs 2 bonemeal and makes the farm grow 30% more for
+   2 minutes; pressed again, more boosts wait behind it (up to 10). Right
+   click turns Auto fertilize on or off. Beside the farm's workers,
+   "Boost remaining:" has a bar that empties as the boost runs (seconds in
+   its tooltip, boosts waiting, and a Sweet Hawthorne's +35% when there is
+   one), mirrored over the farm. A farmer-day brings in 10 farm fare (was 8).
+9. **The Barn.** A Barn works only with its one barn hand, in a farmer's
+   straw hat. By day he walks among the animals outside; at night he is in
+   the loft. Ordering him away asks "Are you sure you want me to leave the
+   animals unattended?" first.
+   Its animals graze by day, which saves a quarter of their feed, and eat
+   plant food (farm fare, berries or mushrooms) at nightfall.
+10. **Taming.** With a worker selected, hover a wild chicken or cow: the
+    tooltip says to right click to tame it and what it costs (3 food for a
+    chicken up to 20 for cattle and oxen, in plant food from the stock). The
+    worker feeds it at 2 food a second, a bar over the animal filling, then
+    it follows him to within 5 m of a Barn with room.
+11. **Breeding.** Prey animals breed half as often again as before, seek a
+    mate, and when they do, each shows a heart and plays its mating clip.
+12. **The night retreat.** At dusk, workers out gathering by themselves go
+    in to a farm or a Barn with animals that has room first, then the main
+    base, an empty Barn last. Only a worker within 5 m of a main base, its
+    node too, with a troop within 10 m, asks to work on through the night,
+    and it gathers only by the base. A worker you set gathering in the dark
+    works on all that night.
+13. **Lights.** Farms and Barns with people in them have lit windows at
+    night, main bases are lit every night, an occupied farm's chimney
+    smokes at night, and the Big House campfire burns with flames and smoke.
+14. **Saves.** No save format change; the snapshot version goes to 31.
 
 ## How a tester checks mages and spells (Patch 5)
 

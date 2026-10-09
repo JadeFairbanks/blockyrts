@@ -52,6 +52,7 @@ import {
   buildingStatus,
   buildRequirement,
   farmBandLine,
+  farmBoost,
   farmHarvest,
   queueHead,
   stackLeft,
@@ -101,7 +102,7 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
-import { cloaked, crewOf, haulerOf, isCrystalGuardian, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom } from '@blockyrts/sim';
+import { barnOf, cloaked, crewOf, haulerOf, isCrystalGuardian, isWoodsman, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom, woodsmanLedger } from '@blockyrts/sim';
 import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type TavernPanel, type ToWorker } from './messages.ts';
@@ -231,6 +232,8 @@ function postState(s: SimState): void {
     if (onTop(s, i)) flags |= UnitFlag.OnTop;
     if (e.autoRepair[i] !== 0) flags |= UnitFlag.AutoRepair;
     if (isCrystalGuardian(s, i)) flags |= UnitFlag.Guardian;
+    // A Barn's hand (Patch 5): he wears the farmer's hat while he is one (Jade's GP-37).
+    if (e.kind[i] === UnitKind.Worker && barnOf(s, i)) flags |= UnitFlag.BarnHand;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
     data[o + S.target] = e.target[i]!;
@@ -350,7 +353,8 @@ function tavernPanel(s: SimState, b: Building): TavernPanel | null {
 function queueInfo(s: SimState, b: Building): BuildingInfo['queue'] {
   const h = queueHead(s, b);
   return b.queue.map((q, k) => {
-    const n = stackLeft(q);
+    // A stack: a bonemeal stack counts what is left after the one under way, a scrap stack all that are left.
+    const n = q.count > 0 ? q.count + 1 : stackLeft(q);
     const count = n > 1 ? { count: n } : {};
     if (k > 0 || !h) return { product: q.product, done: 0, stepsLeft: 0, ...count };
     return { product: q.product, done: Math.min(1000, Math.floor((h.done * 1000) / Math.max(1, h.whole))), stepsLeft: h.stepsLeft, ...count };
@@ -410,6 +414,7 @@ function postInfo(s: SimState): void {
           : [],
       horses: b.kind === BuildingKind.Barracks && b.complete ? stalledHorses(s, b, PLAYER).length : 0,
       farm: farmInfo(s, b),
+      boost: farmBoost(s, b),
       tavern: tavernPanel(s, b),
     };
   });
@@ -419,6 +424,7 @@ function postInfo(s: SimState): void {
   const mageTraining: Array<[number, number, number]> = [];
   const mageRanks: Array<[number, string]> = [];
   const bags: Array<[number, Array<[number, number]>]> = [];
+  const woodsmen: Array<[number, number, number, number, number]> = [];
   const carry: Array<[number, number, number]> = [];
   const effects: Array<[number, Array<[number, number]>]> = [];
   const untils = [[SpellOn.Quicken, e.quickUntil], [SpellOn.Fortify, e.fortUntil], [SpellOn.Rally, e.rallyUntil], [SpellOn.Warding, e.wardUntil], [SpellOn.Healing, e.healUntil], [SpellOn.Hexed, e.hexUntil]] as const;
@@ -428,6 +434,10 @@ function postInfo(s: SimState): void {
     for (const [bit, until] of untils) if (until[i]! > s.step) (on ??= []).push([bit, until[i]! - s.step]);
     if (on) effects.push([e.id[i]!, on]);
     if (e.owner[i] !== PLAYER) continue;
+    if (isWoodsman(e, i)) {
+      const l = woodsmanLedger(s, i);
+      woodsmen.push([e.id[i]!, l.brought, l.ate, l.steps, l.keep]);
+    }
     queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
     if (e.bag[i]!.length > 0) bags.push([e.id[i]!, bagItems(s, i)]);
     if (canLoot(s, i)) carry.push([e.id[i]!, ...carryView(s, i)]);
@@ -480,6 +490,7 @@ function postInfo(s: SimState): void {
         .filter((l) => s.world.isExplored(Math.floor(l.x / FOG_TILE_WU), Math.floor(l.z / FOG_TILE_WU)))
         .map((l) => ({ id: l.id, res: l.res, amt: l.amt, x: l.x, y: l.y, z: l.z, own: l.owner < 0 || l.owner === PLAYER })),
       bags,
+      woodsmen,
       carry,
       effects,
     },
