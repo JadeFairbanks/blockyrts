@@ -20,7 +20,7 @@ function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): Buil
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
     queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: BUILDINGS[kind]!.name, upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
-    troops: [], horses: 0, farm: null, ...o,
+    troops: [], horses: 0, farm: null, room: 0, fixedEngine: 0, ...o,
   };
 }
 
@@ -141,10 +141,12 @@ describe('a card with one button that only opens a menu opens on that menu (Patc
     expect(Commands.lone(card)).toBe(false);
   });
 
-  it('keeps the menu button where the card has more on it: the Artillery workshop trains its crewman too', () => {
+  it('puts a short list on the card itself: the Artillery workshop trains its crewman beside its engines (Patch 5, no Make button)', () => {
     const b = building(41, BuildingKind.ArtilleryWorkshop, { products: [[Product.Crewman, ''], [ENGINE_PRODUCT + Engine.BronzeCannon, '']] });
     const card = harness(game([b]), [picked(b)], picked(b).typeKey).c.card();
-    expect(card.map((e) => e.action)).toEqual(expect.arrayContaining(['trainCrewman', 'craft']));
+    expect(card.map((e) => e.action)).toEqual(expect.arrayContaining(['trainCrewman']));
+    expect(card.some((e) => e.action === 'craft')).toBe(false);
+    expect(card.some((e) => e.product === ENGINE_PRODUCT + Engine.BronzeCannon)).toBe(true);
   });
 
   it('keeps Cancel on a Forge still going up, not the menu', () => {

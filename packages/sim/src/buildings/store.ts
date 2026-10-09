@@ -24,17 +24,21 @@ export const Product = {
   BattleMage: 5,
   /** Patch 2: an artillery crewman, trained at the Artillery workshop (siege/data.ts CREWMAN). */
   Crewman: 6,
+  /** Patch 5 (Jade, CT-3): a garrison artillery crewman, trained at the Citadel for the fixed engine on its platform (siege/platform.ts). */
+  GarrisonCrewman: 7,
 } as const;
 export type Product = number;
 /**
  * Research step r is product RESEARCH_PRODUCT + r; a crafting recipe
  * (recipes.ts) RECIPE_PRODUCT + n; slaughtering one animal of a species at
  * a Barn, SLAUGHTER_PRODUCT + species; making a siege
- * engine or cannon (siege/data.ts), ENGINE_PRODUCT + engine; a new troop
- * (units/kits.ts) TROOP_PRODUCT + shield tier x 1000 + type x 100 + weapon
- * tier x 10 + armour tier (troopProduct; the shield from Patch 5, GP-26); a
- * new mage with her kit picked at a Magi Sanctum (Patch 2), MAGE_PRODUCT +
- * school x 100 + wand tier x 10 + robe tier (mageProduct).
+ * engine or cannon (siege/data.ts), ENGINE_PRODUCT + engine, and upgrading
+ * the fixed engine on a Citadel's platform ENGINE_PRODUCT + engineUpgrade
+ * (Patch 5); a new troop (units/kits.ts) TROOP_PRODUCT + shield tier x 1000
+ * + type x 100 + weapon tier x 10 + armour tier (troopProduct; the shield
+ * from Patch 5, GP-26); a new mage with her kit picked at a Magi Sanctum
+ * (Patch 2), MAGE_PRODUCT + school x 100 + wand tier x 10 + robe tier
+ * (mageProduct).
  */
 export const RESEARCH_PRODUCT = 8;
 export const RECIPE_PRODUCT = 512;

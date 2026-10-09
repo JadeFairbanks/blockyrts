@@ -89,7 +89,7 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
-import { cloaked, crewOf, haulerOf, Mount, mountSpec, onTop, unitsOnTop } from '@blockyrts/sim';
+import { cloaked, crewOf, haulerOf, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
@@ -300,8 +300,11 @@ function postInfo(s: SimState): void {
       lit: isLit(b),
       assigned: assigned(s, b.id).length,
       working: b.complete ? workersAt(s, b) : 0,
-      inside: unitsInside(s, b.id).map((i) => s.entities.id[i]!),
-      up: unitsOnTop(s, b.id).map((i) => s.entities.id[i]!),
+      // A Citadel's fixed engine and its crew are on the platform for good (Patch 5): not in the panel's portraits, nobody to let out.
+      inside: unitsInside(s, b.id).filter((i) => s.entities.kind[i] !== UnitKind.Engine && !platformCrew(s, i)).map((i) => s.entities.id[i]!),
+      up: menOnTop(s, b.id).map((i) => s.entities.id[i]!),
+      room: topRoom(s, b),
+      fixedEngine: platformEngine(s, b.id) >= 0 ? s.entities.id[platformEngine(s, b.id)]! : 0,
       status: buildingStatus(s, b),
       name: buildingName(b.kind, b.level, b.variant),
       upgradeWhy: usableBy(s, b, PLAYER) ? upgradeProblem(s, b, PLAYER) : '',

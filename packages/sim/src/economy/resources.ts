@@ -367,7 +367,7 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.DemonHorn, 'Demon horn', 'Horn', A, 20, 'Dropped by red demons and the archfiend.'),
   r(Res.Hexstone, 'Hexstone', 'Hexstone', A, 5, 'Dropped by goblins.'),
   r(Res.Venom, 'Venom', 'Venom', A, 5, 'Dropped by vipers, scorpions, centipedes and hornets.'),
-  r(Res.LeadOre, 'Lead ore', 'Lead ore', A, 80, 'Deepwoods and deeper, beside silver-grey rock (bronze tools).'),
+  r(Res.LeadOre, 'Lead ore', 'Lead ore', A, 80, 'Deepwoods and deeper, beside silver-grey rock (bronze tools). Every gunpowder weapon and cannon takes some.'),
   r(Res.ManaCrystal, 'Mana crystal', 'Mana', A, 5, 'Rare nodes in the Deadlands, and some magical creatures.'),
   r(Res.Planks, 'Planks', 'Planks', G, 50, 'Lumber at the Workshop.', 0, false),
   r(Res.Bricks, 'Bricks', 'Bricks', G, 25, 'Clay at the Forge (main base tier 2).', 0, false),

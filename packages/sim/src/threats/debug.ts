@@ -68,7 +68,7 @@ export const DebugThreat = {
   SiegeKit: 51,
   /** The carbon steel, planks, flint and gunpowder for four musket rangers' kits, and the gun research done (Patch 2: no cannon crew training; artillery crewmen crew cannons). */
   GunKit: 52,
-  /** The player's main base becomes a finished Citadel (tier 4) with its 4 cannon ports. */
+  /** The player's main base becomes a finished Citadel (tier 4) with its engine platform (Patch 5). */
   Citadel: 53,
   /** A finished Barracks and Forge at the spot, the main base raised to tier 3 if lower (the Forge's steel step), the materials of every tier, 300 farm fare, and the research every tier needs (Troops and gear). */
   TroopKit: 54,
