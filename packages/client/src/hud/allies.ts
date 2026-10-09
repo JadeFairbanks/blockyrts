@@ -1,13 +1,19 @@
 // The multiplayer tools next to the resource bar (Allies panel): the Allies
 // list with a Share control box for each other player, and the Send
-// resources window (a resource, an amount typed or made with +10, +100 and
-// All, and a Send button on each ally's row). Both are HUD panels with HUD
-// buttons, so they work with the mouse alone and with the cursor locked.
+// resources window. Both are HUD panels with HUD buttons, so they work with
+// the mouse alone and with the cursor locked. Patch 5 (UI-15: "Make it
+// visually clear how much of what resource is being put up/queued to be sent
+// to another player"): the window keeps a To send list, each resource with
+// its picture and an amount typed or made with +10, +100 and All, and Send on
+// a player's row sends the whole list.
 import { RESOURCES, type Order } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { MouseTarget } from '../input/input-manager.ts';
 import type { ButtonRegistry, HudButtonDef } from './buttons.ts';
+import { addAmount, amountBox, FOCUS_BOX, goodCount, goodPic } from './goods-ui.ts';
 import type { HudPanels } from './panels.ts';
+
+export { addAmount, parseAmount } from './goods-ui.ts';
 
 export interface AlliesActions {
   send(o: Order): void;
@@ -19,16 +25,11 @@ export interface AlliesActions {
   addArea(id: string, el: HTMLElement, target: MouseTarget): void;
 }
 
-/** The amount after a +N press, never past what the pool holds (the sim clamps too). */
-export function addAmount(amount: number, by: number, have: number): number {
-  return Math.max(0, Math.min(have, amount + by));
-}
-
-/** A typed amount: digits only, at most the pool; empty is 0. */
-export function parseAmount(text: string, have: number): number {
-  const t = text.replace(/[\s,_]/g, '');
-  if (!/^\d{0,9}$/.test(t)) return -1;
-  return Math.min(have, Number(t || '0'));
+/** "50 stone, 20 copper ore": what a To send list holds. */
+export function sendText(lines: ReadonlyMap<number, number>): string {
+  const out: string[] = [];
+  for (const [res, n] of lines) if (n > 0) out.push(`${n} ${RESOURCES[res]!.name.toLowerCase()}`);
+  return out.join(', ');
 }
 
 class Buttons {
@@ -40,13 +41,14 @@ class Buttons {
     private readonly prefix: string,
   ) {}
 
-  add(parent: HTMLElement, def: Omit<HudButtonDef, 'id' | 'keys'>, disabled = '', lit = false): void {
+  add(parent: HTMLElement, def: Omit<HudButtonDef, 'id' | 'keys'>, disabled = '', lit = false): HTMLElement {
     const id = `${this.prefix}-${this.n++}`;
     const b = this.reg.add({ keys: [], ...def, id });
     if (disabled) b.setEnabled(false, disabled);
     if (lit) b.setLit(true);
     this.ids.push(id);
     parent.append(b.el);
+    return b.el;
   }
 
   clear(): void {
@@ -68,12 +70,10 @@ export class AlliesUi {
   private readonly sendBox: HTMLElement;
   private readonly alliesButtons: Buttons;
   private readonly sendButtons: Buttons;
-  private readonly amountInput: HTMLInputElement;
   private alliesSig = '';
   private sendSig = '';
-  /** The resource picked in the Send window, and the amount. */
-  private res = -1;
-  private amount = 0;
+  /** The To send list: each resource put up and how many, in the order they were picked. */
+  private readonly lines = new Map<number, number>();
 
   constructor(
     root: HTMLElement,
@@ -93,35 +93,6 @@ export class AlliesUi {
     panels.register('send', this.sendBox);
     this.alliesButtons = new Buttons(buttons, 'ally');
     this.sendButtons = new Buttons(buttons, 'snd');
-    this.amountInput = document.createElement('input');
-    this.amountInput.className = 'send-amount';
-    this.amountInput.inputMode = 'numeric';
-    this.amountInput.autocomplete = 'off';
-    this.amountInput.setAttribute('aria-label', 'Amount to send');
-    this.amountInput.addEventListener('input', () => {
-      const v = parseAmount(this.amountInput.value, this.have());
-      if (v >= 0) this.amount = v;
-    });
-    this.amountInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === 'Escape') {
-        e.preventDefault();
-        this.amountInput.value = String(this.amount);
-        this.amountInput.blur();
-      }
-    });
-    this.amountInput.addEventListener('blur', () => {
-      this.amountInput.value = String(this.amount);
-      this.sendSig = '';
-      this.refresh();
-    });
-    a.addArea('send-amount', this.amountInput, {
-      down: () => {
-        this.amountInput.focus();
-        this.amountInput.select();
-      },
-      move: () => undefined,
-      up: () => undefined,
-    });
   }
 
   /** The other players, in player order. */
@@ -143,6 +114,8 @@ export class AlliesUi {
   }
 
   toggleSend(): void {
+    const typed = document.activeElement;
+    if (typed instanceof HTMLInputElement && this.sendBox.contains(typed)) typed.blur();
     this.sendBox.hidden = !this.sendBox.hidden;
     this.sendSig = '';
     this.refresh();
@@ -179,14 +152,16 @@ export class AlliesUi {
     const head = el('div', 'dlg-head', this.allies);
     el('h3', 'dlg-title', head, 'Allies');
     this.alliesButtons.add(head, { face: '×', name: 'Close', description: 'Close the Allies panel ([ or Esc).', className: 'dlg-close', onPress: () => this.toggleAllies() });
+    const body = el('div', 'dlg-body', this.allies);
+    body.dataset.scroll = '';
     const others = this.others();
     if (others.length === 0) {
-      el('p', 'dlg-note', this.allies, 'You are playing alone. Host a game from the main menu to play with others.');
+      el('p', 'dlg-note', body, 'You are playing alone. Host a game from the main menu to play with others.');
       return;
     }
-    el('p', 'dlg-note', this.allies, 'Share control lets that player order your units: move, attack, patrol, hold, gather, shelter and garrison. They can never use your buildings or spend your resources.');
+    el('p', 'dlg-note', body, 'Share control lets that player order your units: move, attack, patrol, hold, gather, shelter and garrison. They can never use your buildings or spend your resources.');
     for (const p of others) {
-      const row = el('div', 'ally-row', this.allies);
+      const row = el('div', 'ally-row', body);
       const swatch = el('span', 'ally-swatch', row);
       swatch.style.background = this.a.colour(p);
       el('span', 'ally-name', row, this.a.name(p));
@@ -216,95 +191,124 @@ export class AlliesUi {
     }
   }
 
-  private have(): number {
-    return this.res < 0 ? 0 : this.game.have(this.res);
+  private have(res: number): number {
+    return this.game.have(res);
+  }
+
+  /** A press that changes the To send list: a box being typed in lets go first, then the window is drawn again. */
+  private change(fn: () => void): void {
+    const a = document.activeElement;
+    if (a instanceof HTMLInputElement && this.sendBox.contains(a)) a.blur();
+    fn();
+    this.sendSig = '';
+    this.refresh();
+  }
+
+  /** Leaving an amount box draws the window again, unless the press went to another box in it. */
+  private boxLeft(): void {
+    window.setTimeout(() => {
+      const a = document.activeElement;
+      if (a instanceof HTMLInputElement && this.sendBox.contains(a)) return;
+      this.sendSig = '';
+      this.refresh();
+    }, 0);
   }
 
   private drawSend(): void {
     const info = this.game.info;
     const pool = info?.pool ?? [];
     const others = this.others().filter((p) => !info?.players[p]?.out);
-    if (this.res >= 0 && (pool[this.res] ?? 0) === 0) this.res = -1;
-    this.amount = Math.min(this.amount, this.have());
-    const sig = `${this.res}|${this.amount}|${pool.join(',')}|${others.join(',')}`;
+    // Not while an amount is typed: leaving the box draws it again.
+    const a = document.activeElement;
+    if (a instanceof HTMLInputElement && this.sendBox.contains(a)) return;
+    // What the player no longer has leaves the list, and no line asks for more than there is.
+    for (const [res, n] of [...this.lines]) {
+      const h = pool[res] ?? 0;
+      if (h <= 0) this.lines.delete(res);
+      else if (n > h) this.lines.set(res, h);
+    }
+    const sig = `${[...this.lines].join(';')}|${pool.join(',')}|${others.join(',')}`;
     if (sig === this.sendSig) return;
     this.sendSig = sig;
-    if (document.activeElement === this.amountInput) return; // not while typing
     this.sendButtons.clear();
     this.sendBox.replaceChildren();
     const head = el('div', 'dlg-head', this.sendBox);
     el('h3', 'dlg-title', head, 'Send resources');
     this.sendButtons.add(head, { face: '×', name: 'Close', description: 'Close the Send resources window (] or Esc).', className: 'dlg-close', onPress: () => this.toggleSend() });
+    const body = el('div', 'dlg-body', this.sendBox);
+    body.dataset.scroll = '';
     if (others.length === 0) {
-      el('p', 'dlg-note', this.sendBox, 'There is nobody to send to.');
+      el('p', 'dlg-note', body, 'There is nobody to send to.');
       return;
     }
-    el('p', 'dlg-note', this.sendBox, 'Pick a resource and an amount, then Send on a player\'s row. It arrives at once, all of it.');
-    const grid = el('div', 'send-res', this.sendBox);
+    el('p', 'dlg-note', body, 'Put resources on the To send list and set how many, then Send on a player\'s row. Everything on the list arrives at once.');
+    const grid = el('div', 'send-res', body);
+    grid.dataset.scroll = '';
     RESOURCES.forEach((r, k) => {
       const n = pool[k] ?? 0;
       if (n <= 0) return;
-      this.sendButtons.add(
+      const on = this.lines.has(k);
+      const b = this.sendButtons.add(
         grid,
         {
-          face: `${r.short} ${n}`,
+          face: r.short,
           name: r.name,
-          description: `Send ${r.name.toLowerCase()} (you have ${n}).`,
+          description: on ? `${r.name} is on the To send list. Click for ten more; right click takes it off.` : `Put ${r.name.toLowerCase()} on the To send list (you have ${n}).`,
           className: 'dlg-btn send-pick',
-          onPress: () => {
-            this.res = k;
-            this.amount = Math.min(Math.max(this.amount, 10), n);
-            this.refresh();
-          },
+          onPress: () => this.change(() => this.lines.set(k, on ? addAmount(this.lines.get(k)!, 10, n) : Math.min(10, n))),
+          onRightClick: () => this.change(() => this.lines.delete(k)),
         },
         '',
-        k === this.res,
+        on,
       );
+      b.prepend(goodPic(k));
+      b.append(goodCount(n));
     });
-    if (grid.childElementCount === 0) el('p', 'dlg-note', this.sendBox, 'You have nothing to send.');
-    const amountRow = el('div', 'dlg-row send-amount-row', this.sendBox);
-    el('span', 'send-label', amountRow, this.res < 0 ? 'Amount' : `${RESOURCES[this.res]!.name}:`);
-    this.amountInput.value = String(this.amount);
-    amountRow.append(this.amountInput);
-    const none = this.res < 0 ? 'Pick a resource first.' : '';
-    const add = (face: string, by: number, description: string): void =>
-      this.sendButtons.add(
-        amountRow,
-        {
-          face,
-          name: face,
-          description,
-          className: 'dlg-btn',
-          onPress: () => {
-            this.amount = by === Infinity ? this.have() : by === 0 ? 0 : addAmount(this.amount, by, this.have());
-            this.refresh();
-          },
-        },
-        none,
-      );
-    add('+10', 10, 'Ten more.');
-    add('+100', 100, 'A hundred more.');
-    add('All', Infinity, 'Everything you have of it.');
-    add('Clear', 0, 'Back to nothing.');
+    if (grid.childElementCount === 0) el('p', 'dlg-note', body, 'You have nothing to send.');
+
+    el('div', 'trade-head', body, 'To send');
+    const list = el('div', 'send-list', body);
+    if (this.lines.size === 0) el('div', 'trade-good muted', list, 'Nothing yet: pick a resource above.');
+    for (const [res, n] of this.lines) {
+      const have = this.have(res);
+      const r = RESOURCES[res]!;
+      const line = el('div', 'good-row offer-line', list);
+      line.append(goodPic(res));
+      el('span', 'good-name', line, r.name);
+      const box = amountBox(n, have, `How many ${r.name.toLowerCase()} to send`, (v) => this.lines.set(res, v), () => this.boxLeft());
+      this.a.addArea('send-amount', box, FOCUS_BOX);
+      line.append(box);
+      const by = (face: string, to: () => number, description: string): void => {
+        this.sendButtons.add(line, { face, name: face, description, className: 'dlg-btn mini', onPress: () => this.change(() => this.lines.set(res, to())) });
+      };
+      by('+10', () => addAmount(this.lines.get(res) ?? 0, 10, have), 'Ten more.');
+      by('+100', () => addAmount(this.lines.get(res) ?? 0, 100, have), 'A hundred more.');
+      by('All', () => have, `All ${have} you have.`);
+      this.sendButtons.add(line, { face: '×', name: 'Take off', description: 'Take it off the To send list.', className: 'dlg-btn mini', onPress: () => this.change(() => this.lines.delete(res)) });
+    }
+    if (this.lines.size > 0) this.sendButtons.add(list, { face: 'Clear all', name: 'Clear all', description: 'Empty the To send list.', className: 'dlg-btn', onPress: () => this.change(() => this.lines.clear()) });
+
     for (const p of others) {
-      const row = el('div', 'ally-row', this.sendBox);
+      const row = el('div', 'ally-row', body);
       const swatch = el('span', 'ally-swatch', row);
       swatch.style.background = this.a.colour(p);
       el('span', 'ally-name', row, this.a.name(p));
-      const why = this.res < 0 ? 'Pick a resource first.' : this.amount <= 0 ? 'Choose an amount first.' : '';
+      const what = sendText(this.lines);
       this.sendButtons.add(
         row,
         {
           face: 'Send',
           name: `Send to ${this.a.name(p)}`,
-          description: this.res < 0 ? `Send to ${this.a.name(p)}.` : `Send ${this.amount} ${RESOURCES[this.res]!.name.toLowerCase()} to ${this.a.name(p)}.`,
+          description: what ? `Send ${what} to ${this.a.name(p)}.` : `Send to ${this.a.name(p)}.`,
           className: 'dlg-btn primary',
           onPress: () => {
-            if (this.res < 0 || this.amount <= 0) return;
-            this.a.send({ kind: 'sendResources', player: this.player, to: p, res: this.res, amount: this.amount });
+            const a = document.activeElement;
+            if (a instanceof HTMLInputElement && this.sendBox.contains(a)) a.blur();
+            for (const [res, n] of this.lines) if (n > 0) this.a.send({ kind: 'sendResources', player: this.player, to: p, res, amount: n });
+            this.change(() => this.lines.clear());
           },
         },
-        why,
+        what ? '' : 'Put something on the To send list first.',
       );
     }
   }

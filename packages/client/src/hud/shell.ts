@@ -309,6 +309,7 @@ export class GameShell {
       send: (o) => opts.issueOrder(o),
       jumpTo: (x, z) => this.jumpTo(x, z),
       message: (t, k) => this.message(t, k),
+      addArea: (id, el, target) => this.input.addArea(id, el, target),
     });
     this.selector = new SelectionController(this.cam, this.panels, this.selection, this.player, () => this.items, this.layout.dragBox);
     const session = opts.session;

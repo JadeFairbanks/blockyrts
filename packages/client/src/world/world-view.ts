@@ -479,7 +479,7 @@ export class WorldView {
     u.typeKey = `people:${mob}`;
     u.owner = PEOPLES;
     u.halfSize.set(0.3, spec.heightCm / 200, 0.3);
-    const what = f?.war ? 'At war with you.' : f?.kind === FactionKind.MercCamp ? 'Right click with one of your units to hire mercenaries.' : leader || f?.kind === FactionKind.ElfCaravan ? 'Right click with one of your units to trade.' : '';
+    const what = f?.war ? 'At war with you.' : f?.kind === FactionKind.MercCamp ? 'Right click to hire mercenaries. One of your units must be within 10 m of their camp.' : leader || f?.kind === FactionKind.ElfCaravan ? 'Right click to trade. One of your units must be within 10 m of one of their buildings.' : '';
     const details = [title, health];
     if (kind === UnitKind.Mage) details.push(`Mana ${d[o + S.mana]} / ${d[o + S.maxMana]}`);
     if (what) details.push(what);
