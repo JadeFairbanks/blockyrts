@@ -591,7 +591,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     world.update(now, shell.cam.focus);
     shell.frame(dt, now);
     audio.setPaused(stopped());
-    audio.frame(shell.cam.focus.x, shell.cam.focus.z, now);
+    const right = shell.cam.right();
+    audio.frame(shell.cam.focus.x, shell.cam.focus.z, now, right.x, right.z);
     // The shadow box follows the camera as it stands this frame.
     world.aimSun(shell.cam.camera, shell.cam.focus);
     renderer.render(scene, shell.cam.camera);
