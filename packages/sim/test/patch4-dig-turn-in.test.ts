@@ -165,7 +165,7 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     for (const t of trips) expect(Math.hypot(t.x - sx, t.z - sz)).toBeLessThan(Math.hypot(t.x - hx, t.z - hz));
   });
 
-  it("fills a hand cart's 150 lb before the trip home", () => {
+  it("fills a hand cart's 250 lb before the trip home (Patch 5, BL-12: it held 150 lb)", () => {
     const s = camp([0]);
     const e = s.entities;
     e.kit[0] = Res.HandCart;
@@ -174,9 +174,9 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     const earth = pool[Res.Earth]!;
     run(s, 1, [dig(s, [0], x, z, 4, 4, y - 9)]);
     const { trips, most } = watchTrips(s, 0, () => s.sites.length === 0 && e.carryAmt[0] === 0, 30000);
-    expect(carryCapacity(s, 0, Res.Earth)).toBe(30);
-    expect(most).toBe(30);
-    expect(trips.map((t) => t.amount)).toEqual([30, 30, 30, 30, 24]);
+    expect(carryCapacity(s, 0, Res.Earth)).toBe(50);
+    expect(most).toBe(50);
+    expect(trips.map((t) => t.amount)).toEqual([50, 50, 44]);
     expect(pool[Res.Earth]).toBe(earth + 144);
   });
 
