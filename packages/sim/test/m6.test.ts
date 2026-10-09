@@ -130,7 +130,8 @@ describe('the Magi Sanctum', () => {
     expect(e.school[m!]).toBe(School.Battle);
     expect(e.rank[m!]).toBe(1);
     expect(e.hp[m!]).toBe(70);
-    expect(e.mana[m!]).toBe(100 * MANA_SCALE);
+    // Patch 5 (VX-8): the Novice Acolyte's bar is 90 (was 100).
+    expect(e.mana[m!]).toBe(90 * MANA_SCALE);
     expect([e.wTier[m!], e.aTier[m!]]).toEqual([1, 1]);
     expect(e.weapon[m!]).toBe(WAND_GEAR[1]);
     expect(e.armour[m!]).toBe(ROBE_GEAR[1]);
@@ -147,7 +148,7 @@ describe('the Magi Sanctum', () => {
     const battle = addMage(s, 0, x + 12 * M, z, School.Battle);
     setMageRank(s, support, 2);
     setMageRank(s, battle, 2);
-    expect(spellsKnown(School.Support, 2, false)).toEqual([Spell.Heal, Spell.Quicken]);
+    expect(spellsKnown(School.Support, 2, false)).toEqual([Spell.Heal, Spell.Quicken, Spell.EnergyDart]);
     expect(knowsSpell(s, battle, Spell.Counterspell)).toBe(false);
     run(s, 1, [{ kind: 'produce', player: 0, building: b.id, product: RESEARCH_PRODUCT + Research.Hexcraft, count: 1 }]);
     runUntil(s, () => (p.research & (1 << Research.Hexcraft)) !== 0, 90 * SEC + 5);
@@ -184,7 +185,7 @@ describe('the Magi Sanctum', () => {
       step(s);
       texts.push(...s.events.map((ev) => ev.text));
     }
-    expect(texts).toContain('Training a support mage to Mage needs 2 mana crystals.');
+    expect(texts).toContain('Training a support mage to Mage needs 2 mana crystals (or 3 demon horns for each).');
     expect(e.rank[m]).toBe(3);
     // With 2 crystals she trains; the crystals are spent and her wand is the one she had.
     p.pool[Res.ManaCrystal] = 3;

@@ -178,9 +178,15 @@ export class GameInfo {
     };
   }
 
-  /** A mage's spells: each with why it cannot be cast now ('' when it can) and the steps until it is ready. */
-  spells(id: number): Array<[number, string, number]> {
+  /** A mage's spells: each with why it cannot be cast now ('' when it can), the steps until it is ready, and 1 when it is on her autocast. */
+  spells(id: number): Array<[number, string, number, number?]> {
     return this.info?.spells.find(([m]) => m === id)?.[1] ?? [];
+  }
+
+  /** A mage training a rank at a Magi Sanctum (Patch 5): steps done and in all, or null. */
+  mageTraining(id: number): { done: number; total: number } | null {
+    const t = this.info?.mageTraining?.find(([m]) => m === id);
+    return t ? { done: t[1], total: t[2] } : null;
   }
 
   /** A woodsman's food line (Patch 5, WD-7): food brought in and eaten (quarters) over `steps`, and its colour (sim Keep), or null. */
