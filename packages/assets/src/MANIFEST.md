@@ -311,6 +311,8 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | farm_fare | models/items/farm_fare/farm_fare.bbmodel | 11 | 32x32 |  |
 | bluestone | models/items/bluestone/bluestone.bbmodel | 10 | 32x32 |  |
 | moon_rose | models/items/moon_rose/moon_rose.bbmodel | 11 | 32x32 |  |
+| obsidian | models/items/obsidian/obsidian.bbmodel | 10 | 32x32 |  |
+| armour_leather_boiled | models/items/armour_leather_boiled/armour_leather_boiled.bbmodel | 14 | 64x64 | cube budget: 14 cubes for the cuirass, cops, tassets and sash on the warrior bones |
 
 ## mechanical
 
@@ -1594,6 +1596,24 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_tavern | ui/icon_tavern.png | 1 | 32x32 | K3 building icon tavern (rendered from tavern.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_zweihander | ui/icon_zweihander.png | 1 | 32x32 | K2 item icon zweihander (rendered from zweihander.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_wild_goose | ui/icon_wild_goose.png | 1 | 32x32 | K4 animal icon wild_goose (rendered from wild_goose.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_armour_leather_boiled | ui/icon_armour_leather_boiled.png | 1 | 32x32 | K1/K2 icon armour_leather_boiled (rendered from its model in Patch 5), 32x32, 1px dark outline, top-left light. |
+| icon_ballista_fixed | ui/icon_ballista_fixed.png | 1 | 32x32 | K4 unit card ballista_fixed (rendered from its model in Patch 5), 32x32 on the portrait background. |
+| icon_bomb_keg | ui/icon_bomb_keg.png | 1 | 32x32 | K4 unit card bomb_keg (rendered from its model in Patch 5), 32x32 on the portrait background. |
+| icon_cannon_bronze | ui/icon_cannon_bronze.png | 1 | 32x32 | K4 unit card cannon_bronze (rendered from its model in Patch 5), 32x32 on the portrait background. |
+| icon_cannon_bronze_fixed | ui/icon_cannon_bronze_fixed.png | 1 | 32x32 | K4 unit card cannon_bronze_fixed (rendered from its model in Patch 5), 32x32 on the portrait background. |
+| icon_cannon_dwarf | ui/icon_cannon_dwarf.png | 1 | 32x32 | K4 unit card cannon_dwarf (rendered from its model in Patch 5), 32x32 on the portrait background. |
+| icon_cannon_iron | ui/icon_cannon_iron.png | 1 | 32x32 | K4 unit card cannon_iron (rendered from its model in Patch 5), 32x32 on the portrait background. |
+| icon_cannon_iron_fixed | ui/icon_cannon_iron_fixed.png | 1 | 32x32 | K4 unit card cannon_iron_fixed (rendered from its model in Patch 5), 32x32 on the portrait background. |
+| icon_catapult_fixed | ui/icon_catapult_fixed.png | 1 | 32x32 | K4 unit card catapult_fixed (rendered from its model in Patch 5), 32x32 on the portrait background. |
+| icon_dwarf_cannon_crew | ui/icon_dwarf_cannon_crew.png | 1 | 32x32 | K4 unit card dwarf_cannon_crew (rendered from its model in Patch 5), 32x32 on the portrait background. |
+| icon_obsidian | ui/icon_obsidian.png | 1 | 32x32 | K1/K2 icon obsidian (rendered from its model in Patch 5), 32x32, 1px dark outline, top-left light. |
+| icon_spell_barkskin | ui/icon_spell_barkskin.png | 1 | 32x32 | K4 spell icon barkskin (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
+| icon_spell_call_wild | ui/icon_spell_call_wild.png | 1 | 32x32 | K4 spell icon call_wild (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
+| icon_spell_mending_bloom | ui/icon_spell_mending_bloom.png | 1 | 32x32 | K4 spell icon mending_bloom (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
+| icon_spell_rootbind | ui/icon_spell_rootbind.png | 1 | 32x32 | K4 spell icon rootbind (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
+| icon_spell_thorn_volley | ui/icon_spell_thorn_volley.png | 1 | 32x32 | K4 spell icon thorn_volley (Elf Grovesinger), rendered from its spell model in Patch 5; 32x32 with the bottom-right corner kept plain for the hotkey letter. |
+| icon_train_warrior_brawler | ui/icon_train_warrior_brawler.png | 1 | 32x32 | K4 training icon train_warrior_brawler: bust on the warrior body holding its weapons (Patch 5), 32x32 on the portrait background. |
+| icon_train_warrior_zweihander | ui/icon_train_warrior_zweihander.png | 1 | 32x32 | K4 training icon train_warrior_zweihander: bust on the warrior body holding its weapons (Patch 5), 32x32 on the portrait background. |
 | icon_dreadnought | ui/icon_dreadnought.png | 1 | 32x32 | K4 training icon for the Dreadnought (rendered from heavy_knight.bbmodel in Patch 5): the portrait framing at 32x32 on the portrait background. |
 | portrait_heavy_knight | ui/portrait_heavy_knight.png | 1 | 64x64 | K6 unit portrait heavy_knight (the Dreadnought): 64x64, head and shoulders, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
 | portrait_wild_goose | ui/portrait_wild_goose.png | 1 | 64x64 | K6 unit portrait wild_goose: animal: wild goose. 64x64, head and neck, three-quarter view, dark plain background. Rendered from the model in Patch 5. |
