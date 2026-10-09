@@ -245,6 +245,27 @@ export interface BuildingInfo {
   horses: number;
   /** Finished farms: the harvest the panel's progress bar fills towards, or null (production.ts farmHarvest). */
   farm: FarmInfo | null;
+  /** A finished Tavern (Patch 5): its till, its bar to the next silver ingot and its counters, or null. */
+  tavern?: TavernPanel | null;
+}
+
+/** A Tavern as the panel shows it (Patch 5, Jade, GP-20). */
+export interface TavernPanel {
+  open: boolean;
+  /** The till: whole silver ingots and the thousandths of the next (3 decimals). */
+  whole: number;
+  thousandths: number;
+  /** The bar to the next silver ingot, per mille, and its steps left (0 while it stands still: closed, or no food). */
+  done: number;
+  stepsLeft: number;
+  /** In all: silver made (whole and thousandths) and food burned. */
+  madeWhole: number;
+  madeThousandths: number;
+  food: number;
+  /** Why the local player cannot hire a Dreadnought now whatever the ingots (the cap, the food), or ''; and how many they have and may have. */
+  hireWhy: string;
+  dreadnoughts: number;
+  cap: number;
 }
 
 /** A farm's next harvest as the panel shows it (Jade, patch notes 1). */

@@ -18,6 +18,13 @@ import {
   validateOrder,
 } from '@blockyrts/sim';
 import {
+  DREADNOUGHT,
+  dreadnoughtCap,
+  dreadnoughtProblem,
+  dreadnoughtsAlive,
+  eatableFood,
+  mainBaseLevel,
+  tavernInfo,
   animalsAt,
   assigned,
   bagItems,
@@ -90,7 +97,7 @@ import {
 } from '@blockyrts/sim';
 import { cloaked, crewOf, haulerOf, Mount, mountSpec, onTop, unitsOnTop } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
-import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
+import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type TavernPanel, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
@@ -261,6 +268,27 @@ function farmInfo(s: SimState, b: Building): FarmInfo | null {
   };
 }
 
+/** A finished Tavern's panel (Patch 5), or null. */
+function tavernPanel(s: SimState, b: Building): TavernPanel | null {
+  const t = tavernInfo(b);
+  if (!t) return null;
+  const me = s.players[PLAYER];
+  const hireWhy = !usableBy(s, b, PLAYER) || !me ? 'Not your Tavern.' : dreadnoughtProblem(s, PLAYER) || (eatableFood(me) < DREADNOUGHT.food ? `Not enough food (${DREADNOUGHT.food} food).` : '');
+  return {
+    open: t.open,
+    whole: t.whole,
+    thousandths: t.thousandths,
+    done: Math.min(1000, Math.floor((t.done * 1000) / t.span)),
+    stepsLeft: t.open ? t.span - t.done : 0,
+    madeWhole: t.madeWhole,
+    madeThousandths: t.madeThousandths,
+    food: t.food,
+    hireWhy,
+    dreadnoughts: dreadnoughtsAlive(s, PLAYER),
+    cap: dreadnoughtCap(mainBaseLevel(s, PLAYER)),
+  };
+}
+
 /** A building's queue for the panel: the head item's bar and the steps it has left at the sim's own pace (0 while on hold), the rest waiting. */
 function queueInfo(s: SimState, b: Building): BuildingInfo['queue'] {
   const h = queueHead(s, b);
@@ -320,6 +348,7 @@ function postInfo(s: SimState): void {
           : [],
       horses: b.kind === BuildingKind.Barracks && b.complete ? stalledHorses(s, b, PLAYER).length : 0,
       farm: farmInfo(s, b),
+      tavern: tavernPanel(s, b),
     };
   });
   const e = s.entities;

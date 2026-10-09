@@ -835,9 +835,10 @@ export interface HitEvent {
   z: number;
   /** The entity hit, swinging or dying (0 for none). */
   id: number;
-  /** Death: what died (UnitKind and mob), for the death animation. */
+  /** Death: what died (UnitKind and mob, and a warrior's troop type: the Dreadnought falls as himself, Patch 5), for the death animation. */
   kind?: number;
   mob?: number;
+  troop?: number;
   heading?: number;
   /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
   spell?: number;

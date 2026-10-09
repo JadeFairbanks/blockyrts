@@ -596,7 +596,7 @@ export function settleDeaths(state: SimState): void {
         e.remove(id);
         continue;
       }
-      state.hits.push({ look: 'death', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id, kind: e.kind[i]!, mob: e.mob[i]!, heading: e.heading[i]! });
+      state.hits.push({ look: 'death', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id, kind: e.kind[i]!, mob: e.mob[i]!, heading: e.heading[i]!, troop: e.troop[i]! });
       if (e.kind[i] === UnitKind.Mob) {
         deathHooks.mob(state, i, shareKill(state, i));
       } else if (e.kind[i] === UnitKind.Animal) {
