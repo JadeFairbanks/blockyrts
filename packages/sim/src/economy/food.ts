@@ -10,7 +10,9 @@
 // (with working animals) or troops (warriors, mages and hired mercenaries)
 // only. A unit that misses a meal starves: slowed, no healing, and after
 // three days of it, health lost every 15 s; fed units heal by themselves.
-// Eating at a building heals half of a unit's health over 10 s.
+// Eating at a building heals a unit fully over 10 s for 4 food, 1 for each
+// quarter of its health it lacks (Jade's Patch 5, GP-13); a unit at full
+// health does not eat (GP-27).
 
 import { ceilDiv, floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { HORSE_UPKEEP, Mount, mountSpec } from '../mounts/data.ts';
@@ -43,14 +45,24 @@ export const STARVING_SLOW_BP = 2000;
 export const STARVE_HARM_AFTER_STEPS = 3 * CYCLE_STEPS;
 /** Upkeep per cycle: a unit and a research facility 2 (header rule), a working horse 2, a working ox 3 (Table 6). */
 export const FACILITY_UPKEEP = 2;
-/** Eating at a building: 2 nutrition, half of maximum health over 10 s (Table 6). */
-export const EAT_NUTRITION = 2;
-export const EAT_HEAL_PER_MILLE = 500;
+/**
+ * Eating at a building (Jade's Patch 5, GP-13: "now costs 4 food for full
+ * heal, or one food for every 25% needed"): 1 food for each quarter of its
+ * health a unit lacks, rounded up, healing all of it over 10 s. (It was 2
+ * food for half its health.)
+ */
+export const EAT_FULL_FOOD = 4;
 export const EAT_STEPS = 10 * STEPS_PER_SECOND;
-/** Medicine taken while eating (s): a bandage heals another 20% slowly (over 30 s), a remedy another 50% over the same 10 s. */
+/** Medicine taken while eating, for what the food in stock leaves unhealed (s): a bandage heals another 20% slowly (over 30 s), a remedy another 50% over the same 10 s. */
 export const BANDAGE_HEAL_PER_MILLE = 200;
 export const BANDAGE_STEPS = 30 * STEPS_PER_SECOND;
 export const REMEDY_HEAL_PER_MILLE = 500;
+
+/** The food a unit needs to eat to heal fully at a building: 1 for each quarter of its health it lacks, rounded up; 0 at full health (GP-27: it does not eat). */
+export function eatNeed(hp: number, maxHp: number): number {
+  if (maxHp <= 0 || hp >= maxHp) return 0;
+  return Math.min(EAT_FULL_FOOD, ceilDiv((maxHp - Math.max(0, hp)) * EAT_FULL_FOOD, maxHp));
+}
 
 /** Food upkeep per cycle of a working animal: set by animals/species.ts, which knows the species. */
 export const animalUpkeep: { of: (state: SimState, i: number) => number } = { of: () => 0 };
@@ -416,24 +428,36 @@ export function mend(state: SimState, i: number, amount: number, steps: number):
   e.mendUntil[i] = Math.max(e.mendUntil[i]!, state.step + steps);
 }
 
-/** A unit eats at a building (Food: Eating): 2 nutrition for half its health over 10 s, and the best medicine in stock if it is badly hurt. Returns '' or why not. */
+/**
+ * A unit eats at a building (Food: Eating; Jade's Patch 5, GP-13): the food
+ * its wound needs, 1 for each quarter of its health it lacks, healing all of
+ * it over 10 s, and says how much it needed. Short of that, it eats what
+ * there is and heals a quarter of its health for each, and the best
+ * medicine in stock heals more of the rest, as it did before. Returns '' or
+ * why not: nothing to eat, or not hurt (GP-27).
+ */
 export function eatAt(state: SimState, i: number): string {
   const e = state.entities;
   const p = state.players[e.owner[i]!]!;
-  const taken = payFood(p, EAT_NUTRITION);
-  if (!taken) return `Not enough food to eat (${EAT_NUTRITION} food).`;
-  // Seated at a main base or storehouse: a fuller meal, named plainly (Patch 2, s), in the present tense while it sits
-  // eating, its bubble up for as long as the bar over its head runs (Jade's Patch 3).
-  chatter(state, i, `I'm eating my fill of ${listText(taken.map(([f]) => RESOURCES[f]!.name.toLowerCase()))}.`, 'meal', false, 'bar');
   const max = e.maxHp[i]!;
+  const need = eatNeed(e.hp[i]!, max);
+  if (need === 0) return 'I am not hurt.';
+  const n = Math.min(need, eatableFood(p));
+  const taken = n > 0 ? payFood(p, n) : null;
+  if (!taken) return 'Not enough food to eat.';
   const missing = max - e.hp[i]!;
-  mend(state, i, floorDiv(max * EAT_HEAL_PER_MILLE, 1000), EAT_STEPS);
-  // Medicine for what eating leaves unhealed: a remedy if one is in stock, else a bandage (s).
-  const after = missing - floorDiv(max * EAT_HEAL_PER_MILLE, 1000);
-  if (after > 0 && p.pool[Res.Remedy]! > 0) {
+  const heal = n >= need ? missing : Math.min(missing, floorDiv(max * n, EAT_FULL_FOOD));
+  // Seated at a main base or storehouse, named plainly (Patch 2, s), in the present tense while it sits eating, its bubble up for as long as
+  // the bar over its head runs (Jade's Patch 3); with what it needed (Patch 5).
+  const foods = listText(taken.map(([f]) => RESOURCES[f]!.name.toLowerCase()));
+  const text = n >= need ? `I need ${need} food to heal. I'm eating ${foods}.` : `I need ${need} food to heal, but there is only ${n}. I'm eating ${foods}.`;
+  chatter(state, i, text, 'meal', false, 'bar');
+  mend(state, i, heal, EAT_STEPS);
+  // Medicine for what the food left unhealed: a remedy if one is in stock, else a bandage (s).
+  if (missing - heal > 0 && p.pool[Res.Remedy]! > 0) {
     p.pool[Res.Remedy] = p.pool[Res.Remedy]! - 1;
     mend(state, i, floorDiv(max * REMEDY_HEAL_PER_MILLE, 1000), EAT_STEPS);
-  } else if (after > 0 && p.pool[Res.Bandage]! > 0) {
+  } else if (missing - heal > 0 && p.pool[Res.Bandage]! > 0) {
     p.pool[Res.Bandage] = p.pool[Res.Bandage]! - 1;
     mend(state, i, floorDiv(max * BANDAGE_HEAL_PER_MILLE, 1000), BANDAGE_STEPS);
   }

@@ -17,6 +17,7 @@ import {
   placementBlocked,
   PLANT_GROWTH,
   PropKind,
+  PropShape,
   PROPS,
   Res,
   Stage,
@@ -129,7 +130,18 @@ describe('young trees', () => {
   it('hold nothing as seeds and saplings, then a share of their lumber once they look like small trees', () => {
     const w = new World(1, 2);
     const pine = PropKind.Pine;
-    const at = w.addProp(3, -100, pine, 12345, PROPS[pine]!.yield, 0);
+    // Its seeds take root only 4 m clear of every other tree (Jade's Patch 5, WL-1): a spot with none within 8 m.
+    const treeWithin = (gx: number, gz: number, cols: number): boolean => {
+      for (let cz = (gz - cols) >> 6; cz <= (gz + cols) >> 6; cz++) {
+        for (let cx = (gx - cols) >> 6; cx <= (gx + cols) >> 6; cx++) {
+          for (const p of w.props(cx, cz, 0)) if (PROPS[p.kind]!.shape === PropShape.Tree && (cx * 64 + p.lx - gx) ** 2 + (cz * 64 + p.lz - gz) ** 2 <= cols * cols) return true;
+        }
+      }
+      return false;
+    };
+    let gx = 3;
+    while (treeWithin(gx, -100, 18)) gx += 20;
+    const at = w.addProp(gx, -100, pine, 12345, PROPS[pine]!.yield, 0);
     const v = (minutes: number): PropView => w.prop(at.cx, at.cz, at.i, minutes * MINUTE)!;
     expect([v(1).stage, v(1).amount]).toEqual([Stage.Seed, 0]);
     expect([v(10).stage, v(10).amount]).toEqual([Stage.Sapling, 0]);

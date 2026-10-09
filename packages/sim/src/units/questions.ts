@@ -22,7 +22,7 @@ import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import { maxHealth, type Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
 import { nearestFoe, UP_TOP_FOE_WU } from '../combat/fight.ts';
-import { EAT_NUTRITION, eatableFood } from '../economy/food.ts';
+import { eatableFood, eatNeed } from '../economy/food.ts';
 import { costText, RESOURCES, type Cost, type Res } from '../economy/resources.ts';
 import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import type { AnswerOrder } from '../orders.ts';
@@ -440,7 +440,8 @@ function askHeal(state: SimState, book: Book, i: number): void {
   const n = group.length;
   const pct = floorDiv(HURT_ASK_PM, 10);
   const text = n === 1 ? "I'm hurt. Can I eat to heal?" : `${countWord(n)} of us are hurt. Can we eat to heal?`;
-  const yes = `${n === 1 ? 'It goes' : `All ${n} go`} to the nearest main base or storehouse to eat, then carry on. From the stock: ${EAT_NUTRITION} food each${n > 1 ? ` (${EAT_NUTRITION * n} food)` : ''}, healing half ${n === 1 ? 'its' : 'their'} health over 10 seconds, and a remedy or bandage each if one is in stock and needed.`;
+  const food = group.reduce((sum, j) => sum + eatNeed(e.hp[j]!, e.maxHp[j]!), 0);
+  const yes = `${n === 1 ? 'It goes' : `All ${n} go`} to the nearest main base or storehouse to eat, then carry on. From the stock: 1 food for each quarter of health missing (${food} food), healing ${n === 1 ? 'it' : 'them'} fully over 10 seconds.`;
   const no = `${n === 1 ? 'It carries' : 'They carry'} on and heal slowly by ${n === 1 ? 'itself' : 'themselves'} while fed. Asked again only after ${n === 1 ? 'its' : 'their'} health has been back above ${pct}%.`;
   const q = unitQuestion(state, Ask.Heal, i, group, text, yes, no);
   // Asked only while every one of them is idle and left alone: once one is given an order, fights or is hurt, the
@@ -649,7 +650,7 @@ export function updateQuestions(state: SimState): void {
     const id = e.id[i]!;
     if (book.hurt.has(id) && !hurtNow(state, i)) book.hurt.delete(id);
     if (!asks(state, player) || !hasRoom(state, player)) continue;
-    if (wantsFood(state, book, i) && eatableFood(state.players[player]!) >= EAT_NUTRITION) {
+    if (wantsFood(state, book, i) && eatableFood(state.players[player]!) >= 1) {
       askHeal(state, book, i);
       continue;
     }
@@ -710,8 +711,8 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
         return (k === UnitKind.Worker || k === UnitKind.Warrior || k === UnitKind.Mage) && e.inside[i] === 0 && !e.queue[i]!.some((x) => x.t === 'eat');
       });
       if (units.length === 0) return;
-      if (eatableFood(state.players[player]!) < EAT_NUTRITION) {
-        say(state, speakerOk ? speaker : units[0]!, `Not enough food to eat (${EAT_NUTRITION} food).`, true);
+      if (eatableFood(state.players[player]!) < 1) {
+        say(state, speakerOk ? speaker : units[0]!, 'Not enough food to eat.', true);
         return;
       }
       // Eat at the nearest table, in front of what each was doing, so it carries on after (as an upgrade does).

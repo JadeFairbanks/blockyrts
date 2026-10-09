@@ -6,16 +6,16 @@
 import { buildingCentre } from '../buildings/lights.ts';
 import { floorDiv, isqrt, WU_PER_COLUMN } from '../fixed.ts';
 import type { SimState } from '../state.ts';
-import { Band, EdgeType, type WorldLayout } from '../world/layout.ts';
+import { Band, caveFoot, EdgeType, type WorldLayout } from '../world/layout.ts';
 
 /** The cell a point (wu) is in. */
 export function cellAt(state: SimState, x: number, z: number): number {
   return state.world.layout.nearest(floorDiv(x, WU_PER_COLUMN), floorDiv(z, WU_PER_COLUMN));
 }
 
-/** The band of the cell a point (wu) is in. */
+/** The band at a point (wu): by its distance from the nearest main base (Jade's Patch 5, WL-8). */
 export function bandAtWu(state: SimState, x: number, z: number): Band {
-  return state.world.layout.cell(cellAt(state, x, z)).band;
+  return state.world.gen.columnBand(floorDiv(x, WU_PER_COLUMN), floorDiv(z, WU_PER_COLUMN));
 }
 
 /**
@@ -34,14 +34,14 @@ export function occupiedCells(state: SimState): Map<number, number> {
   return out;
 }
 
-/** The rings a band spans, [first, last). */
+/** The rings a band mostly spans, [first, last): since Patch 5 a cell's own band is the band at its site (WorldLayout.bandOf). */
 export function bandRings(layout: WorldLayout, band: Band): [number, number] {
   const b = layout.bands;
   switch (band) {
     case Band.Heartland:
-      return [0, 1];
+      return [0, b.fringe];
     case Band.Fringe:
-      return [1, b.deepwoods];
+      return [b.fringe, b.deepwoods];
     case Band.Deepwoods:
       return [b.deepwoods, b.barrens];
     case Band.Barrens:
@@ -73,7 +73,7 @@ export function barrierSpot(layout: WorldLayout, cellId: number, caveOnly: boole
     const sx = cellId === e.a ? -ux : ux;
     const sz = cellId === e.a ? -uz : uz;
     if (isRidge && e.cave && e.cave.side === cellId) {
-      const out = floorDiv(e.half * 3, 4) + 4;
+      const out = caveFoot(e) + 4;
       const x = mx + floorDiv(-uz * e.cave.t + sx * out, len);
       const z = mz + floorDiv(ux * e.cave.t + sz * out, len);
       return [x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1), z * WU_PER_COLUMN + (WU_PER_COLUMN >> 1)];

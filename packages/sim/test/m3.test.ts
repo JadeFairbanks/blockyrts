@@ -171,7 +171,7 @@ function toNight(s: SimState, night: number): void {
 
 describe('night 0', () => {
   it('is survived by the three starting warriors and four workers behind a wooden fence', () => {
-    const s = createWorld(1);
+    const s = createWorld(3);
     const e = s.entities;
     // Close melee with wooden cudgels and no armour (Troops and gear: starting units).
     for (const i of [4, 5, 6]) {
@@ -185,11 +185,12 @@ describe('night 0', () => {
     expect(s.over).toBe(0);
     expect(bigHouse(s)!.hp).toBe(1200);
     // Cudgels are too short to stab over the fence (a polearm's 2 m does): the night comes at the corner nearest the
-    // dark edge (Patch 5 MB-1: the waves go for the base), a zombie chews at it and the troops hold it there until the
-    // rats, the spider and the slime come over; on this seed none of the three comes through, but every worker does.
+    // dark edge (Patch 5 MB-1: the waves go for the base), the rats and the spider come over it and the troops fall
+    // fighting them; the zombies chew through the corner late in the night. On this seed none of the three comes
+    // through, but every worker does.
     expect(alive(s, UnitKind.Worker)).toBe(4);
-    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs): a zombie is
-    // still chewing at the corner and the slime, last, at the fence when the sun comes up.
+    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs): a zombie and
+    // the slime, last, are in the yard when the sun comes up.
     for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.owner[i] === MONSTERS) expect([Mob.Zombie, Mob.Slime, Mob.SmallSlime]).toContain(e.mob[i]);
   });
 

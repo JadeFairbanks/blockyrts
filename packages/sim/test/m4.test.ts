@@ -373,12 +373,14 @@ describe('animals', () => {
     const meat = s.loot.find((l) => l.res === Res.BoarMeat)!;
     expect(meat.amt).toBe(3);
     expect(s.loot.some((l) => l.res === Res.Hides)).toBe(true);
-    // A right-click on it: the worker walks over and takes both, then hands them in.
-    const hides = s.players[0]!.pool[Res.Hides]!;
+    // A right-click on it: the worker walks over and takes both, then hands them in, by itself this near the main base (Jade's Patch 5, GP-6).
+    run(s, 1, [{ kind: 'dontEat', player: 0, res: Res.BoarMeat, on: 1 }]);
+    const pool = s.players[0]!.pool;
+    const [hides, boarMeat] = [pool[Res.Hides]!, pool[Res.BoarMeat]!];
     run(s, 1, [{ kind: 'pickUp', player: 0, units: [e.id[w]!], target: meat.id }]);
     runUntil(s, () => s.loot.length === 0, 600);
-    expect(bagItems(s, w).find(([r]) => r === Res.BoarMeat)?.[1]).toBe(3);
-    runUntil(s, () => s.players[0]!.pool[Res.Hides]! > hides, 1500);
+    runUntil(s, () => pool[Res.Hides]! > hides, 1500);
+    expect(pool[Res.BoarMeat]).toBe(boarMeat + 3);
     expect(bagEmpty(s, w)).toBe(true);
   });
 

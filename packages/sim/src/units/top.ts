@@ -15,7 +15,7 @@ import { WU_PER_COLUMN, WU_PER_MODEL_UNIT, WU_PER_TERRAIN_UNIT } from '../fixed.
 import { garrisonRoom, type Building } from '../buildings/store.ts';
 import { footprintDims, type Post } from '../buildings/footprints.ts';
 import { UnitKind, type SimState } from '../state.ts';
-import { ENTER_TOP } from './unit-orders.ts';
+import { ENTER_IN, ENTER_TOP } from './unit-orders.ts';
 
 /** The building a unit stands on top of, or undefined (it is out, or inside one). A fixed engine and its crew stand on their Citadel's platform. */
 export function topOf(state: SimState, i: number): Building | undefined {
@@ -26,7 +26,8 @@ export function topOf(state: SimState, i: number): Building | undefined {
   const o = e.queue[i]![0];
   if (o?.t === 'crew') return platformCrew(state, i) ? state.buildings.get(id) : undefined;
   if (o?.t !== 'enter' || o.b !== id) return undefined;
-  if (e.kind[i] === UnitKind.Worker && o.auto !== ENTER_TOP) return undefined;
+  // A worker up top has said so; a troop or mage is up top unless sheltering deeper inside a main base (Patch 5, GP-10).
+  if (e.kind[i] === UnitKind.Worker ? o.auto !== ENTER_TOP : o.auto === ENTER_IN) return undefined;
   const b = state.buildings.get(id);
   return b && garrisonRoom(b) > 0 ? b : undefined;
 }

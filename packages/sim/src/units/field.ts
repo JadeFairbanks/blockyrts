@@ -14,7 +14,7 @@ import type { Building } from '../buildings/store.ts';
 import { clockAt, isDark, Period } from '../clock.ts';
 import { Res } from '../economy/resources.ts';
 import { PROSPECT_TOOL_TIER } from './kits.ts';
-import { EAT_STEPS, eatAt, servesFood } from '../economy/food.ts';
+import { EAT_STEPS, eatAt, eatNeed, servesFood } from '../economy/food.ts';
 import { RESOURCES } from '../economy/resources.ts';
 import { atan2Angle, floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { pointGoal } from '../nav/path.ts';
@@ -384,6 +384,8 @@ function nearestTable(state: SimState, i: number): Building | undefined {
 
 export function runEat(state: SimState, i: number, o: Extract<UnitOrder, { t: 'eat' }>): boolean {
   const e = state.entities;
+  // A unit at full health does not eat (Jade's Patch 5, GP-27), one healed on its way there included.
+  if (e.act[i] !== Act.Work && eatNeed(e.hp[i]!, e.maxHp[i]!) === 0) return DONE;
   let b = o.b ? state.buildings.get(o.b) : undefined;
   if (!b || b.owner !== e.owner[i] || !b.complete || !servesFood(b.kind)) b = nearestTable(state, i);
   if (!b) {

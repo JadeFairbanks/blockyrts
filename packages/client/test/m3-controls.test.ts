@@ -83,7 +83,7 @@ function game(w: World = {}): GameInfo {
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: w.research ?? 0, forge: w.forge ?? 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
-    loot: [], bags: [],
+    loot: [], bags: [], carry: [], effects: [],
   };
   g.onInfo(info);
   return g;
@@ -134,7 +134,10 @@ describe('the warrior card', () => {
     const equip = button(card, 'equip')!;
     expect(equip.name).toBe('Upgrade equipment');
     expect(equip.reason).toBe('Not enough resources (2 sticks, 1 flint).');
-    expect(button(card, 'eat')!.reason).toBe('There is no food.');
+    // At full health they do not eat (Jade's Patch 5, GP-27); hurt, they would, but there is no food.
+    expect(button(card, 'eat')!.reason).toBe('They are all at full health.');
+    const hurt = harness(game({ units: { 3: { hp: 20 } } }), warriors, 'warrior');
+    expect(button(hurt.c.card(), 'eat')!.reason).toBe('There is no food.');
   });
 
   it('attacks a monster clicked with A, and attack-moves to ground', () => {
@@ -311,9 +314,9 @@ describe('the Big House', () => {
     const hands = harness(g, workers, 'worker');
     hands.c.smart(tower, at(0, 0));
     expect(hands.sent.at(-1)).toMatchObject({ kind: 'enter', units: [1, 2], building: 22 });
-    // Workers alone still only walk to a main base.
+    // Workers carrying nothing go inside a main base (Jade's Patch 5, GP-5) [before, they only walked to it].
     hands.c.smart(house, at(0, 0));
-    expect(hands.sent.at(-1)).toMatchObject({ kind: 'move', units: [1, 2] });
+    expect(hands.sent.at(-1)).toMatchObject({ kind: 'enter', units: [1, 2], building: 20 });
     // A tower still going up is built, not climbed.
     g.buildings.get(22)!.complete = false;
     hands.c.smart(tower, at(0, 0));
@@ -439,12 +442,10 @@ describe("Hunt, Gather and loot (Jade's play-test notes)", () => {
     expect(sent.at(-1)).toMatchObject({ kind: 'pickUp', target: 77 });
   });
 
-  it('lets workers carrying loot hand it in with Unload', () => {
+  it('has no Unload on the worker card: one unit\'s inventory in the panel unloads (Jade\'s Patch 5, GP-8)', () => {
     const g = game();
     const { c } = harness(g, workers, 'worker');
-    expect(button(c.card(), 'returnCargo')!.face).toBe('Unload');
-    expect(button(c.card(), 'returnCargo')!.enabled).toBe(false);
     g.info!.bags = [[1, [[Res.Venison, 4]]]];
-    expect(button(c.card(), 'returnCargo')!.enabled).toBe(true);
+    expect(button(c.card(), 'returnCargo')).toBeUndefined();
   });
 });

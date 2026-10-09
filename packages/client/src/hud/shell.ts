@@ -79,7 +79,8 @@ import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
 import { typeWorth } from './worth.ts';
 import { actionIcon } from './card-icons.ts';
-import { CardPop } from './card-pop.ts';
+import { CardPop, ITEM_MENU } from './card-pop.ts';
+import { itemChoices, type ItemMenuActions } from './item-menu.ts';
 import { siteTraces, sitesInOrders, TRACE_LIFT_M, TRACE_NUDGE_M } from './site-marks.ts';
 import { doingActions } from './doing.ts';
 import { speechToPanel } from './wording.ts';
@@ -239,6 +240,8 @@ export class GameShell {
   private readonly cardButtons: HudButton[] = [];
   /** A card button's right-click dropdown (Patch 5: the Workshop's Scrap 1, Scrap 10, Scrap all). */
   private readonly cardPop: CardPop;
+  /** What the item menu's choices do (item-menu.ts). */
+  private readonly itemActions: ItemMenuActions;
   /** What each card button stands for, to mark what the selection is doing now (its action, or the product or troop a building makes). */
   private cardDoing: string[] = [];
   /** Selected units seen outside any building at the last info (CT-2, CT-3: leaveForBuildings). */
@@ -450,12 +453,23 @@ export class GameShell {
     // The Tavern's till in its bar stack (Patch 5, GP-20); a Dreadnought being hired is its queue's gold bar.
     this.stackBars.push((key) => tillBars(key, this.game.buildings, this.player));
     this.chat = new ChatBox(this.layout.chat, session.chat);
-    this.inventory = new InventoryUi(this.layout.stockpile, this.buttons, {
-      // Don't eat (Food: keeping a food back): right click on a food's slot.
+    // One right-click menu for every item, in the stockpile and in one unit's inventory (Jade's Patch 5, decisions 3.6, item-menu.ts).
+    this.itemActions = {
+      have: (res) => this.game.pool()[res] ?? 0,
+      kept: (res) => this.game.info?.kept.includes(res) ?? false,
+      // Don't eat (Food: keeping a food back).
       dontEat: (res, on) => {
         opts.issueOrder({ kind: 'dontEat', player: this.player, res, on: on ? 1 : 0 });
         this.message(on ? `${RESOURCES[res]!.name} is kept back: nobody eats it.` : `${RESOURCES[res]!.name} is eaten again.`);
       },
+      equip: (res) => this.commands.startEquip(res),
+      scrapWhy: (res) => this.commands.scrapWhy(res),
+      scrap: (res) => this.commands.scrapItem(res),
+      unload: (unit, res) => opts.issueOrder({ kind: 'unloadItem', player: this.player, units: [unit], res }),
+      drop: (unit, res) => opts.issueOrder({ kind: 'dropItem', player: this.player, units: [unit], res }),
+    };
+    this.inventory = new InventoryUi(this.layout.stockpile, this.buttons, {
+      menu: (at, res) => this.cardPop.show(at, ITEM_MENU, itemChoices({ res, unit: null }, this.itemActions)),
       addWheel: (id, el, onWheel) => this.input.addWheel(id, el, onWheel),
       pickSpawn: (k) => this.pickSpawn(k),
     });
@@ -526,8 +540,23 @@ export class GameShell {
       dropType: (k) => this.selection.set(this.selection.list().filter((x) => x.typeKey !== k)),
       cancelQueued: (b, index) => opts.issueOrder({ kind: 'cancelProduce', player: this.player, building: b, index }),
       letOut: (b, unit) => opts.issueOrder({ kind: 'unload', player: this.player, building: b, unit }),
+      shelterSwap: (b, unit) => opts.issueOrder({ kind: 'shelter', player: this.player, building: b, unit }),
+      carry: (id) => {
+        const c = this.game.info?.carry.find(([u]) => u === id);
+        return c ? [c[1], c[2]] : null;
+      },
+      effects: (id) => {
+        const info = this.game.info;
+        const on = info?.effects.find(([u]) => u === id)?.[1];
+        // Steps left as the sim last said, less what has run since (as the queue's clock does).
+        const gone = info ? Math.max(0, this.game.step - info.step) : 0;
+        return on ? on.map(([bit, left]) => [bit, Math.max(0, left - gone)] as const) : [];
+      },
+      itemMenu: (at, unit, res) => this.cardPop.show(at, ITEM_MENU, itemChoices({ res, unit }, this.itemActions)),
+      unloadAll: (unit) => opts.issueOrder({ kind: 'unloadItem', player: this.player, units: [unit], res: -1 }),
       unitName: (id) => this.fresh.get(`e:${id}`)?.label ?? 'Worker',
       keyName: (action) => keyLabel(keyFor(this.settings.keys, action)),
+      keyCode: (action) => keyFor(this.settings.keys, action),
       game: this.game,
       trainCard: (ids, card, count) => this.commands.trainCard(ids, card, count),
       lockTroop: (b, troop, lock) => opts.issueOrder({ kind: 'troopLock', player: this.player, building: b, troop, lock }),
@@ -2211,7 +2240,7 @@ export class GameShell {
       b.el.hidden = false;
     }
     // The dropdown goes with the button it was opened on.
-    if (this.cardPop.open && !card.slice(0, fit.shown).some((e) => e.action === this.cardPop.action && e.enabled)) this.cardPop.close();
+    if (this.cardPop.open && this.cardPop.action !== ITEM_MENU && !card.slice(0, fit.shown).some((e) => e.action === this.cardPop.action && e.enabled)) this.cardPop.close();
     this.input.refreshHover();
   }
 }
