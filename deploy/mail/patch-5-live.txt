@@ -1,0 +1,16 @@
+Subject: Patch 5 is live in Survive and Conquer
+
+Hello {username},
+
+Patch 5 for Survive and Conquer is now live. Play it at:
+https://play.surviveandconquer.cc
+
+Everything that changed is in the patch notes:
+https://play.surviveandconquer.cc/#patch-notes
+
+Games saved before Patch 5 do not load in it, so this is a good time to start a fresh one.
+
+Thanks for playing,
+The Survive and Conquer team
+
+You are getting this email because you have an account at play.surviveandconquer.cc.

@@ -88,4 +88,28 @@ describe.each(stores)('database (%s)', (_name, make) => {
     await d.deleteSave(first.id);
     expect(await d.findSave(first.id)).toBeNull();
   });
+
+  it('lists every account and marks each named message to an account once', async () => {
+    const d = await get();
+    const tag = u();
+    const ids: string[] = [randomUUID(), randomUUID()];
+    for (const [i, id] of ids.entries()) {
+      await d.createAccount({ id, email: `m${i}${tag}@e.com`, username: `m${i}${tag}`, passwordHash: 'h', createdAt: new Date(Date.UTC(2026, 9, 9, 0, 0, i)) });
+    }
+    const listed = (await d.listAccounts()).filter((a) => ids.includes(a.id));
+    expect(listed.map((a) => a.id)).toEqual(ids);
+    const name = `news-${tag}`;
+    const now = new Date();
+    expect(await d.claimMail(name, ids[0]!, now)).toBe(true);
+    expect(await d.claimMail(name, ids[0]!, now)).toBe(false);
+    expect(await d.mailRecords(name)).toEqual([{ accountId: ids[0], state: 'sending' }]);
+    // Not sent: the mark goes, so a later run tries again.
+    await d.settleMail(name, ids[0]!, false, now);
+    expect(await d.mailRecords(name)).toEqual([]);
+    expect(await d.claimMail(name, ids[0]!, now)).toBe(true);
+    await d.settleMail(name, ids[0]!, true, now);
+    expect(await d.claimMail(name, ids[0]!, now)).toBe(false);
+    expect(await d.claimMail(`other-${tag}`, ids[0]!, now)).toBe(true);
+    expect(await d.mailRecords(name)).toEqual([{ accountId: ids[0], state: 'sent' }]);
+  });
 });

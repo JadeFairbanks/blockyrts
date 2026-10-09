@@ -114,6 +114,31 @@ out of date, until they remove them from Load game.
 
 The client is built with `VITE_SERVER_URL=https://api.<DOMAIN>`.
 
+## Emailing players
+
+The **Email players** workflow (`.github/workflows/email-players.yml`, run by
+hand only) sends one email to every account on the live server, such as the
+note that a new patch is live. The message is a plain-text file in
+`deploy/mail/`: a `Subject: ` line, a blank line, then the text, where
+`{username}` becomes each player's username. The run's inputs are the file's
+name without `.txt` and a **Send** box; unticked is a dry run that counts the
+players and shows the message, and sends nothing.
+
+The Droplet takes no inbound traffic, so the job travels like a deploy, by
+pull: the workflow (`deploy/scripts/email-players.sh`) puts `jobs/mail.json`
+in the save bucket, the server takes it within half a minute, sends through
+the password-reset email service (`EMAIL_API_KEY`, under two emails a
+second), and writes counts to `jobs/results/<run>.json`, which the run
+prints. The `mail_sent` table remembers who has had which message, so an
+account never gets the same one twice: running the workflow again after a
+failure sends only to the accounts that missed it. No address appears in
+the results or the run log (the repository's run logs are public). The run
+also counts the accounts in the newest nightly backup, which still works
+while the live server is a version from before mail jobs.
+
+It uses the secrets setup already has: `CLOUDFLARE_API_TOKEN`, the R2 key,
+and the server's `EMAIL_API_KEY` (from `RESEND_API_KEY`).
+
 ## Changing things later
 
 - **New setting or secret:** add it to `compose.yml`, then the next Deploy
