@@ -4173,7 +4173,9 @@ picking berries),
 2. **Training.** `pnpm dev`, open http://localhost:5173/?seed=2. Build a
    Scholar's Lodge: its card has Woodsman (W) for 32 food, 4 sticks, 1
    leather (or 1 hides) and 4 flax, in 50 s. He comes out with a wooden
-   spear in his hand and no armour.
+   spear in his hand and no armour. The Woodsman button, his place in the
+   queue and his picture in the selection grid are his own portrait, a
+   woodsman's head and shoulders, not the spearman's.
 3. **His card.** Attack (A), Move (M), Fish (I), Forage (G), Eat (F),
    Upgrade equipment (Q) and Run or Walk (H). F2 does not select him.
    Upgrade equipment offers only long weapons, and only at a main base; he
