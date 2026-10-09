@@ -3480,9 +3480,8 @@ places monsters (a skeleton bomber is the wall breaker) and your own units.
 
 1. **Gates and towers.** Build, Defences: a gate is 6 columns wide, twice
    what it was, drawn as its gate model (turned for north to south). Towers
-   are 4 by 4 columns. The stone tower is drawn as its model, with its men
-   on its top; the wooden and hardwood towers stay blocks until their models'
-   roofs are raised (too low for a man standing under them).
+   are 4 by 4 columns. Every tower is drawn as its model, with its men on its
+   top; the wooden and hardwood towers' roofs stand clear of a man's head.
 2. **Walls.** Build a wall chain that turns a corner and runs on diagonally.
    Each column is drawn as its wall model, turned along the run; where the
    wall turns, and on a diagonal's steps, a corner post. Let monsters hit a
