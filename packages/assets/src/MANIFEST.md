@@ -309,6 +309,8 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | hat_farmer | models/items/hat_farmer/hat_farmer.bbmodel | 10 | 64x64 |  |
 | crew_outfit | models/items/crew_outfit/crew_outfit.bbmodel | 14 | 64x64 | cube budget: 14 cubes for the apron, cuffs, cap, pouch and sash on the warrior bones |
 | farm_fare | models/items/farm_fare/farm_fare.bbmodel | 11 | 32x32 |  |
+| bluestone | models/items/bluestone/bluestone.bbmodel | 10 | 32x32 |  |
+| moon_rose | models/items/moon_rose/moon_rose.bbmodel | 11 | 32x32 |  |
 
 ## mechanical
 
@@ -603,6 +605,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | ruin_column | models/projectiles-and-spells/spell_violet_ruin/ruin_column.bbmodel | 88 | 256x1024 | one of the two parts of spell_violet_ruin (its folder): the 640 u (18 m) column; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | ruin_warning | models/projectiles-and-spells/spell_violet_ruin/ruin_warning.bbmodel | 176 | 64x64 | one of the two parts of spell_violet_ruin (its folder): the warning ring on the ground; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | spell_crown_of_night | models/projectiles-and-spells/spell_crown_of_night/spell_crown_of_night.bbmodel | 72 | 16x16 | made by the model thread (the bot's batches left it out); `spread` stretches the `ring` bone in x and z to 66.75x (30 m radius); no hit box; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
+| web_glob | models/projectiles-and-spells/web_glob/web_glob.bbmodel | 9 | 32x32 |  |
 
 ## textures
 
@@ -837,7 +840,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_earth | ui/icon_earth.png | 1 | 32x32 | K1 resource icon earth: sack + heap of contents. |
 | icon_eggs | ui/icon_eggs.png | 1 | 32x32 | K1 resource icon eggs (rendered from egg_basket.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_emerald | ui/icon_emerald.png | 1 | 32x32 | K1 resource icon emerald (rendered from gem_emerald.bbmodel), 32x32, 1px outline, top-left light. |
-| icon_farm_fare | ui/icon_farm_fare.png | 1 | 32x32 | K1 resource icon farm_fare (Patch 2): "a hearty medley of vegetables" heaped in a wooden bowl (cabbage, carrots, turnip, onion, potatoes, beans), 32x32, 1px outline, top-left light. |
+| icon_farm_fare | ui/icon_farm_fare.png | 1 | 32x32 | K2 item icon farm_fare (rendered from farm_fare.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_feathers | ui/icon_feathers.png | 1 | 32x32 | K1 resource icon feathers (rendered from feather_bundle.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_fish | ui/icon_fish.png | 1 | 32x32 | K1 resource icon fish (rendered from fish_carried.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_fish_catfish | ui/icon_fish_catfish.png | 1 | 32x32 | K1 resource icon fish_catfish: the giant catfish lying on its belly, head and barbels toward the viewer (rendered from fish_carried_catfish.bbmodel at icon_fish's view, yaw 213, pitch 29; drawn at half its length with thickened, longer barbels so it fills the square, colours lifted 1.2x to the trout icon's brightness), 32x32, 1px outline, top-left light. |
@@ -1141,29 +1144,29 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_wand_mage | ui/icon_wand_mage.png | 1 | 32x32 | K2 item icon wand_mage (rendered from wand_mage.bbmodel), tier None. |
 | icon_wand_master_mage | ui/icon_wand_master_mage.png | 1 | 32x32 | K2 item icon wand_master_mage (rendered from wand_master_mage.bbmodel), tier None. |
 | icon_wand_novice_acolyte | ui/icon_wand_novice_acolyte.png | 1 | 32x32 | K2 item icon wand_novice_acolyte (rendered from wand.bbmodel), tier None. |
-| icon_barracks | ui/icon_barracks.png | 1 | 32x32 | K3 building icon barracks: barracks. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_barracks | ui/icon_barracks.png | 1 | 32x32 | K3 building icon barracks (rendered from barracks.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_brazier | ui/icon_brazier.png | 1 | 32x32 | K3 building icon brazier: brazier (light). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_cook_hut | ui/icon_cook_hut.png | 1 | 32x32 | K3 building icon cook_hut: cook_hut. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_cooking_campfire | ui/icon_cooking_campfire.png | 1 | 32x32 | K3 building icon cooking_campfire: cooking_campfire. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_crop_field_t1 | ui/icon_crop_field_t1.png | 1 | 32x32 | K3 building icon crop_field_t1: crop field tier 1 (farm_field_t1 + ripe wheat rows). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_crop_field_t2 | ui/icon_crop_field_t2.png | 1 | 32x32 | K3 building icon crop_field_t2: crop field tier 2 (farm_field_t2 + ripe wheat rows). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_crop_field_t3 | ui/icon_crop_field_t3.png | 1 | 32x32 | K3 building icon crop_field_t3: crop field tier 3 (farm_field_t3 + ripe wheat rows). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_farmhouse_t1 | ui/icon_farmhouse_t1.png | 1 | 32x32 | K3 building icon farmhouse_t1: farmhouse tier 1. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_farmhouse_t1 | ui/icon_farmhouse_t1.png | 1 | 32x32 | K3 building icon farmhouse_t1 (rendered from farmhouse_t1.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_farmhouse_t2 | ui/icon_farmhouse_t2.png | 1 | 32x32 | K3 building icon farmhouse_t2: farmhouse tier 2. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_farmhouse_t3 | ui/icon_farmhouse_t3.png | 1 | 32x32 | K3 building icon farmhouse_t3: farmhouse tier 3. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_fishing_dock | ui/icon_fishing_dock.png | 1 | 32x32 | K3 building icon fishing_dock: fishing_dock. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_forge_l1 | ui/icon_forge_l1.png | 1 | 32x32 | K3 building icon forge_l1: forge level 1: Casting Hearth. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_forge_l1 | ui/icon_forge_l1.png | 1 | 32x32 | K3 building icon forge_l1 (rendered from forge_l1.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_forge_l2 | ui/icon_forge_l2.png | 1 | 32x32 | K3 building icon forge_l2: forge level 2: Bloomery. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_forge_l3 | ui/icon_forge_l3.png | 1 | 32x32 | K3 building icon forge_l3: forge level 3: Ironworks. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_forge_l4 | ui/icon_forge_l4.png | 1 | 32x32 | K3 building icon forge_l4: forge level 4: Steelworks. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_foundry | ui/icon_foundry.png | 1 | 32x32 | K3 building icon foundry: foundry. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_gate_hardwood | ui/icon_gate_hardwood.png | 1 | 32x32 | K3 building icon gate_hardwood: hardwood gate (between two wall segments). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_gate_softwood | ui/icon_gate_softwood.png | 1 | 32x32 | K3 building icon gate_softwood: softwood gate (between two wall segments). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_gate_stone | ui/icon_gate_stone.png | 1 | 32x32 | K3 building icon gate_stone: stone gate (between two wall segments). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_gate_hardwood | ui/icon_gate_hardwood.png | 1 | 32x32 | K3 building icon gate_hardwood (rendered from gate_hardwood.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_gate_softwood | ui/icon_gate_softwood.png | 1 | 32x32 | K3 building icon gate_softwood (rendered from gate_softwood.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_gate_stone | ui/icon_gate_stone.png | 1 | 32x32 | K3 building icon gate_stone (rendered from gate_stone.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_grand_academy | ui/icon_grand_academy.png | 1 | 32x32 | K3 building icon grand_academy: grand_academy. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_grand_kitchen | ui/icon_grand_kitchen.png | 1 | 32x32 | K3 building icon grand_kitchen: grand_kitchen. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_great_kitchen | ui/icon_great_kitchen.png | 1 | 32x32 | K3 building icon great_kitchen: great_kitchen. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_gunnery_yard | ui/icon_gunnery_yard.png | 1 | 32x32 | K3 building icon gunnery_yard: gunnery_yard. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_gunnery_yard | ui/icon_gunnery_yard.png | 1 | 32x32 | K3 building icon gunnery_yard (rendered from gunnery_yard.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_herb_bed_t1 | ui/icon_herb_bed_t1.png | 1 | 32x32 | K3 building icon herb_bed_t1: herb bed tier 1 (farm_field_t1 + herb/flax rows). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_herb_bed_t2 | ui/icon_herb_bed_t2.png | 1 | 32x32 | K3 building icon herb_bed_t2: herb bed tier 2 (farm_field_t2 + herb/flax rows). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_herb_bed_t3 | ui/icon_herb_bed_t3.png | 1 | 32x32 | K3 building icon herb_bed_t3: herb bed tier 3 (farm_field_t3 + herb/flax rows). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
@@ -1176,18 +1179,18 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_livestock_farm_t3 | ui/icon_livestock_farm_t3.png | 1 | 32x32 | K3 building icon livestock_farm_t3: livestock farm tier 3 (+ more stock). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_lumber_mill | ui/icon_lumber_mill.png | 1 | 32x32 | K3 building icon lumber_mill: lumber_mill. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_lumber_mill_t2 | ui/icon_lumber_mill_t2.png | 1 | 32x32 | K3 building icon lumber_mill_t2: lumber mill upgrade (waterwheel saw). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_magi_sanctum | ui/icon_magi_sanctum.png | 1 | 32x32 | K3 building icon magi_sanctum: magi_sanctum. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_main_base_l1 | ui/icon_main_base_l1.png | 1 | 32x32 | K3 building icon main_base_l1: main base level 1: Big House. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_magi_sanctum | ui/icon_magi_sanctum.png | 1 | 32x32 | K3 building icon magi_sanctum (rendered from magi_sanctum.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_main_base_l1 | ui/icon_main_base_l1.png | 1 | 32x32 | K3 building icon main_base_l1 (rendered from main_base_l1.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_main_base_l10 | ui/icon_main_base_l10.png | 1 | 32x32 | K3 building icon main_base_l10: main base level 10: Citadel. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_main_base_l2 | ui/icon_main_base_l2.png | 1 | 32x32 | K3 building icon main_base_l2: main base level 2: Longhall. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_main_base_l3 | ui/icon_main_base_l3.png | 1 | 32x32 | K3 building icon main_base_l3: main base level 3: Hall. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_main_base_l3 | ui/icon_main_base_l3.png | 1 | 32x32 | K3 building icon main_base_l3 (rendered from main_base_l3.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_main_base_l4 | ui/icon_main_base_l4.png | 1 | 32x32 | K3 building icon main_base_l4: main base level 4: Stockade Hall. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_main_base_l5 | ui/icon_main_base_l5.png | 1 | 32x32 | K3 building icon main_base_l5: main base level 5: Marble Hall (marble ground floor). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_main_base_l6 | ui/icon_main_base_l6.png | 1 | 32x32 | K3 building icon main_base_l6: main base level 6: Keep. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_main_base_l6 | ui/icon_main_base_l6.png | 1 | 32x32 | K3 building icon main_base_l6 (rendered from main_base_l6.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_main_base_l7 | ui/icon_main_base_l7.png | 1 | 32x32 | K3 building icon main_base_l7: main base level 7: Fortified Keep. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_main_base_l8 | ui/icon_main_base_l8.png | 1 | 32x32 | K3 building icon main_base_l8: main base level 8: Castle. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_main_base_l9 | ui/icon_main_base_l9.png | 1 | 32x32 | K3 building icon main_base_l9: main base level 9: Great Castle. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_mineshaft_t1 | ui/icon_mineshaft_t1.png | 1 | 32x32 | K3 building icon mineshaft_t1: mineshaft tier 1. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_mineshaft_t1 | ui/icon_mineshaft_t1.png | 1 | 32x32 | K3 building icon mineshaft_t1 (rendered from mineshaft_t1.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_mineshaft_t2 | ui/icon_mineshaft_t2.png | 1 | 32x32 | K3 building icon mineshaft_t2: mineshaft tier 2. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_mineshaft_t3 | ui/icon_mineshaft_t3.png | 1 | 32x32 | K3 building icon mineshaft_t3: mineshaft tier 3. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_pen_barn | ui/icon_pen_barn.png | 1 | 32x32 | K3 building icon pen_barn: pen_barn. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
@@ -1195,23 +1198,23 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_ramp_earth | ui/icon_ramp_earth.png | 1 | 32x32 | K3 building icon ramp_earth: earth ramp. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_ramp_lumber | ui/icon_ramp_lumber.png | 1 | 32x32 | K3 building icon ramp_lumber: lumber ramp. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_ramp_stone | ui/icon_ramp_stone.png | 1 | 32x32 | K3 building icon ramp_stone: stone ramp. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_scholars_lodge | ui/icon_scholars_lodge.png | 1 | 32x32 | K3 building icon scholars_lodge: scholars_lodge. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_scholars_lodge | ui/icon_scholars_lodge.png | 1 | 32x32 | K3 building icon scholars_lodge (rendered from scholars_lodge.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_scriptorium | ui/icon_scriptorium.png | 1 | 32x32 | K3 building icon scriptorium: scriptorium. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_stables | ui/icon_stables.png | 1 | 32x32 | K3 building icon stables: stables. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_storehouse | ui/icon_storehouse.png | 1 | 32x32 | K3 building icon storehouse: storehouse. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_storehouse | ui/icon_storehouse.png | 1 | 32x32 | K3 building icon storehouse (rendered from storehouse.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_tannery | ui/icon_tannery.png | 1 | 32x32 | K3 building icon tannery: tannery. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_torch_post | ui/icon_torch_post.png | 1 | 32x32 | K3 building icon torch_post: torch_post (light). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_torch_post | ui/icon_torch_post.png | 1 | 32x32 | K3 building icon torch_post (rendered from torch_post.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_torch_wall | ui/icon_torch_wall.png | 1 | 32x32 | K3 building icon torch_wall: torch_wall (light). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_tower_hardwood | ui/icon_tower_hardwood.png | 1 | 32x32 | K3 building icon tower_hardwood: hardwood tower. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_tower_softwood | ui/icon_tower_softwood.png | 1 | 32x32 | K3 building icon tower_softwood: softwood tower. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_tower_stone | ui/icon_tower_stone.png | 1 | 32x32 | K3 building icon tower_stone: stone tower. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_tower_hardwood | ui/icon_tower_hardwood.png | 1 | 32x32 | K3 building icon tower_hardwood (rendered from tower_hardwood.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_tower_softwood | ui/icon_tower_softwood.png | 1 | 32x32 | K3 building icon tower_softwood (rendered from tower_softwood.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_tower_stone | ui/icon_tower_stone.png | 1 | 32x32 | K3 building icon tower_stone (rendered from tower_stone.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_vegetable_farm_t1 | ui/icon_vegetable_farm_t1.png | 1 | 32x32 | K3 building icon vegetable_farm_t1: vegetable farm tier 1 (farm_field_t1 + potato/carrot/corn rows). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_vegetable_farm_t2 | ui/icon_vegetable_farm_t2.png | 1 | 32x32 | K3 building icon vegetable_farm_t2: vegetable farm tier 2 (farm_field_t2 + potato/carrot/corn rows). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_vegetable_farm_t3 | ui/icon_vegetable_farm_t3.png | 1 | 32x32 | K3 building icon vegetable_farm_t3: vegetable farm tier 3 (farm_field_t3 + potato/carrot/corn rows). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_wall_hardwood | ui/icon_wall_hardwood.png | 1 | 32x32 | K3 building icon wall_hardwood: hardwood wall (four 16 u segments in a row, outer face toward the viewer). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_wall_softwood | ui/icon_wall_softwood.png | 1 | 32x32 | K3 building icon wall_softwood: softwood wall (four 16 u segments in a row, outer face toward the viewer). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_wall_stone | ui/icon_wall_stone.png | 1 | 32x32 | K3 building icon wall_stone: stone wall (four 16 u segments in a row, outer face toward the viewer). 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
-| icon_workshop_t1 | ui/icon_workshop_t1.png | 1 | 32x32 | K3 building icon workshop_t1: workshop tier 1: Work Hut. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
+| icon_wall_hardwood | ui/icon_wall_hardwood.png | 1 | 32x32 | K3 building icon wall_hardwood (rendered from wall_hardwood.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_wall_softwood | ui/icon_wall_softwood.png | 1 | 32x32 | K3 building icon wall_softwood (rendered from wall_softwood.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_wall_stone | ui/icon_wall_stone.png | 1 | 32x32 | K3 building icon wall_stone (rendered from wall_stone.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_workshop_t1 | ui/icon_workshop_t1.png | 1 | 32x32 | K3 building icon workshop_t1 (rendered from workshop_t1.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_workshop_t2 | ui/icon_workshop_t2.png | 1 | 32x32 | K3 building icon workshop_t2: workshop tier 2: Workshop. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_workshop_t3 | ui/icon_workshop_t3.png | 1 | 32x32 | K3 building icon workshop_t3: workshop tier 3: Great Workshop. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
 | icon_workshop_t4 | ui/icon_workshop_t4.png | 1 | 32x32 | K3 building icon workshop_t4: workshop tier 4: Manufactory. 32x32 three-quarter view, 1px dark outline, top-left light. Rendered from the F models. |
@@ -1561,6 +1564,31 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | team_swatch_6 | ui/team_swatch_6.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 6 (orange, RGB (200, 104, 36)), 12x12 swatch. |
 | team_swatch_7 | ui/team_swatch_7.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 7 (green, RGB (64, 128, 52)), 12x12 swatch. |
 | team_swatch_8 | ui/team_swatch_8.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 8 (pink, RGB (196, 100, 140)), 12x12 swatch. |
+| icon_armour_copper_scale | ui/icon_armour_copper_scale.png | 1 | 32x32 | K2 item icon armour_copper_scale (rendered from armour_copper_scale.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_armour_iron_plates | ui/icon_armour_iron_plates.png | 1 | 32x32 | K2 item icon armour_iron_plates (rendered from armour_iron_plates.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_axe_hand_obsidian | ui/icon_axe_hand_obsidian.png | 1 | 32x32 | K2 item icon axe_hand_obsidian (rendered from axe_hand_obsidian.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_barn | ui/icon_barn.png | 1 | 32x32 | K3 building icon barn (rendered from barn.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_bluestone | ui/icon_bluestone.png | 1 | 32x32 | K1 resource icon bluestone (rendered from bluestone.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_bog_pear | ui/icon_bog_pear.png | 1 | 32x32 | K2 item icon bog_pear (rendered from bog_pear.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_bonfire | ui/icon_bonfire.png | 1 | 32x32 | K3 building icon bonfire (rendered from bonfire.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_bow_recurve | ui/icon_bow_recurve.png | 1 | 32x32 | K2 item icon bow_recurve (rendered from bow_recurve.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_crew_outfit | ui/icon_crew_outfit.png | 1 | 32x32 | K2 item icon crew_outfit (rendered from crew_outfit.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_cutlass | ui/icon_cutlass.png | 1 | 32x32 | K2 item icon cutlass (rendered from cutlass.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_hammer_iron | ui/icon_hammer_iron.png | 1 | 32x32 | K2 item icon hammer_iron (rendered from hammer_iron.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_hat_farmer | ui/icon_hat_farmer.png | 1 | 32x32 | K2 item icon hat_farmer (rendered from hat_farmer.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_main_base_citadel | ui/icon_main_base_citadel.png | 1 | 32x32 | K3 building icon main_base_citadel (rendered from main_base_citadel.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_moon_rose | ui/icon_moon_rose.png | 1 | 32x32 | K1 resource icon moon_rose (rendered from moon_rose.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_ox_harness | ui/icon_ox_harness.png | 1 | 32x32 | K2 item icon ox_harness (rendered from ox_harness.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_pheasant | ui/icon_pheasant.png | 1 | 32x32 | K4 animal icon pheasant (rendered from pheasant.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_pistol | ui/icon_pistol.png | 1 | 32x32 | K2 item icon pistol (rendered from pistol.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_rampart_earth | ui/icon_rampart_earth.png | 1 | 32x32 | K3 building icon rampart_earth (rendered from rampart_earth.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_shield_rotella | ui/icon_shield_rotella.png | 1 | 32x32 | K2 item icon shield_rotella (rendered from shield_rotella.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_shield_targe | ui/icon_shield_targe.png | 1 | 32x32 | K2 item icon shield_targe (rendered from shield_targe.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_spear_iron_crude | ui/icon_spear_iron_crude.png | 1 | 32x32 | K2 item icon spear_iron_crude (rendered from spear_iron_crude.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_sword_basket_hilt | ui/icon_sword_basket_hilt.png | 1 | 32x32 | K2 item icon sword_basket_hilt (rendered from sword_basket_hilt.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_sword_copper_short | ui/icon_sword_copper_short.png | 1 | 32x32 | K2 item icon sword_copper_short (rendered from sword_copper_short.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_tavern | ui/icon_tavern.png | 1 | 32x32 | K3 building icon tavern (rendered from tavern.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_zweihander | ui/icon_zweihander.png | 1 | 32x32 | K2 item icon zweihander (rendered from zweihander.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 
 ## sky
 
