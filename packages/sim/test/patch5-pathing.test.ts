@@ -21,7 +21,6 @@ import {
   STUCK_SAY_AGAIN_STEPS,
   TUNNEL_HEIGHT_UNITS,
   WU_PER_COLUMN,
-  WU_PER_TERRAIN_UNIT,
   type Order,
   type SimEvent,
   type SimState,

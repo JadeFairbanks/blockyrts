@@ -142,7 +142,7 @@ export const UNIT_FIELDS = [
   ['nodeI', 'i32'],
   /** Next waypoint in its path. */
   ['pathAt', 'u16'],
-  /** 1 when its path reaches the goal, 0 when it only gets as near as it can. */
+  /** 1 when its path reaches the goal, 0 when it only gets as near as it can, 2 with no path yet, 4 on a leg of a long trip (Patch 5: behaviour.ts PATH_LEG). */
   ['pathOk', 'u8'],
   /** Failed path attempts in a row. */
   ['stuck', 'u8'],
