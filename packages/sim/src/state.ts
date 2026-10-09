@@ -290,6 +290,8 @@ export const UNIT_FIELDS = [
    * experience a minute, a step at a time.
    */
   ['workXp', 'u32'],
+  /** 1 when a worker is on autorepair (Jade's Patch 5, UI-13; units/repairs.ts): it fixes what of its owner's is damaged within 8 m of it. */
+  ['autoRepair', 'u8'],
 ] as const satisfies ReadonlyArray<readonly [string, ColumnType]>;
 
 type FieldName = (typeof UNIT_FIELDS)[number][0];
@@ -431,6 +433,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare hungry: Uint32Array;
   declare tinker: Uint16Array;
   declare workXp: Uint32Array;
+  declare autoRepair: Uint8Array;
   count = 0;
   capacity: number;
   /** Each unit's orders; the first is the current one. */

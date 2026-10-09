@@ -11,6 +11,7 @@ import { canAffordAny, fishOf, meatOf, payAny, shortOfAny } from '../economy/foo
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, clearingOn, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
 import { constructionHealth, footprintRect, garrisonRoom, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
 import { buildingWorth, repairCost } from '../buildings/repair.ts';
+import { autoRepairStep, repairShort } from './repairs.ts';
 import { isDark } from '../clock.ts';
 import { costText, Res, resourceByName, RESOURCES } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
@@ -976,7 +977,7 @@ function runWork(state: SimState, i: number, o: Extract<UnitOrder, { t: 'work' }
     if (!workOn(state, b)) {
       // Patch 5 (UI-13): nothing in the stock to repair it with.
       e.timer[i] = 0;
-      const short = shortOfAny(state.players[b.owner]!.pool, repairCost(buildingWorth(b), maxHealth(b), b.hp, maxHealth(b)));
+      const short = repairShort(state, b);
       alert(state, b.owner, `Not enough ${short >= 0 ? RESOURCES[short]!.name.toLowerCase() : 'resources'} to repair the ${buildingName(b.kind, b.level, b.variant).toLowerCase()}.`, e.x[i]!, e.z[i]!, i);
       return DONE;
     }
@@ -1450,6 +1451,8 @@ export function runUnit(state: SimState, i: number): void {
   // Inside a building's walls (a game saved before they were walls): out first.
   if (e.inside[i] === 0) stepOffSolid(state, i);
   if (fightStep(state, i)) return;
+  // Autorepair (Jade's Patch 5, UI-13): what is damaged near by comes first.
+  if (e.autoRepair[i] !== 0) autoRepairStep(state, i);
   // A few orders in a row may finish at once (a drop-off with nothing carried); bounded so a step stays short.
   for (let guard = 0; guard < 4; guard++) {
     const q = e.queue[i]!;
