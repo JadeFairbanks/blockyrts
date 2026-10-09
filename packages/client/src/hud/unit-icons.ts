@@ -111,6 +111,11 @@ export function buildingIconFile(kind: number, level: number): string {
       return 'icon_forge_l1';
     case BuildingKind.Tavern:
       return 'icon_tavern';
+    // Patch 7's trophies: the looted piece each one is, by the piece's own icon (rendered from its held model).
+    case BuildingKind.BogTrophy:
+      return 'icon_club_bog_guardian';
+    case BuildingKind.VictorsTrophy:
+      return 'icon_staff_morvath';
     default:
       return 'icon_storehouse';
   }

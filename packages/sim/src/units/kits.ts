@@ -549,6 +549,15 @@ export const TRAINING = {
 export const Slot = { Tool: 0, Weapon: 1, Ranged: 2, Shield: 3, Armour: 4 } as const;
 export type Slot = (typeof Slot)[keyof typeof Slot];
 
+/**
+ * The special effects of epic and legendary loot (Patch 7, plan section
+ * 4.5): what each does, its numbers and its words are in units/effects.ts;
+ * a gear row carries its own here (GearSpec.effect), the two trophies on
+ * their building kinds.
+ */
+export const LootEffect = { None: 0, Fury: 1, Warlord: 2, Reaper: 3, FarSight: 4, FaeSet: 5, BogTrophy: 6, VictorsTrophy: 7 } as const;
+export type LootEffect = (typeof LootEffect)[keyof typeof LootEffect];
+
 /** One thing a unit holds or wears, with its stats in sim units. */
 export interface GearSpec {
   id: number;
@@ -583,6 +592,8 @@ export interface GearSpec {
   stature: number;
   /** Patch 7: the good it is, which it comes off as, or undefined (fists, "No armour", the peoples' own leathers). */
   item?: Res;
+  /** Patch 7: the special effect of an epic or legendary looted piece (LootEffect; units/effects.ts), working while it is held or worn. */
+  effect?: LootEffect;
 }
 
 /** Tenths of a second as steps. */

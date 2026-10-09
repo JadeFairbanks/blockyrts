@@ -59,6 +59,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'threats/keepers.ts:KeeperKind', 'threats/keepers.ts:KeeperMode', 'threats/keepers.ts:KeeperAsk',
   // Patch 5: the stone circle keepers' moods and question id, and what can lie on a unit.
   'threats/encounters.ts:EncounterMode', 'threats/encounters.ts:EncounterAsk', 'threats/marks.ts:MarkKind',
+  // Patch 7: the looted pieces' effect ids.
+  'units/kits.ts:LootEffect',
   'state.ts:UNIT_FIELDS', 'state.ts:PLAYER_FIELDS', 'state.ts:MONSTERS', 'state.ts:NEUTRAL', 'state.ts:WILD', 'state.ts:NO_CARRY',
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
   'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/behaviour.ts:PATH_LEG', 'units/tools.ts:TOOL_FIELDS', 'buildings/chains.ts:STRETCH_DIRS',
@@ -157,6 +159,8 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/moves.ts': 'units',
   'units/field.ts': 'animals',
   'units/loot.ts': 'loot',
+  // Patch 7: what the epic and legendary looted pieces do, and the two trophies.
+  'units/effects.ts': 'loot',
   'threats/loot.ts': 'loot',
   'units/forage.ts': 'loot',
   'units/woods.ts': 'loot',

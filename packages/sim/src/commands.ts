@@ -230,6 +230,16 @@ greyHooks.upgrade = applyUpgrade;
 
 function applyCancelBuild(state: SimState, b: Building): void {
   const pool = state.players[b.owner]!.pool;
+  // A trophy (Patch 7), finished or not, is picked up: its piece goes back to the stock whole, to be planted again elsewhere.
+  const trophy = buildingSpec(b.kind).trophy;
+  if (trophy) {
+    pool[trophy.item] = pool[trophy.item]! + 1;
+    for (const j of unitsInside(state, b.id)) leaveBuilding(state, j);
+    state.buildings.remove(b.id, (key) => state.world.touchNav(key));
+    const [x, z] = buildingCentre(b);
+    state.events.push({ player: b.owner, kind: 'info', text: `The ${buildingSpec(b.kind).name.toLowerCase()} was picked up. The ${RESOURCES[trophy.item]!.name.toLowerCase()} is back in your stock.`, x, z });
+    return;
+  }
   if (!b.complete) {
     // What was paid to start it, kind by kind (an "any lumber" cost comes back as the lumber it was paid in).
     refund(pool, b.paid.length ? (b.paid as Cost) : levelSpec(b.kind, 1).cost.map(([r, n]) => [r, n * b.costMul] as const), CANCEL_REFUND_PER_MILLE);

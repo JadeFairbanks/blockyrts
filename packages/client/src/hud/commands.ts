@@ -71,6 +71,8 @@ import {
   TAVERN,
   stretchBetween,
   stretchCells,
+  lootEffectSpec,
+  trophyEffect,
   stretchSpots,
   stretchEnd,
   stretchRoom,
@@ -1099,8 +1101,9 @@ export class Commands {
     if (l.gives) lines.push(`Gives: ${l.gives}.`);
     if (l.supply) lines.push(`Supply +${l.supply}.`);
     if (spec.light) lines.push(`Light ${spec.light.lightM} m${spec.light.claimM ? `, claims ${spec.light.claimM} m while lit` : ''}.`);
+    if (spec.trophy) lines.push(lootEffectSpec(trophyEffect(spec.kind))!.text, TROPHY_HELP);
     if (Commands.chained(spec.kind)) lines.push(WALL_CHAIN_HELP);
-    else if (spec.w === 1 && spec.d === 1) lines.push('Drag to place a line of them, 8 m apart.');
+    else if (Commands.draggable(spec.kind)) lines.push('Drag to place a line of them, 8 m apart.');
     if (!Commands.chained(spec.kind)) lines.push('Shift + click to place several.');
     const reason = [why, short].filter((x) => x).join(' ');
     const action = placeAction(spec.kind, variant);
@@ -1223,7 +1226,18 @@ export class Commands {
         for (const b of all) if (b.inside.length > 0) this.d.send({ kind: 'unload', player: this.d.player, building: b.id, unit: 0 });
       }, { name: 'Unload All' });
     }
-    if (!waiting && (!first.complete || first.upgrading)) {
+    if (!waiting && spec.trophy) {
+      const item = RESOURCES[spec.trophy.item]!.name;
+      card[14] = this.entry(
+        'cancelBuild',
+        'Pick up',
+        `Take the ${item.toLowerCase()} back into your stock, all of it, to place again elsewhere.`,
+        () => {
+          for (const b of all) this.d.send({ kind: 'cancelBuild', player: this.d.player, building: b.id });
+        },
+        { name: 'Pick up' },
+      );
+    } else if (!waiting && (!first.complete || first.upgrading)) {
       card[14] = this.entry(
         'cancelBuild',
         'Cancel',
@@ -2558,7 +2572,7 @@ export class Commands {
   /** Whether a building kind is placed in lines by dragging (1 x 1 lights). */
   static draggable(kind: number): boolean {
     const s = buildingSpec(kind);
-    return s.w === 1 && s.d === 1 && !Commands.chained(kind);
+    return s.w === 1 && s.d === 1 && !s.trophy && !Commands.chained(kind);
   }
 
   /** Whether a building kind is placed in chains of stretches, click by click (walls, and the earth rampart's chunks from Patch 5; Building placement: wall chains). */
@@ -2798,6 +2812,8 @@ export class Commands {
 }
 
 /** The help line of a wall in the build menu. */
+/** The build menu's line for a trophy (Jade's Patch 7: a looted piece placed as a small item anywhere). */
+const TROPHY_HELP = 'It needs no land of yours and blocks no one. Pick it up again (select it) to place it elsewhere; if monsters knock it down it goes back to your stock.';
 const WALL_CHAIN_HELP = 'Click to place one; click it again (or right click) to stop there. Or click further points: each click builds the whole stretch from the last point, straight or diagonal, skipping what is in the way. A click on the last point, right click, Esc or Done ends the chain.';
 
 /** The Tunnel button's help on the dig card. */
