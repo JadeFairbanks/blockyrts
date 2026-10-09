@@ -25,6 +25,15 @@ export const BUTTON_MIN = 2 * SLOT;
 /** Where the screen is too short for the card to grow far enough, buttons shrink below the minimum, but never below the size before Patch 2 (s). */
 export const BUTTON_FLOOR = SLOT;
 /**
+ * Jade's Patch 5 (UI-3): the biggest an action button gets, "approximately"
+ * the size of three buttons on a laptop before Patch 5, so a short card is
+ * no longer one giant button, while one button alone is still large. Three
+ * buttons filled 108 px squares on a 1366 or 1440 px wide screen and 145 px
+ * on a 1536 px one; 128 sits between (s). The debugger's god mode is not on
+ * the card and keeps its own size.
+ */
+export const BUTTON_MAX = 128;
+/**
  * Jade, indev 0.8: the card at its standard size holds this many buttons before
  * they stop shrinking and it grows upward (she asked for 9 to 15, 10 to 12 by
  * preference; [before: as many as fit at BUTTON_MIN, 4 on a 5-column card to 10
@@ -240,10 +249,11 @@ export function buttonMin(inner: { w: number; h: number }, holds: number): numbe
  * block, maxH), they shrink to fit, never under BUTTON_FLOOR (s); a menu too
  * long even for that pages.
  */
-export function fitButtons(n: number, w: number, h: number, maxH: number, min: number = BUTTON_MIN): ButtonFit {
+export function fitButtons(n: number, w: number, h: number, maxH: number, min: number = BUTTON_MIN, max: number = BUTTON_MAX): ButtonFit {
   const count = Math.max(1, n);
   const here = squares(count, w, h);
-  if (here.size >= min) return { ...here, height: h, shown: n };
+  // Patch 5 (UI-3): never bigger than the maximum; the block stays centred in the card.
+  if (here.size >= min) return { ...here, size: Math.min(here.size, Math.max(min, max)), height: h, shown: n };
   const top = Math.max(h, maxH);
   const perRow = Math.max(1, Math.floor((w + GAP) / (min + GAP)));
   const rows = Math.ceil(count / perRow);
@@ -263,7 +273,11 @@ export function buttonRoom(w: number, h: number): { cols: number; rows: number }
   return { cols: Math.max(1, Math.floor((w + GAP) / (BUTTON_FLOOR + GAP))), rows: Math.max(1, Math.floor((h + GAP) / (BUTTON_FLOOR + GAP))) };
 }
 
-/** The picture on a button this size: the 32 px kit pictures at a whole or half step up, about 60% of the button (unscaled px). */
+/**
+ * The picture on a button this size: the 32 px kit pictures at a whole or
+ * half step up (unscaled px). Jade's Patch 5 (UI-2): about 80% of the
+ * button, up from 60%, so the picture fills more of it.
+ */
 export function buttonIcon(size: number): number {
-  return Math.max(32, Math.floor((size * 0.62) / 16) * 16);
+  return Math.max(32, Math.floor((size * 0.8) / 16) * 16);
 }
