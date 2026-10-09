@@ -2,7 +2,7 @@
 // (Jade's patch notes 1: a hazel picked bare is a "Hazel sapling" that holds
 // nothing until it has grown; plants grow in steps). Pure text from the
 // sim's tables, so it can be tested without a page.
-import { canBuildOver, growthStages, propInfo, propJob, Stage, stageName, Tool, toolNeeded } from '@blockyrts/sim';
+import { canBuildOver, growthStages, MUSHROOM_SPREAD, propInfo, propJob, spreads, Stage, stageName, Tool, toolNeeded } from '@blockyrts/sim';
 
 const STEPS_PER_MINUTE = 60 * 20;
 
@@ -33,6 +33,8 @@ export function propDetails(kind: number, stage: number, amount: number, most: n
     lines.push(`Gatherers: ${info.gatherers} at a time; ${info.perLoad} per load.`);
     lines.push(`Tool needed: ${info.tool === Tool.None ? 'none' : `a ${toolNeeded(propJob(kind), info.tool)} or better`}.`);
   }
+  // Patch 5 (GP-30): a mushroom picked comes up again close by.
+  if (spreads(kind)) lines.push(`Picked, another comes up within ${MUSHROOM_SPREAD.radiusM} m, ${MUSHROOM_SPREAD.minS / 60} to ${MUSHROOM_SPREAD.maxS / 60} minutes later.`);
   const stages = growthStages(kind);
   if (!stages || stage === Stage.Grown) return lines;
   const k = stages.findIndex((g) => g.stage === stage);

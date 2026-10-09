@@ -6,7 +6,7 @@
 // regenerated from the seed on demand and never affects a result
 // (Technology, World generation and terrain; technical decision 5).
 
-import { COLUMNS_PER_CHUNK, floorDiv, WU_PER_COLUMN, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
+import { COLUMNS_PER_CHUNK, floorDiv, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { standLevel, waterFlag } from '../nav/grid.ts';
 import {
   CHUNK_SHIFT,
@@ -18,10 +18,10 @@ import {
   type ChunkColumns,
 } from './chunk.ts';
 import { NATURAL_FLOOR_UNITS, WorldGen, type PropRecord } from './generate.ts';
-import { WorldLayout } from './layout.ts';
+import { Band, WorldLayout } from './layout.ts';
 import { Mat } from './materials.ts';
 import { hash2 } from './noise.ts';
-import { fishAt, growth, growthStages, isFish, isTree, propInfo, PROPS, Stage } from './props.ts';
+import { fishAt, growth, growthStages, isFish, isTree, MUSHROOM_SPREAD, propInfo, PROPS, spreads, Stage } from './props.ts';
 
 const N = COLUMNS_PER_CHUNK;
 /** A column and its four sides; the four sides alone. */
@@ -549,6 +549,8 @@ export class World {
 
   private viewOf(r: PropRecord, ch: PropChange | undefined, i: number, step: number): PropView | undefined {
     if (ch?.removed) return undefined;
+    // A mushroom come up again elsewhere (GP-30) is not there until its time: its record's age counts from then.
+    if (r.age + step < 0 && spreads(r.kind)) return undefined;
     const info = propInfo(r.kind);
     // Added props store the step they were dropped as a negative age.
     const age = r.age + step;
@@ -608,6 +610,8 @@ export class World {
     if (isTree(r.kind)) {
       this.changeProp(cx, cz, index, { amount: 0, cutAt: step, removed: true });
       this.dropSeeds(cx, cz, r, info.seeds, step);
+    } else if (spreads(r.kind)) {
+      this.spread(cx, cz, index, r, step);
     } else if (info.regrowSteps > 0) {
       this.changeProp(cx, cz, index, { amount: 0, cutAt: step, removed: false });
     } else {
@@ -632,6 +636,66 @@ export class World {
     this.addedProps.set(key, list);
     this.dirty.add(key);
     return { cx, cz, i: this.generated(cx, cz).props.length + list.length - 1 };
+  }
+
+  /**
+   * A picked mushroom comes up again (Jade's GP-30, MUSHROOM_SPREAD): on a
+   * column within its radius, chosen from the pick, in whatever chunk that
+   * column lies, and only once its delay has passed. Its record moves there
+   * when it can (an added one staying in its chunk, or one picked in that
+   * chunk before and not yet come back), so mushrooms that wander do not
+   * pile up records. Where no column in a few tries will do, it comes back
+   * where it stood.
+   */
+  private spread(cx: number, cz: number, index: number, r: PropRecord, step: number): void {
+    const s = MUSHROOM_SPREAD;
+    const reach = floorDiv(s.radiusM * 20, 9);
+    const gx = cx * N + r.lx;
+    const gz = cz * N + r.lz;
+    const h = hash2(r.variant, step, gx * 65536 + gz);
+    const from = step + (s.minS + (h % (s.maxS - s.minS + 1))) * STEPS_PER_SECOND;
+    let x = gx;
+    let z = gz;
+    for (let t = 1; t <= 8; t++) {
+      const k = hash2(h, t, 0);
+      const dx = (k % (2 * reach + 1)) - reach;
+      const dz = ((k >>> 8) % (2 * reach + 1)) - reach;
+      if ((dx === 0 && dz === 0) || dx * dx + dz * dz > reach * reach || !this.roomForMushroom(gx + dx, gz + dz, step)) continue;
+      x = gx + dx;
+      z = gz + dz;
+      break;
+    }
+    const tcx = x >> CHUNK_SHIFT;
+    const tcz = z >> CHUNK_SHIFT;
+    const key = chunkKey(tcx, tcz);
+    const first = this.generated(tcx, tcz).props.length;
+    const list = this.addedProps.get(key) ?? [];
+    const changes = this.propChanges.get(key);
+    const same = tcx === cx && tcz === cz && index >= first;
+    const j = same ? index - first : list.findIndex((p, k) => p.kind === r.kind && changes?.get(first + k)?.removed === true);
+    if (!same) this.changeProp(cx, cz, index, { amount: 0, cutAt: step, removed: true });
+    const lx = x - tcx * N;
+    const lz = z - tcz * N;
+    const rec: PropRecord = { kind: r.kind, lx, lz, y: this.columns(tcx, tcz).top(lz * N + lx), variant: hash2(h, x, z), age: -from, amount: PROPS[r.kind]!.yield };
+    if (j < 0) {
+      list.push(rec);
+      this.addedProps.set(key, list);
+    } else {
+      list[j] = rec;
+      this.changeProp(tcx, tcz, first + j, { amount: rec.amount, cutAt: -1, removed: false });
+    }
+    this.dirty.add(key);
+  }
+
+  /** Whether a mushroom may come up on a column (GP-30): dry, not built on, nothing else growing there, and not in the Barrens or Deadlands. */
+  private roomForMushroom(x: number, z: number, step: number): boolean {
+    const tcx = x >> CHUNK_SHIFT;
+    const tcz = z >> CHUNK_SHIFT;
+    const lx = x - tcx * N;
+    const lz = z - tcz * N;
+    if (this.columns(tcx, tcz).water[lz * N + lx] !== NO_WATER || this.builtOn?.(x, z)) return false;
+    if (this.gen.columnBand(x, z) >= Band.Barrens) return false;
+    return !this.props(tcx, tcz, step).some((p) => p.lx === lx && p.lz === lz);
   }
 
   /** Whether a tree (a seed or bigger) stands within SEED_SPACING_M of a column. */

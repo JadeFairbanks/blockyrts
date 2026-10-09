@@ -1528,7 +1528,7 @@ before. Run `pnpm dev` and open http://localhost:5173/?seed=1.
    (N) once. They say what they are doing ("Spotted a deer.", "Taking the meat
    home.", "No game in sight. Looking farther out.") and what they got, hunt
    hares, deer and wild birds their side can see, and take the meat home when
-   their bags are half full. They never go farther than they could walk back
+   their bags are full (half full before Patch 5). They never go farther than they could walk back
    from in dusk's 40 s (about 100 m from the Big House at a warrior's 3 m/s):
    at dusk they say "Getting dark. Heading home." and are within 4 m of the
    main base by nightfall, and at daybreak they go out again. Wild boar, giant
@@ -4095,20 +4095,25 @@ editor shows them under Buildings, Training and Units.*
 ## How a tester checks the woodsman, fishing, farms and the Barn (Patch 5)
 
 *Patch 5's WD-1 to WD-7 (the woodsman), FR-1 and FR-2 (fishing), CT-1's
-Fish button, GP-24 (the night retreat), GP-35 to GP-38 (taming, the Barn,
-bonemeal and Fertilize), UI-17 (Boost remaining), BL-8, BL-10, VX-2, VX-3
-and QoL 3. Picks in blueprint/patch5-food-picks.md. The code is
+Fish button, GP-24 (the night retreat), GP-30 to GP-32 and QoL 2 (wild
+food), GP-35 to GP-38 (taming, the Barn, bonemeal and Fertilize), UI-17
+(Boost remaining), BL-8, BL-10, VX-2, VX-3 and QoL 3. Picks in
+blueprint/patch5-food-picks.md. The code is
 `packages/sim/src/units/woodsman.ts` and `woods.ts` (the woodsman and his
-woods order), `buildings/farm-boost.ts` (Fertilize), `animals/barn.ts` and
-`units/barn-hand.ts` (the Barn), `units/field.ts` (taming),
+woods order), `world/world.ts` `spread` (mushrooms coming back),
+`buildings/farm-boost.ts` (Fertilize), `animals/barn.ts` and
+`units/barn-hand.ts` (the Barn), `units/field.ts` (taming, and hunters
+picking berries),
 `animals/animals.ts` (following, grazing, breeding),
 `units/night-work.ts` and `forage.ts` (the night retreat); on the screen
 `hud/woods.ts`, `world/fish-view.ts` and `world/building-glow.ts`.*
 
 1. **The tests.** `pnpm test` runs packages/sim/test/patch5-woodsman.test.ts
    (training, damage, no dock, fishing by himself and a picked stretch, the
-   save round trip, the food line's colours), packages/client/test/patch5-woodsman.test.ts
-   (his card, keys and orders) and the farm and Barn tests in farms.test.ts.
+   save round trip, the food line's colours), packages/sim/test/patch5-forage.test.ts
+   (Forage, mushrooms coming back, hunters picking berries),
+   packages/client/test/patch5-woodsman.test.ts (his card, keys and orders)
+   and the farm and Barn tests in farms.test.ts.
 2. **Training.** `pnpm dev`, open http://localhost:5173/?seed=2. Build a
    Scholar's Lodge: its card has Woodsman (W) for 32 food, 4 sticks, 1
    leather (or 1 hides) and 4 flax, in 50 s. He comes out with a wooden
@@ -4131,11 +4136,25 @@ woods order), `buildings/farm-boost.ts` (Fertilize), `animals/barn.ts` and
    down to its last pair, then goes on by himself. Fish and Forage can both
    be on; each button shows its auto mark while on. At dusk he hands in his
    catch and waits by the main base until day.
-5. **His food line.** Select one woodsman: under his name, "Food in 24,
+5. **Foraging.** Right click Forage (its picture is black berries): the
+   woodsman goes to the nearest wild food ready to pick, a berry bush
+   (black berries, raspberries, blueberries) or edible mushrooms, picks it
+   (reaching up at a bush, stooping for mushrooms) and takes his bag home
+   when it is full. A bush stays where it is, its berries back in 2
+   minutes. A picked mushroom is gone, and another comes up within 3 m of
+   it 1 to 3.5 minutes later, so mushrooms wander over time; select one and
+   the panel says so. Left click Forage, then a bush: he picks that one
+   first. Bog pears, hawthorne fruit and Moon Roses come with the stone
+   circles.
+6. **Hunters and berries.** Select a warrior near a berry bush and press
+   Hunt (N) twice: it picks the bush first (any within 20 m), the bush left
+   standing, then goes after game. Hunters take their bags home only when
+   they are full, or when the next animal's meat would not fit.
+7. **His food line.** Select one woodsman: under his name, "Food in 24,
    eaten 2.5 (last 10 min)" (or his life, if shorter), red while he eats
    more than he brings in, green once he brings in more than 3 food over
    every 3 meals, yellow between.
-6. **Fertilize.** At the Workshop, Bonemeal (N) grinds bone into bonemeal:
+8. **Fertilize.** At the Workshop, Bonemeal (N) grinds bone into bonemeal:
    click makes one, Shift + click ten, and a right click offers Make 1,
    Make 10 or Make all, each order one stack in the queue counting down. On a farm's
    card, Fertilize (F) costs 2 bonemeal and makes the farm grow 30% more for
@@ -4144,28 +4163,29 @@ woods order), `buildings/farm-boost.ts` (Fertilize), `animals/barn.ts` and
    "Boost remaining:" has a bar that empties as the boost runs (seconds in
    its tooltip, boosts waiting, and a Sweet Hawthorne's +35% when there is
    one), mirrored over the farm. A farmer-day brings in 10 farm fare (was 8).
-7. **The Barn.** A Barn works only with its one barn hand. By day he walks
-   among the animals outside; at night he is in the loft. Ordering him away
-   asks "Are you sure you want me to leave the animals unattended?" first.
+9. **The Barn.** A Barn works only with its one barn hand, in a farmer's
+   straw hat. By day he walks among the animals outside; at night he is in
+   the loft. Ordering him away asks "Are you sure you want me to leave the
+   animals unattended?" first.
    Its animals graze by day, which saves a quarter of their feed, and eat
-   plant food at nightfall.
-8. **Taming.** With a worker selected, hover a wild chicken or cow: the
-   tooltip says to right click to tame it and what it costs (3 food for a
-   chicken up to 20 for cattle and oxen, in plant food from the stock). The
-   worker feeds it at 2 food a second, a bar over the animal filling, then
-   it follows him to within 5 m of a Barn with room.
-9. **Breeding.** Prey animals breed half as often again as before, seek a
-   mate, and show a heart over each when they do.
-10. **The night retreat.** At dusk, workers out gathering by themselves go
+   plant food (farm fare, berries or mushrooms) at nightfall.
+10. **Taming.** With a worker selected, hover a wild chicken or cow: the
+    tooltip says to right click to tame it and what it costs (3 food for a
+    chicken up to 20 for cattle and oxen, in plant food from the stock). The
+    worker feeds it at 2 food a second, a bar over the animal filling, then
+    it follows him to within 5 m of a Barn with room.
+11. **Breeding.** Prey animals breed half as often again as before, seek a
+    mate, and when they do, each shows a heart and plays its mating clip.
+12. **The night retreat.** At dusk, workers out gathering by themselves go
     in to a farm or a Barn with animals that has room first, then the main
     base, an empty Barn last. Only a worker within 5 m of a main base, its
     node too, with a troop within 10 m, asks to work on through the night,
     and it gathers only by the base. A worker you set gathering in the dark
     works on all that night.
-11. **Lights.** Farms and Barns with people in them have lit windows at
+13. **Lights.** Farms and Barns with people in them have lit windows at
     night, main bases are lit every night, an occupied farm's chimney
     smokes at night, and the Big House campfire burns with flames and smoke.
-12. **Saves.** No save format change; the snapshot version goes to 31.
+14. **Saves.** No save format change; the snapshot version goes to 31.
 
 ## License
 

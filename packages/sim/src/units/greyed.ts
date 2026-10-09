@@ -441,7 +441,7 @@ function resolve(state: SimState, player: number, need: Need, ax: number, az: nu
             units: group.map((i) => e.id[i]!),
             res: -1,
             text: `We need ${need.n} more food${forText(need.for)}. Shall ${n === 1 ? 'I' : 'we'} go hunting?`,
-            yes: `${n === 1 ? 'It goes' : `All ${n} go`} out after game, as Hunt does: home with the meat when their bags are half full, and back by nightfall. Takes nothing from the stock.`,
+            yes: `${n === 1 ? 'It goes' : `All ${n} go`} out after game, as Hunt does: home with the meat when their bags are full, and back by nightfall. Takes nothing from the stock.`,
             no: `${n === 1 ? 'It stays' : 'They stay'} where ${n === 1 ? 'it is' : 'they are'}.`,
           },
           deeper: [],

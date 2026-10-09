@@ -669,7 +669,7 @@ export class Commands {
       this.entry(
         'hunt',
         'Hunt',
-        'Then left click a wild animal: the warriors hunt it, then go on hunting as usual.\nRight click (or press twice): the warriors go out after game, hares, deer and wild birds, take the meat home when their bags are half full and go out again, looking farther out when nothing is in sight; workers in the selection follow and carry the meat. They never go farther than they could walk back from in dusk\'s 40 s, so they are home by nightfall, and go out again in the day. Wild boar, giant crabs, bears and creatures that guard their ground fight back, so they are left alone unless you pick one.',
+        'Then left click a wild animal: the warriors hunt it, then go on hunting as usual.\nRight click (or press twice): the warriors go out after game, hares, deer and wild birds, pick the berries on bushes close by, take what they carry home when their bags are full (or cannot take the next kill's meat) and go out again, looking farther out when nothing is in sight; workers in the selection follow and carry the meat. They never go farther than they could walk back from in dusk\'s 40 s, so they are home by nightfall, and go out again in the day. Wild boar, giant crabs, bears and creatures that guard their ground fight back, so they are left alone unless you pick one.',
         () => this.target('hunt', 'hunt'),
         { lit: t === 'hunt', right: () => this.huntAuto(), double: () => this.huntAuto() },
       ),

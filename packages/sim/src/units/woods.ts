@@ -25,7 +25,7 @@ import { pointGoal } from '../nav/path.ts';
 import { chatter } from '../peoples/speech.ts';
 import { OrderKind, standY, type SimState } from '../state.ts';
 import { CHUNK_SHIFT, chunkKey, NO_WATER, WATER_PER_UNIT } from '../world/chunk.ts';
-import { isFish, propInfo } from '../world/props.ts';
+import { isFish, propInfo, PropShape } from '../world/props.ts';
 import { FOG_TILE_COLUMNS, type PropView, type World } from '../world/world.ts';
 import { Act, besideBuilding, columnCentre, FAILED, giveOrder, MOVING, nearestDropoff, nodeResource, nodeView, resetWalk, walkTo } from './behaviour.ts';
 import { exploreTarget, fromHome, HOME_SLACK_M, homeBaseNear, homeOf, wanderTarget, type Home } from './forage.ts';
@@ -47,23 +47,19 @@ const M = WU_PER_METRE;
 export const WOODS = { fishS: 12, pickS: 3, leashM: 40 };
 
 /**
- * The wild foods he forages, by prop kind (QoL 2: "berries, mushrooms, bog
- * pears, hawthorne fruit, and Moon Roses on Bright Nights"), each picked
- * low (forage_low: mushrooms and low plants) or high (forage_high), Jade's
- * WD-6. World generation adds the bushes and mushrooms; each new kind is a
- * row here.
+ * Whether a prop is wild food a woodsman forages (QoL 2: "berries,
+ * mushrooms, bog pears, hawthorne fruit, and Moon Roses on Bright Nights"):
+ * any prop whose row is marked forage (world/props.ts PropInfo.forage), so
+ * each new wild food is one flag on its own row.
  */
-export const FORAGE_PROPS: ReadonlyMap<number, { low: boolean }> = new Map();
-
-/** Whether a prop is wild food a woodsman forages. */
 export function isForage(kind: number): boolean {
-  return FORAGE_PROPS.has(kind);
+  return propInfo(kind).forage;
 }
 
-/** What he is doing at his spot, for the screen (state.ts OrderKind): fishing, picking low or picking high. */
+/** What he is doing at his spot, for the screen (state.ts OrderKind): fishing, or picking (Jade's WD-6) low at a plant (forage_low: mushrooms) or high at a bush or tree (forage_high). */
 function workLook(kind: number): number {
   if (isFish(kind)) return OrderKind.Fish;
-  return FORAGE_PROPS.get(kind)?.low ? OrderKind.ForageLow : OrderKind.ForageHigh;
+  return propInfo(kind).shape === PropShape.Plant ? OrderKind.ForageLow : OrderKind.ForageHigh;
 }
 
 /** Kinds of quiet line, for chatter's spacing (field.ts uses up to 12). */

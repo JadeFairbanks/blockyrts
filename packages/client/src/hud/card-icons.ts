@@ -41,9 +41,9 @@ const ACTION_ICONS: Record<string, ButtonIcon> = {
   // Patch 2: the artillery crewman's Crew order shows the engine it goes to; its training button is its own bust.
   crew: one('icon_train_cannon'),
   trainCrewman: one(troopIconFile(Troop.Crew, 0)),
-  // Patch 5: the woodsman's rod and the wild plants he forages, and his training button.
+  // Patch 5: the woodsman's rod and the wild berries he forages, and his training button.
   fish: one('icon_fishing_rod'),
-  forage: one('icon_medicinal_herbs'),
+  forage: one('icon_black_berries'),
   trainWoodsman: one(troopIconFile(Troop.Woodsman, 1)),
   // Patch 5: the Citadel's Build defense menu.
   buildDefense: one('icon_train_cannon'),
