@@ -3608,10 +3608,12 @@ Idol's waves (SCB-4). Picks in blueprint/patch5-mobs-picks.md.*
 3. **His warning.** Take from a chest, cut a hawthorne or break a trilithon:
    he says "Do not dare to defile the circle!" and you get Yes or No. **I
    will do what I want!**: he roars and runs your units down, leaping in
-   with a thunderclap (5 to 10 to everyone within 6 m) and grabbing and
-   throwing units up to 30 m. **Sorry!**: he stands down; loot again and he
-   rages, taunting you. Taking the idol enrages him at once, and the altar's
-   Yes or No shows his warning first. The quest menu shows his open warning
+   with a thunderclap (5 to 10 to every unit within 6 m, a second player's
+   at peace with him too) and grabbing and throwing units up to 30 m.
+   **Sorry!**: he stands down; loot again and he rages, taunting you. Taking
+   the idol enrages him at once, and the altar's Yes or No shows his warning
+   first; he trades no more with the taker, but a second player at peace
+   with him still buys his goods. The quest menu shows his open warning
    under Stone circles. Fight him long enough and he swears vengeance: he
    leaves his circle for your bases, workers first.
 4. **Silenus.** At a Silenus circle a goat-legged god and his satyrs revel,

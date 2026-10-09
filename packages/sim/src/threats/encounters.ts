@@ -280,7 +280,7 @@ function addMember(state: SimState, r: Encounter, s: CircleSite, mob: number, fo
 function newEncounter(s: CircleSite, step: number): Encounter {
   const g = ENCOUNTERS.ape.goods;
   return {
-    circle: s.id, type: s.type, leader: 0, mode: EncounterMode.Calm, foes: 0, sworn: 0, warned: 0, sorry: 0, unit: 0, next: step + 5 * SEC, still: 0, since: step, roam: 0,
+    circle: s.id, type: s.type, leader: 0, mode: EncounterMode.Calm, foes: 0, sworn: 0, warned: 0, sorry: 0, robbed: 0, unit: 0, next: step + 5 * SEC, still: 0, since: step, roam: 0,
     plantAt: step + 30 * SEC, fought: 0, planted: 0, planting: 0, quietSince: step, heldHp: 0, heldMax: 0, changed: 0, leapX0: 0, leapZ0: 0, leapX1: 0, leapZ1: 0, leapAt: 0, leapEnd: 0,
     leapNext: 0, toss: 0, tossX0: 0, tossZ0: 0, tossX1: 0, tossZ1: 0, tossAt: 0, tossEnd: 0, tossNext: 0, lashNext: 0, rootsNext: 0, riteNext: 0, fruit: g.perDay, honey: g.perDay,
     wine: g.perDay, day: Math.max(0, floorDiv(step, CYCLE_STEPS)),
@@ -441,7 +441,10 @@ function onDisturbed(state: SimState, circle: number, unit: number, what: Distur
   if (r.type === CircleType.Lunar) {
     const i = leaderOf(state, r);
     if (i < 0) return;
-    if (what === Disturb.Idol) return apeRage(state, r, player, APE_LINES.idol);
+    if (what === Disturb.Idol) {
+      r.robbed |= b;
+      return apeRage(state, r, player, APE_LINES.idol);
+    }
     if (r.foes & b) return;
     if (what === Disturb.Fruit) {
       // He watches the picker, without a word.
@@ -787,15 +790,20 @@ function throwOff(state: SimState, i: number, r: Encounter, t: number): void {
   sayForeign(state, i, pick(state, r, APE_LINES.toss, 17), false);
 }
 
-/** SCA-2's [thunderclap] as he lands: 5 to 10 to every unit of the side he fights within 6 m. */
+/**
+ * SCA-2's [thunderclap] as he lands: "5-10 dmg to the hp of all units in the
+ * 6 metre radius", so every living unit there but himself takes it: his foes,
+ * the night's monsters and a player at peace with him alike (a unit inside a
+ * building, or a lair, is not on the ground to be shaken).
+ */
 function thunderclap(state: SimState, i: number, r: Encounter): void {
   const e = state.entities;
   const l = ENCOUNTERS.ape.leap;
   const rad = l.radiusM * M;
   state.hits.push({ look: 'thunder', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
   for (const j of state.grid.near(e.x[i]!, e.z[i]!, rad + M)) {
-    if (j === i || distTo(state, j, e.x[i]!, e.z[i]!) > rad) continue;
-    if (!foeUnit(state, r, j) && !strayMonster(state, j)) continue;
+    if (j === i || e.hp[j]! <= 0 || e.inside[j] !== 0 || distTo(state, j, e.x[i]!, e.z[i]!) > rad) continue;
+    if (e.kind[j] === UnitKind.Mob && mobSpec(e.mob[j]!).role === Role.Structure) continue;
     const dmg = l.min + state.rng.combat.nextInt(l.max - l.min + 1);
     hurtUnit(state, j, { damage: dmg, from: e.id[i]!, projectile: false, blunt: true, pierce: false });
   }
@@ -1309,10 +1317,12 @@ function traderProblem(state: SimState, player: number, circle: number): string 
   const r = encounterAt(state, circle);
   if (!r || r.type !== CircleType.Lunar || leaderOf(state, r) < 0) return 'The Great White Ape is not here.';
   const b = bit(player);
+  // SCA-2: "if you are peaceful towards the Great White Ape you can buy": the idol gone ends his trade only with its taker and those he is at war with.
+  const gone = state.circles.taken.includes(circle);
+  if (gone && (r.robbed & b || r.foes & b || r.sworn & b)) return 'The Goddess\'s idol is gone, and the Ape trades no more with you.';
   if (r.foes & b || r.sworn & b) return 'The Great White Ape is enraged with you.';
   if (r.warned & b) return 'Answer the Great White Ape first.';
   if (r.mode === EncounterMode.Fighting || r.mode === EncounterMode.Rampage) return 'The Great White Ape is fighting.';
-  if (state.circles.taken.includes(circle)) return 'The Goddess\'s idol is gone, and the Ape trades no more.';
   return '';
 }
 
