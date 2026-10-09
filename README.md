@@ -3710,6 +3710,80 @@ unit, in the balance editor under Units, "Running, jumping and climbing"),
 7. **Saves.** No save format change; the snapshot version goes to 27 (a
    unit's Run/Walk, the run it owes food for, and the face it climbs).
 
+## How a tester checks the woodsman, fishing, farms and the Barn (Patch 5)
+
+*Patch 5's WD-1 to WD-7 (the woodsman), FR-1 and FR-2 (fishing), CT-1's
+Fish button, GP-24 (the night retreat), GP-35 to GP-38 (taming, the Barn,
+bonemeal and Fertilize), UI-17 (Boost remaining), BL-8, BL-10, VX-2, VX-3
+and QoL 3. Picks in blueprint/patch5-food-picks.md. The code is
+`packages/sim/src/units/woodsman.ts` and `woods.ts` (the woodsman and his
+woods order), `buildings/farm-boost.ts` (Fertilize), `animals/barn.ts` and
+`units/barn-hand.ts` (the Barn), `units/field.ts` (taming),
+`animals/animals.ts` (following, grazing, breeding),
+`units/night-work.ts` and `forage.ts` (the night retreat); on the screen
+`hud/woods.ts`, `world/fish-view.ts` and `world/building-glow.ts`.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-woodsman.test.ts
+   (training, damage, no dock, fishing by himself and a picked stretch, the
+   save round trip, the food line's colours), packages/client/test/patch5-woodsman.test.ts
+   (his card, keys and orders) and the farm and Barn tests in farms.test.ts.
+2. **Training.** `pnpm dev`, open http://localhost:5173/?seed=2. Build a
+   Scholar's Lodge: its card has Woodsman (W) for 32 food, 4 sticks, 1
+   leather (or 1 hides) and 4 flax, in 50 s. He comes out with a wooden
+   spear in his hand and no armour.
+3. **His card.** Attack (A), Move (M), Fish (I), Forage (G), Eat (F),
+   Upgrade equipment (Q) and Run or Walk (H). F2 does not select him.
+   Upgrade equipment offers only long weapons, and only at a main base; he
+   hits 2 less than a warrior with the same weapon and fights back when
+   struck. He climbs faces up to 7 m, as workers do.
+4. **Fishing.** There is no Fishing dock in the build menu, and workers sent
+   to fish are told "Only woodsmen fish. Train them at the Scholar's Lodge."
+   Near water, fish swim in the stretches (trout, salmon, giant catfish),
+   up to 8 drawn per stretch, fewer as it is fished down. Right click Fish:
+   the woodsman walks to the nearest stretch with fish to spare, puts his
+   spear on his back, takes out his rod, casts and waits; every 12 s a fish
+   comes up on the line in an arc to him and goes in his bag. He leaves each
+   stretch half its fish so it breeds back, takes his bag home when it
+   cannot take another fish, and goes back out. Left click Fish, then a
+   stretch (or right click a stretch with him selected): he fishes that one
+   down to its last pair, then goes on by himself. Fish and Forage can both
+   be on; each button shows its auto mark while on. At dusk he hands in his
+   catch and waits by the main base until day.
+5. **His food line.** Select one woodsman: under his name, "Food in 24,
+   eaten 2.5 (last 10 min)" (or his life, if shorter), red while he eats
+   more than he brings in, green once he brings in more than 3 food over
+   every 3 meals, yellow between.
+6. **Fertilize.** At the Workshop, make bonemeal from bone: one, ten or all
+   at once, each order one stack in the queue counting down. On a farm's
+   card, Fertilize (F) costs 2 bonemeal and makes the farm grow 30% more for
+   2 minutes; pressed again, more boosts wait behind it (up to 10). Right
+   click turns Auto fertilize on or off. Beside the farm's workers,
+   "Boost remaining:" has a bar that empties as the boost runs (seconds in
+   its tooltip, boosts waiting, and a Sweet Hawthorne's +35% when there is
+   one), mirrored over the farm. A farmer-day brings in 10 farm fare (was 8).
+7. **The Barn.** A Barn works only with its one barn hand. By day he walks
+   among the animals outside; at night he is in the loft. Ordering him away
+   asks "Are you sure you want me to leave the animals unattended?" first.
+   Its animals graze by day, which saves a quarter of their feed, and eat
+   plant food at nightfall.
+8. **Taming.** With a worker selected, hover a wild chicken or cow: the
+   tooltip says to right click to tame it and what it costs (3 food for a
+   chicken up to 20 for cattle and oxen, in plant food from the stock). The
+   worker feeds it at 2 food a second, a bar over the animal filling, then
+   it follows him to within 5 m of a Barn with room.
+9. **Breeding.** Prey animals breed half as often again as before, seek a
+   mate, and show a heart over each when they do.
+10. **The night retreat.** At dusk, workers out gathering by themselves go
+    in to a farm or a Barn with animals that has room first, then the main
+    base, an empty Barn last. Only a worker within 5 m of a main base, its
+    node too, with a troop within 10 m, asks to work on through the night,
+    and it gathers only by the base. A worker you set gathering in the dark
+    works on all that night.
+11. **Lights.** Farms and Barns with people in them have lit windows at
+    night, main bases are lit every night, an occupied farm's chimney
+    smokes at night, and the Big House campfire burns with flames and smoke.
+12. **Saves.** No save format change; the snapshot version goes to 28.
+
 ## License
 
 Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).
