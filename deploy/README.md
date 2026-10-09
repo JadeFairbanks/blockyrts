@@ -139,6 +139,16 @@ while the live server is a version from before mail jobs.
 It uses the secrets setup already has: `CLOUDFLARE_API_TOKEN`, the R2 key,
 and the server's `EMAIL_API_KEY` (from `RESEND_API_KEY`).
 
+## Server load
+
+To see how busy the server is, open the Droplet `blockyrts-1` in the
+DigitalOcean dashboard and its **Graphs** tab (CPU, memory, load, disk and
+network). The **Server load** workflow (`.github/workflows/server-load.yml`,
+run by hand) prints the same numbers for the last hours, hour by hour, with
+the rooms open right now from `/healthz`. It is read-only: it changes nothing
+on the server. It uses `DIGITALOCEAN_TOKEN` and the `DOMAIN` variable, and
+prints no address or Droplet ID, since the run logs are public.
+
 ## Changing things later
 
 - **New setting or secret:** add it to `compose.yml`, then the next Deploy

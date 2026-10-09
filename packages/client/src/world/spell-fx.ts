@@ -1,7 +1,9 @@
 // Magic on screen (Patch 5: MB-20, MB-22, MB-25, VX-5): glowing motes drawn
 // from the effect sprites (fx_magic_*, fx_mana_motes, fx_embers, fx_ripple,
 // particle_spark_white) and a soft light, trails behind every bolt of magic in
-// flight, the bolts as their own models lit by their own light, each spell's
+// flight, the bolts as their own models lit by their own light (tilted along
+// their arc and playing their own loops in flight, and a bolt's impact clip
+// where it ends), each spell's
 // landing model played through its clips (rise, loop, fade), the Beam as a
 // stream of light out of the wand's tip, a spell's light gathering at the tip
 // while it is cast, and Area blast's ring of force. It
@@ -56,6 +58,8 @@ const STRIDE = 17;
 const MAX_LANDINGS = 64;
 /** Bolts and beam segments of one model at once. */
 const MAX_STATIC = 512;
+/** How far from where a bolt ends the one that flew there was last drawn, at most, metres: its impact faces the way it flew. */
+const BOLT_END_M = 6;
 /** Where the body's own wand ends past the hand: its glow gem 10 px out, at 2.8125 cm a px. */
 const WAND_TIP_M = 0.28;
 
@@ -321,6 +325,13 @@ const BOLT_MODELS: Partial<Record<number, string>> = {
 /** Bolts whose head is down -Z though their trail behind is the longer end (Jade's nature and reveler bolts). */
 const HEAD_DOWN_MINUS_Z: ReadonlySet<string> = new Set(['nature_bolt', 'reveler_bolt']);
 
+/** Which end of a bolt's model is its head (-Z, else +Z), and how far that is from its origin, metres. */
+function boltNose(model: ModelData, id: string): { forward: boolean; len: number } {
+  const b = model.boundingBox;
+  const forward = HEAD_DOWN_MINUS_Z.has(id) || -b.min.z > b.max.z;
+  return { forward, len: forward ? -b.min.z : b.max.z };
+}
+
 /** The sparkle round a unit under a spell, by SpellOn bit. */
 const AURAS: ReadonlyArray<readonly [number, Sheet, number]> = [
   [SpellOn.Healing, 'green', 0xffffff],
@@ -335,6 +346,15 @@ const AURAS: ReadonlyArray<readonly [number, Sheet, number]> = [
 const BEAM_CORE = 0xe8d8ff;
 const BEAM_GLOW = 0xa070ff;
 
+/** A bolt drawn this frame: its Shot, its head (metres) and which way it flies. */
+interface Flown {
+  kind: number;
+  x: number;
+  y: number;
+  z: number;
+  dir: THREE.Vector3;
+}
+
 interface Playing {
   model: string;
   x: number;
@@ -343,6 +363,8 @@ interface Playing {
   heading: number;
   t0: number;
   life: number;
+  /** Tilt about its own X, radians (a bolt's impact along its arc; 0 for the rest). */
+  pitch: number;
   /** Entity id it rides on, or 0. */
   follow: number;
   /** Scale at the start and at full size, and how long it takes to grow. */
@@ -423,33 +445,65 @@ class GlowStatic {
   }
 }
 
-/** The landing models, posed through their clips. */
-class LandingPools {
+/**
+ * Models posed through their clips, a pool of each drawn this frame: the
+ * landing models, and the bolts that play their loops in flight (Patch 5,
+ * here and in units-view.ts).
+ */
+export class ModelPools {
   private readonly pools = new Map<string, { m: InstancedModel; n: number }>();
+  private visible = true;
 
-  constructor(private readonly scene: THREE.Scene) {}
+  /** At most `max` of each model a frame, lit by its own texture this strongly (InstancedModel.glow, 0 for none). */
+  constructor(
+    private readonly scene: THREE.Scene,
+    private readonly max: number,
+    private readonly glowing: number,
+  ) {}
 
   take(model: ModelData): { m: InstancedModel; i: number } | null {
     let e = this.pools.get(model.id);
     if (!e) {
-      const m = new InstancedModel(model, MAX_LANDINGS);
-      m.glow(0.85);
+      const m = new InstancedModel(model, this.max);
+      if (this.glowing > 0) m.glow(this.glowing);
       this.scene.add(m.object);
       e = { m, n: 0 };
       this.pools.set(model.id, e);
     }
-    if (e.n >= MAX_LANDINGS) return null;
+    if (e.n >= this.max) return null;
     return { m: e.m, i: e.n++ };
   }
 
-  commit(visible: boolean): void {
+  /** Hidden for the outline passes, which draw nothing that hides nothing. */
+  setVisible(on: boolean): void {
+    this.visible = on;
+    for (const e of this.pools.values()) e.m.object.visible = on && e.m.instanceCount > 0;
+  }
+
+  commit(): void {
     for (const e of this.pools.values()) {
       e.m.setCount(e.n);
       e.m.commit();
-      e.m.object.visible = visible && e.n > 0;
+      e.m.object.visible = this.visible && e.n > 0;
       e.n = 0;
     }
   }
+}
+
+/** A model's loop to play in flight: its first looping clip ('' for none). */
+export function flightClip(model: ModelData): string {
+  for (const c of model.clips.values()) if (c.loop) return c.name;
+  return '';
+}
+
+/**
+ * The heading and pitch (InstancedModel.setInstance) that point a model's
+ * nose along dir (a unit vector): its -Z end when forwardMinusZ, else its +Z
+ * end, kept upright about its length.
+ */
+export function aimAlong(dir: THREE.Vector3, forwardMinusZ: boolean): { heading: number; pitch: number } {
+  const up = Math.asin(Math.min(1, Math.max(-1, dir.y)));
+  return forwardMinusZ ? { heading: Math.atan2(-dir.x, -dir.z), pitch: up } : { heading: Math.atan2(dir.x, dir.z), pitch: -up };
 }
 
 const Z_FORWARD = new THREE.Vector3(0, 0, 1);
@@ -471,7 +525,11 @@ export class SpellFx {
   private lib: ModelLibrary | null = null;
   private readonly layers = new Map<Sheet, MoteLayer>();
   private readonly statics: GlowStatic;
-  private readonly landings: LandingPools;
+  private readonly landings: ModelPools;
+  /** Bolts that play their loops in flight. */
+  private readonly flying: ModelPools;
+  /** The bolts drawn this frame (kind, where, which way): where one ends, its impact faces the way it flew. */
+  private readonly flown: Flown[] = [];
   private readonly playing: Playing[] = [];
   private readonly asked = new Set<string>();
   private readonly colour = new THREE.Color();
@@ -486,7 +544,8 @@ export class SpellFx {
 
   constructor(private readonly scene: THREE.Scene) {
     this.statics = new GlowStatic(scene);
-    this.landings = new LandingPools(scene);
+    this.landings = new ModelPools(scene, MAX_LANDINGS, 0.85);
+    this.flying = new ModelPools(scene, MAX_STATIC, 0.9);
   }
 
   setLibrary(lib: ModelLibrary): void {
@@ -497,6 +556,8 @@ export class SpellFx {
   setVisible(on: boolean): void {
     this.visible = on;
     for (const l of this.layers.values()) l.points.visible = on;
+    this.landings.setVisible(on);
+    this.flying.setVisible(on);
   }
 
   /** Whether a landing rides on a unit this frame: the units view then says where every unit stands. */
@@ -510,6 +571,7 @@ export class SpellFx {
     this.last = now;
     this.t = now / 1000;
     this.follows = this.playing.some((p) => p.follow !== 0);
+    this.flown.length = 0;
   }
 
   /** A spell landing or a bolt of magic ending, in sight; metres. */
@@ -520,6 +582,7 @@ export class SpellFx {
       if (b.burst > 0) this.burst(b.sheet, x, y, z, this.colour.set(b.tint), b.burst, 2.6, 1.6, 0.6, 0.3);
       if (b.flash > 0) this.flash(x, y, z, b.flash, b.glow);
       if (b.sparks > 0) this.burst('spark', x, y, z, this.colour.set(b.glow).lerp(WHITE, 0.5), Math.ceil(b.sparks / 2), 3.2, 2, 0.45, 0.12, 6);
+      this.impact(h.shot ?? -1, x, y, z);
       return;
     }
     const s = SPELLS[h.spell ?? -1];
@@ -539,7 +602,7 @@ export class SpellFx {
       this.follows ||= follow !== 0;
       // The models stand on the ground: a spell on a unit shows at its middle, a spell on the ground at the ground.
       const feet = s.target === 'point' ? y : y - 0.85;
-      this.playing.push({ model: l.model, x, y: feet, z, heading: Math.random() * Math.PI * 2, t0: this.t, life: l.life ?? 0, follow, from: l.grow ? 0.2 : 1, to: 1, grow: l.grow ?? 0 });
+      this.playing.push({ model: l.model, x, y: feet, z, heading: Math.random() * Math.PI * 2, pitch: 0, t0: this.t, life: l.life ?? 0, follow, from: l.grow ? 0.2 : 1, to: 1, grow: l.grow ?? 0 });
       const p = this.playing[this.playing.length - 1]!;
       if (l.reach) p.to = -l.reach; // sized by the model's own radius once it is loaded (negative: a reach in metres)
       if (l.reach && !l.grow) p.from = p.to;
@@ -554,7 +617,38 @@ export class SpellFx {
    */
   play(model: string, x: number, y: number, z: number, heading: number, life: number, follow = 0, scale = 1, skip = 0): void {
     this.follows ||= follow !== 0;
-    this.playing.push({ model, x, y, z, heading, t0: this.t - skip, life, follow, from: scale, to: scale, grow: 0 });
+    this.playing.push({ model, x, y, z, heading, pitch: 0, t0: this.t - skip, life, follow, from: scale, to: scale, grow: 0 });
+  }
+
+  /**
+   * A bolt's own impact where it ends (Jade's reveler bolt; PRE-3: "Make sure
+   * to use all of what I give you"): the clips after its flight loop, placed
+   * and turned as the bolt was last drawn flying there.
+   */
+  private impact(kind: number, x: number, y: number, z: number): void {
+    const id = BOLT_MODELS[kind];
+    const m = id ? this.lib?.models.get(id) : undefined;
+    if (!id || !m) return;
+    const clips = [...m.clips.values()];
+    const loopAt = clips.findIndex((c) => c.loop);
+    const outro = loopAt < 0 ? 0 : clips.slice(loopAt + 1).reduce((s, c) => s + (c.loop ? 0 : c.length), 0);
+    if (outro <= 0) return;
+    let near: Flown | undefined;
+    let best = BOLT_END_M * BOLT_END_M;
+    for (const f of this.flown) {
+      const d = (f.x - x) ** 2 + (f.y - y) ** 2 + (f.z - z) ** 2;
+      if (f.kind === kind && d < best) {
+        best = d;
+        near = f;
+      }
+    }
+    const a = Math.random() * Math.PI * 2;
+    const dir = near ? near.dir : this.dir.set(Math.sin(a), 0, Math.cos(a));
+    const { forward, len } = boltNose(m, id);
+    const { heading, pitch } = aimAlong(dir, forward);
+    // Started where its flight loop ends: playLength gives a looping model its once clips and 0.4 s of loop.
+    const life = playLength(m, 0);
+    this.playing.push({ model: id, x: x - dir.x * len, y: y - dir.y * len, z: z - dir.z * len, heading, pitch, t0: this.t - (life - outro), life: 0, follow: 0, from: 1, to: 1, grow: 0 });
   }
 
   /** A model's clips after its loop played through (entangling roots letting go of a unit), metres. */
@@ -634,14 +728,21 @@ export class SpellFx {
     let tailZ = z;
     if (model) {
       // Head on the shot's point, tail behind it: Jade's bolts point their head down -Z, the older models up +Z.
-      const b0 = model.boundingBox;
-      const forwardMinusZ = HEAD_DOWN_MINUS_Z.has(id) || -b0.min.z > b0.max.z;
-      const len = forwardMinusZ ? -b0.min.z : b0.max.z;
-      this.dummy.quaternion.setFromUnitVectors(forwardMinusZ ? Z_BACK : Z_FORWARD, dir);
-      this.dummy.position.set(x - dir.x * len, y - dir.y * len, z - dir.z * len);
-      this.dummy.scale.set(1, 1, 1);
-      this.dummy.updateMatrix();
-      this.statics.add(model, this.dummy.matrix);
+      const { forward, len } = boltNose(model, id);
+      const loop = flightClip(model);
+      const slot = loop ? this.flying.take(model) : null;
+      if (slot) {
+        // Its own loop playing as it flies (PRE-3), tilted along its arc.
+        const { heading, pitch } = aimAlong(dir, forward);
+        slot.m.setInstance(slot.i, x - dir.x * len, y - dir.y * len, z - dir.z * len, heading, loop, this.t, null, 1, pitch);
+      } else if (!loop) {
+        this.dummy.quaternion.setFromUnitVectors(forward ? Z_BACK : Z_FORWARD, dir);
+        this.dummy.position.set(x - dir.x * len, y - dir.y * len, z - dir.z * len);
+        this.dummy.scale.set(1, 1, 1);
+        this.dummy.updateMatrix();
+        this.statics.add(model, this.dummy.matrix);
+      }
+      this.flown.push({ kind, x, y, z, dir: dir.clone() });
       tailX -= dir.x * len;
       tailY -= dir.y * len;
       tailZ -= dir.z * len;
@@ -783,12 +884,13 @@ export class SpellFx {
       const slot = this.landings.take(model);
       if (!slot) continue;
       const { clip, t } = clipAt(model, age, life);
-      slot.m.setInstance(slot.i, p.x, p.y, p.z, p.heading, clip, t, null, scale);
+      slot.m.setInstance(slot.i, p.x, p.y, p.z, p.heading, clip, t, null, scale, p.pitch);
     }
     this.playing.length = w;
     for (const l of this.layers.values()) l.update(this.dt);
     this.statics.commit(this.visible);
-    this.landings.commit(this.visible);
+    this.landings.commit();
+    this.flying.commit();
   }
 
   // ---- Motes ----

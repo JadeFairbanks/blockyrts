@@ -93,6 +93,21 @@ export function seatsOf(room: RoomStateMessage, activeSlots: number): Seat[] {
   });
 }
 
+/**
+ * Opens a snapshot the relay sent (a rejoin, or everyone's reload after a desync) and hands its sim state to `load`,
+ * which passes it to the worker. The relay keeps talking while the save opens: the pause lifts and frames for the
+ * steps after the snapshot come in. They are held until the load has gone to the worker, so they reach its new
+ * scheduler; before the load they would go to the scheduler it replaces, and a frame lost there is never sent again.
+ */
+export async function loadSnapshot(relay: RelayClient, m: Extract<ServerMessage, { type: 'loadSnapshot' }>, load: (sim: Uint8Array) => void): Promise<void> {
+  relay.hold();
+  try {
+    load((await openSave(m.data)).sim);
+  } finally {
+    relay.release();
+  }
+}
+
 export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchContext): Promise<void> {
   const { api, settings } = ctx;
   const online = plan.online;
@@ -441,8 +456,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   // ---- Messages from the relay ----
   const onRelay = (m: ServerMessage): void => {
     switch (m.type) {
-      case 'frame':
-        send({ type: 'frames', frames: [m.frame] });
+      case 'frames':
+        send({ type: 'frames', frames: m.frames });
         break;
       case 'inputDelay':
         send({ type: 'inputDelay', steps: m.steps });
@@ -503,13 +518,12 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
         })();
         break;
       case 'loadSnapshot':
-        void (async () => {
-          const opened = await openSave(m.data);
+        void loadSnapshot(relay!, m, (sim) => {
           lastStep = m.step;
-          send({ type: 'load', snapshot: opened.sim, frames: m.frames, nextFrameStep: m.nextFrameStep, slot: room!.yourSlot, seats: seatSlots(seats), epoch: m.epoch, activeSlots: m.activeSlots, inputDelay: m.inputDelay });
+          send({ type: 'load', snapshot: sim, frames: m.frames, nextFrameStep: m.nextFrameStep, slot: room!.yourSlot, seats: seatSlots(seats), epoch: m.epoch, activeSlots: m.activeSlots, inputDelay: m.inputDelay });
           if (resynced) shell.message('This game had gone out of step with the others, so it was reloaded from their copy. Play carries on.', 'alert');
           resynced = false;
-        })();
+        });
         break;
       case 'resume':
         send({ type: 'resume', epoch: m.epoch, frames: m.frames, nextFrameStep: m.nextFrameStep, activeSlots: m.activeSlots, inputDelay: m.inputDelay });

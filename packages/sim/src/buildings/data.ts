@@ -238,7 +238,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   {
     // The tier 1 crop field's numbers from before Patch 2 (s, Jade's rebalance); a farmer grew 8 farm fare a day, the potato farm's 16 food.
     // Patch 5 (Jade: "Buff farm output by approximately 20%. maintaining whole numbers"): 10 a day, the nearest whole number to 9.6.
-    kind: BuildingKind.Farm, name: 'Farm', purpose: 'Grows farm fare, a hearty medley of vegetables, with 2 assigned farmers, in full in every band. Fertilize with bonemeal for 30% more for 2 minutes. Gives supply, trains workers, shelters its farmers.',
+    kind: BuildingKind.Farm, name: 'Farm', purpose: 'Grows farm fare, a hearty medley of vegetables, with 2 assigned farmers, in full in every band. Fertilize with bonemeal for 30% more for 2 minutes. Gives supply, trains workers, shelters its farmers. Cannot be built on stone.',
     slot: 2, w: 12, d: 12, dropoff: 'none', trainsWorkers: true, live: true, comesWith: '',
     crop: { res: Res.FarmFare, perDay: 10 },
     levels: [lvl('Farm', [[L, 20], [Res.Sticks, 5]], 150, 400, { supply: 10, shelters: 4, workers: 2, gives: '2 farmers grow farm fare; trains workers; the farmhouse shelters 4' })],
