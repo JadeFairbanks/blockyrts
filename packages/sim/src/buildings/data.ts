@@ -296,7 +296,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     levels: [lvl("Scholar's Lodge", [[L, 40], [ST, 20]], 240, 500, { gives: 'one research at a time; each further research building costs this much again on top' })],
   },
   {
-    kind: BuildingKind.Mineshaft, name: 'Mineshaft', purpose: 'Built on flat stone. 4 assigned miners go down, fill a 25 lb bag with stone, ore, coal, gold or gems, and carry it to the nearest main base or Storehouse (assign them with a right click). Deep Mining II and III let every shaft dig deeper. Prospect first (T) to see how rich the spot is.',
+    kind: BuildingKind.Mineshaft, name: 'Mineshaft', purpose: 'Built on any flat, dry ground. 4 assigned miners go down, fill a 25 lb bag with stone, ore, coal, gold or gems, and carry it to the nearest main base or Storehouse (assign them with a right click). Deep Mining II and III let every shaft dig deeper. Prospect first (T) to see how rich the spot is.',
     slot: 12, w: 6, d: 6, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     levels: [lvl('Mineshaft', [[L, 60], [ST, 80], [Res.BronzeIngot, 10]], 600, 800, { needsBase: 3, workers: 4, research: DEEP_MINING_1, gives: '4 miners: stone, ores, coal, gold and gems by depth' })],
   },
