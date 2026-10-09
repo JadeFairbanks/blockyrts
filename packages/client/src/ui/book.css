@@ -654,6 +654,29 @@ details.group > summary {
   margin-top: -4px;
   color: #ddd0b0;
 }
+.patch-items > li > div {
+  flex: 1;
+  min-width: 0;
+}
+.patch-shot {
+  margin: 10px 0 4px;
+}
+.book .pic.shot {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  border: 8px solid transparent;
+  border-image: var(--frame-panel) 12 fill / 16px round;
+  image-rendering: auto;
+}
+.side-link.side-sub {
+  padding-left: 22px;
+  font-size: 13px;
+}
+[data-book='patch-notes'] .book-side > .side-link:not(.side-sub) {
+  padding-left: 6px;
+}
 
 /* ---- Narrow windows: the sidebar goes above the page ---- */
 @media (max-width: 760px) {

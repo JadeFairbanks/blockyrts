@@ -13,6 +13,10 @@ const server = env.SAC_SERVER ?? 'http://localhost:8080';
 // link, link previews, robots.txt and sitemap.xml (site.ts).
 const site = siteUrl(env.VITE_SITE_URL);
 
+// The day of a deploy's build (the Deploy workflow sets VITE_GAME_VERSION),
+// for the newest patch notes' date (version.ts BUILD_DAY); a local build has none.
+const buildDay = env.VITE_GAME_VERSION ? new Date().toISOString().slice(0, 10) : '';
+
 /**
  * virtual:sim-exports: which tables each sim module declares, where, and
  * under which section heading, for How to Play's pages of numbers (the
@@ -41,6 +45,7 @@ function simExports(): Plugin {
 
 export default defineConfig({
   plugins: [sitePlugin(site), simExports()],
+  define: { 'import.meta.env.VITE_BUILD_DAY': JSON.stringify(buildDay) },
   // How to Play's worker reads the sim's export list too.
   worker: { format: 'es', plugins: () => [simExports()] },
   // three.js alone is about 500 kB minified.
