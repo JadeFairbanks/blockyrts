@@ -4091,6 +4091,60 @@ the box and the press on a face).*
 7. **Saves.** No save format change; the snapshot version goes to 30 (a
    dig order's layer and missed columns, and digs drawn upwards).
 
+## How a tester checks pathing and stuck units (Patch 5)
+
+*Patch 5's GP-22 (pathing), with the 3 m boulders World generation added.
+Picks in blueprint/patch5-movement-picks.md. The code is
+`packages/sim/src/nav/regions.ts` (each 4 by 4 column tile split into the
+parts a unit can walk between), `packages/sim/src/nav/path.ts` (the search
+over those parts, then over the columns along them), `packages/sim/src/units/stuck.ts`
+(the stuck line), `packages/sim/src/nav/grid.ts` (the boulders) and
+`packages/client/src/hud/shell.ts` (the stuck unit's pings).*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-pathing.test.ts:
+   seven units leave a walled village through its gate, or through a gap in
+   its wall, and cross a village crowded with storehouses; they walk round
+   a 72 m stone ridge too high to climb and back out of a U-shaped trap; go
+   150 m in legs; and take a tunnel through a 180 m ridge rather than the
+   long way round. A boulder raises the walk map 3 m on its footprint:
+   walkers go round, a worker or a fighter can climb it, a horse cannot
+   jump onto it, and mined away it is ground again. A unit walled in says
+   where it is stuck and why, once a minute at most; one shut in by 9 m of
+   stone, or sent into a walled yard, says so too.
+2. **Leaving a village.** `pnpm dev`, open http://localhost:5173/?seed=1.
+   Wall the main base in with a gate (or leave a gap), select units inside
+   and Move them to a spot outside: they head for the gate or the gap and
+   out, without catching on the wall. Crowd buildings close together:
+   units thread between them.
+3. **Long trips round obstacles.** Move a unit 200 m or more over rough
+   land, past ridges, lakes and cliffs: it walks round them. It plans about
+   50 m at a time and the next stretch as it gets there, so it never stands
+   still to think. A worker or a fighter climbs a face in its way when that
+   is shorter than going round. A large group sent far no longer holds the
+   game up (20 units sent 300 m had stalled it most of a second).
+4. **Tunnels.** With a tunnel through a cliff (digging and tunnels, above),
+   units sent to the far side take it when it is the shorter way.
+5. **Boulders.** The 3 m boulders now stand in the way: units walk round
+   them; a worker or a fighter may climb onto one; horses, the Dreadnought,
+   engines and carts never do. Miners stand round its foot. Mined away,
+   the ground there is walkable again.
+6. **Stuck units.** Wall a unit in on every side (or leave it in a pit too
+   deep to climb out of) and Move it out: it says, in a bubble and as an
+   urgent line in the message panel, "I'm stuck to the north-east, about
+   40 m from our main base: there are walls and buildings all round me, and
+   I can't figure out how to get out." The reason is the commonest thing
+   round it: walls and buildings, faces of land and rock too high for it to
+   climb, drops too deep for it to climb down, deep water, or slopes too
+   steep for wheels. Sent into a walled yard it cannot get into, a unit
+   that stops more than 5 m short says "... there are walls and buildings
+   all round where you sent me, and I can't figure out a way there." The
+   minimap pings the unit every 5 s until the camera shows it (or it gets
+   5 m clear, goes inside, or dies); other players see nothing. A unit says
+   it at most once a minute, and the order's own "I cannot reach that."
+   stays unsaid then.
+7. **Saves.** No save format change; the snapshot version goes to 31 (when
+   a stuck unit may next say so).
+
 ## How a tester checks the Tavern and the Dreadnought (Patch 5)
 
 *Jade's Patch 5, GP-19 to GP-21: the Tavern, which turns food into silver

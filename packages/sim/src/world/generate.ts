@@ -381,8 +381,8 @@ const SPRING_PROBES: ReadonlyArray<readonly [number, number]> = [
   [-7, -7],
 ];
 const SPRING_LEVEL_SPREAD = 8;
-/** Half a boulder's footprint, columns: 3 m across. */
-const BOULDER_HALF = 3;
+/** Half a boulder's footprint, columns: 3 m across (the walk map raises it, nav/grid.ts). */
+export const BOULDER_HALF = 3;
 /** A mountain's pass blends into its flanks over this, columns (s; a ridge's over 10). */
 const MOUNTAIN_GAP_BLEND = 24;
 /** A guarded bog's bog iron (MB-11: "doubled amounts of bog iron"): Table 9's 40, twice over. Every bog has a guardian. */

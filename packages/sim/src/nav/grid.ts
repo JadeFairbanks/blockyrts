@@ -10,6 +10,7 @@
 
 import { COLUMNS_PER_CHUNK } from '../fixed.ts';
 import { CHUNK_SHIFT, chunkKey, NO_WATER, WATER_PER_UNIT } from '../world/chunk.ts';
+import { BOULDER_HALF } from '../world/generate.ts';
 import type { World } from '../world/world.ts';
 
 const N = COLUMNS_PER_CHUNK;
@@ -34,6 +35,13 @@ export const WADE_UNITS = 9;
 const FLOAT_UNITS = 4;
 /** Headroom a person needs to stand under a roof: 16 terrain units, 1.8 m (Moving over the land: headroom). */
 export const HEADROOM_UNITS = 16;
+/**
+ * How far a standing boulder's top is above its ground, terrain units, by
+ * ring out from its middle column (0 to BOULDER_HALF): 3 m on its rounded
+ * top, 2.6 m at its edge, over a horse's 2.5 m jump. A unit that climbs that
+ * high stands on it; the rest walk round (Patch 5, GP-22).
+ */
+export const BOULDER_RISE_UNITS: readonly number[] = [27, 27, 25, 23];
 /** No floor under an overhang on this column. */
 export const NO_FLOOR = -32768;
 /** Walk levels of a column: 0 its top, open to the sky; 1 the floor under its lowest overhang with headroom (a tunnel or cave). */
@@ -190,6 +198,22 @@ export class NavGrid {
           under[i] = floor;
           roof[i] = ceiling;
           break;
+        }
+      }
+    }
+    // Standing boulders: rock on their footprints, from their ground up (no water on top of one).
+    const b = this.world.boulders(cx, cz);
+    for (let k = 0; k < b.length; k += 3) {
+      const bx = b[k]!;
+      const bz = b[k + 1]!;
+      const by = b[k + 2]!;
+      for (let dz = -BOULDER_HALF; dz <= BOULDER_HALF; dz++) {
+        for (let dx = -BOULDER_HALF; dx <= BOULDER_HALF; dx++) {
+          const i = (bz + dz) * N + bx + dx;
+          const y = by + BOULDER_RISE_UNITS[Math.max(Math.abs(dx), Math.abs(dz))]!;
+          if (y <= level[i]!) continue;
+          level[i] = y;
+          flags[i] = flags[i]! & ~(Walk.Wade | Walk.Deep);
         }
       }
     }

@@ -44,7 +44,7 @@ export const GROUPS: readonly GroupSpec[] = [
 export const SKIP_MODULES: ReadonlySet<string> = new Set([
   'index.ts', 'fixed.ts', 'trig-table.ts', 'serialize.ts', 'bytes.ts', 'rng.ts', 'replay.ts', 'step.ts', 'commands.ts',
   'world/chunk.ts', 'world/serialize-world.ts', 'world/delta.ts', 'world/noise.ts',
-  'nav/path.ts', 'threats/debug.ts', 'debug/god.ts', 'threats/types.ts', 'buildings/store.ts', 'combat/fields.ts', 'combat/space.ts',
+  'nav/path.ts', 'nav/regions.ts', 'units/stuck.ts', 'threats/debug.ts', 'debug/god.ts', 'threats/types.ts', 'buildings/store.ts', 'combat/fields.ts', 'combat/space.ts',
   'magic/cast.ts', 'units/names.ts', 'peoples/orders.ts', 'peoples/hooks.ts', 'peoples/speech.ts', 'peoples/types.ts',
   // Patch 5: the keepers' lines are words, not balance.
   'threats/keeper-lines.ts',
@@ -58,7 +58,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'threats/keepers.ts:KeeperKind', 'threats/keepers.ts:KeeperMode', 'threats/keepers.ts:KeeperAsk',
   'state.ts:UNIT_FIELDS', 'state.ts:PLAYER_FIELDS', 'state.ts:MONSTERS', 'state.ts:NEUTRAL', 'state.ts:WILD', 'state.ts:NO_CARRY',
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
-  'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/tools.ts:TOOL_FIELDS', 'buildings/chains.ts:STRETCH_DIRS',
+  'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/behaviour.ts:PATH_LEG', 'units/tools.ts:TOOL_FIELDS', 'buildings/chains.ts:STRETCH_DIRS',
   // Building shapes (one per level) and an enter order's flag: layout and plumbing, not balance.
   'buildings/footprints.ts:FOOTPRINTS', 'units/unit-orders.ts:ENTER_TOP', 'units/unit-orders.ts:ENTER_IN', 'units/loot.ts:HAND_ONE', 'units/loot.ts:DROPPED',
   // The peoples' names, lines and id offsets: words and plumbing, not balance. The special trinket multiplier is a copy of rules.ts's.
@@ -78,7 +78,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'world/layout.ts:CELL_RING_SHIFT', 'world/layout.ts:BAND_NAMES', 'world/layout.ts:EDGE_NAMES', 'world/layout.ts:LOOK_NAMES',
   'buildings/mining.ts:RATING_NAMES', 'buildings/placement.ts:BLOCKED_TEXT', 'economy/food.ts:RATIONS_TEXT', 'clock.ts:PERIOD_NAMES',
   'combat/combat.ts:RANK_NAMES', 'rules.ts:BP', 'rules.ts:XP_TENTHS', 'rules.ts:VP_SOFTWOOD_LUMBER',
-  'commands.ts:FLOW_FIELD_GROUP', 'nav/grid.ts:WALKER', 'nav/grid.ts:PERSON', 'nav/grid.ts:PERSON_ARMOURED', 'nav/grid.ts:CLIMBER',
+  'nav/grid.ts:WALKER', 'nav/grid.ts:PERSON', 'nav/grid.ts:PERSON_ARMOURED', 'nav/grid.ts:CLIMBER',
   'nav/grid.ts:CLIMBER_PLAN', 'nav/grid.ts:MOB_PLAN', 'nav/grid.ts:SWIMMER', 'nav/grid.ts:WHEELS', 'world/props.ts:PROPS:check',
   // Mana's fixed-point scale, the rank count, and tables worked out from MAGE_RANKS.
   'magic/spells.ts:MANA_SCALE', 'magic/spells.ts:MAGE_TOP_RANK', 'magic/mages.ts:MAGE_XP_TENTHS', 'magic/mages.ts:MAGE_RANK_NAMES',
