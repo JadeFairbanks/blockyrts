@@ -646,7 +646,7 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
   }
   // When a node has run out, go to the closest one of the same resource; with none nearby, a basic material
   // gives way to what the side needs most for the walk (saying why), else the last load goes home and it stands idle.
-  // Working on through the night, the forage order behind chooses the next node, near the buildings.
+  // Working on through the night, the forage order behind chooses the next node, by the main base.
   const runOut = (res: number, near: [number, number]): boolean => {
     const alt = res >= 0 && !nightForage ? findNode(state, i, res, near[0], near[1], NODE_SEARCH_COLUMNS, o) : null;
     const next = alt ?? (res >= 0 && after !== 'hunt' && !nightForage ? nextNode(state, i, res, columnCentre(near[0]), columnCentre(near[1]), o, after === 'forage') : null);

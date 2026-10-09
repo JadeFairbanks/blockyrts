@@ -1,10 +1,14 @@
 // Jade's Patch 4: working through the night. Workers gathering by themselves
-// within 25 m of a building and 50 m of a troop ask at dusk, instead of going
-// home, "Should I keep working through the night?". Yes, or no answer, and
-// they work on; No, and they go to work an empty Farm, else into the main
-// base. Workers who went in for the night come out at dawn once no monster
-// within 25 m of their shelter is alive (in the day whatever the monsters
-// do), carrying on, or gathering by themselves when they had nothing to do.
+// ask at dusk, instead of going in, "Should I keep working through the
+// night?", since Patch 5 (Jade's GP-24) only while they and what they gather
+// are within 5 m of a main base and a troop is within 10 m. Yes, or no
+// answer, and they work on; No, and they go to work an empty Farm, else in
+// for the night. In for the night means a farm or barn with room first, the
+// main base next, an empty barn last (GP-24). Set gathering by their player
+// in the dark, they work on all night as by day. Workers who went in for the
+// night come out at dawn once no monster within 25 m of their shelter is
+// alive (in the day whatever the monsters do), carrying on, or gathering by
+// themselves when they had nothing to do.
 import { describe, expect, it } from 'vitest';
 import {
   addCrewman,
@@ -20,21 +24,24 @@ import {
   ENTER_NIGHT,
   FORAGE_HOME,
   FORAGE_NIGHT,
+  FORAGE_OWN,
   fromBuilding,
   hashState,
+  byMainBase,
   mayWorkOn,
   Mob,
-  nearBuilding,
   nearTroop,
   NIGHT_STEPS,
   NIGHT_WORK_ASK,
-  NIGHT_WORK_BUILDING_M,
+  NIGHT_WORK_BASE_M,
   NIGHT_WORK_REACH_M,
   NIGHT_WORK_TROOP_M,
   nightReach,
   openQuestions,
   placeBuilding,
   placementBlocked,
+  PropKind,
+  PROPS,
   QUESTION_WAIT_STEPS,
   RESOURCES,
   serializeState,
@@ -112,17 +119,38 @@ function freeSpot(s: SimState, kind: number): [number, number] {
   throw new Error('no free spot');
 }
 
+/** Straight out east of the Big House's walls: the wall's x and the middle z (wu). */
+function eastWall(s: SimState): [number, number] {
+  const [, z0, x1, z1] = solidRect(bigHouse(s));
+  return [(x1 + 1) * WU_PER_COLUMN, ((z0 + z1 + 1) * WU_PER_COLUMN) >> 1];
+}
+
 /**
  * A peaceful world at the step its first dusk begins: its four workers have
- * gathered by themselves (the Gather button) round the Big House for the
- * last 40 s of the day, the start's three warriors stand by, and the stock
- * holds only food (so nobody asks about kit or tools at the same time).
+ * gathered by themselves (the Gather button) for the last 10 s of the day at
+ * a row of pines 2 m out from the Big House's east wall, the start's three
+ * warriors stand by them, and the stock holds only food (so nobody asks about
+ * kit or tools at the same time).
  */
 function duskWorld(): SimState {
   const s = createWorld(1, { peaceful: true });
+  const e = s.entities;
   for (const p of s.players) for (const r of RESOURCES) if (r.nutrition === 0) p.pool[r.id] = 0;
-  s.step = DAY_STEPS - 40 * SEC;
-  run(s, 40 * SEC, [{ kind: 'forage', player: 0, units: ids(s, units(s, UnitKind.Worker)) }]);
+  const [wx, wz] = eastWall(s);
+  const gx = Math.floor(wx / WU_PER_COLUMN) + 4;
+  const gz = Math.floor(wz / WU_PER_COLUMN);
+  for (let k = -8; k <= 8; k += 2) s.world.addProp(gx, gz + k, PropKind.Pine, 7 + k, PROPS[PropKind.Pine]!.yield, -60 * 60 * SEC);
+  const workers = units(s, UnitKind.Worker);
+  workers.forEach((i, k) => {
+    e.x[i] = wx + 4 * M;
+    e.z[i] = wz + (k * 2 - 3) * M;
+  });
+  for (const w of units(s, UnitKind.Warrior)) {
+    e.x[w] = wx + 4 * M;
+    e.z[w] = wz;
+  }
+  s.step = DAY_STEPS - 10 * SEC;
+  run(s, 10 * SEC, [{ kind: 'forage', player: 0, units: ids(s, workers) }]);
   expect(s.step).toBe(DAY_STEPS);
   return s;
 }
@@ -134,34 +162,34 @@ function stockOf(s: SimState): number {
   return n;
 }
 
-describe('where a worker may work on through the night (Jade: 25 m to a building, 50 m to a troop)', () => {
-  it('measures to a building from its walls, not counting lights, and to any combat unit, an artillery crewman too', () => {
+describe('where a worker may work on through the night (Jade\'s GP-24: 5 m to a main base, 10 m to a troop)', () => {
+  it('measures to a main base from its walls, no other building counting, and to any combat unit, an artillery crewman too', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
-    const b = bigHouse(s);
-    expect(NIGHT_WORK_BUILDING_M).toBe(25);
-    expect(NIGHT_WORK_TROOP_M).toBe(50);
-    expect(NIGHT_WORK_REACH_M).toBe(25);
+    expect(NIGHT_WORK_BASE_M).toBe(5);
+    expect(NIGHT_WORK_TROOP_M).toBe(10);
+    expect(NIGHT_WORK_REACH_M).toBe(5);
     expect(DAWN_CLEAR_M).toBe(25);
-    // Straight out east of the Big House's walls.
-    const [, z0, x1, z1] = solidRect(b);
-    const wallX = (x1 + 1) * WU_PER_COLUMN;
-    const z = ((z0 + z1 + 1) * WU_PER_COLUMN) >> 1;
+    const [wallX, z] = eastWall(s);
     const at = (m: number): number => wallX + m * M;
-    expect(nearBuilding(s, at(20), z, NIGHT_WORK_BUILDING_M)).toBe(true);
-    expect(nearBuilding(s, at(27), z, NIGHT_WORK_BUILDING_M)).toBe(false);
-    expect(nightReach(s)(at(20), z)).toBe(true);
-    expect(nightReach(s)(at(27), z)).toBe(false);
-    // A torch post out there is a light, not a building.
+    expect(byMainBase(s, at(4), z, NIGHT_WORK_BASE_M)).toBe(true);
+    expect(byMainBase(s, at(7), z, NIGHT_WORK_BASE_M)).toBe(false);
+    expect(nightReach(s)(at(4), z)).toBe(true);
+    expect(nightReach(s)(at(7), z)).toBe(false);
+    // A farm out there is not a main base.
     const tx = Math.floor(at(40) / WU_PER_COLUMN);
     const tz = Math.floor(z / WU_PER_COLUMN);
-    placeBuilding(s, 0, BuildingKind.TorchPost, 0, tx, tz, true);
-    expect(nearBuilding(s, at(40), z, NIGHT_WORK_BUILDING_M)).toBe(false);
-    // The start's warriors stand by the Big House; far off, there is no troop near it.
+    placeBuilding(s, 0, BuildingKind.Farm, 0, tx, tz, true);
+    expect(byMainBase(s, at(40), z, NIGHT_WORK_BASE_M)).toBe(false);
+    // A warrior 3 m off is near; 12 m off, it is not.
+    const [bx, bz] = [at(2), z];
+    const [w, ...others] = units(s, UnitKind.Warrior);
+    for (const o of others) e.x[o] = e.x[o]! + 150 * M;
+    e.x[w!] = bx + 3 * M;
+    e.z[w!] = bz;
     run(s, 1);
-    const [bx, bz] = [(b.x + 2) * WU_PER_COLUMN, (b.z + 2) * WU_PER_COLUMN];
     expect(nearTroop(s, bx, bz)).toBe(true);
-    for (const w of units(s, UnitKind.Warrior)) e.x[w] = e.x[w]! + 150 * M;
+    e.x[w!] = bx + 12 * M;
     run(s, 1);
     expect(nearTroop(s, bx, bz)).toBe(false);
     // An artillery crewman is a troop too (combatTroop, as for the monsters turning on the troops), and a worker is not.
@@ -185,20 +213,20 @@ describe('working through the night (Jade\'s Patch 4)', () => {
     expect(ev.text).toBe('Should the four of us keep working through the night?');
     expect([...ev.ask!.units].sort((a, c) => a - c)).toEqual(ids(s, workers).sort((a, c) => a - c));
     expect(ev.ask!.yes).toContain('Not answering counts as Yes');
-    expect(ev.ask!.no).toContain('shelter in the main base for the night');
+    expect(ev.ask!.no).toContain('shelter in a farm or barn with room for the night, else the main base');
     for (const i of workers) expect(forage(s, i)!.k).toBe(FORAGE_NIGHT);
     // No answer in its 10 s: it ends, and they keep at it (Jade: not answering counts as Yes).
     run(s, QUESTION_WAIT_STEPS);
     expect(openQuestions(s).some((q) => q.q === NIGHT_WORK_ASK)).toBe(false);
     runUntil(s, () => s.step >= NIGHT, DUSK_STEPS);
     const before = stockOf(s);
-    // All night: outside, gathering, never farther than the night's reach from a building (a step or two for the node it stands at).
-    while (s.step < NIGHT + 120 * SEC) {
+    // Into the night: outside, gathering, never farther than the night's reach from the main base (a step or two for the node it stands at).
+    while (s.step < NIGHT + 60 * SEC) {
       run(s, SEC);
       for (const i of workers) {
         expect(e.inside[i]).toBe(0);
         expect(forage(s, i)!.k).toBe(FORAGE_NIGHT);
-        expect(nearBuilding(s, e.x[i]!, e.z[i]!, NIGHT_WORK_REACH_M + 3)).toBe(true);
+        expect(byMainBase(s, e.x[i]!, e.z[i]!, NIGHT_WORK_REACH_M + 3)).toBe(true);
       }
     }
     expect(stockOf(s)).toBeGreaterThan(before);
@@ -259,7 +287,7 @@ describe('working through the night (Jade\'s Patch 4)', () => {
     run(s, 1, [], seen);
     const ev = nightAsks(seen)[0]!;
     expect(ev.ask!.no).toBe(
-      `Two go to work the nearest empty farm (to shelter in the farmhouse tonight and farm from daybreak); the rest drop off their loads and shelter in the main base for the night, coming out at dawn once no monster within ${DAWN_CLEAR_M} m is alive.`,
+      `Two go to work the nearest empty farm (to shelter in the farmhouse tonight and farm from daybreak); the rest drop off their loads and shelter in a farm or barn with room for the night, else the main base, coming out at dawn once no monster within ${DAWN_CLEAR_M} m is alive.`,
     );
     run(s, 1, [answer(ev, false)]);
     const farmers = workers.filter((i) => e.queue[i]!.some((o) => o.t === 'job' && o.b === farm.id));
@@ -276,7 +304,7 @@ describe('working through the night (Jade\'s Patch 4)', () => {
     }
   });
 
-  it('goes home at dusk without asking when no troop is within 50 m', () => {
+  it('goes home at dusk without asking when no troop is within 10 m', () => {
     const s = duskWorld();
     const e = s.entities;
     for (const w of units(s, UnitKind.Warrior)) e.x[w] = e.x[w]! + 150 * M;
@@ -286,14 +314,14 @@ describe('working through the night (Jade\'s Patch 4)', () => {
     for (const i of units(s, UnitKind.Worker)) expect(forage(s, i)!.k).toBe(FORAGE_HOME);
   });
 
-  it('goes home at dusk without asking when it is farther than 25 m from every building, though a troop is by it', () => {
+  it('goes home at dusk without asking when it is farther than 5 m from the main base, though a troop is by it', () => {
     const s = duskWorld();
     const e = s.entities;
     const b = bigHouse(s);
     const [far, ...rest] = units(s, UnitKind.Worker);
-    // Out 40 m from the Big House's walls, a warrior beside it.
+    // Out 12 m from the Big House's walls, a warrior beside it.
     let x = e.x[far!]!;
-    while (fromBuilding(b, x, e.z[far!]!) < 40 * M) x += WU_PER_COLUMN;
+    while (fromBuilding(b, x, e.z[far!]!) < 12 * M) x += WU_PER_COLUMN;
     e.x[far!] = x;
     const w = units(s, UnitKind.Warrior)[0]!;
     e.x[w] = x + 2 * M;
@@ -319,6 +347,44 @@ describe('working through the night (Jade\'s Patch 4)', () => {
     run(s, 2, [{ kind: 'move', player: 0, units: ids(s, workers), x: (b.x + 2) * WU_PER_COLUMN, z: (b.z - 6) * WU_PER_COLUMN }], ended);
     expect(ended.some((x) => x.kind === 'question' && x.ask!.id === ev.ask!.id && x.ask!.closed)).toBe(true);
     for (const i of workers) expect(e.queue[i]!.some((o) => o.t === 'forage')).toBe(false);
+  });
+
+  it('in for the night: a farm with room before the nearer main base, and never an empty barn (GP-24)', () => {
+    const s = duskWorld();
+    const e = s.entities;
+    for (const w of units(s, UnitKind.Warrior)) e.x[w] = e.x[w]! + 150 * M;
+    const [fx, fz] = freeSpot(s, BuildingKind.Farm);
+    const farm = placeBuilding(s, 0, BuildingKind.Farm, 0, fx, fz, true);
+    const [bx, bz] = freeSpot(s, BuildingKind.Barn);
+    const barn = placeBuilding(s, 0, BuildingKind.Barn, 0, bx, bz, true);
+    const workers = units(s, UnitKind.Worker);
+    runUntil(s, () => workers.every((i) => e.queue[i]![0]?.t === 'enter' || e.inside[i] !== 0), DUSK_STEPS);
+    // The farmhouse shelters 4: all four go there, none to the empty barn.
+    for (const i of workers) expect((e.queue[i]![0] as { b: number }).b).toBe(farm.id);
+    expect(workers.some((i) => e.inside[i] === barn.id)).toBe(false);
+  });
+
+  it('set gathering by its player in the dark, a worker works on all night as by day, far from the main base (GP-24)', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    for (const p of s.players) for (const r of RESOURCES) if (r.nutrition === 0) p.pool[r.id] = 0;
+    for (const w of units(s, UnitKind.Warrior)) e.x[w] = e.x[w]! + 150 * M;
+    const workers = units(s, UnitKind.Worker);
+    s.step = NIGHT + 10 * SEC;
+    run(s, 1, [{ kind: 'forage', player: 0, units: ids(s, workers) }]);
+    for (const i of workers) expect(forage(s, i)!.k & FORAGE_OWN).toBe(FORAGE_OWN);
+    const seen: SimEvent[] = [];
+    run(s, 60 * SEC, [], seen);
+    expect(nightAsks(seen).length).toBe(0);
+    for (const i of workers) {
+      expect(e.inside[i]).toBe(0);
+      expect(forage(s, i)!.k & FORAGE_OWN).toBe(FORAGE_OWN);
+    }
+    expect(stockOf(s)).toBeGreaterThan(0);
+    // The night over, its word is spent: the next dusk's rules hold again.
+    s.step = DAWN;
+    run(s, 2);
+    for (const i of workers) expect(forage(s, i)!.k & FORAGE_OWN).toBe(0);
   });
 
   it('is state where it counts: a save in the night keeps who works on, and every machine agrees', () => {

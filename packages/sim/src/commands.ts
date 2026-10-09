@@ -475,7 +475,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'forage': {
         const workers = ownUnits(state, o.player, o.units, true).filter((i) => e.kind[i] === UnitKind.Worker);
         if (workers.length === 0) alert(state, o.player, 'Only workers gather. Select workers.');
-        for (const i of workers) giveOrder(state, i, startForage(state, i), o.queued === true);
+        // The player's word: set gathering in the dark, it works on all that night (Jade's GP-24).
+        for (const i of workers) giveOrder(state, i, startForage(state, i, true), o.queued === true);
         break;
       }
       case 'dropoff': {

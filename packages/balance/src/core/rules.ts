@@ -28,7 +28,7 @@ export const GROUPS: readonly GroupSpec[] = [
   { id: 'food', label: 'Food and rations', blurb: 'Eating, healing, starving and the upkeep of units and facilities.' },
   { id: 'animals', label: 'Animals', blurb: 'Wild and tame animals: health, speed, meat and hides, taming and breeding, and the Barn: its stalls and the farm fare its animals eat.' },
   { id: 'loot', label: 'Loot, hunting and gathering', blurb: 'What kills drop and who carries it: the loot bag, how near units pick loot up by themselves, how long it lies, when a find is remarked on; how far Hunt and Gather go from home (back by nightfall), what Gather fetches and how far into the unknown it looks, and fighters coming to a worker\'s help.' },
-  { id: 'nightwork', label: 'Working through the night', blurb: 'Jade\'s Patch 4: how near a building and a troop a worker gathering by itself must be at dusk to ask "Should I keep working through the night?" instead of going home, how near the buildings it then gathers, how far one worker asks for the others, and when workers who went in for the night come out at dawn (no monster alive within this of their shelter).' },
+  { id: 'nightwork', label: 'Working through the night', blurb: 'Jade\'s Patch 4, tightened in Patch 5: how near a main base and a troop a worker gathering by itself (and its node) must be at dusk to ask "Should I keep working through the night?" instead of going in, how near the main base it then gathers, how far one worker asks for the others, and when workers who went in for the night come out at dawn (no monster alive within this of their shelter).' },
   { id: 'mobs', label: 'Mobs and nights', blurb: 'Night monsters, the first night, spawning, fog nights, special attacks, and (Patch 4) how a monster a troop hurts turns on the nearest troop.' },
   { id: 'lairs', label: 'Lairs, tribes and villages', blurb: 'Lairs and their hoards, hostile tribe bands, goblin villages and war.' },
   { id: 'peoples', label: 'Neutral peoples and trade', blurb: 'Halflings, Runkin, Elves and Dwarves, and the mercenary camps: their villages and people, what they pay and sell (Table 19), daily limits and restock, moods, war, surrender and plunder, raids, caravans and hiring.' },
@@ -90,6 +90,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'units/ranks.ts:WORKER_RANK_NAMES', 'units/ranks.ts:Work',
   // Working through the night (Patch 4): the question's kind, and the shelter and Gather orders' flags.
   'units/night-work.ts:NIGHT_WORK_ASK', 'units/unit-orders.ts:ENTER_NIGHT', 'units/unit-orders.ts:FORAGE_HOME', 'units/unit-orders.ts:FORAGE_NIGHT',
+  'units/unit-orders.ts:FORAGE_OWN',
 ]);
 
 /** Where each module's exports go; `exports` overrides a module's group for single exports. */
@@ -400,8 +401,8 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   GATHER_XP_TENTHS_PER_MINUTE: 'Experience for a minute of gathering (starting tools)',
   CREWMAN_RETRAIN_STEPS: 'Retraining a crewman as a worker takes',
   // Working through the night (Patch 4).
-  NIGHT_WORK_BUILDING_M: 'Asks at dusk when within this of a building', NIGHT_WORK_TROOP_M: '...and within this of a troop',
-  NIGHT_WORK_REACH_M: 'Working on, gathers only within this of a building', NIGHT_WORK_SPEAK_FOR_M: 'One worker asks for the others within',
+  NIGHT_WORK_BASE_M: 'Asks at dusk when it and its node are within this of a main base', NIGHT_WORK_TROOP_M: '...and within this of a troop',
+  NIGHT_WORK_REACH_M: 'Working on, gathers only within this of a main base', NIGHT_WORK_SPEAK_FOR_M: 'One worker asks for the others within',
   DAWN_CLEAR_M: 'Out at dawn once no monster is alive within this of the shelter', DAWN_LOOK_STEPS: 'Sheltering workers look out every',
   // Work that waits (Patch 4): an empty farm, a building no one works on, an idle worker.
   FARM_EMPTY_ASK_STEPS: 'An empty farm asks for a worker after', SITE_UNWORKED_ASK_STEPS: 'A building no one works on asks for a builder after',

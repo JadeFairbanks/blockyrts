@@ -103,8 +103,9 @@ export type UnitOrder =
    * k is 1 it is looking for more out at (x, z) wu, on a bearing of `ang`
    * (0 to 65535); k 2 (FORAGE_HOME) is home for the night, k 3
    * (FORAGE_NIGHT) working on through the night (Jade's Patch 4,
-   * units/night-work.ts). The gathering itself is a 'gather' order put in
-   * front of this one.
+   * units/night-work.ts); with the FORAGE_OWN bit its player set it
+   * gathering in the dark (GP-24). The gathering itself is a 'gather' order
+   * put in front of this one.
    */
   | { t: 'forage'; res: number; x: number; z: number; k: number; ang: number }
   /** An artillery crewman retrains as a worker (Patch 3): walks to his nearest main base (b, 0 until chosen), sits tinkering for the time it takes and gets up a worker. */
@@ -116,6 +117,8 @@ export type UnitOrderType = UnitOrder['t'];
 export const ENTER_TOP = 2;
 /** An enter order's `auto` for a worker that went into a shelter for the night (Jade's Patch 4, units/night-work.ts): it comes out at dawn once no monster is near, or in the day. */
 export const ENTER_NIGHT = 3;
+/** A Gather order's `k` bit while its player set it gathering in the dark: it works on all that night as by day (Jade's GP-24), the bit gone at dawn (units/forage.ts). */
+export const FORAGE_OWN = 16;
 /** A Gather order's `k` while it is home for the night (units/forage.ts). */
 export const FORAGE_HOME = 2;
 /** A Gather order's `k` while it works on through the night (Jade's Patch 4, units/night-work.ts). */
@@ -243,8 +246,10 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Going to a cannon port';
     case 'loot':
       return o.id !== 0 ? 'Picking up loot' : o.hand !== 0 ? 'Handing in loot' : 'Walking back';
-    case 'forage':
-      return o.k === FORAGE_HOME ? 'Home for the night' : o.k === 1 ? 'Looking for materials' : o.k === FORAGE_NIGHT ? 'Gathering through the night' : 'Gathering';
+    case 'forage': {
+      const k = o.k & ~FORAGE_OWN;
+      return k === FORAGE_HOME ? 'Home for the night' : k === 1 ? 'Looking for materials' : k === FORAGE_NIGHT || k !== o.k ? 'Gathering through the night' : 'Gathering';
+    }
     case 'retrain':
       return 'Retraining as a worker';
   }
