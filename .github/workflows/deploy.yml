@@ -48,12 +48,8 @@ jobs:
         run: pnpm --filter @blockyrts/client build
         env:
           VITE_SERVER_URL: https://api.${{ vars.DOMAIN }}
+          VITE_SITE_URL: https://play.${{ vars.DOMAIN }}
           VITE_GAME_VERSION: ${{ steps.version.outputs.label }}
-      - name: Build the balance editor into /balance
-        run: |
-          pnpm --filter @blockyrts/balance build
-          mkdir -p packages/client/dist/balance
-          cp packages/balance/dist/index.html packages/client/dist/balance/index.html
       - uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_TOKEN }}
@@ -90,11 +86,10 @@ jobs:
               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].account.id')
             export CLOUDFLARE_ACCOUNT_ID
           fi
-          # The indev password gate and delisting (deploy/pages): the middleware
-          # in deploy/pages/functions, and _routes.json and _headers in the site.
-          cp deploy/pages/static/_routes.json deploy/pages/static/_headers packages/client/dist/
-          cd deploy/pages
-          pnpm dlx wrangler@4 pages deploy ../../packages/client/dist \
+          # A static site with no Functions: _headers keeps the pages.dev
+          # addresses out of search results (deploy/README.md).
+          cp deploy/pages/static/_headers packages/client/dist/
+          pnpm dlx wrangler@4 pages deploy packages/client/dist \
             --project-name blockyrts --branch main --commit-hash "$GITHUB_SHA"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -112,7 +107,6 @@ jobs:
             echo "## Deployed $GITHUB_SHA as $LABEL"
             echo
             echo "Play at https://play.$DOMAIN"
-            echo "Balance editor at https://play.$DOMAIN/balance/"
           } >>"$GITHUB_STEP_SUMMARY"
         env:
           LABEL: ${{ steps.version.outputs.label }}

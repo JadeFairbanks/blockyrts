@@ -57,8 +57,17 @@ function info(a: AccountRow): AccountInfo {
 // Checked against when a login names no account, so the response takes as long either way.
 let dummyHash: Promise<string> | null = null;
 
+/**
+ * The accounts that may open the debugger (Jade, Patch 5: "jade" and
+ * "Proteus"), compared without regard to capitals, as usernames are. The
+ * server decides; DEBUG_ACCOUNTS overrides the list.
+ */
+export const DEFAULT_DEBUG_ACCOUNTS: readonly string[] = ['jade', 'proteus'];
+
 export interface AccountServiceOptions {
   db: Database;
+  /** Usernames that may open the debugger, any capitals (DEFAULT_DEBUG_ACCOUNTS when not given). */
+  debugAccounts?: readonly string[];
   /** Null when no email service is configured: reset requests are refused with email_not_configured. */
   mailer: Mailer | null;
   /** Base of the links in emails, such as https://play.example.com. */
@@ -71,9 +80,11 @@ export class AccountService {
   private readonly mailer: Mailer | null;
   private readonly publicUrl: string;
   private readonly now: () => Date;
+  private readonly debugAccounts: ReadonlySet<string>;
 
   constructor(opts: AccountServiceOptions) {
     this.db = opts.db;
+    this.debugAccounts = new Set((opts.debugAccounts ?? DEFAULT_DEBUG_ACCOUNTS).map((u) => u.trim().toLowerCase()).filter(Boolean));
     this.mailer = opts.mailer;
     this.publicUrl = opts.publicUrl.replace(/\/+$/, '');
     this.now = opts.now ?? (() => new Date());
@@ -91,6 +102,11 @@ export class AccountService {
     };
     await this.db.createSession(row);
     return token;
+  }
+
+  /** Whether this player may open the debugger: a signed-in admin account (Patch 5); never a guest. */
+  canDebug(who: Identity | null): boolean {
+    return who?.account != null && this.debugAccounts.has(who.account.username.toLowerCase());
   }
 
   /** A session for a guest: "Guest" and a random 4-digit number. */

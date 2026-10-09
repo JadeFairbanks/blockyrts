@@ -33,7 +33,7 @@ import { accountPage } from '../ui/account.ts';
 import { Screen } from '../ui/dom.ts';
 import { FirstDayHints } from '../ui/hints.ts';
 import { WorldView } from '../world/world-view.ts';
-import { addDebugTools } from './debug-tools.ts';
+import { addDebugger } from './debugger.ts';
 import { GameInfo } from './game-info.ts';
 
 /**
@@ -274,6 +274,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
       seen: (x, z) => world.seenNow(x, z),
       node: (cx, cz, i) => world.node(cx, cz, i),
       setGhost: (g) => world.buildings.setGhost(g, PLAYER, (x, z) => world.groundAt(x, z)),
+      setUnitGhost: (row, x, z) => world.setUnitGhost(row, x, z),
       setPlanned: () => world.buildings.setPlanned(game.queues, PLAYER, (x, z) => world.groundAt(x, z)),
       overlay: world.overlay,
     },
@@ -332,7 +333,11 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   onSettingsChange(applyGraphics);
   window.addEventListener('resize', resize);
 
-  addDebugTools(shell, world, PLAYER, (order) => send({ type: 'order', order }), online ? null : (factor) => send({ type: 'speed', factor }));
+  // The debugger (Jade's Patch 5): only the admin accounts open it, as the server says (online, the relay also drops
+  // debug orders from anyone else); a dev build opens it for anyone.
+  shell.debugAllowed = import.meta.env.DEV || api.me?.debugger === true;
+  api.onChange((me) => (shell.debugAllowed = import.meta.env.DEV || me?.debugger === true));
+  addDebugger(shell, world, PLAYER, (order) => send({ type: 'order', order }), online ? null : (factor) => send({ type: 'speed', factor }));
 
   // ---- Messages from the worker ----
   let stepsSeen = 0;

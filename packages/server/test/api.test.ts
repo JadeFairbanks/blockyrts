@@ -1,9 +1,12 @@
 // The HTTP API end to end on an in-memory server.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ApiRoutes, writeSaveFile, type SaveSummary, type SessionResponse } from '@blockyrts/protocol';
+import { ApiRoutes, SAVE_FORMAT_VERSION, writeSaveFile, type MeResponse, type OpenRoom, type SaveSummary, type SessionResponse } from '@blockyrts/protocol';
 import { startApp, type App } from '../src/app.ts';
+import { MemoryBlobStore } from '../src/blobs.ts';
 import { loadConfig } from '../src/config.ts';
+import { MemoryDatabase } from '../src/db/memory.ts';
 import { MemoryMailer } from '../src/mailer.ts';
+import { OUTDATED_TEXT, SaveService } from '../src/saves.ts';
 
 let app: App;
 let base = '';
@@ -40,8 +43,8 @@ const register = async (name = `p${Date.now() % 100000}_${n++}`): Promise<Sessio
   return r.body;
 };
 
-const save = (matchId: string, seed: number, step = 100): Promise<Uint8Array> =>
-  writeSaveFile({ formatVersion: 1, gameVersion: 't', matchId, seed, step, night: 0, label: 'x', players: [] }, [{ tag: 'SIMS', version: 1, data: new Uint8Array(64) }]);
+const save = (matchId: string, seed: number, step = 100, formatVersion = SAVE_FORMAT_VERSION): Promise<Uint8Array> =>
+  writeSaveFile({ formatVersion, gameVersion: 't', matchId, seed, step, night: 0, label: 'x', players: [] }, [{ tag: 'SIMS', version: 1, data: new Uint8Array(64) }]);
 
 describe('accounts', () => {
   it('reports health with the build', async () => {
@@ -148,10 +151,80 @@ describe('saves', () => {
     expect((await call(ApiRoutes.matchSaves(m.body.matchId), { token: me.token, bytes: wrongSeed })).body).toMatchObject({ error: 'bad_save' });
   });
 
+  it('refuses a save from an older version of the game (Patch 5)', async () => {
+    const me = await register();
+    const m = await call<{ matchId: string }>(ApiRoutes.matches, { token: me.token, json: { seed: 4 } });
+    const old = await save(m.body.matchId, 4, 100, SAVE_FORMAT_VERSION - 1);
+    expect((await call(ApiRoutes.matchSaves(m.body.matchId), { token: me.token, bytes: old })).body).toMatchObject({ error: 'save_outdated' });
+  });
+
   it('asks a guest to make an account', async () => {
     const g = await call<SessionResponse>(ApiRoutes.guests, { method: 'POST' });
     expect((await call(ApiRoutes.matches, { token: g.body.token, json: { seed: 1 } })).body).toMatchObject({ error: 'guest_must_register' });
     expect((await call(ApiRoutes.saves, {})).status).toBe(401);
+  });
+});
+
+describe('Patch 5', () => {
+  it('lets only the admin accounts use the debugger, whatever the capitals', async () => {
+    // Registered as "Jade" in the accounts tests above; signing in by any capitals finds the same account.
+    const jade = (await call<SessionResponse>(ApiRoutes.sessions, { json: { login: 'JADE', password: 'a good password' } })).body;
+    expect(jade.debugger).toBe(true);
+    const proteus = await register('PROTEUS');
+    expect(proteus.debugger).toBe(true);
+    const other = await register('jade_two');
+    expect(other.debugger).toBe(false);
+    expect((await call<MeResponse>(ApiRoutes.me, { token: jade.token })).body.debugger).toBe(true);
+    const g = await call<SessionResponse>(ApiRoutes.guests, { method: 'POST' });
+    expect(g.body.debugger).toBe(false);
+    expect((await call<MeResponse>(ApiRoutes.me, { token: g.body.token })).body.debugger).toBe(false);
+  });
+
+  it('lists the open games, signed in or not', async () => {
+    const r = await call<{ rooms: OpenRoom[] }>(ApiRoutes.rooms);
+    expect(r.status).toBe(200);
+    expect(r.body.rooms).toEqual([]);
+  });
+
+  it('removes older saves\' files and lists them as out of date until acknowledged', async () => {
+    const db = new MemoryDatabase();
+    const blobs = new MemoryBlobStore();
+    const saves = new SaveService({ db, blobs });
+    const who = { tokenHash: 't', account: { id: 'a1', email: 'a@b.cd', username: 'a1' }, name: 'a1' };
+    const row = (id: string, formatVersion: number) => ({
+      id,
+      matchId: 'm',
+      accountId: 'a1',
+      kind: 'manual' as const,
+      label: '',
+      night: 3,
+      step: 10,
+      seed: 1,
+      players: [],
+      sizeBytes: 50,
+      formatVersion,
+      blobKey: `saves/a1/${id}.sac`,
+      createdAt: new Date(Number(id.slice(-1)) * 1000),
+    });
+    const oldId = '00000000-0000-4000-8000-000000000001';
+    const newId = '00000000-0000-4000-8000-000000000002';
+    for (const r of [row(oldId, SAVE_FORMAT_VERSION - 1), row(newId, SAVE_FORMAT_VERSION)]) {
+      await db.insertSave(r);
+      await blobs.put(r.blobKey, new Uint8Array(50));
+    }
+    expect(await saves.expireOutdated()).toBe(1);
+    expect(await saves.expireOutdated()).toBe(0);
+    expect(blobs.blobs.has(`saves/a1/${oldId}.sac`)).toBe(false);
+    expect(blobs.blobs.has(`saves/a1/${newId}.sac`)).toBe(true);
+    expect(await db.totalSaveBytes('a1')).toBe(50);
+    const list = await saves.list(who);
+    expect(list.map((s) => [s.id, s.outdated])).toEqual([
+      [newId, false],
+      [oldId, true],
+    ]);
+    await expect(saves.load(who, oldId)).rejects.toThrow(OUTDATED_TEXT);
+    await saves.delete(who, oldId);
+    expect((await saves.list(who)).map((s) => s.id)).toEqual([newId]);
   });
 });
 

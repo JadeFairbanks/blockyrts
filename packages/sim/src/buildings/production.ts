@@ -10,11 +10,11 @@ import { CYCLE_STEPS } from '../rules.ts';
 import { costText, Res, RESOURCES, type Cost } from '../economy/resources.ts';
 import { eatableFood, giveFood, payFood } from '../economy/food.ts';
 import { haveOf, meatOf, payAny } from '../economy/food-kinds.ts';
-import { addWarrior, UnitKind, WALK_SPEED_WU, standY, type SimState } from '../state.ts';
+import { addWarrior, isGod, UnitKind, WALK_SPEED_WU, standY, type SimState } from '../state.ts';
 import { Band, BAND_NAMES } from '../world/layout.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
 import { Act, assigned, columnCentre, exitColumn, giveOrder, isFarm } from '../units/behaviour.ts';
-import { BARN_STALLS, BuildingKind, buildingName, buildingSpec, CAVALRY_BASE, CRAFT_PACE, FARM_HARVEST_STEPS, forgeStep, levelSpec, QUEUE_LIMIT, WORKER_FOOD, WORKER_TRAIN_STEPS } from './data.ts';
+import { BARN_STALLS, BuildingKind, buildingName, buildingSpec, CAVALRY_BASE, CRAFT_PACE, FARM_HARVEST_STEPS, FORGE_STEP_BASE, forgeStep, levelSpec, QUEUE_LIMIT, WORKER_FOOD, WORKER_TRAIN_STEPS } from './data.ts';
 import { buildingCentre, dist2 } from './lights.ts';
 import { bandAt } from './placement.ts';
 import { ENGINE_PRODUCT, mageOf, Product, RECIPE_PRODUCT, RESEARCH_PRODUCT, SLAUGHTER_PRODUCT, TROOP_PRODUCT, troopOf, troopProduct, type Building, type QueueItem, type RallyPoint } from './store.ts';
@@ -208,6 +208,8 @@ export function stalledHorses(state: SimState, b: Building, player = b.owner): n
 
 /** The Forge step a player's town is at (buildings/data.ts forgeStep): a finished Forge, then main base tiers. */
 export function forgeStepOf(state: SimState, player: number): number {
+  // Godmode has the Forge's every step (Jade's Patch 5).
+  if (isGod(state, player)) return FORGE_STEP_BASE.length - 1;
   return forgeStep(bestLevel(state, player, BuildingKind.Forge) > 0, bestLevel(state, player, BuildingKind.MainBase));
 }
 
@@ -407,6 +409,8 @@ export function researchProblem(state: SimState, player: number, r: ResearchSpec
   if (r.later) return r.later;
   if (hasResearch(p.research, r.id)) return 'Already researched.';
   if (researchQueued(state, player, r.id)) return 'Being researched.';
+  // Godmode needs nothing researched, smelted or built first (Jade's Patch 5).
+  if (isGod(state, player)) return '';
   const why = baseProblem(state, player, r.base ?? 0);
   if (why) return why;
   if (r.after && !hasResearch(p.research | tech, r.after)) return `Needs ${RESEARCH[r.after]!.name} researched first.`;
@@ -416,7 +420,7 @@ export function researchProblem(state: SimState, player: number, r: ResearchSpec
 
 /** The main base tier a recipe, engine, research or troop needs (Patch 2; tiers from Patch 5), as a reason, or ''. */
 export function baseProblem(state: SimState, player: number, base: number): string {
-  return base > 0 && bestLevel(state, player, BuildingKind.MainBase) < base ? `Needs a tier ${base} main base.` : '';
+  return base > 0 && !isGod(state, player) && bestLevel(state, player, BuildingKind.MainBase) < base ? `Needs a tier ${base} main base.` : '';
 }
 
 /**
@@ -429,7 +433,9 @@ export function productProblem(state: SimState, b: Building, product: Product, u
   if (!offers(b, product)) return 'This building cannot make that.';
   const player = state.players[user]!;
   const pool = player.pool;
-  const research = player.research | b.tech;
+  // Godmode has every research, and needs no tamed horse for cavalry (Jade's Patch 5: "no resource costs or item requirements").
+  const god = player.god === 1;
+  const research = god ? -1 : player.research | b.tech;
   const spec = productSpec(product);
   if (spec.slaughter !== undefined) {
     const queued = b.queue.filter((q) => q.product === product).length;
@@ -459,7 +465,7 @@ export function productProblem(state: SimState, b: Building, product: Product, u
     const cavalry = spec.troop?.troop === Troop.Cavalry;
     const why = (cavalry ? baseProblem(state, user, CAVALRY_BASE) : '') || kitProblem(state, user, research, spec.pieces);
     if (why) return why;
-    if (cavalry && stalledHorses(state, b, user).length === 0) return 'Cavalry needs a tamed horse in a Barn.';
+    if (cavalry && !god && stalledHorses(state, b, user).length === 0) return 'Cavalry needs a tamed horse in a Barn.';
     if (!planPieces(spec.pieces, pool)) return `Not enough resources (${costText(spec.cost)}).`;
   }
   if (spec.food > 0) {
@@ -551,11 +557,11 @@ export function queueProduct(state: SimState, b: Building, product: Product, by 
   } else {
     take(spec.cost);
   }
-  // New cavalry: the horse leaves its Barn now, and comes back if the troop is cancelled.
+  // New cavalry: the horse leaves its Barn now, and comes back if the troop is cancelled (godmode's rides out on a new one when no Barn has one).
   let horse = 0;
-  if (spec.troop?.troop === Troop.Cavalry) {
+  const h = spec.troop?.troop === Troop.Cavalry ? stalledHorses(state, b, by)[0] : undefined;
+  if (h !== undefined) {
     const e = state.entities;
-    const h = stalledHorses(state, b, by)[0]!;
     horse = 1 + e.sex[h]!;
     e.hp[h] = -1;
     state.dying.push(e.id[h]!);
@@ -855,6 +861,11 @@ export interface QueuePace {
  * the sim's own rather than a guess from the bar (Patch 2 bug fixes).
  */
 export function queuePace(state: SimState, b: Building, head: QueueItem): QueuePace {
+  // Godmode (Jade's Patch 5): made in one step, never held for supply or food.
+  if (isGod(state, head.by)) {
+    const whole = trainsUnit(head.product) ? productSpec(head.product).steps : productSteps(state, b, head.product) * (head.product < RECIPE_PRODUCT ? 4 : 1);
+    return { whole, perStep: Math.max(1, whole) };
+  }
   // A new unit, or an engine with its crew (Patch 2), waits at its first step until there is free supply for them.
   const held = head.progress === 0 && supplyNeed(head.product) > 0 && supplyUsed(state, head.by) + supplyNeed(head.product) > supplyCap(state, head.by);
   if (trainsUnit(head.product)) return { whole: productSpec(head.product).steps, perStep: held ? 0 : 1 };

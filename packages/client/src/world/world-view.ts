@@ -359,6 +359,7 @@ export class WorldView {
   setModels(lib: ModelLibrary): void {
     this.models = lib;
     this.unitsView.setModels(lib);
+    this.ghostUnits?.setModels(lib);
     this.buildings.setModels(lib);
     this.portrait.setModels(lib);
   }
@@ -883,7 +884,49 @@ export class WorldView {
 
   // ---- Units ----
 
+  /** Godmode's unit on the cursor (Jade's Patch 5): one state row, drawn solid by a units view of its own where the cursor points. */
+  private ghostUnits: UnitsView | null = null;
+  private readonly ghostMsg: StateMessage = { type: 'state', step: 0, hash: 0, hashStep: 0, count: 0, data: new Int32Array(STATE_STRIDE), shots: new Int32Array(0), hits: [] };
+
+  /** Shows a unit's state row standing at a point (metres) on the ground, or nothing (null). */
+  setUnitGhost(row: Int32Array | null, x: number, z: number): void {
+    const m = this.ghostMsg;
+    if (!row) {
+      m.count = 0;
+      return;
+    }
+    if (!this.ghostUnits) {
+      this.ghostUnits = new UnitsView(this.scene);
+      if (this.models) this.ghostUnits.setModels(this.models);
+    }
+    m.data.set(row);
+    m.data[S.x] = Math.round(x * WU_PER_METRE);
+    m.data[S.z] = Math.round(z * WU_PER_METRE);
+    m.data[S.y] = Math.round(this.groundAt(x, z) * WU_PER_METRE);
+    m.count = 1;
+  }
+
+  private updateGhostUnit(now: number): void {
+    const g = this.ghostUnits;
+    if (!g) return;
+    g.update({
+      curr: this.ghostMsg,
+      prev: null,
+      sinceMs: 0,
+      now,
+      player: this.player,
+      colours: this.colours,
+      neutral: NEUTRAL_COLOUR,
+      seen: () => true,
+      known: () => true,
+      ruins: [],
+      groundAt: (x, z) => this.groundAt(x, z),
+      place: () => undefined,
+    });
+  }
+
   private updateUnits(now: number): void {
+    this.updateGhostUnit(now);
     const curr = this.curr;
     if (!curr) return;
     this.unitsView.update({
