@@ -21,6 +21,7 @@ import {
   RESOURCES,
   unitOrderText,
   propInfo,
+  PropKind,
   floorDiv,
   footprintRect,
   UnitKind,
@@ -65,10 +66,10 @@ import { FLASH_LIGHTS, UnitsView } from './units-view.ts';
 import { PortraitView } from './portrait-view.ts';
 import { FishView } from './fish-view.ts';
 import { LootView } from './loot-view.ts';
-import { glitterOfResource, WorldFx, type GlitterSpot } from './sparkle.ts';
+import { glitterOfResource, SPRING_BUBBLE, SPRING_STEAM, SULPHUR_STEAM, WorldFx, type GlitterSpot, type SteamSpot } from './sparkle.ts';
 import { Overlay } from './overlay.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
-import { PropModelsView, PROP_VIEW_IDS, type PlacedProp } from './prop-models-view.ts';
+import { anchorsAt, PropModelsView, PROP_VIEW_IDS, type PlacedProp } from './prop-models-view.ts';
 import { GroundMarks } from './ground-marks.ts';
 import { loadTerrainTextures, loadWaterTextures, setTerrainBands, terrainPatch, terrainUniforms, waterPatch, waterUniforms } from './terrain-textures.ts';
 import { HiddenOutlines, type OutlineStats, type OwnDraw } from './hidden-outlines.ts';
@@ -208,6 +209,8 @@ interface ChunkView {
   props: Selectable[];
   /** Its gold and silver, to glitter (Patch 5, VX-6). */
   glitter: GlitterSpot[];
+  /** Its hot springs' and sulphur rocks' vents, to steam (Patch 5). */
+  steam: SteamSpot[];
   meshedAt: number;
   /** The scenery cubes, and each prop's cubes in them by its key (first, count), for the hover outline. */
   cubes: THREE.InstancedMesh | null;
@@ -864,7 +867,7 @@ export class WorldView {
     for (const [key, w] of want) {
       if (this.chunks.has(key)) continue;
       const [cx, cz] = key.split(',').map(Number) as [number, number];
-      this.chunks.set(key, { cx, cz, lod: 0, want: w, pending: 0, version: 0, meshedVersion: -1, requested: 0, group: null, heights: null, size: 0, props: [], glitter: [], meshedAt: 0, cubes: null, ranges: new Map(), models: [], wants: [] });
+      this.chunks.set(key, { cx, cz, lod: 0, want: w, pending: 0, version: 0, meshedVersion: -1, requested: 0, group: null, heights: null, size: 0, props: [], glitter: [], steam: [], meshedAt: 0, cubes: null, ranges: new Map(), models: [], wants: [] });
     }
   }
 
@@ -937,6 +940,7 @@ export class WorldView {
     c.size = m.size;
     c.props = m.props.map((p) => this.propSelectable(c, p));
     c.glitter = this.glitterOf(c, m.props);
+    c.steam = this.steamOf(c, m.props);
     this.glitterDirty = true;
     this.fishView.setChunk(ck(c.cx, c.cz), c.cx, c.cz, m.props);
     for (const p of m.props) c.ranges.set(`p:${c.cx},${c.cz}:${p.index}`, [p.first, p.cubes]);
@@ -994,12 +998,33 @@ export class WorldView {
     };
   }
 
-  /** A chunk's gold and silver props that still hold some, to glitter. */
+  /** A chunk's gold and silver props that still hold some, to glitter: at their model's fx_glint spots (the veins), else over their whole shape. */
   private glitterOf(c: ChunkView, props: readonly PropSummary[]): GlitterSpot[] {
     const out: GlitterSpot[] = [];
     for (const p of props) {
       const colour = p.amount > 0 ? glitterOfResource(propInfo(p.kind).resource) : 0;
-      if (colour) out.push({ x: c.cx * CHUNK_M + p.x, y: p.y, z: c.cz * CHUNK_M + p.z, r: Math.max(p.hx, p.hz, 0.2), colour });
+      if (!colour) continue;
+      const model = p.model ? this.models?.models.get(p.model.id) : undefined;
+      const veins = model && p.model ? anchorsAt(model, p.model, c.cx * CHUNK_M, c.cz * CHUNK_M, /^fx_glint/) : [];
+      for (const v of veins) out.push({ x: v.x, y: v.y, z: v.z, r: 0.1 * p.model!.scale, colour });
+      if (veins.length === 0) out.push({ x: c.cx * CHUNK_M + p.x, y: p.y, z: c.cz * CHUNK_M + p.z, r: Math.max(p.hx, p.hz, 0.2), colour });
+    }
+    return out;
+  }
+
+  /** A chunk's vents that steam, from its props' models: a hot spring's fx_steam vents and fx_bubble, a sulphur rock's fx_steam (fx_steam_depleted once half dug out). */
+  private steamOf(c: ChunkView, props: readonly PropSummary[]): SteamSpot[] {
+    const out: SteamSpot[] = [];
+    for (const p of props) {
+      const model = p.model ? this.models?.models.get(p.model.id) : undefined;
+      if (!model || !p.model) continue;
+      const at = (match: RegExp, look: Omit<SteamSpot, 'x' | 'y' | 'z'>): void => {
+        for (const v of anchorsAt(model, p.model!, c.cx * CHUNK_M, c.cz * CHUNK_M, match)) out.push({ ...look, x: v.x, y: v.y, z: v.z, size: look.size * p.model!.scale });
+      };
+      if (p.kind === PropKind.HotSpringSulphur) {
+        at(/^fx_steam_\d+$/, SPRING_STEAM);
+        at(/^fx_bubble$/, SPRING_BUBBLE);
+      } else if (p.kind === PropKind.Sulphur) at(/@depleted/.test(p.model.id) ? /^fx_steam_depleted$/ : /^fx_steam$/, SULPHUR_STEAM);
     }
     return out;
   }
@@ -1011,8 +1036,14 @@ export class WorldView {
     if (this.glitterDirty) {
       this.glitterDirty = false;
       const spots = this.lootView.glitter();
-      for (const c of this.chunks.values()) if (c.lod === 1) for (const g of c.glitter) spots.push(g);
+      const vents: SteamSpot[] = [];
+      for (const c of this.chunks.values()) {
+        if (c.lod !== 1) continue;
+        for (const g of c.glitter) spots.push(g);
+        for (const v of c.steam) vents.push(v);
+      }
       this.fx.setSpots(spots);
+      this.fx.setSteam(vents);
     }
     this.fx.update(dt, (x, z) => this.seenNow(x, z));
   }

@@ -173,7 +173,8 @@ const GOODS: Partial<Record<number, string>> = {
   [Res.MoonRose]: 'moon_rose',
   [Res.Stone]: 'stone_chunk',
   [Res.Flint]: 'flint_nodule',
-  [Res.Obsidian]: 'obsidian',
+  // Jade's own chunk (PRE-3: "Make sure to use all of what I give you").
+  [Res.Obsidian]: 'obsidian_chunk',
   [Res.Coal]: 'coal_lump',
   [Res.Leather]: 'leather_folded',
   [Res.HardenedLeather]: 'leather_folded',
