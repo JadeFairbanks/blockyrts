@@ -31,6 +31,7 @@ import {
   Res,
   RESOURCE_COUNT,
   RINGS,
+  showCircle,
   skyBright,
   step,
   Trilithon,
@@ -222,5 +223,23 @@ describe('stone circles in the world', () => {
     expect(tree.amount).toBe(10);
     expect(hawthorneNear(s, x + 20 * 8000, z)).toBe(true);
     expect(hawthorneNear(s, x + 40 * 8000, z)).toBe(false);
+  });
+});
+
+describe('the debugger\'s Stone circle button', () => {
+  it('goes to the circle nearest the view, then on to the next one each press', () => {
+    const s = createWorld(3, { players: 1, peaceful: true });
+    const sites = circleSites(s.world.layout);
+    expect(sites.length).toBeGreaterThan(1);
+    const shown = (): [number, number] => {
+      const ev = s.events[s.events.length - 1]!;
+      expect(ev.look).toBe(true);
+      return [ev.x!, ev.z!];
+    };
+    const near = sites[1]!;
+    showCircle(s, 0, near.x + 60 * 8000, near.z);
+    expect(shown()).toEqual([near.x, near.z]);
+    showCircle(s, 0, near.x, near.z);
+    expect(shown()).toEqual([sites[2]!.x, sites[2]!.z]);
   });
 });
