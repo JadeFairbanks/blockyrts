@@ -200,8 +200,8 @@ export class TestPlayer {
           this.busyCount--;
         }
         break;
-      case 'frame':
-        this.scheduler?.receive(m.frame);
+      case 'frames':
+        for (const f of m.frames) this.scheduler?.receive(f);
         break;
       case 'pauseState':
         this.paused = m.paused;
