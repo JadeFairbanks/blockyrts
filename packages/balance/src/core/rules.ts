@@ -68,6 +68,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'peoples/data.ts:LINES', 'peoples/data.ts:TREE_WARNING_LINES', 'peoples/data.ts:REPARATIONS_PAID_LINE', 'peoples/data.ts:MERC_LINES',
   'peoples/data.ts:REMARKS', 'peoples/data.ts:NAME_PARTS', 'peoples/data.ts:ELF_KINGDOM_NAME', 'peoples/data.ts:LEADER_NAMES',
   'peoples/data.ts:SPECIAL_TRINKET_MULT_TENTHS', 'peoples/data.ts:THINK_STEPS', 'peoples/data.ts:RECAMP_SEARCH_CELLS', 'peoples/trade.ts:UNTIL_DAWN',
+  // Patch 5's quests: their ids, stages and question kinds.
+  'peoples/quest-data.ts:Quest', 'peoples/quest-data.ts:QuestStage', 'peoples/quest-data.ts:QuestAsk',
   'combat/mob-ai.ts:MOB_SEARCHES_PER_STEP', 'animals/animals.ts:STOCK_CHECK_STEPS',
   'economy/resources.ts:RESOURCE_COUNT',
   // Patch 5's farms and Barn: the leave question's kind and the barn hand's line, a stacked queue item's storage limit, and the plant foods' list.
@@ -179,6 +181,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'peoples/war.ts': 'peoples',
   'peoples/ai.ts': 'peoples',
   'peoples/factions.ts': 'peoples',
+  'peoples/quest-data.ts': 'peoples',
   'threats/nights.ts': 'mobs',
   'threats/fog.ts': 'mobs',
   'world/materials.ts': 'world',
