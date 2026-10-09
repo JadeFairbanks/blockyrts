@@ -13,6 +13,7 @@
 // come as ever. Picks (s) in blueprint/patch5-mobs-picks.md.
 
 import { nextNight, brightFor } from '../circles/bright.ts';
+import { clockAt } from '../clock.ts';
 import { forward, gap, hurtUnit } from '../combat/combat.ts';
 import { engageUnit, walkMob } from '../combat/mob-ai.ts';
 import type { MobSpec } from '../combat/mobs.ts';
@@ -83,6 +84,21 @@ export function headlessProblem(state: SimState, player: number, faction: number
   if (targets.length === 0) return 'You know of no faction to unleash your waves on.';
   if (faction >= 0 && !targets.some((f) => f.id === faction)) return 'Your waves cannot be sent against them.';
   return '';
+}
+
+/** The quest menu's row for the idol (decisions 3.6, QoL 3): whose its night's waves are, or how long until it can be used again. */
+export function headlessRows(state: SimState, player: number): Array<[string, string]> {
+  const used = state.circles.headless[player] ?? -1;
+  if (used >= 0 && used >= clockAt(state.step).cycle) {
+    const f = factionById(state.peoples, state.circles.headlessFaction[player] ?? 0);
+    return [['Headless God Idol', `Night ${used}: your waves fall on ${f ? factionTitle(f) : 'your enemy'}.`]];
+  }
+  const ready = headlessReadyNight(state, player);
+  if (ready >= 0) {
+    const n = ready - nextNight(state.step);
+    return [['Headless God Idol', `Ready again in ${n} ${n === 1 ? 'night' : 'nights'}.`]];
+  }
+  return (state.players[player]!.pool[Res.HeadlessIdol] ?? 0) > 0 ? [['Headless God Idol', 'Ready: use it from your inventory.']] : [];
 }
 
 /** Uses the idol on a faction: war, if there was none, and the coming night's waves are theirs. */

@@ -24,6 +24,7 @@ import {
   encounterOf,
   EncounterMode,
   FactionKind,
+  factionTitle,
   graveNow,
   hashState,
   headlessTargets,
@@ -34,6 +35,7 @@ import {
   nextNight,
   openQuestions,
   putMark,
+  questTimers,
   Res,
   Role,
   serializeState,
@@ -95,6 +97,9 @@ describe('the Great White Ape (SCA-1 to SCA-4)', () => {
     expect([q.yes, q.no]).toEqual([APE_ASK.yes, APE_ASK.no]);
     expect(s.events.find((x) => x.kind === 'question' && x.ask?.id === q.id)!.text).toBe(APE_ASK.text);
     expect(circlesView(s, 0, []).apes[0]!.why).toBe('Answer the Great White Ape first.');
+    // The quest menu keeps it in sight (QoL 3).
+    expect(questTimers(s, 0)).toContainEqual(['The Great White Ape', `He waits for your answer: "${APE_ASK.text}"`]);
+    expect(questTimers(s, 1)).toEqual([]);
     // "Sorry!": he stands down.
     step(s, [{ kind: 'answer', player: 0, ask: q.id, yes: 0, q: q.q, who: r.leader, units: q.units, res: -1 }]);
     expect(r.mode).toBe(EncounterMode.Calm);
@@ -221,6 +226,7 @@ describe('the Headless God Idol (SCB-4)', () => {
     expect(target.war & 1).toBe(1);
     expect(useProblem(s, 0, Res.HeadlessIdol, -1, target.id)).toBe(`The idol can unleash your waves again in 15 nights.`);
     expect(circlesView(s, 0, []).headless).toEqual([[target.id, true]]);
+    expect(questTimers(s, 0)).toEqual([['Headless God Idol', `Night ${night}: your waves fall on ${factionTitle(target)}.`]]);
     // Nightfall: the waves come round the faction, theirs to fall on.
     while (s.step % CYCLE_STEPS < DAY_STEPS + DUSK_STEPS + 30 * SEC) step(s);
     const e = s.entities;

@@ -43,6 +43,7 @@ import { shotHooks } from '../combat/projectiles.ts';
 import { Res } from '../economy/resources.ts';
 import { WALKER } from '../nav/grid.ts';
 import type { AnswerOrder } from '../orders.ts';
+import { questTimerHooks } from '../peoples/quests.ts';
 import { sayForeign } from '../peoples/speech.ts';
 import { hash32 } from '../rng.ts';
 import { CYCLE_STEPS } from '../rules.ts';
@@ -56,7 +57,7 @@ import { plantHawthorne, plantSpotProblem } from '../circles/trees.ts';
 import { PropKind } from '../world/props.ts';
 import { nearestBuilding } from './foes.ts';
 import { APE_ASK, APE_LINES, LICH_LINES, SATYR_LINES, SILENUS_LINES } from './encounter-lines.ts';
-import { headlessBlow } from './headless.ts';
+import { headlessBlow, headlessRows } from './headless.ts';
 import { dropMark, MarkKind, markOn, putMark } from './marks.ts';
 import { seenByPlayers } from './necromancer.ts';
 import { Role, type Encounter } from './types.ts';
@@ -1377,8 +1378,21 @@ export function graveNow(state: SimState, i: number): boolean {
   return state.threats.marks.length > 0 && markOn(state, state.entities.id[i]!, MarkKind.Grave) >= 0;
 }
 
+/** The quest menu's rows (decisions 3.6, QoL 3): the Ape's warning waiting on the player's answer, and his vengeance once sworn. */
+function apeRows(state: SimState, player: number): Array<[string, string]> {
+  const b = bit(player);
+  const rows: Array<[string, string]> = [];
+  for (const r of state.threats.encounters) {
+    if (r.type !== CircleType.Lunar || leaderOf(state, r) < 0) continue;
+    if (r.warned & b) rows.push(['The Great White Ape', `He waits for your answer: "${APE_ASK.text}"`]);
+    else if (r.mode === EncounterMode.Rampage && r.sworn & b) rows.push(['The Great White Ape', 'Enraged for good: he is coming for your workers and your buildings.']);
+  }
+  return rows;
+}
+
 /** Installs the encounters' hooks (step.ts). */
 export function installEncounters(): void {
+  for (const h of [apeRows, headlessRows]) if (!questTimerHooks.includes(h)) questTimerHooks.push(h);
   lateHooks.mobBlow = mobBlow;
   shotHooks.hit = onShotHit;
   deathHooks.spare = spareSilenus;
