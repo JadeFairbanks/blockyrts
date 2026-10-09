@@ -264,10 +264,10 @@ describe('the Big House', () => {
     const { c, sent } = harness(g, [{ ...sel('b:20', 'building:0:1'), kind: 'building' }], 'building:0:1');
     const card = c.card();
     // Worker first, so the troop types move one along.
-    expect(card.slice(0, 4).map((e) => e!.face)).toEqual(['Worker', 'Close', 'Long', 'Ranger']);
+    expect(card.slice(0, 4).map((e) => e!.face)).toEqual(['Worker', 'Sword', 'Spear', 'Ranger']);
     expect(card.slice(1, 4).map((e) => e!.key)).toEqual(['KeyA', 'KeyQ', 'KeyN']);
     expect(card.slice(1, 4).every((e) => e!.enabled)).toBe(true);
-    expect(card[1]!.name).toBe('Train close melee');
+    expect(card[1]!.name).toBe('Train club fighter');
     expect(card[1]!.description).toContain('Wooden cudgel, no armour (weapon tier 1, armour tier 0)');
     card[1]!.run({ shift: true, ctrl: false });
     expect(sent.filter((o) => o.kind === 'produce')).toEqual(Array.from({ length: 5 }, () => ({ kind: 'produce', player: ME, building: 20, product: troopProduct(Troop.Close, 1, 0), count: 1 })));

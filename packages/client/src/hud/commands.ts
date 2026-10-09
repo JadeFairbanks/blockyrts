@@ -195,8 +195,8 @@ export const FACE_MIN_UNITS = 5;
 
 /** The troop types' card actions, their buttons' faces and slots on a Barracks card (a main base shifts them one along for Worker). */
 const TROOP_ACTIONS: Readonly<Record<number, readonly [string, string, number]>> = {
-  [Troop.Close]: ['trainClose', 'Close', 0],
-  [Troop.Long]: ['trainLong', 'Long', 1],
+  [Troop.Close]: ['trainClose', 'Sword', 0],
+  [Troop.Long]: ['trainLong', 'Spear', 1],
   [Troop.Ranger]: ['trainRanger', 'Ranger', 2],
   [Troop.Brawler]: ['trainBrawler', 'Brawler', 3],
   // Patch 2: cavalry trains at the Barracks with the rest, after the brawler.
@@ -1062,7 +1062,7 @@ export class Commands {
     return {
       action,
       face,
-      name: `Train ${troopName(troop).toLowerCase()}`,
+      name: `Train ${troopName(troop, c.w).toLowerCase()}`,
       key: this.key(action),
       description: `${kitName(troop, c.w, c.a)} (weapon tier ${c.w}, armour tier ${c.a}). Cost: ${troopCostText(first, troop, c.w, c.a)}. Pick the kit in the panel.${others} Shift: queue 5.`,
       icon: trainTroopIcon(troop, c.w),

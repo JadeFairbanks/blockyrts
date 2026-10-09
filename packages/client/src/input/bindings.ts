@@ -53,8 +53,8 @@ export const ACTIONS: readonly Action[] = [
   { id: 'cancelBuild', name: 'Cancel construction or upgrade', key: 'KeyX', group: 'Buildings' },
   { id: 'trainWorker', name: 'Train Worker', key: 'KeyW', group: 'Buildings' },
   // The troop types (Troops and gear): L is Follow and G a building's upgrade, so long melee is on Q (s).
-  { id: 'trainClose', name: 'Train Close melee (Barracks, main base)', key: 'KeyA', group: 'Buildings' },
-  { id: 'trainLong', name: 'Train Long melee (Barracks, main base)', key: 'KeyQ', group: 'Buildings' },
+  { id: 'trainClose', name: 'Train fighters and swordsmen (Barracks, main base)', key: 'KeyA', group: 'Buildings' },
+  { id: 'trainLong', name: 'Train spearmen and halberdiers (Barracks, main base)', key: 'KeyQ', group: 'Buildings' },
   { id: 'trainRanger', name: 'Train Ranger (Barracks, main base)', key: 'KeyN', group: 'Buildings' },
   { id: 'trainBrawler', name: 'Train Brawler (Barracks)', key: 'KeyB', group: 'Buildings' },
   { id: 'trainCavalry', name: 'Train Cavalry (Barracks)', key: 'KeyC', group: 'Buildings' },
