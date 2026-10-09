@@ -250,13 +250,13 @@ export const CLOSE_KITS: readonly MeleeKit[] = [
   close(0, 'Fists', '', 4, 12, 100, Hit.Stab, true, [[]], 0),
   close(1, Res.WoodenCudgel, 'club', 8, 13, 120, Hit.Arc, true, only([[ST, 3]]), 10),
   close(2, Res.FlintHandAxe, 'axe_war_flint', 10, 13, 120, Hit.Arc, false, only([[ST, 2], [FL, 1]]), 10),
-  close(3, Res.CopperShortSword, 'axe_war@copper', 12, 13, 120, Hit.Arc, false, only([[CU, 1], [LU, 1]]), 19),
+  close(3, Res.CopperShortSword, 'sword_copper_short', 12, 13, 120, Hit.Arc, false, only([[CU, 1], [LU, 1]]), 19),
   // The satyrs' obsidian hand-axe goes on as a bronze shortsword (Patch 5, the Stone Circle goods).
   close(4, [Res.BronzeShortsword, Res.ObsidianHandAxe], 'sword_short@bronze', 16, 12, 120, Hit.Arc, false, only([[BZ, 2], [LU, 1], [LE, 1]]), 28),
   close(5, Res.WroughtIronSword, 'sword@iron_wrought', 21, 12, 120, Hit.Arc, false, only([[WI, 2], [LU, 1], [LE, 1]]), 28),
   close(6, Res.IronBroadsword, 'sword@iron_refined', 24, 12, 120, Hit.Arc, false, only([[IRON, 2], [LU, 1], [LE, 1]]), 28),
   close(7, Res.SteelSideSword, 'sword_steel@steel', 30, 12, 130, Hit.Arc, false, only([[STEEL, 3], [LU, 1], [LE, 1]]), 39),
-  close(8, Res.BasketHiltedBroadsword, 'sword_steel@hq_steel', 36, 12, 130, Hit.Arc, false, only([[CS, 3], [LU, 1], [LE, 1]]), 51),
+  close(8, Res.BasketHiltedBroadsword, 'sword_basket_hilt', 36, 12, 130, Hit.Arc, false, only([[CS, 3], [LU, 1], [LE, 1]]), 51),
 ];
 
 /**
@@ -270,10 +270,10 @@ export const LONG_KITS: readonly MeleeKit[] = [
   close(2, Res.FlintHeadedSpear, 'spear_flint', 12, 14, 250, Hit.Stab, false, only([[ST, 3], [FL, 1]]), 10),
   close(3, Res.CopperLeafBladeSpear, 'spear', 15, 14, 250, Hit.Stab, false, only([[CU, 1], [LU, 1]]), 19),
   close(4, Res.BronzeSpear, 'spear@bronze', 18, 14, 250, Hit.Stab, false, only([[BZ, 1], [LU, 1]]), 23),
-  close(5, Res.CrudeIronSpear, 'spear', 28, 16, 250, Hit.Stab, false, only([[WI, 3], [LU, 2]]), 37),
+  close(5, Res.CrudeIronSpear, 'spear_iron_crude', 28, 16, 250, Hit.Stab, false, only([[WI, 3], [LU, 2]]), 37),
   close(6, Res.IronPike, 'pike', 32, 16, 350, Hit.Stab, false, only([[IRON, 3], [LU, 2]]), 37),
   close(7, Res.SteelHalberd, 'halberd@steel', 38, 16, 250, Hit.Arc, false, only([[STEEL, 3], [LU, 2]]), 39),
-  close(8, Res.Zweihander, 'halberd@hq_steel', 45, 16, 200, Hit.Arc, false, only([[CS, 3], [LU, 2]]), 51),
+  close(8, Res.Zweihander, 'zweihander', 45, 16, 200, Hit.Arc, false, only([[CS, 3], [LU, 2]]), 51),
 ];
 
 /** A hit in the outer third of a long weapon's reach is a critical (s), for +30% (Jade). */
@@ -287,7 +287,7 @@ const ranged = (tier: number, what: What, model: string, damage: number, attackD
 
 /** A recurve bow with arrowheads of one metal (Table 2e: 3 lumber, 1 sinew or flax, 1 ingot, 1 feather). */
 const recurve = (tier: number, what: Res, damage: number, ingot: Res): RangedKit =>
-  ranged(tier, what, 'bow', damage, 20, 25, 6, Shot.Arrow, false, ways([[ingot, 1], [FE, 1], [LU, 3]], [[ROPE, 1], [FX, 1]]), 34);
+  ranged(tier, what, 'bow_recurve', damage, 20, 25, 6, Shot.Arrow, false, ways([[ingot, 1], [FE, 1], [LU, 3]], [[ROPE, 1], [FX, 1]]), 34);
 
 /**
  * The ranger: one ladder with deliberate repeats (Jade): a sling, a yew
@@ -322,10 +322,10 @@ export const ARMOUR_KITS: readonly ArmourKit[] = [
   armour(0, 'No armour', '', 0, [[]], 0),
   armour(1, Res.LeatherJerkin, 'armour_leather+boots@leather', 10, only([[LE, 3]]), 30),
   armour(2, Res.BoiledLeatherCuirass, 'armour_leather+helmet_leather_cap+boots@leather', 20, only([[HL, 3], [LE, 2]]), 49),
-  armour(3, Res.CopperScaleJack, 'armour_bronze_scale+helmet_bronze+boots', 25, [[[CU, 5], [HL, 2], [LE, 1]], [[CU, 5], [HL, 2], [FX, 1]]], 77),
+  armour(3, Res.CopperScaleJack, 'armour_copper_scale+helmet_bronze+boots', 25, [[[CU, 5], [HL, 2], [LE, 1]], [[CU, 5], [HL, 2], [FX, 1]]], 77),
   armour(4, Res.BronzeScaleArmour, 'armour_bronze_scale+helmet_bronze+boots', 37, [[[BZ, 5], [HL, 2], [LE, 1]], [[BZ, 5], [HL, 2], [FX, 1]]], 84),
   armour(5, Res.WroughtIronMail, 'armour_iron_mail@iron_wrought+helmet_iron_nasal@iron_wrought+boots', 48, [[[WI, 5], [LE, 3]], [[WI, 5], [FX, 3]]], 84),
-  armour(6, Res.IronCoatOfPlates, 'armour_iron_mail@iron_refined+helmet_iron_nasal@iron_refined+boots', 53, [[[IRON, 5], [LE, 3]], [[IRON, 5], [FX, 3]]], 84),
+  armour(6, Res.IronCoatOfPlates, 'armour_iron_plates+helmet_iron_nasal@iron_refined+boots', 53, [[[IRON, 5], [LE, 3]], [[IRON, 5], [FX, 3]]], 84),
   armour(7, Res.SteelPlateHarness, 'armour_steel_plate@steel+helmet_steel_sallet@steel', 65, [[[STEEL, 7], [LE, 4]], [[STEEL, 7], [FX, 4]]], 139),
   armour(8, Res.FlutedGothicHarness, 'armour_steel_plate@hq_steel+helmet_steel_sallet@hq_steel', 70, [[[CS, 7], [LE, 4]], [[CS, 7], [FX, 4]]], 139),
 ];
@@ -343,10 +343,10 @@ const shield = (tier: number, what: What, model: string, need: number, blockPct:
 export const SHIELD_KITS: readonly ShieldKit[] = [
   shield(0, 'No shield', '', 0, 0, [[]], 0),
   shield(1, Res.WoodenShield, 'shield_wood', 1, 15, only([[PL, 3], [LE, 1]]), 20),
-  shield(2, Res.BoiledLeatherTarge, 'shield_wicker', 3, 20, only([[PL, 3], [HL, 1]]), 24),
+  shield(2, Res.BoiledLeatherTarge, 'shield_targe', 3, 20, only([[PL, 3], [HL, 1]]), 24),
   shield(3, Res.IronRimmedHeaterShield, 'shield_iron_kite@iron_refined', 6, 25, only([[IRON, 3], [PL, 1], [LE, 1]]), 36),
   shield(4, Res.SteelHeaterShield, 'shield_steel_heater@steel', 7, 30, only([[STEEL, 3], [LE, 1]]), 39),
-  shield(5, Res.SteelRotella, 'shield_steel_heater@hq_steel', 8, 30, only([[CS, 3], [LE, 1]]), 39),
+  shield(5, Res.SteelRotella, 'shield_rotella', 8, 30, only([[CS, 3], [LE, 1]]), 39),
 ];
 
 /** The top shield tier. */
@@ -378,7 +378,7 @@ const everyJob = (model: string): string[] => [model, model, model, model];
 
 const metalTools = (tier: number, item: Res, metal: string, tool: Tool, damage: number, ingot: Res, timeS: number): ToolKit => ({
   tier, ...named(item), model: `axe@${TOOL_METAL_LOOK[metal]}`, tools: [tool, tool, tool, tool], names: [`${metal} axe`, `${metal} pickaxe`, `${metal} hammer`, `${metal} sickle`].map((n) => n.toLowerCase()),
-  models: everyJob(`axe@${TOOL_METAL_LOOK[metal]}+pick@${TOOL_METAL_LOOK[metal]}+hammer+sickle@${TOOL_METAL_LOOK[metal]}`), damage, cost: only([[ingot, 2], [LU, 2]]), timeS, need: tier,
+  models: everyJob(`axe@${TOOL_METAL_LOOK[metal]}+pick@${TOOL_METAL_LOOK[metal]}+hammer_iron+sickle@${TOOL_METAL_LOOK[metal]}`), damage, cost: only([[ingot, 2], [LU, 2]]), timeS, need: tier,
 });
 
 /**

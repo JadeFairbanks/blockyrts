@@ -32,6 +32,8 @@ export const TUNNEL_HEIGHT_UNITS = 20;
 /** The lowest and highest a tunnel's roof is set, in terrain units over its floor (2 m to 4 m); + and - step it 34 cm (s). */
 export const TUNNEL_MIN_UNITS = 18;
 export const TUNNEL_MAX_UNITS = 36;
+/** The tallest a dig drawn upwards is marked (Jade's Patch 5, GP-4: "keep extending it up until it covers the entire hill or even mountain"): 360 terrain units, 40.5 m (s). */
+export const DIG_UP_MAX_UNITS = 360;
 
 const sign = (v: number): number => (v > 0 ? 1 : v < 0 ? -1 : 0);
 

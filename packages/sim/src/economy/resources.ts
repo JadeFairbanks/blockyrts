@@ -351,7 +351,8 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.Diamonds, 'Diamonds', 'Diamonds', A, 1, 'Mostly mineshafts; very rarely, on the surface.'),
   r(Res.Silver, 'Silver', 'Silver', A, 10, 'Mineshafts, often with lead ore.'),
   r(Res.Marble, 'Marble', 'Marble', A, 100, 'Marble rock (bronze tools).'),
-  r(Res.Earth, 'Earth', 'Earth', A, 50, 'Digging soil.'),
+  // Patch 5 (BL-2: "make dirt weigh half as much"): 2.5 lb, 10 to a worker's 25 lb.
+  r(Res.Earth, 'Earth', 'Earth', A, 25, 'Digging soil.'),
   r(Res.Sticks, 'Sticks', 'Sticks', A, 25, 'Hazel bushes (they grow back), or 4 from a lumber of either kind at a Storehouse or the Workshop.'),
   r(Res.Clay, 'Clay', 'Clay', A, 50, 'Clay banks by rivers and wetlands.'),
   r(Res.Sand, 'Sand', 'Sand', A, 50, 'Riverbeds and beaches.'),
