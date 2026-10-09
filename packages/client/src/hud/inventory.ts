@@ -43,6 +43,7 @@ export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res
       Res.Raspberries,
       Res.Blueberries,
       Res.Mushrooms,
+      Res.BogPear,
       Res.HawthorneFruit,
       Res.Honey,
       Res.HawthorneCider,

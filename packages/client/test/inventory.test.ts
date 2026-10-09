@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { FISHES, FOODS, isAnyRes, MEATS, Res, RESOURCE_COUNT, RESOURCES, STEPS_PER_SECOND } from '@blockyrts/sim';
-import { FOOD_ICON, goodIcon, iconUrl, SUPPLY_ICON } from '../src/hud/inventory-icons.ts';
+import { FOOD_ICON, goodIcon, iconUrl, PENDING_ICONS, SUPPLY_ICON } from '../src/hud/inventory-icons.ts';
 import {
   changeText,
   CHANGE_WINDOW_STEPS,
@@ -54,6 +54,8 @@ describe('icons', () => {
     for (const r of HELD) {
       const icon = goodIcon(r.id);
       expect(icon, r.name).toBeDefined();
+      // A good whose model is still being made has no picture yet (PENDING_ICONS).
+      if (PENDING_ICONS.has(icon!.file)) continue;
       expect(existsSync(ui(icon!.file)), `${r.name}: ${icon!.file}`).toBe(true);
       expect(iconUrl(icon!.file), `${r.name}: ${icon!.file} is not in the glob`).not.toBe('');
     }

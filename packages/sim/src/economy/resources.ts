@@ -130,6 +130,8 @@ export const Res = {
   HawthorneCider: 123,
   MoonIdol: 124,
   HeadlessIdol: 125,
+  /** Jade's GP-29: the bog pear, 14 food, wanted by the Halfling Elder (QV-16). */
+  BogPear: 126,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -294,6 +296,8 @@ export const RESOURCES: readonly ResourceInfo[] = [
   r(Res.HawthorneCider, 'Hawthorne cider', 'Cider', F, 10, 'Dropped by satyr revelers. Worth two farm fare.', 4),
   r(Res.MoonIdol, 'Moon Goddess Idol', 'Moon idol', T, 15, 'Taken from the altar of a Great White Ape Lunar Circle. Right click it to make the next night a Bright Night for you, once every 10 nights.', 0, false),
   r(Res.HeadlessIdol, 'Headless God Idol', 'Headless idol', T, 15, 'Taken from the altar of a Boneyard Circle.', 0, false),
+  // GP-29: "edible ... It is a dark purple color ... a single pumpkin sized pear ... giving 14 food value" (s: 5 lb).
+  r(Res.BogPear, 'Bog pear', 'Bog pears', F, 50, 'Low dark purple bushes at the bogs a Bog guardian keeps: a pumpkin-sized pear worth 14 food. A Halfling Elder wants one.', 14),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;
@@ -371,6 +375,8 @@ export function resourceByName(name: string): number {
       return Res.HawthorneFruit;
     case 'moon rose':
       return Res.MoonRose;
+    case 'bog pear':
+      return Res.BogPear;
     case 'bone':
       return Res.Bone;
     // A carcass gives its animal's meat and a fish stretch its species (units/behaviour.ts nodeResource): these stand for the kind.

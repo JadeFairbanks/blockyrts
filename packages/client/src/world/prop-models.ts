@@ -61,11 +61,11 @@ export const PENDING_PROP_MODELS: ReadonlySet<string> = new Set([
   'flax_wild_2',
   'flax_wild_3',
   'flax_tall',
-  'coal_rock',
   'ore_node_silver',
   'ore_node_gold',
   'boulder_large',
   'hot_spring',
+  'bush_bog_pear',
 ]);
 
 /** A berry bush's model: picked, its `picked` set (the bush with no berries). */
@@ -73,6 +73,7 @@ const BERRY_BUSH: Readonly<Record<number, string>> = {
   [PropKind.BlackBerryBush]: 'bush_blackberry',
   [PropKind.RaspberryBush]: 'bush_raspberry',
   [PropKind.BlueberryBush]: 'bush_blueberry',
+  [PropKind.BogPearBush]: 'bush_bog_pear',
 };
 
 /** Rocks, ore and the rest of the ground's things that do not grow, one model each. */
@@ -192,7 +193,8 @@ export function propModel(kind: number, stage: number, variant = 0, amount = 1):
       return stage === Stage.Sapling ? at('flax_tall@picked') : at('flax_tall', size);
     case PropKind.BlackBerryBush:
     case PropKind.RaspberryBush:
-    case PropKind.BlueberryBush: {
+    case PropKind.BlueberryBush:
+    case PropKind.BogPearBush: {
       const id = BERRY_BUSH[kind]!;
       return stage === Stage.Young ? at(`${id}@picked`) : at(id);
     }

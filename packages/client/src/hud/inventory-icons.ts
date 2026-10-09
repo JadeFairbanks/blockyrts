@@ -105,6 +105,7 @@ set(Res.BlackBerries, 'black_berries');
 set(Res.Raspberries, 'raspberries');
 set(Res.Blueberries, 'blueberries');
 set(Res.Mushrooms, 'mushrooms');
+set(Res.BogPear, 'bog_pear');
 // Patch 5's stone circles: each rendered from Jade's own model of it.
 set(Res.Bluestone, 'bluestone');
 set(Res.Obsidian, 'obsidian');
@@ -118,6 +119,13 @@ set(Res.HawthorneCider, 'hawthorne_cider');
 set(Res.MoonRose, 'moon_rose');
 set(Res.MoonIdol, 'moon_idol');
 set(Res.HeadlessIdol, 'headless_idol');
+
+/**
+ * Icons waiting on a model from the Blockbench session on Jade's PC: each is
+ * rendered from its good's model when that lands, and leaves this list then.
+ * Until it does, the good's slot has no picture and its tooltip names it.
+ */
+export const PENDING_ICONS: ReadonlySet<string> = new Set(['icon_bog_pear']);
 
 /** A good's icon. */
 export function goodIcon(res: number): GoodIcon | undefined {
@@ -137,7 +145,7 @@ const URLS = import.meta.glob<string>(
     '../../../assets/src/ui/icon_meat_{venison,boar,hare,goose,pheasant,beef,chicken,horse,wolf,lynx,badger,bear,frog,crab,crocodile,griffin,minotaur,rat}.png',
     '../../../assets/src/ui/icon_fish{,_salmon,_catfish}.png',
     '../../../assets/src/ui/icon_{eggs,farm_fare,bandage,healing_remedy}.png',
-    '../../../assets/src/ui/icon_{black_berries,raspberries,blueberries,mushrooms}.png',
+    '../../../assets/src/ui/icon_{black_berries,raspberries,blueberries,mushrooms,bog_pear}.png',
     '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder}.png',
     '../../../assets/src/ui/icon_{hand_cart,ox_cart,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',

@@ -101,6 +101,12 @@ export const PropKind = {
   BoneyardDeadTree: 54,
   BoneyardThorn: 55,
   CirclePine: 56,
+  /**
+   * Jade's GP-29: a low, dark purple bog pear bush, only at the bogs a Bog
+   * guardian keeps (the Mobs thread places two at each), holding one
+   * pumpkin-sized pear at a time.
+   */
+  BogPearBush: 57,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
@@ -237,6 +243,8 @@ export const PROPS: readonly PropInfo[] = [
   { ...tree(PropKind.BoneyardDeadTree, 'Dead tree', 10, 15, 1, Tool.Hardwood, 0, P5, 'softwood lumber'), seeds: 0 },
   { ...tree(PropKind.BoneyardThorn, 'Thorn bush', 10, 10, 1, Tool.Hardwood, 0, P5, 'sticks'), perLoad: 10, seeds: 0 },
   tree(PropKind.CirclePine, 'Pine', 20, 15, 1, Tool.Hardwood, 60 * MINUTE, P5, 'softwood lumber'),
+  // GP-29: "each growing a single pumpkin sized pear max, each pear taking 3 minutes to regrow".
+  { ...berries(PropKind.BogPearBush, 'Bog pear bush', 'bog pear'), yield: 1, yieldMax: 1, perLoad: 1, regrowSteps: 3 * MINUTE },
 ];
 
 /** Whether a prop is a fish stretch. */
