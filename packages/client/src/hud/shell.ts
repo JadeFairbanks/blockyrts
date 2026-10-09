@@ -287,6 +287,9 @@ export class GameShell {
   /** The active subgroup's type. */
   private active: string | null = null;
   private lastKey = { id: '', t: 0 };
+  /** Patch 5: the last turn key pressed, for its double tap; and a turn key held down from a double tap, which turns nothing until let go. */
+  private lastTurn = { id: '', t: 0 };
+  private turnHeldFromReset = '';
   private idleCycle = 0;
   private townCycle = 0;
   private readonly urgent: Array<{ x: number; z: number; text: string }> = [];
@@ -1583,6 +1586,7 @@ export class GameShell {
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (this.groups.key(id, this.input.held('Backquote'), ev.shiftKey)) return;
     const k = (action: string): string => keyFor(this.settings.keys, action);
+    if (id === k('turnLeft') || id === k('turnRight')) return this.turnKey(id);
     if (id === k('subgroup')) return this.cycleSubgroup(ev.shiftKey);
     if (id === k('centre')) return this.centreSelection();
     if (id === k('urgent')) return this.jumpUrgent();
@@ -1595,6 +1599,22 @@ export class GameShell {
     this.lastKey = { id, t: now };
     if (twice && btn.def.onDoubleClick && btn.enabled) btn.def.onDoubleClick(press);
     else this.input.pressButton(btn, press);
+  }
+
+  /**
+   * Jade's Patch 5: a turn key turns the camera while it is held (frame());
+   * pressed twice within the double-tap time, either one turns it back to
+   * north instead.
+   */
+  private turnKey(id: string): void {
+    const now = performance.now();
+    if (this.lastTurn.id === id && now - this.lastTurn.t <= DOUBLE_TAP_MS) {
+      this.cam.resetTurn();
+      this.turnHeldFromReset = id;
+      this.lastTurn = { id: '', t: 0 };
+      return;
+    }
+    this.lastTurn = { id, t: now };
   }
 
   // ---- Mouse ----
@@ -1758,10 +1778,17 @@ export class GameShell {
       this.edgeSince = -1;
     }
     if (moved) {
-      // Screen right is world +x and screen down is world +z: the camera never rotates.
+      // Along the screen, whichever way the camera is turned (Patch 5).
       this.setFollow(null);
-      this.cam.panBy(panX, panY);
+      this.cam.panView(panX, panY);
     }
+    // Patch 5: the camera turns while a turn key is held, in play, like the arrow keys pan.
+    if (this.turnHeldFromReset && !this.input.held(this.turnHeldFromReset)) this.turnHeldFromReset = '';
+    const turning = (action: string): boolean => {
+      const key = keyFor(this.settings.keys, action);
+      return playing && key !== this.turnHeldFromReset && this.input.held(key);
+    };
+    this.cam.setTurn((turning('turnRight') ? 1 : 0) - (turning('turnLeft') ? 1 : 0));
 
     // This frame's candidates and their snapshots.
     this.fresh.clear();
