@@ -44,9 +44,16 @@ function liveTenths(tag: string): number | null {
 /**
  * The version for a deploy: the commit's own live tag when it already went
  * live, else 0.1 above the highest live tag, but never below version.json's
- * `next` (so a bigger step is an edit to that file).
+ * `next` (so a bigger step is an edit to that file). A hotfix keeps the
+ * highest live tag's number and adds no tag, so the next deploy still goes
+ * up by 0.1 from it.
  */
-export function deployVersion(file: VersionFile, liveTags: readonly string[], headTags: readonly string[]): DeployVersion {
+export function deployVersion(
+  file: VersionFile,
+  liveTags: readonly string[],
+  headTags: readonly string[],
+  hotfix = false,
+): DeployVersion {
   const stage = file.stage.trim();
   if (stage === '') throw new Error('version.json needs a stage, such as "indev".');
   const own = headTags.map(liveTenths).filter((t): t is number => t !== null);
@@ -55,6 +62,10 @@ export function deployVersion(file: VersionFile, liveTags: readonly string[], he
     return { label: `${stage} ${fromTenths(t)}`, tag: `${LIVE_TAG_PREFIX}${fromTenths(t)}`, fresh: false };
   }
   const last = Math.max(0, ...liveTags.map(liveTenths).filter((t): t is number => t !== null));
+  if (hotfix) {
+    if (last === 0) throw new Error('A hotfix needs a live version to keep; nothing has gone live yet.');
+    return { label: `${stage} ${fromTenths(last)}`, tag: `${LIVE_TAG_PREFIX}${fromTenths(last)}`, fresh: false };
+  }
   const t = Math.max(toTenths(file.next), last + 1);
   return { label: `${stage} ${fromTenths(t)}`, tag: `${LIVE_TAG_PREFIX}${fromTenths(t)}`, fresh: true };
 }

@@ -109,6 +109,10 @@ already live keeps its number. For a bigger step or a new stage, edit
 `version.json` (for example `"stage": "alpha", "next": "1.0"`) before the
 deploy. Local builds show the next number marked as a dev build.
 
+For a small fix that should not count as a new version, run Deploy with
+**Hotfix** ticked: the menu keeps the highest live number, no tag is added,
+and the next ordinary deploy still goes up by 0.1 from it.
+
 ## Secrets and variables (repository Settings > Secrets and variables > Actions)
 
 | Name | Kind | What it is |
