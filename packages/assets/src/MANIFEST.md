@@ -35,6 +35,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | dwarf_crossbowman | models/peoples/dwarf_crossbowman/dwarf_crossbowman.bbmodel | 29 | 128x128 + 4 variants (black, brown, grey, red) | held-item preview groups sit inside slot_hand_r, slot_hip_l, slot_hip_r (the game removes or swaps them; the slot pivots are unchanged) |
 | dwarf_gunner | models/peoples/dwarf_gunner/dwarf_gunner.bbmodel | 29 | 128x128 + 4 variants (black, brown, grey, red) | held-item preview groups sit inside slot_hand_r, slot_hip_l (the game removes or swaps them; the slot pivots are unchanged) |
 | dwarf_cannon_crew | models/peoples/dwarf_cannon_crew/dwarf_cannon_crew.bbmodel | 31 | 128x128 + 4 variants (black, brown, grey, red) | the rammer dips about 1 u into the ground in aim; 3 cubes hidden by default (game-swapped previews or alternates); held-item preview groups sit inside slot_hand_r (the game removes or swaps them; the slot pivots are unchanged) |
+| heavy_knight | models/peoples/heavy_knight/heavy_knight.bbmodel | 146 | 512x256 | the Dreadnought (Patch 5, GP-21), Jade's supplied model kept as made; cube budget: 100 body cubes for a giant in full plate, and his heavy spiked mace (46 cubes) is the `mace` part in slot_hand_r, drawn on him always (he never changes it) |
 
 ## animals
 

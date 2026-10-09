@@ -166,7 +166,7 @@ export function productSpec(product: Product): ProductSpec {
 }
 
 /** The Dreadnought's description (Jade, GP-21, her words): the Hire button's tooltip, with his price after it. */
-export const DREADNOUGHT_TEXT = 'THE Dreadnought. A giant of a man in plate armour and wielding a heavy mace. Rumors have it that his Mother was an Ogre, but don\'t tell him that! Dreadnoughts have an AOE attack every other hit, and a large health pool.';
+export const DREADNOUGHT_TEXT = 'THE Dreadnought. A giant of a man in plate armour and wielding a heavy mace mace. Rumors have it that his Mother was an Ogre, but don\'t tell him that! Dreadnoughts have an AOE attack every other hit, and a large health pool.';
 
 // ----- troops (Troops and gear: Barracks panel) -----
 
