@@ -72,6 +72,7 @@ import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
 import { PeoplesUi } from './peoples-ui.ts';
 import { CirclesUi } from './circles-ui.ts';
+import { SkyDial } from './sky-dial.ts';
 import { HudPanels } from './panels.ts';
 import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
@@ -223,6 +224,8 @@ export class GameShell {
   readonly peoples: PeoplesUi;
   /** The stone circles' chest and altar panels (Patch 5). */
   readonly circles: CirclesUi;
+  /** The little sky by the day clock (Patch 5). */
+  private readonly skyDial: SkyDial;
   readonly allies: AlliesUi;
   readonly inventory: InventoryUi;
   readonly chat: ChatBox;
@@ -361,6 +364,7 @@ export class GameShell {
       message: (t, k) => this.message(t, k),
       addArea: (id, el, target) => this.input.addArea(id, el, target),
     });
+    this.skyDial = new SkyDial(this.layout.clock);
     this.circles = new CirclesUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
       send: (o) => opts.issueOrder(o),
       units: () => this.selection.list().flatMap((t) => (t.kind === 'unit' && t.owner === this.player && entityIdOf(t.key) !== null ? [entityIdOf(t.key)!] : [])),
@@ -705,6 +709,7 @@ export class GameShell {
     setText(this.layout.clockTime, `${formatClock(c.left / 20)} left`);
     this.layout.clock.dataset.period = String(c.period);
     this.layout.clock.classList.toggle('fog', this.game.info?.fog === true);
+    this.skyDial.set(step, this.game.info?.circles?.brightSky === true, this.game.info?.fog === true);
   }
 
   private onInfo(info: InfoMessage): void {
@@ -1725,6 +1730,7 @@ export class GameShell {
 
   /** Once a frame, before rendering. */
   frame(dt: number, now: number): void {
+    this.skyDial.draw(now);
     this.panels.measure();
     const panelRects = this.panels.rects();
     const pos = this.input.pos;

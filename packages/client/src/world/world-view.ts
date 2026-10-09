@@ -66,10 +66,12 @@ import { shotSound } from '../audio/sound-map.ts';
 import { Overlay } from './overlay.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
 import { PropModelsView, PROP_VIEW_IDS, type PlacedProp } from './prop-models-view.ts';
-import { loadTerrainTextures, setTerrainBands, terrainPatch, terrainUniforms } from './terrain-textures.ts';
+import { loadTerrainTextures, loadWaterTextures, setTerrainBands, terrainPatch, terrainUniforms, waterPatch, waterUniforms } from './terrain-textures.ts';
 import { HiddenOutlines, type OutlineStats, type OwnDraw } from './hidden-outlines.ts';
 import { HoverOutline, type HoverParts } from './hover-outline.ts';
 import { aimSun, keepShadowFlags, setUpSun } from './sun-shadows.ts';
+import { cycleSeconds, newSkyMoment, SKY_MID_DAY, skyAt } from './sky-light.ts';
+import { FogDrift } from './fog-drift.ts';
 
 /** Chunk rings around the camera focus at each level of detail (Chebyshev distance in chunks). */
 const FULL_DETAIL_RING = 2;
@@ -83,6 +85,17 @@ const FOG_COLOUR = 0x8a9098;
 const FOG_NEAR_M = 28;
 const FOG_FAR_M = 95;
 const FOG_OFF_M = 100000;
+/**
+ * The day's light from the lighting sheet (sky-light.ts), matched so its
+ * mid-day is as bright as the game's: the sun's strength at the sheet's 1, and
+ * the ambient light's at the sheet's mid-day. The sheet's distance fog is a
+ * fraction of this view depth (the top of the screen at the farthest zoom is
+ * about 86 m away), and fades out over as far again.
+ */
+const SUN_PEAK = 1.7;
+const HEMI_DAY = 1.15;
+const HEMI_DAY_COLOUR = new THREE.Color(0xdfefff);
+const VIEW_DEPTH_M = 100;
 /**
  * A Bright Night (Patch 5, SCA-6: "Illuminated by a full, smiling moon whose
  * light casts an eerie but also comforting subtle white glowing gradient over
@@ -219,6 +232,7 @@ export class WorldView {
   private readonly terrainMat: THREE.MeshLambertMaterial;
   /** The land's tiles and where the bands lie, for its shader. */
   private readonly terrain = terrainUniforms();
+  private readonly water = waterUniforms();
   private readonly waterMat: THREE.MeshLambertMaterial;
   private readonly cubeMat: THREE.MeshLambertMaterial;
   private readonly cubeGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
@@ -275,6 +289,8 @@ export class WorldView {
   private readonly fx: WorldFx;
   private glitterDirty = true;
   private lastFx = 0;
+  /** A fog night's drifting fog banks (Patch 5). */
+  private readonly fogDrift: FogDrift;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
   private viewRing = QUARTER_DETAIL_RING;
@@ -306,6 +322,7 @@ export class WorldView {
     sun.shadow.bias = -0.0005;
     scene.add(sun, sun.target);
     this.sun = sun;
+    this.fogDrift = new FogDrift(scene, (x, z) => this.heightAt(x, z));
 
     const tex = new THREE.DataTexture(this.fowData, FOW_TILES, FOW_TILES, THREE.RedFormat, THREE.UnsignedByteType);
     tex.magFilter = THREE.LinearFilter;
@@ -323,7 +340,14 @@ export class WorldView {
     this.terrainMat.customProgramCacheKey = () => 'fow-terrain';
     void loadTerrainTextures(this.terrain).catch((err: unknown) => console.warn('terrain textures not loaded; drawing flat colours', err));
     this.waterMat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.72, depthWrite: false });
-    patchMaterial(this.waterMat, this.fow, false);
+    // The water's animated tiles (Patch 5) over the fog of war's patch; flat blue until they load.
+    const waterTiles = waterPatch(this.water);
+    this.waterMat.onBeforeCompile = (shader) => {
+      fog(shader);
+      waterTiles(shader);
+    };
+    this.waterMat.customProgramCacheKey = () => 'fow-water';
+    void loadWaterTextures(this.water).catch((err: unknown) => console.warn('water tiles not loaded; drawing flat blue', err));
     this.cubeMat = new THREE.MeshLambertMaterial();
     patchMaterial(this.cubeMat, this.fow, true);
 
@@ -756,6 +780,9 @@ export class WorldView {
     this.propModels.update(this.modelChunks(), this.game?.info?.circles, this.hoverKeys, now);
     this.updateFx(now);
     this.updateSky();
+    this.fogDrift.update(this.fogK, focus, now);
+    this.terrain.terrainTime.value = now / 1000;
+    this.water.waterTime.value = now / 1000;
     if (this.game) this.buildings.update(this.game, now, focus);
     const fcx = Math.floor(focus.x / CHUNK_M);
     const fcz = Math.floor(focus.z / CHUNK_M);
@@ -1135,12 +1162,9 @@ export class WorldView {
 
   // ---- Day and night ----
 
-  private readonly dayHemi = new THREE.Color(0xdfefff);
-  private readonly nightHemi = new THREE.Color(0x5a6a9a);
-  private readonly duskHemi = new THREE.Color(0xffb880);
-  private readonly daySun = new THREE.Color(0xfff2dc);
-  private readonly nightSun = new THREE.Color(0x8aa0d8);
-  private readonly duskSun = new THREE.Color(0xff9a5a);
+  /** The sheet's light now, and how much stronger the game's ambient light is than the sheet's numbers. */
+  private readonly sky = newSkyMoment();
+  private readonly hemiScale = (HEMI_DAY * luminance(HEMI_DAY_COLOUR)) / (SKY_MID_DAY.ambientI * luminance(SKY_MID_DAY.ambient));
   /** How thick the fog is drawn, 0 to 1, easing towards the sim's fog night. */
   private fogK = 0;
   /** How bright the night is drawn, 0 to 1, and how rosy, easing towards a Bright Night's (Patch 5). */
@@ -1164,19 +1188,29 @@ export class WorldView {
     }
   }
 
-  /** The light of the period: warm at dusk and dawn, dim and blue at night (still bright enough to play). */
+  /**
+   * The light of the moment, from the lighting sheet: warm white by day, deep
+   * orange at dusk, cool blue moonlight at night and pink-gold at dawn, with
+   * the fog night's own values while the fog is in.
+   */
   private updateSky(): void {
     const k = this.darkness();
-    const warm = Math.max(0, 1 - Math.abs(k - 0.5) * 2) * 0.8;
-    this.hemi.intensity = 1.15 - 0.72 * k;
-    this.hemi.color.copy(this.dayHemi).lerp(this.nightHemi, k).lerp(this.duskHemi, warm * 0.4);
-    this.sun.intensity = 1.7 - 1.35 * k;
-    this.sun.color.copy(this.daySun).lerp(this.nightSun, k).lerp(this.duskSun, warm);
-    this.buildings.darkness = k;
+    const c = clockAt(this.simStep);
     // The fog rolls in and lifts over a few seconds.
     const now = performance.now();
     const dt = this.lastSky ? Math.min(0.1, (now - this.lastSky) / 1000) : 0;
     this.lastSky = now;
+    const want = this.game?.info?.fog ? 1 : 0;
+    this.fogK += Math.sign(want - this.fogK) * Math.min(Math.abs(want - this.fogK), dt / 4);
+    const m = skyAt(cycleSeconds(c.period, c.into / Math.max(1, c.into + c.left)), this.fogK, this.sky);
+    this.hemi.color.copy(m.ambient);
+    this.hemi.intensity = m.ambientI * this.hemiScale;
+    this.sun.color.copy(m.light);
+    this.sun.intensity = m.lightI * SUN_PEAK;
+    this.sun.shadow.intensity = Math.min(1, m.shadow / SKY_MID_DAY.shadow);
+    (this.scene.background as THREE.Color).copy(m.edge);
+    this.buildings.darkness = k;
+    this.buildings.fog = this.fogK * k;
     // A Bright Night comes on and goes over a few seconds too, and only shows in the dark.
     const [bright, rosy] = this.brightHere();
     this.brightK += Math.sign(bright - this.brightK) * Math.min(Math.abs(bright - this.brightK), dt / 4);
@@ -1188,8 +1222,6 @@ export class WorldView {
       this.sun.intensity += 0.5 * b;
       this.sun.color.lerp(BRIGHT_MOON, 0.8 * b);
     }
-    const want = this.game?.info?.fog ? 1 : 0;
-    this.fogK += Math.sign(want - this.fogK) * Math.min(Math.abs(want - this.fogK), dt / 4);
     const fog = this.scene.fog as THREE.Fog;
     if (this.fogK <= 0.001 && b > 0.001) {
       // The moonlit haze: nothing near, paler with distance.
@@ -1197,13 +1229,15 @@ export class WorldView {
       fog.far = BRIGHT_HAZE_FAR_M / b;
       fog.color.setHex(BRIGHT_HAZE).lerp(ROSY, 0.25 * this.rosyK);
     } else if (this.fogK <= 0.001) {
-      fog.near = FOG_OFF_M;
-      fog.far = FOG_OFF_M * 2;
+      // The sheet's haze: none by day, closing in on the far land at dusk and night.
+      fog.near = m.fogD >= 0.999 ? FOG_OFF_M : VIEW_DEPTH_M * m.fogD;
+      fog.far = fog.near * 2;
+      fog.color.copy(m.fog);
     } else {
       const off = (1 - this.fogK) * 400;
       fog.near = FOG_NEAR_M + off;
       fog.far = FOG_FAR_M + off;
-      fog.color.setHex(FOG_COLOUR).multiplyScalar(1 - 0.6 * k);
+      fog.color.copy(m.fog);
     }
   }
 
@@ -1455,6 +1489,12 @@ export class WorldView {
     for (const w of this.workers) w.terminate();
     for (const c of this.chunks.values()) this.dropChunk(c);
     this.propModels.dispose();
+    this.fogDrift.dispose();
     this.models?.dispose();
   }
+}
+
+/** A colour's brightness to the eye, in linear light. */
+function luminance(c: THREE.Color): number {
+  return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 }

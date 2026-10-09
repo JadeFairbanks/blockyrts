@@ -12,9 +12,14 @@ import { NOBODY, type Selectable } from '../selection/types.ts';
 import { makeLook, type Look } from './building-looks.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
 import { COLUMN_M, UNIT_M } from './mesher.ts';
+import { FOG_HALO, lightSource } from './sky-light.ts';
 
 /** Point lights for the flames nearest the camera (a fixed number, so shaders never recompile). */
 const POINT_LIGHTS = 6;
+const TORCH = lightSource('torch_post');
+const BONFIRE = lightSource('campfire');
+/** A torch post lights 10 m; anything that reaches further is a bonfire. */
+const TORCH_REACH_M = 10;
 const MAX_TILES = 4096;
 const MAX_MODEL_INSTANCES = 64;
 const GREEN = new THREE.Color(0x3ee05a);
@@ -86,6 +91,8 @@ export class BuildingsView {
   private readonly modelFog: ModelShaderPatch;
   /** 0 by day, 1 at night: how bright the flames' lights are. */
   darkness = 0;
+  /** 0 to 1, how deep a fog night's fog is: the lights shrink to soft orange halos (the lighting sheet). */
+  fog = 0;
   /** Building ids the cursor is over, for their silhouette outline (Patch 5, UI-5). */
   hovered: ReadonlySet<number> = new Set();
 
@@ -195,7 +202,7 @@ export class BuildingsView {
       }
     }
     this.drawModels(info);
-    this.placeLights(info, focus);
+    this.placeLights(info, focus, now);
   }
 
   private make(b: BuildingInfo, sig: string, fallow: boolean): Entry {
@@ -325,7 +332,7 @@ export class BuildingsView {
   }
 
   /** The flames nearest the focus get the point lights, brighter in the dark. */
-  private placeLights(info: GameInfo, focus: THREE.Vector3): void {
+  private placeLights(info: GameInfo, focus: THREE.Vector3, now: number): void {
     const lit: Array<{ p: THREE.Vector3; r: number; d: number }> = [];
     for (const b of info.buildings.values()) {
       const e = this.entries.get(b.id);
@@ -341,9 +348,13 @@ export class BuildingsView {
         l.intensity = 0;
         continue;
       }
+      // The lighting sheet's torch post and campfire (a bonfire), each flickering by its own amount.
+      const src = s.r > TORCH_REACH_M ? BONFIRE : TORCH;
+      const flicker = 1 - src.flicker * (0.5 + 0.5 * Math.sin(now * 0.011 + i * 2.3) * Math.sin(now * 0.0047 + i));
       l.position.copy(s.p).y += 0.3;
-      l.distance = s.r * 1.4;
-      l.intensity = 9 * this.darkness;
+      l.distance = s.r * 1.4 * (1 - 0.5 * this.fog);
+      l.intensity = 9 * this.darkness * flicker * (1 - 0.3 * this.fog);
+      l.color.copy(src.colour).lerp(FOG_HALO, this.fog);
     }
   }
 

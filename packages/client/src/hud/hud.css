@@ -603,6 +603,21 @@ body.playing * {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+/* The little sky by the clock (Patch 5): the art set's sky, sun, moon, stars and clouds at half size. */
+.clock {
+  padding-left: 76px;
+}
+.clock-sky {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 56px;
+  height: 28px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
 
 /* Debug readout (top left, small). */
 .debug {
