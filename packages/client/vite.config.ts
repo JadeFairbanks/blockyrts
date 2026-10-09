@@ -1,12 +1,17 @@
 import { defineConfig, type Plugin } from 'vite';
 import { readSimDocs } from '@blockyrts/balance/node';
 import type { SimDocs } from '@blockyrts/balance';
+import { sitePlugin, siteUrl } from './site.ts';
 
 // `pnpm dev` passes the game server's routes to a local server (pnpm --filter
 // @blockyrts/server dev, port 8080), so the page and the server share one
 // origin in development; SAC_SERVER points it elsewhere.
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 const server = env.SAC_SERVER ?? 'http://localhost:8080';
+
+// The public site's address (the Deploy workflow sets it), for the canonical
+// link, link previews, robots.txt and sitemap.xml (site.ts).
+const site = siteUrl(env.VITE_SITE_URL);
 
 /**
  * virtual:sim-exports: which tables each sim module declares, where, and
@@ -35,7 +40,7 @@ function simExports(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [simExports()],
+  plugins: [sitePlugin(site), simExports()],
   // How to Play's worker reads the sim's export list too.
   worker: { format: 'es', plugins: () => [simExports()] },
   // three.js alone is about 500 kB minified.

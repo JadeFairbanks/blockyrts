@@ -39,6 +39,7 @@ import {
   type SaveHeader,
   type ServerMessage,
   type WireFrame,
+  withoutDebugOrders,
 } from '@blockyrts/protocol';
 import type { Identity } from '../accounts.ts';
 
@@ -46,6 +47,10 @@ import type { Identity } from '../accounts.ts';
 export interface Conn {
   readonly id: number;
   identity: Identity;
+  /** The player's address, for keeping a kicked guest out (Patch 5). */
+  readonly address: string;
+  /** The server lets this socket's account use the debugger (Patch 5); everyone else's debugger orders are dropped. */
+  debugger: boolean;
   send(bytes: Uint8Array): void;
   close(code: number, reason: string): void;
 }
@@ -88,6 +93,9 @@ export class Player {
   guest: boolean;
   readonly rejoinToken = randomBytes(18).toString('base64url');
   conn: Conn | null = null;
+  /** The session and address it last came from, for a kick's ban. */
+  tokenHash = '';
+  address = '';
   presence: Presence = Presence.Connected;
   joinOrder: number;
   lastSeen = 0;
@@ -127,10 +135,20 @@ export interface RoomHooks {
   log(message: string): void;
 }
 
+/** Who is asking to see or join a room, for the kick ban (Patch 5). */
+export interface Visitor {
+  /** Account id, or '' for a guest. */
+  accountId: string;
+  tokenHash: string;
+  address: string;
+}
+
 export interface RoomOptions {
   code: string;
   matchId: string;
   seed: number;
+  /** Listed under the open games but joined only by the code (Patch 5). */
+  isPrivate?: boolean;
   /** The save file this room continues, or null for a new world. */
   save: Uint8Array | null;
   hooks: RoomHooks;
@@ -143,6 +161,9 @@ export class Room {
   readonly matchId: string;
   readonly seed: number;
   readonly fromSave: boolean;
+  readonly isPrivate: boolean;
+  /** When the room opened (the open games list shows the newest first). */
+  readonly openedAt: number;
   private readonly save: Uint8Array | null;
   private readonly saveHeader: SaveHeader | null;
   private readonly hooks: RoomHooks;
@@ -177,6 +198,12 @@ export class Room {
   private lastPause = '';
   private lastPing = 0;
   private emptySince = -1;
+  /**
+   * Who the host kicked (Jade, Patch 5: "when kicked they cannot rejoin that
+   * same lobby"): their account, their session, and for a guest their address
+   * too, since a guest can always get a new session.
+   */
+  private readonly banned = { accounts: new Set<string>(), tokens: new Set<string>(), guestAddresses: new Set<string>() };
 
   constructor(opts: RoomOptions) {
     this.code = opts.code;
@@ -184,6 +211,8 @@ export class Room {
     this.seed = opts.seed >>> 0;
     this.save = opts.save;
     this.fromSave = opts.save !== null;
+    this.isPrivate = opts.isPrivate ?? false;
+    this.openedAt = opts.now;
     this.hooks = opts.hooks;
     this.t = { ...DEFAULT_TIMINGS, ...opts.timings };
     this.saveHeader = opts.save ? readSaveHeader(opts.save) : null;
@@ -232,6 +261,7 @@ export class Room {
         phase: this.phase,
         seed: this.seed,
         fromSave: this.fromSave,
+        private: this.isPrivate,
         hostSlot: this.hostSlot,
         yourSlot: p.slot,
         rejoinToken: p.rejoinToken,
@@ -314,6 +344,8 @@ export class Room {
     p.name = conn.identity.name;
     p.guest = conn.identity.account === null;
     if (conn.identity.account) p.accountId = conn.identity.account.id;
+    p.tokenHash = conn.identity.tokenHash;
+    p.address = conn.address;
     this.emptySince = -1;
   }
 
@@ -330,10 +362,19 @@ export class Room {
     return ok;
   }
 
+  /** Whether the host kicked this visitor out of this room. */
+  bans(v: Visitor): boolean {
+    return (v.accountId !== '' && this.banned.accounts.has(v.accountId)) || (v.tokenHash !== '' && this.banned.tokens.has(v.tokenHash)) || (v.accountId === '' && this.banned.guestAddresses.has(v.address));
+  }
+
   /** A join request: a newcomer in the lobby, or a returning player. */
   join(conn: Conn, msg: Extract<ClientMessage, { type: 'joinRoom' }>, now: number): boolean {
     if (this.phase === RoomPhase.Ended) {
       this.error(conn, 'room_closed', 'That game has ended.');
+      return false;
+    }
+    if (this.bans({ accountId: conn.identity.account?.id ?? '', tokenHash: conn.identity.tokenHash, address: conn.address })) {
+      this.error(conn, 'kicked', 'The host removed you from this game, so you cannot join it again.');
       return false;
     }
     const back = this.findReturning(conn, msg.rejoinToken);
@@ -547,6 +588,9 @@ export class Room {
       case 'mapPing':
         if (this.phase === RoomPhase.Running) this.broadcast({ type: 'mapPing', slot: p.slot, x: msg.x, z: msg.z });
         break;
+      case 'kick':
+        this.onKick(p, msg.slot);
+        break;
       default:
         this.error(conn, 'bad_message', `"${msg.type}" is not allowed here.`);
     }
@@ -577,6 +621,36 @@ export class Room {
     }
     p.colour = colour;
     this.sendRoomState();
+  }
+
+  /** The host removes a player from the lobby for good (Jade, Patch 5); the match itself has no kicking. */
+  private onKick(p: Player, slot: number): void {
+    const conn = p.conn!;
+    if (this.phase !== RoomPhase.Lobby) return this.error(conn, 'not_lobby', 'Players can only be removed in the lobby.');
+    if (p.slot !== this.hostSlot) return this.error(conn, 'not_host', 'Only the host can remove a player.');
+    const target = slot < MAX_PLAYERS ? this.players[slot] : undefined;
+    if (!target || target === p || target.presence === Presence.Reserved) return this.error(conn, 'no_player', 'There is nobody in that place.');
+    // A saved game's account places belong to those players: only they can take them, so removing one would leave the game unable to start.
+    if (this.fromSave && target.accountId !== '' && this.saveHeader?.players.some((sp) => sp.slot === slot && sp.accountId === target.accountId)) {
+      return this.error(conn, 'kick_saved', 'That place in the saved game is theirs: the game cannot start without them.');
+    }
+    if (target.accountId) this.banned.accounts.add(target.accountId);
+    if (target.tokenHash) this.banned.tokens.add(target.tokenHash);
+    if (target.guest && target.address) this.banned.guestAddresses.add(target.address);
+    const gone = target.conn;
+    gone?.send(encodeServer({ type: 'roomClosed', reason: CloseReason.Kicked }));
+    target.conn = null;
+    this.removeFromLobby(target);
+    // A saved game's guest place is free again for anyone.
+    const saved = this.saveHeader?.players.find((sp) => sp.slot === slot);
+    if (saved) {
+      target.name = saved.name;
+      target.accountId = saved.accountId;
+      target.guest = saved.accountId === '';
+    }
+    this.hooks.log(`room ${this.code}: ${p.name} removed ${target.name} from slot ${slot}`);
+    this.sendRoomState();
+    gone?.close(1000, 'removed by the host');
   }
 
   private onStart(p: Player, now: number): void {
@@ -622,7 +696,8 @@ export class Room {
       return;
     }
     this.expectedNext[p.slot] = expected + 1;
-    this.relay({ slot: p.slot, step, flags: 0, orders });
+    // Only the admin accounts may use the debugger (Jade, Patch 5): anyone else's debugger orders never reach the match.
+    this.relay({ slot: p.slot, step, flags: 0, orders: p.conn?.debugger ? orders : withoutDebugOrders(orders) });
   }
 
   private relay(f: WireFrame): void {
