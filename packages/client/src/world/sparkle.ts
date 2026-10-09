@@ -2,6 +2,10 @@
 // gold, glitter of silver color for silver"): tiny pixel stars that wink on
 // gold and silver lying in the world. Cubes (AR-3), the light additive. The
 // muzzle flashes are drawn from each gun's muzzle (units-view.ts, MB-7).
+// The glints wink at a gold or silver node model's own fx_glint spots, its
+// veins. Steam rises from where the models put it (Patch 5): a hot spring's
+// fx_steam vents, with bubbles at its fx_bubble, and a sulphur rock's
+// fx_steam (its fx_steam_depleted vent once it is half dug out).
 // Decoration only; nothing here reaches the sim. Every number is a pick (s).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -126,9 +130,99 @@ class Pool {
   }
 }
 
+/** A vent that steams: where (metres), how big its puffs start (m), puffs a second, how fast they rise (m/s), how long they last (s), and their colour. */
+export interface SteamSpot {
+  x: number;
+  y: number;
+  z: number;
+  size: number;
+  rate: number;
+  rise: number;
+  life: number;
+  colour: number;
+}
+
+/** A hot spring's vents, a hot spring's bubbles and a sulphur rock's vent. */
+export const SPRING_STEAM = { size: 0.3, rate: 1.4, rise: 0.4, life: 2.4, colour: 0xf2f4f6 } as const;
+export const SPRING_BUBBLE = { size: 0.05, rate: 1.6, rise: 0.08, life: 0.45, colour: 0xe8f2f4 } as const;
+export const SULPHUR_STEAM = { size: 0.22, rate: 0.9, rise: 0.35, life: 2, colour: 0xeeeacc } as const;
+
+const MAX_STEAM = 240;
+
+/** Soft puffs that rise, drift, swell and shrink away; lit by the day like the land. */
+class Steam {
+  readonly mesh: THREE.InstancedMesh;
+  /** Per puff: x y z vx vy vz age life size. */
+  private readonly p = new Float32Array(MAX_STEAM * 9);
+  private n = 0;
+  private readonly dummy = new THREE.Object3D();
+  private readonly c = new THREE.Color();
+
+  constructor() {
+    this.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.42, depthWrite: false }), MAX_STEAM);
+    this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_STEAM * 3), 3);
+    this.mesh.count = 0;
+    this.mesh.frustumCulled = false;
+  }
+
+  add(s: SteamSpot): void {
+    if (this.n >= MAX_STEAM) return;
+    const o = this.n * 9;
+    const p = this.p;
+    p[o] = s.x + (Math.random() - 0.5) * s.size * 0.6;
+    p[o + 1] = s.y;
+    p[o + 2] = s.z + (Math.random() - 0.5) * s.size * 0.6;
+    // A light breeze from the west, as the chimney smoke has.
+    p[o + 3] = 0.05 + (Math.random() - 0.5) * 0.08;
+    p[o + 4] = s.rise * (0.8 + Math.random() * 0.4);
+    p[o + 5] = (Math.random() - 0.5) * 0.08;
+    p[o + 6] = 0;
+    p[o + 7] = s.life * (0.8 + Math.random() * 0.4);
+    p[o + 8] = s.size * (0.8 + Math.random() * 0.4);
+    this.mesh.setColorAt(this.n, this.c.setHex(s.colour));
+    this.n++;
+  }
+
+  update(dt: number): void {
+    const p = this.p;
+    let w = 0;
+    for (let r = 0; r < this.n; r++) {
+      const o = r * 9;
+      const age = p[o + 6]! + dt;
+      if (age >= p[o + 7]!) continue;
+      const d = w * 9;
+      if (d !== o) {
+        p.copyWithin(d, o, o + 9);
+        this.mesh.getColorAt(r, this.c);
+        this.mesh.setColorAt(w, this.c);
+      }
+      p[d] = p[d]! + p[d + 3]! * dt;
+      p[d + 1] = p[d + 1]! + p[d + 4]! * dt;
+      p[d + 2] = p[d + 2]! + p[d + 5]! * dt;
+      p[d + 6] = age;
+      const k = age / p[d + 7]!;
+      // Swells as it rises, then thins away to nothing.
+      this.dummy.position.set(p[d]!, p[d + 1]!, p[d + 2]!);
+      this.dummy.rotation.y = age * 0.5;
+      this.dummy.scale.setScalar(Math.max(0.001, p[d + 8]! * (0.5 + 1.5 * k) * (1 - k * k * k)));
+      this.dummy.updateMatrix();
+      this.mesh.setMatrixAt(w, this.dummy.matrix);
+      w++;
+    }
+    this.n = w;
+    this.mesh.count = w;
+    this.mesh.instanceMatrix.needsUpdate = true;
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
+}
+
 export class WorldFx {
   private readonly glints: Pool;
   private spots: readonly GlitterSpot[] = [];
+  private readonly steam = new Steam();
+  private vents: readonly SteamSpot[] = [];
+  /** Puffs owed to each vent. */
+  private readonly owed = new Map<SteamSpot, number>();
   /** Glints running at each spot this frame. */
   private readonly running = new Map<GlitterSpot, number>();
   private readonly owner: GlitterSpot[] = [];
@@ -138,6 +232,13 @@ export class WorldFx {
     this.glints = new Pool(starGeometry(), light, MAX_GLINTS);
     this.glints.mesh.renderOrder = 3;
     scene.add(this.glints.mesh);
+    scene.add(this.steam.mesh);
+  }
+
+  /** The vents that steam now (hot springs and sulphur rocks near the view). */
+  setSteam(vents: readonly SteamSpot[]): void {
+    this.vents = vents;
+    this.owed.clear();
   }
 
   /** The spots that glitter now (gold and silver nodes and loot near the view). */
@@ -145,8 +246,14 @@ export class WorldFx {
     this.spots = spots;
   }
 
-  /** Each frame: the glitter winks where it is seen. */
+  /** Each frame: the glitter winks and the steam rises where it is seen. */
   update(dt: number, seen: (x: number, z: number) => boolean): void {
+    for (const v of this.vents) {
+      let owed = (this.owed.get(v) ?? Math.random()) + v.rate * dt;
+      for (; owed >= 1; owed--) if (seen(v.x, v.z)) this.steam.add(v);
+      this.owed.set(v, owed);
+    }
+    this.steam.update(dt);
     this.running.clear();
     for (let k = 0; k < this.glints.n; k++) {
       const s = this.owner[k];

@@ -5,7 +5,8 @@
 // the camera, one instanced draw per model. A prop's cubes stand in until its
 // model has loaded (the mesh workers leave them out from then on). The idols
 // stand on their altars until taken, and a chest the player has opened
-// stands open.
+// stands open. anchorsAt says where a drawn prop's effect anchors are (a hot
+// spring's steam, a gold node's glints), for the world's effects.
 import * as THREE from 'three';
 import { CircleType, PropKind, variantCircle, variantLook, variantType, type CirclesView } from '@blockyrts/sim';
 import { InstancedModel, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
@@ -36,6 +37,19 @@ export const PROP_VIEW_IDS: ReadonlySet<string> = new Set([...PROP_MODEL_IDS, ..
 const FIRST_ROOM = 64;
 const BONE = new THREE.Matrix4();
 const AT = new THREE.Vector3();
+const PLACE = new THREE.Matrix4();
+const SIZE = new THREE.Vector3();
+
+/** Where a prop's model has the bones whose names match, in the world (metres), placed as it is drawn: turned, sized and moved from its chunk's corner (ox, oz). */
+export function anchorsAt(model: ModelData, place: PropModelPlace, ox: number, oz: number, match: RegExp): THREE.Vector3[] {
+  PLACE.makeRotationY(place.yaw).scale(SIZE.setScalar(place.scale)).setPosition(ox + place.x, place.y, oz + place.z);
+  const out: THREE.Vector3[] = [];
+  model.boneNames.forEach((name, i) => {
+    const rest = model.restWorld[i];
+    if (rest && match.test(name)) out.push(new THREE.Vector3().setFromMatrixPosition(rest).applyMatrix4(PLACE));
+  });
+  return out;
+}
 
 export class PropModelsView {
   private lib: ModelLibrary | null = null;
