@@ -3,7 +3,8 @@
 // with (rigid cubes, no skin weights), and each instance's bone matrices sit in
 // a float DataTexture, four RGBA texels (the four columns) per matrix, that the
 // vertex shader reads by gl_InstanceID and bone index. The matrices already
-// include the instance's position and heading. A second material draws the
+// include the instance's position, heading and pitch (Patch 5: a bolt tilts
+// along its arc; units stand level). A second material draws the
 // same posed models flat, in ids or white, for the hidden-unit outlines
 // (world/hidden-outlines.ts).
 import * as THREE from 'three';
@@ -25,8 +26,9 @@ const SHADER_KEY = 'blockyrts-instanced-model-1';
 const IDENTITY = new THREE.Matrix4();
 const PLACE = new THREE.Matrix4();
 const SCALE = new THREE.Vector3();
-/** Floats per instance in inst: x, y, z, heading, clip time, scale. */
-const INST_STRIDE = 6;
+const TILT = new THREE.Matrix4();
+/** Floats per instance in inst: x, y, z, heading, clip time, scale, pitch. */
+const INST_STRIDE = 7;
 
 /**
  * What the mark material draws (Jade's Patch 3 outlines): Ids draws every
@@ -182,7 +184,7 @@ export class InstancedModel {
   private readonly clipList: BakedClip[];
   private readonly clipIndex: ReadonlyMap<string, number>;
   private readonly restFrame: Float32Array;
-  private readonly inst: Float32Array; // x, y, z, heading, clip time, scale per instance
+  private readonly inst: Float32Array; // x, y, z, heading, clip time, scale, pitch per instance
   private readonly instClip: Int32Array; // clip index, or -1 for the rest pose
   private count = 0;
 
@@ -327,9 +329,11 @@ export class InstancedModel {
    * metres; heading in radians, 0 facing -Z (three.js rotation.y). An unknown
    * clip shows the rest pose. Looping clips wrap; the others hold their last
    * frame. teamColour null keeps the texture's placeholder blue. scale sizes
-   * the instance about its feet (1 is the model's own size).
+   * the instance about its feet (1 is the model's own size). pitch tilts it
+   * about its own X before the heading turns it, radians, raising its -Z
+   * end (Patch 5: a bolt along its arc); 0 keeps it level, as units stand.
    */
-  setInstance(i: number, x: number, y: number, z: number, headingRadians: number, clip: string, clipTimeSeconds: number, teamColour: THREE.Color | null, scale = 1): void {
+  setInstance(i: number, x: number, y: number, z: number, headingRadians: number, clip: string, clipTimeSeconds: number, teamColour: THREE.Color | null, scale = 1, pitch = 0): void {
     if (i < 0 || i >= this.maxInstances) throw new RangeError(`instance ${i} is outside 0..${this.maxInstances - 1}`);
     const o = i * INST_STRIDE;
     this.inst[o] = x;
@@ -338,6 +342,7 @@ export class InstancedModel {
     this.inst[o + 3] = headingRadians;
     this.inst[o + 4] = clipTimeSeconds;
     this.inst[o + 5] = scale;
+    this.inst[o + 6] = pitch;
     this.instClip[i] = this.clipIndex.get(clip) ?? -1;
     (this.mark.array as Float32Array)[i] = 0;
     (this.hover.array as Float32Array)[i] = 0;
@@ -443,6 +448,9 @@ export class InstancedModel {
       const k0 = this.inst[o + 5] ?? 1;
       const c = Math.cos(heading) * k0;
       const s = Math.sin(heading) * k0;
+      const pitch = this.inst[o + 6] ?? 0;
+      const cp = Math.cos(pitch);
+      const sp = Math.sin(pitch);
       for (let b = 0; b < bones; b++) {
         const pa = aOff + b * BAKED_STRIDE;
         const pb = bOff + b * BAKED_STRIDE;
@@ -450,9 +458,11 @@ export class InstancedModel {
         for (let col = 0; col < 4; col++) {
           const k = col * 3;
           const mx = (a[pa + k] ?? 0) + ((a[pb + k] ?? 0) - (a[pa + k] ?? 0)) * alpha;
-          const my = (a[pa + k + 1] ?? 0) + ((a[pb + k + 1] ?? 0) - (a[pa + k + 1] ?? 0)) * alpha;
-          const mz = (a[pa + k + 2] ?? 0) + ((a[pb + k + 2] ?? 0) - (a[pa + k + 2] ?? 0)) * alpha;
-          // Instance transform: scale, turn by the heading about +Y (three.js rotation.y), then move.
+          const ly = (a[pa + k + 1] ?? 0) + ((a[pb + k + 1] ?? 0) - (a[pa + k + 1] ?? 0)) * alpha;
+          const lz = (a[pa + k + 2] ?? 0) + ((a[pb + k + 2] ?? 0) - (a[pa + k + 2] ?? 0)) * alpha;
+          // Instance transform: tilt by the pitch about +X, scale, turn by the heading about +Y (three.js rotation.y), then move.
+          const my = pitch === 0 ? ly : cp * ly - sp * lz;
+          const mz = pitch === 0 ? lz : sp * ly + cp * lz;
           const d = dst + col * 4;
           out[d] = c * mx + s * mz + (col === 3 ? x : 0);
           out[d + 1] = k0 * my + (col === 3 ? y : 0);
@@ -513,7 +523,7 @@ export class InstancedModel {
     out.set(m(0), m(3), m(6), m(9), m(1), m(4), m(7), m(10), m(2), m(5), m(8), m(11), 0, 0, 0, 1);
     out.multiply(this.model.restWorld[bone] ?? IDENTITY);
     const k0 = this.inst[o + 5] ?? 1;
-    PLACE.makeRotationY(this.inst[o + 3] ?? 0).scale(SCALE.set(k0, k0, k0)).setPosition(this.inst[o] ?? 0, this.inst[o + 1] ?? 0, this.inst[o + 2] ?? 0);
+    PLACE.makeRotationY(this.inst[o + 3] ?? 0).multiply(TILT.makeRotationX(this.inst[o + 6] ?? 0)).scale(SCALE.set(k0, k0, k0)).setPosition(this.inst[o] ?? 0, this.inst[o + 1] ?? 0, this.inst[o + 2] ?? 0);
     return out.premultiply(PLACE);
   }
 
