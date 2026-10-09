@@ -167,7 +167,7 @@ function nearestSpot(state: SimState, i: number, h: Home | undefined, o: WoodsOr
 }
 
 /** Whether a column holds open water (buildings/placement.ts hasWaterAt, from the world alone: the screen's mesh worker uses it too). */
-function openWater(world: World, x: number, z: number): boolean {
+export function openWater(world: World, x: number, z: number): boolean {
   const w = world.waterAt(x, z);
   return w !== NO_WATER && w > world.topAt(x, z) * WATER_PER_UNIT;
 }

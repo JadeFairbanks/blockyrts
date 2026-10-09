@@ -142,23 +142,20 @@ function towerSlits(): Pane[] {
  * Model by model. The camera looks north, so south faces are the ones seen:
  * where a main base's windows are all on its north face (the Keep's and the
  * Citadel's keeps) the same windows are lit on its south face too, and the Big
- * House and the barn, which have none, get panes on their walls ("lit
- * windows or built in torches", Jade).
+ * House, which has none, gets panes on its walls ("lit windows or built in
+ * torches", Jade).
  */
 const MODEL_GLOW: ReadonlyMap<string, ModelGlow> = new Map([
   ['farmhouse_t1', inMetres([...row(Face.S, 36.5, [0], [45]), ...row(Face.W, -32.5, [0], [45]), ...row(Face.E, 32.5, [0], [45])])],
   ['farmhouse_t2', inMetres([...row(Face.S, 30.5, [-13.33, 13.33], [46.8]), ...row(Face.W, -40.5, [-10, 10], [46.8]), ...row(Face.E, 40.5, [-10, 10], [46.8])])],
   ['farmhouse_t3', inMetres([...row(Face.S, 30.5, [-14, 14], [48.6]), ...row(Face.W, -42.5, [0], [48.6]), ...row(Face.E, 42.5, [0], [48.6])])],
-  // The stand-in barn: the hayloft door, the gable ends' loft windows and windows low on its walls.
+  // Barn: its windows, two low on each long wall and one high on the back gable.
   [
-    'pen_barn',
+    'barn',
     inMetres([
-      ...row(Face.N, -1.2, [0], [116], 20, 12),
-      ...row(Face.S, 72, [-24, 24], [60]),
-      ...row(Face.W, -48, [18, 54], [60]),
-      ...row(Face.E, 48, [18, 54], [60]),
-      ...row(Face.W, -48, [36], [118]),
-      ...row(Face.E, 48, [36], [118]),
+      ...row(Face.W, -23.6, [4, 48], [36], 8, 8),
+      ...row(Face.E, 75.6, [4, 48], [36], 8, 8),
+      ...row(Face.S, 77.3, [26], [76], 8, 8),
     ]),
   ],
   // Big House: panes on the hall's walls (it has no windows of its own) and the campfire by its door.
@@ -193,12 +190,16 @@ const MODEL_GLOW: ReadonlyMap<string, ModelGlow> = new Map([
       ...row(Face.E, 102.5, [-17, 6, 29], [45, 97]),
     ]),
   ],
-  // Citadel: the keep's windows (north, and the same on the south), its slits and the corner towers' slits.
+  // Citadel: the keep's windows (north, and the same on the south), the top storey's windows, its slits and the corner towers' slits.
   [
-    'main_base_l10',
+    'main_base_citadel',
     inMetres([
       ...row(Face.N, -40.5, [-30, 0, 30], [128, 188, 238], 8, 16),
       ...row(Face.S, 64.5, [-30, 0, 30], [128, 188, 238], 8, 16),
+      ...row(Face.N, -32.5, [-14, 14], [290], 6, 10),
+      ...row(Face.S, 56.5, [-14, 14], [290], 6, 10),
+      ...row(Face.W, -44.5, [-2, 26], [290], 6, 10),
+      ...row(Face.E, 44.5, [-2, 26], [290], 6, 10),
       ...row(Face.N, -40.5, [0], [35, 101.7, 168.3], 2, 10),
       ...row(Face.S, 64.5, [0], [35, 101.7, 168.3], 2, 10),
       ...row(Face.W, -52.5, [12], [35, 101.7, 168.3], 2, 10),

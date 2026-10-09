@@ -53,6 +53,8 @@ export interface PropSummary {
   model: PropModelPlace | null;
   /** A fish stretch: the open water its live fish swim in (Patch 5, FR-2), x, y, z per column, metres (x and z within the chunk, y the water's surface). */
   water?: number[];
+  /** And how much open water runs on from each of those columns: the columns past it toward -x, +x, -z and +z (up to 3 each, mesh.worker.ts), so a big fish swims where it fits. */
+  room?: number[];
 }
 
 export interface MeshResult {

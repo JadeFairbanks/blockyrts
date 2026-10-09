@@ -6,7 +6,7 @@ import {
   applyKit,
   EntityStore,
   GOD_SPAWNS,
-  hasShield,
+  godKit,
   LAIRS,
   mageMaxMana,
   MANA_SCALE,
@@ -15,11 +15,8 @@ import {
   Mount,
   mountSpec,
   TOP_MAGE_TIER,
-  TOP_SHIELD_TIER,
-  TOP_TIER,
   Troop,
   UnitKind,
-  weaponTiers,
   WILD,
 } from '@blockyrts/sim';
 import { S, STATE_STRIDE } from '../messages.ts';
@@ -46,9 +43,10 @@ export function godGhostRow(k: number, player: number): Int32Array | null {
   if (g.what === 'troop' || g.what === 'crewman') {
     const troop = g.what === 'troop' ? g.id : Troop.Crew;
     e.troop[i] = troop;
-    e.wTier[i] = g.what === 'troop' ? weaponTiers(troop)[1] : 0;
-    e.aTier[i] = g.what === 'troop' ? TOP_TIER : 0;
-    e.sTier[i] = g.what === 'troop' && hasShield(troop) ? TOP_SHIELD_TIER : 0;
+    const kit = g.what === 'troop' ? godKit(troop) : { w: 0, a: 0, s: 0 };
+    e.wTier[i] = kit.w;
+    e.aTier[i] = kit.a;
+    e.sTier[i] = kit.s;
     applyKit(e, i, 'warrior');
     if (troop === Troop.Cavalry) e.mount[i] = Mount.Horse;
   } else if (g.what === 'mage') {

@@ -35,6 +35,7 @@ import { BOSS_FIRST_NIGHT } from '../threats/types.ts';
 import { addDreadnought, isDreadnought } from '../units/dreadnought.ts';
 import { hasShield, TOP_MAGE_TIER, TOP_SHIELD_TIER, TOP_TIER, Troop, TROOP_TYPES, troopTierName, weaponTiers } from '../units/kits.ts';
 import { setWorkerRank, WORKER_XP_TENTHS } from '../units/ranks.ts';
+import { openLedger } from '../units/woodsman.ts';
 
 /** What a godmode pool holds of every resource, filled again each step. */
 export const GOD_STOCK = 100_000;
@@ -57,9 +58,14 @@ export interface GodSpawn {
   side: 'player' | 'wild' | 'monsters';
 }
 
-/** Mobs that are only ever part of something else: a lair's or a village's buildings, a dead bomber's keg, the Elf caravan's wagon, Morvath's second form. */
+/** Mobs that are only ever part of something else: a lair's or a village's buildings, a dead bomber's keg, the Elf caravan's wagon, Morvath's second form, the Fae guardian's flight. */
 function placeableMob(mob: number): boolean {
-  return !isStructure(mob) && mob !== Mob.BombKeg && mob !== Mob.ElfCaravanWagon && mob !== Mob.MorvathAloft;
+  return !isStructure(mob) && mob !== Mob.BombKeg && mob !== Mob.ElfCaravanWagon && mob !== Mob.MorvathAloft && mob !== Mob.FaeGuardianAloft;
+}
+
+/** A troop's kit as godmode places it, the top of every line it has: weapon, armour (the woodsman wears none, Jade's WD-2) and shield. */
+export function godKit(troop: number): { w: number; a: number; s: number } {
+  return { w: weaponTiers(troop)[1], a: troop === Troop.Woodsman ? 0 : TOP_TIER, s: hasShield(troop) ? TOP_SHIELD_TIER : 0 };
 }
 
 /** Animals kept in a Barn come as the player's own, as a trade's do; the rest come wild. */
@@ -70,8 +76,8 @@ function domestic(species: number): boolean {
 /** Everything godmode can place, in the grid's order: the players' units at their top kit, engines with their crews, animals, mobs (Morvath among them), then lairs with their guardians. */
 export const GOD_SPAWNS: readonly GodSpawn[] = [
   { name: 'Worker', what: 'worker', id: 0, model: '', side: 'player' },
-  // Patch 5: the Dreadnought too, hired at the Tavern.
-  ...[...TROOP_TYPES, Troop.Dreadnought].map((t): GodSpawn => ({ name: troopTierName(t, weaponTiers(t)[1]), what: 'troop', id: t, model: '', side: 'player' })),
+  // Patch 5: the woodsman and the Dreadnought too, trained at the Scholar's lodge and hired at the Tavern.
+  ...[...TROOP_TYPES, Troop.Woodsman, Troop.Dreadnought].map((t): GodSpawn => ({ name: troopTierName(t, weaponTiers(t)[1]), what: 'troop', id: t, model: '', side: 'player' })),
   { name: 'Support mage', what: 'mage', id: School.Support, model: '', side: 'player' },
   { name: 'Battle mage', what: 'mage', id: School.Battle, model: '', side: 'player' },
   { name: 'Artillery crewman', what: 'crewman', id: 0, model: '', side: 'player' },
@@ -127,8 +133,11 @@ export function godPlace(state: SimState, player: number, what: number, x: numbe
         break;
       }
       // At the top of its ladder: carbon steel, or the brawler's one kit, close melee with the top shield (Patch 5); cavalry on a horse.
-      const i = addWarrior(state, player, x, z, s.id, weaponTiers(s.id)[1], TOP_TIER, hasShield(s.id) ? TOP_SHIELD_TIER : 0);
+      const k = godKit(s.id);
+      const i = addWarrior(state, player, x, z, s.id, k.w, k.a, k.s);
       e.heading[i] = 32768;
+      // The woodsman keeps his ledger of food in and food eaten from the start, as one trained does.
+      if (s.id === Troop.Woodsman) openLedger(state, i);
       if (s.id === Troop.Cavalry) seatOnHorse(state, i, Mount.Horse, speciesSpec(Species.Horse).hp, 0, 0);
       break;
     }
