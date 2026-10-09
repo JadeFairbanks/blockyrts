@@ -28,7 +28,7 @@ const TREE_SPECIES: Readonly<Record<number, { species: string; seed: 'seed_softw
 
 /**
  * Models Jade's Patch 5 asks for that the catalogue does not have yet (WL-4,
- * WL-5, WL-7, WL-10, WL-11, GP-30, GP-31): they come from the Blockbench
+ * WL-5, WL-7, WL-10, WL-11, GP-30, GP-31, MB-11, MF-2): they come from the Blockbench
  * session on her PC, and props-gen.ts draws these props until they do. An
  * id leaves this list when its model lands.
  */
@@ -45,6 +45,9 @@ export const PENDING_PROP_MODELS: ReadonlySet<string> = new Set([
   'ore_node_gold',
   'boulder_large',
   'hot_spring',
+  // Jade's Patch 5 (MB-11, MF-2): a bog's silver nuggets and a Fae Guardian's large mana crystal node.
+  'silver_nugget',
+  'mana_crystal_large',
 ]);
 
 /** A berry bush's model: picked, its `picked` set (the bush with no berries). */

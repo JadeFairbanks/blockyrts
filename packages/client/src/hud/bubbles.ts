@@ -16,6 +16,10 @@
 // Jade's Patch 5: a necromancer's bubble stays 20 s unless he says something
 // else first (hold 'linger'), and each unit on screen remarks on what is
 // round it once every 1 to 4.5 minutes of play (GP-28, hud/remarks.ts).
+// A keeper's words while it waits for a Yes or No stay until it says
+// something else (hold 'held', MB-11 and MF-10), and a question asked of
+// every player by one speaker (a Bog guardian's promise) shows this
+// player's own, with its buttons, over the others'.
 import { REMARKS, type BubbleHold } from '@blockyrts/sim';
 import { oneIsSingular } from './wording.ts';
 import type { YesNoButtons } from './yes-no.ts';
@@ -29,6 +33,8 @@ const LONG_BUBBLE_TIMES = 2;
 const MAX_BUBBLES = 10;
 /** A 'linger' bubble stays this long, ms (Jade's Patch 5: the necromancer's 20 s). */
 const LINGER_MS = 20_000;
+/** A 'held' bubble stays until its speaker says something else; this long at most, ms (s: 30 minutes). */
+const HELD_MS = 1_800_000;
 /** Each unit on screen remarks once in this many ms of play, a fresh wait each time (Jade's Patch 5: 1 to 4.5 minutes)... */
 const REMARK_MIN_MS = 60_000;
 const REMARK_MAX_MS = 270_000;
@@ -57,6 +63,8 @@ interface Bubble {
   /** Hold 'bar': it stays while its unit sits at its timed action; `sat` once the bar was seen (until then, the usual time). */
   bar: boolean;
   sat: boolean;
+  /** Hold 'held': it stays until its speaker says something else, and is never dropped for room. */
+  held: boolean;
 }
 
 interface QuestionBubble {
@@ -104,9 +112,12 @@ export class SpeechBubbles {
     el.textContent = oneIsSingular(text);
     el.hidden = true;
     this.layer.append(el);
-    const ms = hold === 'linger' ? LINGER_MS : (BUBBLE_MS + text.length * BUBBLE_MS_PER_CHAR) * (hold === 'long' ? LONG_BUBBLE_TIMES : 1);
-    this.bubbles.push({ key, who, el, until: now + ms, bar: hold === 'bar' && !who.building, sat: false });
-    while (this.bubbles.length > MAX_BUBBLES) this.bubbles.shift()!.el.remove();
+    const ms = hold === 'held' ? HELD_MS : hold === 'linger' ? LINGER_MS : (BUBBLE_MS + text.length * BUBBLE_MS_PER_CHAR) * (hold === 'long' ? LONG_BUBBLE_TIMES : 1);
+    this.bubbles.push({ key, who, el, until: now + ms, bar: hold === 'bar' && !who.building, sat: false, held: hold === 'held' });
+    while (this.bubbles.length > MAX_BUBBLES) {
+      const k = this.bubbles.findIndex((b) => !b.held);
+      this.bubbles.splice(k < 0 ? 0 : k, 1)[0]!.el.remove();
+    }
   }
 
   /** Whether a unit or building has a question up. */
@@ -123,6 +134,10 @@ export class SpeechBubbles {
   ask(ask: number, who: Speaker, text: string, until: number, buttons: YesNoButtons | null): void {
     this.closeAsk(ask);
     const key = keyOf(who);
+    // One speaker asking every player (Jade's Patch 5: a Bog guardian's promise): this player's own question, with its buttons, is the one shown.
+    const other = this.questions.find((q) => q.key === key);
+    if (other && !buttons) return;
+    if (other && !other.buttons) this.closeAsk(other.ask);
     this.drop(key);
     const el = document.createElement('div');
     el.className = `bubble question${buttons ? ' mine' : ''}`;
