@@ -10,6 +10,7 @@ import {
   isFish,
   MATERIALS,
   NO_WATER,
+  openWater,
   propInfo,
   PropShape,
   WATER_PER_UNIT,
@@ -21,6 +22,17 @@ import { COLUMN_M, meshChunk, meshLowRes, meshWater, UNIT_M } from './mesher.ts'
 
 /** The water columns a stretch's live fish swim among, at most. */
 const FISH_WATER_COLUMNS = 6;
+/** How far past each of those columns the open water is looked along, columns. */
+const FISH_ROOM_COLUMNS = 3;
+
+/** The open water columns past (x, z) along each way, -x, +x, -z, +z, up to FISH_ROOM_COLUMNS each. */
+function waterRoom(w: World, x: number, z: number): number[] {
+  return [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dz]) => {
+    let n = 0;
+    while (n < FISH_ROOM_COLUMNS && openWater(w, x + dx! * (n + 1), z + dz! * (n + 1))) n++;
+    return n;
+  });
+}
 import type { FromMesh, PropSummary, ToMesh } from './mesh-messages.ts';
 import { PENDING_PROP_MODELS, propModel } from './prop-models.ts';
 
@@ -113,7 +125,8 @@ function mesh(id: number, cx: number, cz: number, lod: number, simStep: number, 
       y0 = Math.min(y0, by); y1 = Math.max(y1, by + cubes[k + 4]!);
     }
     // A fish stretch draws no cubes: its live fish swim in the water beside its bank (Patch 5, FR-2), and that water is what is picked.
-    const water = isFish(p.kind) ? fishWaters(w, cx * N + p.lx, cz * N + p.lz, FISH_WATER_COLUMNS).flatMap(([x, z, surface]) => [(x - cx * N + 0.5) * COLUMN_M, (surface / WATER_PER_UNIT) * UNIT_M, (z - cz * N + 0.5) * COLUMN_M]) : null;
+    const waters = isFish(p.kind) ? fishWaters(w, cx * N + p.lx, cz * N + p.lz, FISH_WATER_COLUMNS) : null;
+    const water = waters ? waters.flatMap(([x, z, surface]) => [(x - cx * N + 0.5) * COLUMN_M, (surface / WATER_PER_UNIT) * UNIT_M, (z - cz * N + 0.5) * COLUMN_M]) : null;
     if (water) {
       for (let k = 0; k < water.length; k += 3) {
         x0 = Math.min(x0, water[k]! - COLUMN_M / 2); x1 = Math.max(x1, water[k]! + COLUMN_M / 2);
@@ -128,6 +141,7 @@ function mesh(id: number, cx: number, cz: number, lod: number, simStep: number, 
     const hz = tree ? Math.min((z1 - z0) / 2, 1.2) : Math.max(0.3, (z1 - z0) / 2);
     const summary: PropSummary = { index: p.index, kind: p.kind, lx: p.lx, lz: p.lz, x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2, hx, hy: Math.max(0.2, (y1 - y0) / 2), hz, amount: p.amount, most: p.most, stage: p.stage, nextAt, first: before / CUBE_STRIDE, cubes: (cubes.length - before) / CUBE_STRIDE, variant: p.variant, model: null };
     if (water) summary.water = water;
+    if (waters) summary.room = waters.flatMap(([x, z]) => waterRoom(w, x, z));
     props.push(summary);
   }
   if (scenery) {

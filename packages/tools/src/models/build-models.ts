@@ -4,8 +4,10 @@
 // packages/client/public/models/<id>.glb and <id>.json, plus index.json.
 // A world prop's and a building's state sets (state-sets.ts) are written as
 // <id>@<set> too, and an item's texture variants (<id>_<variant>.png beside
-// it: metal tiers) and a building's damaged texture as <id>@<variant>. All but
-// the world props' are listed lazy: the game loads one when it first draws it.
+// it: metal tiers) and a building's damaged texture as <id>@<variant>, and a
+// building's abandoned look (its ruined set in <id>_abandoned.png) as
+// <id>@abandoned. All but the world props' are listed lazy: the game loads one
+// when it first draws it.
 //
 //   pnpm --filter @blockyrts/tools models:build [--out <dir>] [--assets <dir>]
 //
@@ -142,9 +144,14 @@ export function buildModels(options: { assetsDir?: string; outDir?: string | nul
       if (result.errors.length === 0 && result.glb && result.sidecar) {
         index.push({ id, category, glb: `${id}.glb`, json: `${id}.json` });
         // Each state set and texture variant as a drawn model of its own, under the same rules and waivers.
+        const textures = category in TEXTURE_VARIANTS ? textureVariants(file, raw) : [];
         const variants = [
           ...(STATE_SET_CATEGORIES.includes(category) ? stateSetVariants(raw).map((v) => ({ name: v.set, raw: v.raw })) : []),
-          ...(category in TEXTURE_VARIANTS ? textureVariants(file, raw).filter((v) => TEXTURE_VARIANTS[category]?.includes(v.variant) ?? true).map((v) => ({ name: v.variant, raw: v.raw })) : []),
+          ...textures.filter((v) => TEXTURE_VARIANTS[category]?.includes(v.variant) ?? true).map((v) => ({ name: v.variant, raw: v.raw })),
+          // A building's abandoned look (the catalogue's F7: its ruined set in <id>_abandoned.png), worn by a people's building its people left.
+          ...(category === 'buildings'
+            ? textures.filter((v) => v.variant === 'abandoned').flatMap((v) => stateSetVariants(v.raw).filter((r) => r.set === 'ruined').map((r) => ({ name: 'abandoned', raw: r.raw })))
+            : []),
         ];
         for (const v of variants) {
           const vid = `${id}${STATE_SEP}${v.name}`;

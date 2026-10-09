@@ -27,7 +27,7 @@
 // clips, and the Fae Guardian's bolt bursts pink-magenta over its 2 m while
 // she sways up and down in her wrath.
 import * as THREE from 'three';
-import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { engineSpec, gearSpec, HOP_STEPS, isStructure, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, MarkMode, useTeamKey, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { Crescents, DreadnoughtLooks, DREADNOUGHT_M, DREADNOUGHT_MODEL, DREADNOUGHT_PARTS, isDreadnoughtRow } from './dreadnought-look.ts';
@@ -230,6 +230,17 @@ const GOODS: Partial<Record<number, string>> = {
   [Res.Remedy]: 'healing_remedy',
   [Res.Moonleaf]: 'trinket_moonleaf',
   [Res.Sunheart]: 'trinket_sunheart',
+  // Patch 5: the stone circles' goods and the Bog guardian's pear, Jade's models.
+  [Res.AncientSeed]: 'ancient_seed',
+  [Res.HawthorneFruit]: 'hawthorne_fruit',
+  [Res.PanFlute]: 'pan_flute',
+  [Res.BluestoneTrinket]: 'bluestone_trinket',
+  [Res.Honey]: 'honey_pot',
+  [Res.EnchantedWine]: 'enchanted_wine',
+  [Res.HawthorneCider]: 'hawthorne_cider',
+  [Res.MoonIdol]: 'moon_goddess_idol',
+  [Res.HeadlessIdol]: 'headless_god_idol',
+  [Res.BogPear]: 'bog_pear',
 };
 for (const m of MEATS) GOODS[m] = 'meat_haunch';
 /** A metal trinket's model by its tier, and its metal's look, in Res order (resources.ts TRINKET_BASE). */
@@ -1077,6 +1088,12 @@ export class UnitsView {
     return b;
   }
 
+  /** A structure's pool in its look ('' for its own), drawn in its own look until that has loaded or where the catalogue has none. */
+  private structureBody(model: string, look: string): BodyPool | null {
+    const wanted = `${model}@${look}`;
+    return (look && this.lib?.listed(wanted) ? this.body(wanted) : null) ?? this.body(model);
+  }
+
   /**
    * The pool drawing a worn piece (armour and boots, a horse's tack or
    * harness) on a body: the piece's model moved by the body's bones of the
@@ -1461,7 +1478,7 @@ export class UnitsView {
         if (flags & UnitFlag.Guardian) this.guardianGlow(x, y, z, spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE, t, dt);
         // The Fae Guardian in her wrath rises and falls, smoothly but erratically (MF-3): drawn only, the sim keeps her height.
         const sway = mob === Mob.FaeGuardianAloft ? FAE_WRATH_SWAY_M * (0.55 * Math.sin(t * 1.3 + id) + 0.3 * Math.sin(t * 2.9 + id * 1.7) + 0.15 * Math.sin(t * 5.3 + id * 0.3)) : 0;
-        const pool = this.body(structureModel(spec.model, id));
+        const pool = this.structureBody(structureModel(spec.model, id), isStructure(mob) ? structureLook(owner, d[o + S.hp]!, d[o + S.maxHp]!) : '');
         if (pool) {
           // With the weapons and gear it is made with (Patch 5: they were all hidden before); the Satyr Trickster's axes are Jade's obsidian hand-axe once it is in.
           const shown = pool.model.sidecar.partsShown ?? [];
@@ -1961,10 +1978,14 @@ function structureModel(model: string, id: number): string {
   return model === 'goblin_hut_1' ? `goblin_hut_${1 + (id % 3)}` : model;
 }
 
-/**
- * Models still to be made (models/troop_kits_models.md), drawn with a near
- * kin's model until theirs is in the catalogue (s).
- */
+/** A structure at half its health or below wears its damaged look, as a player's building does (buildings-view.ts DAMAGED_AT, thousandths). */
+const STRUCTURE_DAMAGED_AT = 500;
+
+/** A structure's look: abandoned once its people have left it (it is no one's then, peoples/war.ts abandoned), damaged at half its health, else its own (''). */
+function structureLook(owner: number, hp: number, maxHp: number): string {
+  if (owner === NEUTRAL) return 'abandoned';
+  return hp * 1000 <= maxHp * STRUCTURE_DAMAGED_AT ? 'damaged' : '';
+}
 
 /** Each model's height as drawn for the first mob that uses it, metres. */
 const MOB_MODEL_HEIGHT = new Map<string, number>();

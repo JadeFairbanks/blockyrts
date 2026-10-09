@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { PropKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { InstancedModel } from '../models/instanced-model.ts';
 import type { ModelLibrary } from '../models/library.ts';
-import { CHUNK_M } from './mesher.ts';
+import { CHUNK_M, COLUMN_M } from './mesher.ts';
 import type { PropSummary } from './mesh-messages.ts';
 
 /** Each stretch's fish model. */
@@ -26,12 +26,14 @@ const MOST_SHOWN = 8;
 const MAX_FISH = 256;
 /** Stretches farther than this from the camera's focus show no fish, metres. */
 const SHOW_M = 70;
-/** How far each kind swims round its spot and how deep under the surface its middle is, metres: a trout is 0.5 m long, a salmon 0.8 m, a giant catfish 1.3 m. */
-const SWIM: Readonly<Record<number, { round: number; depth: number }>> = {
-  [PropKind.FishTrout]: { round: 0.3, depth: 0.12 },
-  [PropKind.FishSalmon]: { round: 0.4, depth: 0.18 },
-  [PropKind.FishCatfish]: { round: 0.6, depth: 0.32 },
+/** How far each kind swims round its spot, how deep under the surface its middle is and half its length, metres: a trout is 0.5 m long, a salmon 0.8 m, a giant catfish 1.3 m. */
+const SWIM: Readonly<Record<number, { round: number; depth: number; half: number }>> = {
+  [PropKind.FishTrout]: { round: 0.3, depth: 0.12, half: 0.25 },
+  [PropKind.FishSalmon]: { round: 0.4, depth: 0.18, half: 0.4 },
+  [PropKind.FishCatfish]: { round: 0.6, depth: 0.32, half: 0.65 },
 };
+/** How far a fish's spot may sit off the middle of its water, metres. */
+const JITTER_M = 0.08;
 /** A catch: how long it takes to come up to the woodsman (s), how high the arc rises over the straight line (m). */
 const CATCH_S = 0.9;
 const ARC_M = 1.1;
@@ -43,11 +45,28 @@ const BAG_UP_M = 1;
 /** Catches drawn at once, at most. */
 const MAX_CATCHES = 16;
 
+/**
+ * Where a fish swims, kept clear of the bank: the middle of the open water
+ * round one of the stretch's columns and how far it may swim from there along
+ * x and along z with its whole length still in the water (world metres).
+ */
+interface Spot {
+  x: number;
+  y: number;
+  z: number;
+  ax: number;
+  az: number;
+  /** Whether the water runs farther along x than along z. */
+  alongX: boolean;
+}
+
 interface Stretch {
   kind: number;
   shown: number;
   /** The water it swims in: x, y, z per column, world metres. */
   water: number[];
+  /** Where its fish swim: the spots each fits in lengthwise, or the roomiest it has. */
+  spots: Spot[];
   /** A number of its own, so its fish do not swim in step with the next stretch's. */
   seed: number;
 }
@@ -93,7 +112,7 @@ export class FishView {
       if (!p.water || p.water.length === 0 || !(p.kind in FISH_MODELS) || p.amount <= 0) continue;
       const water = p.water.map((v, k) => (k % 3 === 0 ? v + cx * CHUNK_M : k % 3 === 2 ? v + cz * CHUNK_M : v));
       const shown = Math.max(1, Math.min(MOST_SHOWN, Math.ceil((p.amount * MOST_SHOWN) / Math.max(1, p.most))));
-      list.push({ kind: p.kind, shown, water, seed: (cx * 73856093) ^ (cz * 19349663) ^ (p.index * 83492791) });
+      list.push({ kind: p.kind, shown, water, spots: fishSpots(p.kind, water, p.room), seed: (cx * 73856093) ^ (cz * 19349663) ^ (p.index * 83492791) });
     }
     if (list.length > 0) this.chunks.set(key, list);
     else this.chunks.delete(key);
@@ -129,24 +148,32 @@ export class FishView {
     };
     for (const list of this.chunks.values()) {
       for (const st of list) {
-        const n = st.water.length / 3;
         if (Math.hypot(st.water[0]! - focus.x, st.water[2]! - focus.z) > SHOW_M) continue;
         for (let k = 0; k < st.shown; k++) {
           // Each fish circles a spot of its own in the water, some one way and some the other, at its own pace.
           const r = hash(st.seed + k * 7919);
-          const w = (r >>> 3) % n;
+          const sp = st.spots[(r >>> 3) % st.spots.length]!;
           const dir = r & 1 ? 1 : -1;
           const pace = 0.35 + ((r >>> 8) % 50) / 100;
-          const swim = SWIM[st.kind]!;
           const a = dir * pace * s + ((r >>> 16) % 628) / 100;
-          const cx = st.water[w * 3]! + (((r >>> 20) % 9) - 4) * 0.02;
-          const cz = st.water[w * 3 + 2]! + (((r >>> 24) % 9) - 4) * 0.02;
-          const x = cx + swim.round * Math.cos(a);
-          const z = cz + swim.round * Math.sin(a);
-          // Facing the way it swims, along the circle.
-          const dx = -Math.sin(a) * dir;
-          const dz = Math.cos(a) * dir;
-          put(st.kind, x, st.water[w * 3 + 1]! - swim.depth, z, Math.atan2(-dx, -dz), 'swim', s + (r % 97) / 10);
+          const cx = sp.x + (sp.ax > 0 ? ((((r >>> 20) % 9) - 4) / 4) * JITTER_M : 0);
+          const cz = sp.z + (sp.az > 0 ? ((((r >>> 24) % 9) - 4) / 4) * JITTER_M : 0);
+          let x: number, z: number, dx: number, dz: number;
+          if (sp.ax > 0 && sp.az > 0) {
+            // Round its spot, facing the way it swims.
+            x = cx + sp.ax * Math.cos(a);
+            z = cz + sp.az * Math.sin(a);
+            dx = -sp.ax * Math.sin(a) * dir;
+            dz = sp.az * Math.cos(a) * dir;
+          } else {
+            // Too narrow to turn round in: it holds facing along the water, drifting up and back, as a big fish does in a stream.
+            const drift = (sp.alongX ? sp.ax : sp.az) * Math.sin(a);
+            x = cx + (sp.alongX ? drift : 0);
+            z = cz + (sp.alongX ? 0 : drift);
+            dx = sp.alongX ? dir : 0;
+            dz = sp.alongX ? 0 : dir;
+          }
+          put(st.kind, x, sp.y - SWIM[st.kind]!.depth, z, Math.atan2(-dx, -dz), 'swim', s + (r % 97) / 10);
         }
       }
     }
@@ -197,6 +224,35 @@ export class FishView {
     this.models.set(kind, m);
     return m;
   }
+}
+
+/**
+ * A stretch's spots (world metres; room: four counts per column of the open
+ * water past it toward -x, +x, -z and +z): each column's water centred on the
+ * run it lies in, the fish's swim cut so its nose and tail stay off the bank.
+ * Where the kind fits lengthwise somewhere it swims only there; else in the
+ * roomiest water the stretch has.
+ */
+export function fishSpots(kind: number, water: readonly number[], room: readonly number[] | undefined): Spot[] {
+  const swim = SWIM[kind] ?? SWIM[PropKind.FishTrout]!;
+  const spots: Array<Spot & { fit: number }> = [];
+  for (let k = 0; k < water.length / 3; k++) {
+    const [l = 0, r = 0, b = 0, f = 0] = room?.slice(k * 4, k * 4 + 4) ?? [];
+    const halfX = ((l + r + 1) * COLUMN_M) / 2;
+    const halfZ = ((b + f + 1) * COLUMN_M) / 2;
+    spots.push({
+      x: water[k * 3]! + ((r - l) * COLUMN_M) / 2,
+      y: water[k * 3 + 1]!,
+      z: water[k * 3 + 2]! + ((f - b) * COLUMN_M) / 2,
+      ax: Math.min(swim.round, Math.max(0, halfX - swim.half - JITTER_M)),
+      az: Math.min(swim.round, Math.max(0, halfZ - swim.half - JITTER_M)),
+      alongX: halfX > halfZ,
+      fit: Math.max(halfX, halfZ),
+    });
+  }
+  const most = Math.max(...spots.map((p) => p.fit));
+  const fits = spots.filter((p) => p.fit >= swim.half);
+  return (fits.length > 0 ? fits : spots.filter((p) => p.fit === most)).map(({ fit: _, ...p }) => p);
 }
 
 /** A small integer hash, for each fish's own spot and pace (looks only). */

@@ -166,6 +166,10 @@ describe('godmode (Patch 5)', () => {
     const troop = (t: number): number => [...Array(e.count).keys()].filter((i) => e.owner[i] === 0 && e.kind[i] === UnitKind.Warrior && e.troop[i] === t).sort((p, q) => e.id[q]! - e.id[p]!)[0]!;
     expect([e.wTier[troop(Troop.Close)], e.aTier[troop(Troop.Close)]]).toEqual([TOP_TIER, TOP_TIER]);
     expect(e.mount[troop(Troop.Cavalry)]).toBe(Mount.Horse);
+    // The woodsman too, at the top of his spear ladder and unarmoured (WD-2), his ledger kept; the Fae guardian once, not her flight as well.
+    expect([e.wTier[troop(Troop.Woodsman)], e.aTier[troop(Troop.Woodsman)]]).toEqual([TOP_TIER, 0]);
+    expect(e.ledger[troop(Troop.Woodsman)]!.length).toBeGreaterThan(0);
+    expect(GOD_SPAWNS.filter((g) => g.what === 'mob' && (g.id === Mob.FaeGuardian || g.id === Mob.FaeGuardianAloft)).map((g) => g.id)).toEqual([Mob.FaeGuardian]);
     // Morvath comes once; a second is refused while he is out.
     const morvath = GOD_SPAWNS.findIndex((g) => g.what === 'boss');
     const next = s.nextEntityId;

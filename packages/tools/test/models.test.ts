@@ -167,6 +167,9 @@ describe('the model converter on the base bodies', () => {
       const lazy = new Map(index.models.map((m) => [m.id, m.lazy === true]));
       expect(lazy.get('mage_battle_6')).toBe(false);
       for (const id of ['sword@iron_wrought', 'main_base_l2@construction_33', 'main_base_l2@ruined', 'main_base_l2@damaged']) expect(lazy.get(id), id).toBe(true);
+      // And a people's building its people left (the ruined set in its abandoned texture), only where the catalogue has that texture.
+      expect(lazy.get('dwarf_hall@abandoned')).toBe(true);
+      expect(lazy.has('main_base_l3@abandoned')).toBe(false);
       expect(lazy.get('bush_hazel@cut')).toBe(false);
       const sidecar = JSON.parse(readFileSync(join(out, 'mage.json'), 'utf8')) as { id: string };
       expect(sidecar.id).toBe('mage');
@@ -188,7 +191,7 @@ describe('the model converter on state sets hidden by default', () => {
   const cubesIn = (node: { children: unknown[] }): string[] =>
     node.children.flatMap((c) => (typeof c === 'string' ? [c] : cubesIn(c as { children: unknown[] })));
 
-  // main_base_l2 (unused since Patch 5) still carries its state sets; the remade tiers have none.
+  // main_base_l2 (unused since Patch 5, kept as Jade's GP-11 says) carries its state sets, as every building does.
   it('draws only the finished main base, not its scaffolds and ruin', () => {
     const root = raw.outliner[0]!;
     const groups = root.children.filter((c): c is { name: string; visibility?: boolean; children: unknown[] } => typeof c !== 'string');

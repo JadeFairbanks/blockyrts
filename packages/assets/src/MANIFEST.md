@@ -1,4 +1,4 @@
-| icon_mushrooms | ui/icon_mushrooms.png | 1 | 32x32 | K1 resource icon mushrooms (rendered from mushroom.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_blueberries | ui/icon_blueberries.png | 1 | 32x32 | K1 resource icon blueberries (rendered from blueberries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_raspberries | ui/icon_raspberries.png | 1 | 32x32 | K1 resource icon raspberries (rendered from raspberries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. || icon_black_berries | ui/icon_black_berries.png | 1 | 32x32 | K1 resource icon black_berries (rendered from black_berries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. |# Asset manifest
+# Asset manifest
 
 One row per model file under `models/`. Cube counts include cubes hidden by default; texture sizes are the embedded texture (also committed as `<file>.png`), followed by any colour or material variants (`<file>_<variant>.png`, same UV layout). Each model's full notes (hit box, move speeds, key times, attachment points, second grip distances) are in its Blockbench description.
 
@@ -646,7 +646,6 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | bone_boulder | models/projectiles-and-spells/bone_boulder/bone_boulder.bbmodel | 26 | 32x64 | 26 cubes (small-item cap 11): a lump of fused bones and skulls needs many small pieces; it is a thrown projectile, not a carried item |
 | chain_hook | models/projectiles-and-spells/chain_hook/chain_hook.bbmodel | 13 | 16x32 | 13 cubes (small-item cap 11): barbed hook plus a short run of chain; `chain_link` (the single link the game repeats) is a separate file in this folder |
 | chain_link | models/projectiles-and-spells/chain_hook/chain_link.bbmodel | 4 | 16x16 | extra file in chain_hook/: the single chain link the game draws in a line behind the hook |
-| spell_bolt | models/projectiles-and-spells/spell_bolt/spell_bolt.bbmodel | 12 | 16x32 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | necromancer_bolt | models/projectiles-and-spells/necromancer_bolt/necromancer_bolt.bbmodel | 101 | 64x64 | Jade's Patch 5 model (MB-5), the necromancer's crimson bolt, wired as she made it: a spell effect over the small-item cube cap, with its `ripple` and `idle` clips |
 | fairy_bolt | models/projectiles-and-spells/fairy_bolt/fairy_bolt.bbmodel | 101 | 64x64 | Jade's Patch 5 model (MF-1, MF-7), the Fae Guardian's pink-magenta bolt, wired as she made it: a spell effect over the small-item cube cap, with its `ripple` and `idle` clips |
 | spell_fireball | models/projectiles-and-spells/spell_fireball/spell_fireball.bbmodel | 24 | 32x32 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
@@ -664,7 +663,6 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | spell_mending_bloom | models/projectiles-and-spells/spell_mending_bloom/spell_mending_bloom.bbmodel | 148 | 64x64 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | spell_barkskin | models/projectiles-and-spells/spell_barkskin/spell_barkskin.bbmodel | 20 | 32x32 | made by the model thread (the bot's batches left it out); uses the humanoid baseline bones without head, hands or legs, so the game copies the unit's pose onto it; no hit box; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | spell_call_of_the_wild | models/projectiles-and-spells/spell_call_of_the_wild/spell_call_of_the_wild.bbmodel | 48 | 16x16 | made by the model thread (the bot's batches left it out); `spread` moves each `spoke_<n>` outward to 356 u (10 m); no hit box; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
-| spell_spark_toss | models/projectiles-and-spells/spell_spark_toss/spell_spark_toss.bbmodel | 8 | 16x16 |  |
 | spell_stumble_hex | models/projectiles-and-spells/spell_stumble_hex/spell_stumble_hex.bbmodel | 28 | 16x32 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | spell_snuff_wisp | models/projectiles-and-spells/spell_snuff_wisp/spell_snuff_wisp.bbmodel | 6 | 16x32 |  |
 | spell_curse_mark | models/projectiles-and-spells/spell_curse_mark/spell_curse_mark.bbmodel | 17 | 16x16 | a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
@@ -686,7 +684,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | spark | models/projectiles-and-spells/spark/spark.bbmodel | 17 | 16x16 | Patch 5 spell projectile, made in Blockbench by the game's art direction: a goblin mage's Spark toss in flight; head at the -Z end, `ripple` loops; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 | touch_of_the_grave_aura | models/projectiles-and-spells/touch_of_the_grave_aura/touch_of_the_grave_aura.bbmodel | 9 | 256x256 | Jade's own model (Stone Circle set) |
 | web_glob | models/projectiles-and-spells/web_glob/web_glob.bbmodel | 9 | 32x32 |  |
-| nature_bolt | models/projectiles-and-spells/nature_bolt/nature_bolt.bbmodel | 17 | 32x32 |  |
+| nature_bolt | models/projectiles-and-spells/nature_bolt/nature_bolt.bbmodel | 17 | 32x32 | Jade's Stone Circle set, made in Blockbench through her connector in Patch 5: Silenus' nature bolt in flight, head at the -Z end; a spell effect, not a small item: the small-item cube cap does not apply (it is drawn once per cast) |
 
 ## textures
 
@@ -1663,10 +1661,10 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | team_swatch_6 | ui/team_swatch_6.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 6 (orange, RGB (200, 104, 36)), 12x12 swatch. |
 | team_swatch_7 | ui/team_swatch_7.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 7 (green, RGB (64, 128, 52)), 12x12 swatch. |
 | team_swatch_8 | ui/team_swatch_8.png | 1 | 12x12 | size 12x12 is not a power of two from 16 to 1024: it follows the wishlist's frame, cell or screen layout for this entry (left as drawn, not resized); K11 player slot colour 8 (pink, RGB (196, 100, 140)), 12x12 swatch. |
-| icon_black_berries | ui/icon_black_berries.png | 1 | 32x32 | Patch 5 resource icon black_berries (GP-31): four dark purple drupe berries under a stalk and two leaves, drawn in code to K1's style (no model yet), 32x32, 1px outline, top-left light. |
-| icon_raspberries | ui/icon_raspberries.png | 1 | 32x32 | Patch 5 resource icon raspberries (GP-31): four red drupe berries under a stalk and two leaves, drawn in code to K1's style (no model yet), 32x32, 1px outline, top-left light. |
-| icon_blueberries | ui/icon_blueberries.png | 1 | 32x32 | Patch 5 resource icon blueberries (GP-31): five round blue berries under a stalk and two leaves, drawn in code to K1's style (no model yet), 32x32, 1px outline, top-left light. |
-| icon_mushrooms | ui/icon_mushrooms.png | 1 | 32x32 | Patch 5 resource icon mushrooms (GP-30): two edible mushrooms, domed tan caps on pale stems, drawn in code to K1's style (no model yet), 32x32, 1px outline, top-left light. |
+| icon_black_berries | ui/icon_black_berries.png | 1 | 32x32 | K1 resource icon black_berries (rendered from black_berries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. |
+| icon_raspberries | ui/icon_raspberries.png | 1 | 32x32 | K1 resource icon raspberries (rendered from raspberries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. |
+| icon_blueberries | ui/icon_blueberries.png | 1 | 32x32 | K1 resource icon blueberries (rendered from blueberries.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. |
+| icon_mushrooms | ui/icon_mushrooms.png | 1 | 32x32 | K1 resource icon mushrooms (rendered from mushroom.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. |
 | icon_armour_copper_scale | ui/icon_armour_copper_scale.png | 1 | 32x32 | K2 item icon armour_copper_scale (rendered from armour_copper_scale.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_armour_iron_plates | ui/icon_armour_iron_plates.png | 1 | 32x32 | K2 item icon armour_iron_plates (rendered from armour_iron_plates.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_axe_hand_obsidian | ui/icon_axe_hand_obsidian.png | 1 | 32x32 | K2 item icon axe_hand_obsidian (rendered from obsidian_handaxe.bbmodel, Jade's model and the game's obsidian hand-axe, in Patch 5), 32x32, 1px dark outline, top-left light. |

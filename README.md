@@ -4591,6 +4591,39 @@ effects are `packages/client/src/world/spell-fx.ts`.*
    stack over it. Rank training takes 3 demon horns for each
    mana crystal it needs, horns first. Every rank's mana bar is 10 lower.
 
+## How a tester checks the Patch 5 release check
+
+*The cleanup before Patch 5 goes live: the Barn's and the Citadel's windows
+lit at night, the woodsman in godmode's grid, the stone circles' goods drawn
+in a worker's hands, the village buildings' abandoned and damaged looks, and
+big fish kept in the water. Picks in
+blueprint/patch5-release-check-picks.md.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-godmode.test.ts
+   (the woodsman placed at the top of his spear ladder with no armour, and
+   the Fae Guardian in the grid once), packages/client/test/patch5-fish-spots.test.ts
+   (a catfish swims round in a pond but only along a narrow stream, nose and
+   tail in the water) and packages/tools/test/models.test.ts (a people's
+   building has an abandoned look, built from the catalogue's own files).
+2. **Windows.** `pnpm dev`, open http://localhost:5173/?seed=1, turn on
+   godmode and build a Barn and the main base up to the Citadel. At night the
+   Barn's four side windows and its back gable window glow, and the Citadel's
+   keep windows, its top storey's windows and the towers' slits glow.
+3. **Godmode.** Open the inventory's spawn grid: the Woodsman is there after
+   Cavalry, and the Fae Guardian shows once.
+4. **Carried goods.** Open a stone circle's bluestone chest, take an idol
+   or kill a keeper, and send a worker to pick up what drops: he carries it
+   home drawn as its own model (the seed, the fruit, the flute, the
+   trinket, honey, wine, cider, the idols, the bog pear), where before his
+   hands were empty.
+5. **Village looks.** Hit a people's building to half its health: it wears
+   its damaged look. Once a people leave their home (beaten in a war),
+   their buildings stand as weathered ruins until your workers break them
+   down.
+6. **Fish.** Find a giant catfish stretch on a narrow river: the fish hold in
+   the water facing along it and drift up and back, none of them hanging out
+   over the bank; in wide water they swim round.
+
 ## License
 
 Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).
