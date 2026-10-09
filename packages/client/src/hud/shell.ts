@@ -52,6 +52,7 @@ import type { Ghost } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { Overlay } from '../world/overlay.ts';
 import { AlliesUi } from './allies.ts';
+import { DreadnoughtUi } from './dreadnought-ui.ts';
 import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
 import { queueSeconds } from './queue-clock.ts';
 import { ChatBox } from './chat.ts';
@@ -204,6 +205,8 @@ export class GameShell {
   private readonly tinkerBars: TinkerBars;
   readonly peoples: PeoplesUi;
   readonly allies: AlliesUi;
+  /** The Tavern's Hire Dreadnought window (Patch 5). */
+  readonly hire: DreadnoughtUi;
   readonly inventory: InventoryUi;
   readonly chat: ChatBox;
   /** Waiting for a spot to ping (the Ping button). */
@@ -344,6 +347,7 @@ export class GameShell {
       },
       confirmWar: (faction, then) => this.peoples.confirmWar(faction, then),
       openPeople: (faction) => this.peoples.open(faction),
+      hireDreadnought: (taverns) => this.hire.show(taverns),
       slots: () => {
         const room = buttonRoom(cardInner(this.geometry).w, this.geometry.maxH);
         return { most: room.cols * room.rows };
@@ -380,6 +384,11 @@ export class GameShell {
       message: (t) => this.message(t),
       name: (p) => session.name(p),
       colour: (p) => session.colour(p),
+      addArea: (id, el, target) => this.input.addArea(id, el, target),
+    });
+    this.hire = new DreadnoughtUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
+      send: (o) => opts.issueOrder(o),
+      message: (t) => this.message(t),
       addArea: (id, el, target) => this.input.addArea(id, el, target),
     });
     this.chat = new ChatBox(this.layout.chat, session.chat);
@@ -600,6 +609,7 @@ export class GameShell {
     for (const ev of info.events) this.onEvent(ev);
     this.peoples.refresh();
     this.allies.refresh();
+    this.hire.refresh();
     // Idle gatherers and the dusk button.
     const idle = this.game.idleWorkers().length;
     const idleBtn = this.buttons.get('idle');
@@ -1178,7 +1188,7 @@ export class GameShell {
 
   private selectArmy(): void {
     const army: Selectable[] = [];
-    for (const t of this.world.selectables.candidates()) if (t.kind === 'unit' && t.owner === this.player && (t.typeKey === 'warrior' || t.typeKey.startsWith('mage:'))) army.push(t);
+    for (const t of this.world.selectables.candidates()) if (t.kind === 'unit' && t.owner === this.player && (t.typeKey === 'warrior' || t.typeKey === 'warrior:dreadnought' || t.typeKey.startsWith('mage:'))) army.push(t);
     if (army.length === 0) this.message('You have no warriors or mages yet.');
     else this.selection.set(army);
   }
@@ -1370,6 +1380,7 @@ export class GameShell {
       if (this.selector.dragging) this.selector.cancel();
       else if (this.pinging) this.endPing();
       else if (this.commands.back()) this.cardDirty = true;
+      else if (this.hire.closeTop()) return;
       else if (this.allies.closeTop()) return;
       else if (this.peoples.closeTop()) return;
       else this.selection.clear();

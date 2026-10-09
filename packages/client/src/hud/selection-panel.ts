@@ -125,6 +125,7 @@ const layer = (p: Pic, tag?: string): ButtonIcon => ({ layers: [p.filter ? { fil
 export function typeOrder(typeKey: string): number {
   if (typeKey === 'worker') return 0;
   if (typeKey === 'warrior') return 1;
+  if (typeKey === 'warrior:dreadnought') return 1.4;
   if (typeKey === 'warrior:crew') return 1.5;
   if (typeKey === 'mage:support') return 2;
   if (typeKey === 'mage:battle') return 3;
@@ -616,7 +617,7 @@ export class SelectionPanel {
   // ---- One building ----
 
   private buildingSig(b: BuildingInfo): string {
-    return [b.queue.map((q) => q.product).join('.'), b.inside.join('.'), b.up.join('.'), b.rally.length, b.assigned, b.working, b.complete, b.upgrading, b.level, b.lit, b.herd, b.rating, b.stock.join('.'), b.horses, b.farm ? `${Number(b.farm.grows)}${b.farm.res}${b.farm.band}` : ''].join('/');
+    return [b.queue.map((q) => q.product).join('.'), b.inside.join('.'), b.up.join('.'), b.rally.length, b.assigned, b.working, b.complete, b.upgrading, b.level, b.lit, b.herd, b.rating, b.stock.join('.'), b.horses, b.farm ? `${Number(b.farm.grows)}${b.farm.res}${b.farm.band}` : '', b.tavern ? `${Number(b.tavern.open)}:${b.tavern.food}` : ''].join('/');
   }
 
   private oneBuilding(t: Selectable, b: BuildingInfo): void {
@@ -628,6 +629,7 @@ export class SelectionPanel {
     const cards = own && b.complete && cardsOf(b).length > 0 ? this.cards.render(this.body, [b]) : null;
     this.buildingFacts(b, own, cards ?? this.body);
     if (b.farm) this.farmBar(b);
+    if (own && b.tavern) this.tavernBar(b);
     if (own) this.garrison(b);
     if (!own && t.details) this.notes(t, t.details.slice(1));
   }
@@ -686,6 +688,30 @@ export class SelectionPanel {
       const time = v.stepsLeft > 0 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'still';
       return { pct: Math.max(0, Math.min(100, v.done / 10)), text: `${v.items} in ${time}`, tip: [harvestText(v), v.band].filter((x) => x).join('\n') };
     }, 'Harvest', true, 'farm-bar');
+  }
+
+  /**
+   * A Tavern's till (Jade, GP-20): the silver in it to 3 decimals on a bar
+   * that fills to the next ingot while it is open for business, then its
+   * running counts, the silver it has made and the food it has served.
+   */
+  private tavernBar(b: BuildingInfo): void {
+    const t = b.tavern!;
+    const silver = (whole: number, thousandths: number): string => `${whole}.${String(thousandths).padStart(3, '0')}`;
+    const row = this.strip('tavern');
+    this.chip('till', { icon: pic('icon_silver'), name: 'The till', description: 'The silver in the till. Withdraw funds takes the whole ingots into your stock and leaves the rest.', className: 'crop' }, row);
+    const id = b.id;
+    this.bar('meal', row, () => {
+      const v = this.a.game.buildings.get(id)?.tavern;
+      if (!v) return null;
+      const s = Math.ceil(v.stepsLeft / STEPS_PER_SECOND);
+      const tip = v.open ? `Open for business: the next silver ingot in ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}, while there is food to serve.` : 'Closed: no silver is made until it opens for business.';
+      return { pct: Math.max(0, Math.min(100, v.done / 10)), text: `${silver(v.whole, v.thousandths)} silver`, tip };
+    }, 'Silver in the till', true, 'tavern-bar');
+    const totals = this.strip('facts');
+    const made = silver(t.madeWhole, t.madeThousandths);
+    this.chip('made', { icon: pic('icon_silver'), face: made, name: 'Silver made', description: `This Tavern has made ${made} silver ingots in all.`, className: 'count' }, totals);
+    this.chip('served', { icon: pic('icon_food'), face: String(t.food), name: 'Food served', description: `This Tavern has served ${t.food} food in all.`, className: 'count' }, totals);
   }
 
   /** Up top and inside: a picture and a count, then their portraits, each one's tooltip saying what a click does. */

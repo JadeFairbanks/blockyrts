@@ -62,6 +62,10 @@ export const ACTIONS: readonly Action[] = [
   { id: 'trainBattleMage', name: 'Train Battle mage', key: 'KeyM', group: 'Buildings' },
   { id: 'trainCrewman', name: 'Train Artillery crewman (Artillery workshop)', key: 'KeyE', group: 'Buildings' },
   { id: 'craft', name: 'Smelting, research, making or slaughter menu', key: 'KeyK', group: 'Buildings' },
+  // Patch 5: the Tavern's buttons, on letters of their names (O is the Peoples panel's, W the Worker's).
+  { id: 'tavernOpen', name: 'Open for business or close (Tavern)', key: 'KeyF', group: 'Buildings' },
+  { id: 'tavernWithdraw', name: 'Withdraw funds (Tavern)', key: 'KeyI', group: 'Buildings' },
+  { id: 'hireDreadnought', name: 'Hire Dreadnought (Tavern)', key: 'KeyH', group: 'Buildings' },
   // Jade's Patch 4: and every product in the K menus (with more products than letters, the rest are clicks until given a key).
   ...makeMenuActions(),
   { id: 'idle', name: 'Idle Gatherer', key: 'F1', group: 'Camera and selection' },

@@ -1212,6 +1212,31 @@ body.playing * {
   background: #0d1014;
   border: 1px solid var(--btn-border);
 }
+/* Patch 5: the Tavern's Hire Dreadnought window, laid out like Send resources. */
+.hire-dialog {
+  width: min(420px, calc(100vw - 32px));
+}
+.hire-row {
+  align-items: center;
+}
+.hire-label {
+  min-width: 92px;
+}
+.hire-fixed {
+  width: 90px;
+  font: 13px/1.3 ui-monospace, 'DejaVu Sans Mono', monospace;
+}
+.send-amount.hire-amount {
+  width: 56px;
+  text-align: right;
+}
+.hire-have {
+  color: var(--muted);
+  font-size: 12px;
+}
+.hire-worth.warn {
+  color: #e8a050;
+}
 .net-banner {
   z-index: 6;
   top: 52px;
@@ -2096,12 +2121,14 @@ body.playing.touch .hud {
   filter: grayscale(1) brightness(0.5);
   opacity: 0.6;
 }
-.sel-strip.farm .hud-btn.sel-bar.meal {
+.sel-strip.farm .hud-btn.sel-bar.meal,
+.sel-strip.tavern .hud-btn.sel-bar.meal {
   flex: 1 1 auto;
   max-width: 260px;
   height: 16px;
 }
-.sel-strip.farm .hud-btn.sel-bar .num {
+.sel-strip.farm .hud-btn.sel-bar .num,
+.sel-strip.tavern .hud-btn.sel-bar .num {
   font-size: 14px;
   line-height: 16px;
 }
