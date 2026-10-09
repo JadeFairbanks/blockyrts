@@ -317,6 +317,7 @@ One row per model file under `models/`. Cube counts include cubes hidden by defa
 | raspberries | models/items/raspberries/raspberries.bbmodel | 11 | 32x16 |  |
 | blueberries | models/items/blueberries/blueberries.bbmodel | 11 | 32x16 |  |
 | mushroom | models/items/mushroom/mushroom.bbmodel | 10 | 32x32 |  |
+| bonemeal | models/items/bonemeal/bonemeal.bbmodel | 11 | 64x32 |  |
 
 ## mechanical
 
@@ -833,7 +834,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_bandage | ui/icon_bandage.png | 1 | 32x32 | K1 resource icon bandage (rendered from bandage_roll.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bog_iron | ui/icon_bog_iron.png | 1 | 32x32 | K1 resource icon bog_iron (rendered from ore_bog_iron.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bone | ui/icon_bone.png | 1 | 32x32 | K1 resource icon bone (rendered from bone_bundle.bbmodel), 32x32, 1px outline, top-left light. |
-| icon_bonemeal | ui/icon_bonemeal.png | 1 | 32x32 | Patch 5 resource icon bonemeal: the sand sack paled to bonemeal cream, a bone on its front. |
+| icon_bonemeal | ui/icon_bonemeal.png | 1 | 32x32 | K1 resource icon bonemeal (rendered from bonemeal.bbmodel in Patch 5), 32x32, 1px dark outline, top-left light. |
 | icon_bread | ui/icon_bread.png | 1 | 32x32 | K1 resource icon bread (rendered from bread_loaf.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_bricks | ui/icon_bricks.png | 1 | 32x32 | K1 resource icon bricks (rendered from bricks.bbmodel), 32x32, 1px outline, top-left light. |
 | icon_carrots | ui/icon_carrots.png | 1 | 32x32 | K1 resource icon carrots (rendered from carrot_bunch.bbmodel), 32x32, 1px outline, top-left light. |
