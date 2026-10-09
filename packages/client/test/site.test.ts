@@ -33,6 +33,12 @@ describe('game version', () => {
     expect(deployVersion({ stage: 'indev', next: '0.2' }, ['live-0.1', 'live-0.2'], ['live-0.2'])).toEqual({ label: 'indev 0.2', tag: 'live-0.2', fresh: false });
   });
 
+  it('keeps the live version and adds no tag for a hotfix', () => {
+    expect(deployVersion({ stage: 'indev', next: '1.0' }, ['live-1.0', 'live-1.1'], [], true)).toEqual({ label: 'indev 1.1', tag: 'live-1.1', fresh: false });
+    expect(deployVersion({ stage: 'indev', next: '1.0' }, ['live-1.1'], ['live-1.1'], true).label).toBe('indev 1.1');
+    expect(() => deployVersion({ stage: 'indev', next: '1.0' }, [], [], true)).toThrow();
+  });
+
   it('reads and writes tenths', () => {
     expect(toTenths('0.1')).toBe(1);
     expect(toTenths('2')).toBe(20);

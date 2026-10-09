@@ -6,6 +6,11 @@ name: Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      hotfix:
+        description: Hotfix (keep the live version number, add no tag)
+        type: boolean
+        default: false
 
 concurrency:
   group: test-server-deploy
@@ -54,6 +59,8 @@ jobs:
         run: |
           git fetch --force --tags --quiet origin
           node deploy/scripts/game-version-cli.ts | tee -a "$GITHUB_OUTPUT"
+        env:
+          HOTFIX: ${{ inputs.hotfix }}
       - name: Build the game client
         run: pnpm --filter @blockyrts/client build
         env:
