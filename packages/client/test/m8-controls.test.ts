@@ -89,7 +89,7 @@ const horse = sel('e:8', 'animal:own:2');
 const citadel: Selectable = { key: 'b:20', kind: 'building', owner: ME, typeKey: 'building:0:4', centre: new THREE.Vector3(0, 0, 0), halfSize: new THREE.Vector3(5, 5, 5), label: 'Citadel' };
 
 describe('cavalry (C at the Barracks; Patch 2: the Stables are cut)', () => {
-  const barracks = (horses: number): BuildingInfo => building(21, BuildingKind.Barracks, 1, { name: 'Barracks', troops: [{ troop: Troop.Cavalry, w: 1, a: 0, lock: 0 }], horses });
+  const barracks = (horses: number): BuildingInfo => building(21, BuildingKind.Barracks, 1, { name: 'Barracks', troops: [{ troop: Troop.Cavalry, w: 1, a: 0, s: 0, lock: 0 }], horses });
   // The test town's main base is a Citadel, past the cavalry's main base tier 2 (m11-troops checks that reason).
   const at = (b: BuildingInfo, pool: Array<[number, number]>) =>
     harness([{ ...sel('b:21', `building:${BuildingKind.Barracks}:1`), kind: 'building' }], `building:${BuildingKind.Barracks}:1`, game([b], pool));

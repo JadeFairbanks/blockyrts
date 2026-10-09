@@ -170,7 +170,10 @@ describe('Patch 2: the Magi Sanctum\'s cards', () => {
     expect(base.locks[Troop.Close] ?? 0).toBe(0);
     // A locked card trains its kit whatever the stock.
     expect(mageDefault(s, sanctum, School.Battle)).toEqual({ w: 3, a: 2 });
-    expect(troopDefault(s, barracks, Troop.Long)).toEqual({ w: 4, a: 1 });
+    expect(troopDefault(s, barracks, Troop.Long)).toEqual({ w: 4, a: 1, s: 0 });
+    // Close melee's padlock keeps its shield too (Patch 5): 1 + shield x 100 + weapon x 10 + armour.
+    run(s, 1, [{ kind: 'troopLock', player: 0, building: barracks.id, troop: Troop.Close, lock: 1 + 3 * 100 + 4 * 10 + 1 }]);
+    expect(troopDefault(s, barracks, Troop.Close)).toEqual({ w: 4, a: 1, s: 3 });
     // Saved and loaded: the padlocks come back, and the game is the same.
     const loaded = deserializeState(serializeState(s));
     expect(hashState(loaded)).toBe(hashState(s));

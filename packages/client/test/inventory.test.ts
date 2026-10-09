@@ -35,7 +35,7 @@ describe('slot order', () => {
     expect(new Set(INVENTORY_ORDER).size).toBe(HELD.length);
     for (const r of HELD) expect(slotRank(r.id)).toBeGreaterThanOrEqual(0);
     expect(slotRank(Res.AnyMeat)).toBe(-1);
-    expect(INVENTORY_GROUPS.map((g) => g.name)).toEqual(['Woods', 'Stone and flint', 'Ores', 'Metals', 'Foods', 'Crafting goods', 'Trinkets', 'Crystals']);
+    expect(INVENTORY_GROUPS.map((g) => g.name)).toEqual(['Woods', 'Stone and flint', 'Ores', 'Metals', 'Foods', 'Crafting goods', 'Trinkets', 'Crystals', 'Gear']);
   });
 
   it('keeps every food in the Foods group, and woods first', () => {

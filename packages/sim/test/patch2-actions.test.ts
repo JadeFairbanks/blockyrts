@@ -129,7 +129,7 @@ describe("spells on a unit always cast, but never a heal on an enemy (Jade's Pat
 });
 
 describe("Upgrade equipment (Jade's Patch 2)", () => {
-  it('gives every unit its weapon first, then armour from what is left to the highest rank, and pays as planned', () => {
+  it('gives every unit its weapon first, then armour, then a shield from what is left to the highest rank, and pays as planned', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
     const pool = s.players[0]!.pool;
@@ -138,7 +138,7 @@ describe("Upgrade equipment (Jade's Patch 2)", () => {
     const hero = addWarrior(s, 0, hx + 2 * M, hz + 12 * M, Troop.Close, 1);
     e.rank[hero] = 3;
     pool.fill(0);
-    // Two flint hand-axes (2 sticks, 1 flint each) and one leather jerkin with a wooden shield (4 leather, 3 planks).
+    // Two flint hand-axes (2 sticks, 1 flint each), one leather jerkin (3 leather) and a wooden shield (3 planks, 1 leather), its own slot from Patch 5.
     pool[Res.Sticks] = 4;
     pool[Res.Flint] = 2;
     pool[Res.Leather] = 4;
@@ -149,6 +149,8 @@ describe("Upgrade equipment (Jade's Patch 2)", () => {
     expect(pendingKitUp(s, low, Line.Armour)).toBeUndefined();
     expect(pendingKitUp(s, hero, Line.Weapon)).toMatchObject({ to: 2 });
     expect(pendingKitUp(s, hero, Line.Armour)).toMatchObject({ to: 1 });
+    expect(pendingKitUp(s, hero, Line.Shield)).toMatchObject({ to: 1 });
+    expect(pendingKitUp(s, low, Line.Shield)).toBeUndefined();
     // The weapon goes on first.
     expect(e.queue[hero]![0]).toMatchObject({ t: 'kitUp', line: Line.Weapon });
     // They sit tinkering beside the building with the bar over their heads.
@@ -157,15 +159,15 @@ describe("Upgrade equipment (Jade's Patch 2)", () => {
       s,
       () => {
         if (tinkering(s, hero) && e.order[hero] === OrderKind.Tinker && tinkerProgress(s, hero)[1] > 0) sat = true;
-        return e.wTier[low] === 2 && e.wTier[hero] === 2 && e.aTier[hero] === 1;
+        return e.wTier[low] === 2 && e.wTier[hero] === 2 && e.aTier[hero] === 1 && e.sTier[hero] === 1;
       },
       6000,
     );
     expect(sat).toBe(true);
     expect(e.aTier[low]).toBe(0);
-    expect(kitHolder(s, hero)).toMatchObject({ w: 2, a: 1 });
-    // Each cudgel (3 sticks) comes back in full when the new weapon goes on.
-    expect(pool[Res.Sticks]).toBe(6);
+    expect(kitHolder(s, hero)).toMatchObject({ w: 2, a: 1, s: 1 });
+    // Each cudgel goes to stock as an item when the new weapon goes on (Patch 5, GP-3).
+    expect([pool[Res.Sticks], pool[Res.WoodenCudgel]]).toEqual([0, 2]);
   });
 
   it('pays for nothing and says why when the stock is short', () => {

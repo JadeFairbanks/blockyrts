@@ -3,7 +3,7 @@
 // and the selection grid (patch notes 1: one picture per thing). Each weapon
 // and armour tier shows its own piece where the kit draws one; the few the
 // kit lacks borrow the nearest and say which in a tint.
-import { Troop } from '@blockyrts/sim';
+import { RANGER_KITS, Shot, Troop } from '@blockyrts/sim';
 import { kitUrl } from './kit-icons.ts';
 import { troopIconFile } from './unit-icons.ts';
 
@@ -116,6 +116,11 @@ const SHIELD: readonly Pic[] = [
 /** A shield row's picture (0: none, greyed). */
 export function shieldPic(row: number): Pic {
   return SHIELD[Math.max(0, Math.min(SHIELD.length - 1, row))]!;
+}
+
+/** A ranger's poison tips (Patch 5): poisoned arrows on a bow, poisoned bolts on a crossbow. */
+export function tipsPic(weaponTier: number): Pic {
+  return { file: RANGER_KITS[weaponTier]?.shot === Shot.Bolt ? 'icon_bolt_poison_steel' : 'icon_arrow_poison_flint' };
 }
 
 /** Wands by tier, 1 to 6: the kit's six rank wands in order (hazel to the archstaff). */
