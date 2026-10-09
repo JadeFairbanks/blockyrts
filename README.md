@@ -3596,6 +3596,67 @@ Picks in blueprint/patch5-client-ui-picks.md.*
    to a small button at the left edge over the minimap's buttons, counting
    other players' messages until opened. Bubbles stay a second longer.
 
+## How a tester checks unit and building looks (Patch 5)
+
+*Jade's Patch 5 file: every piece of gear a unit carries is drawn on it, at
+its tier (hard rule: no invisible equippable gear); shields are drawn; every
+task has its own worker clip; mages wear their robes, battle robes going blue
+to red with tier and support robes green to white, with a flaming halo on the
+top battle mage and a sparkling one on the top support mage; and every
+building looks like itself. Picks in blueprint/patch5-looks-picks.md. The
+units are drawn in `packages/client/src/world/units-view.ts`, the buildings
+in `packages/client/src/world/buildings-view.ts`, and their models placed by
+`packages/sim/src/buildings/footprints.ts`.*
+
+1. **The tests.** `pnpm test` measures every newly modelled footprint
+   against its model (`packages/tools/test/footprints.test.ts`) and builds
+   every model, each metal tier's look and each building's stages, ruins and
+   damaged look (`packages/tools/test/models.test.ts`).
+2. **Jade's bodies.** `pnpm dev`, open http://localhost:5173/?seed=1: the
+   workers, warriors and mages are Jade's improved models with her clips.
+   Each worker carries every tool of their kit: the one in use in the hand,
+   the rest on the hips and back.
+3. **Troops at every tier.** Type M N B V C X Z, press **Troop kit**, select
+   the Barracks and train each troop type at a few tiers (or press
+   **Godmode** and place each troop from the inventory grid: they come at
+   the top of their kit). Each weapon is its own model at its tier (a flint
+   spear, a bronze short sword, wrought then refined iron swords, steel and
+   high quality steel), held in the hand; a ranger's bow or crossbow is in
+   the left hand, the quiver or bolt case on the back or hip. Armour,
+   helmets and boots are worn on the body and move with it; close melee
+   troops carry their shield on the left arm, painted in the team colour.
+   Each attack, reload and block has its own clip.
+4. **Mages.** Press **Sanctum** and **Mage kit**, train a support and a
+   battle mage and upgrade their robes: each robe tier is its own look, the
+   battle robe from blue through purple to red, the support robe from green
+   to white. Every wand tier is its own model in the hand. Press **Max
+   rank**: the top battle mage wears a ring of flickering flames over the
+   head, the top support mage a ring of sparkling white and gold.
+5. **Work clips.** Send workers to chop, mine, gather, fish, butcher a
+   carcass, hoe a farm, build, relight an out torch (they carry a torch to
+   it), dig and tame: each has its own clip and the tool for it in hand
+   (a spade to dig, a rod to fish, casting then waiting). Prospecting (T)
+   shows the prospect clip with a hammer at a metal tier, and a progress bar
+   over the worker like tinkering.
+6. **Carried goods.** A worker carrying a load shows what it is, each good
+   its own model (long loads on the shoulder, the rest in the arms or one
+   hand), instead of a plain box (farm fare, with no model yet, keeps it); a worker with a hand cart pushes it ahead, and an ox or horse
+   hitched to a worker pulls an ox cart. A horse wears its tack under a rider
+   and its harness when hitched. Artillery crewmen work the rammer, ladle and
+   linstock as they load, aim and fire.
+7. **Monsters and peoples.** Monsters and peoples' units hold the weapons
+   their models come with.
+8. **Buildings.** With **Godmode**, place a Workshop, Forge, Barracks, Magi
+   Sanctum, Scholar's Lodge, Mineshaft (on flat bare stone), Barn and
+   Bonfire: each is its own model (before: the same plank house in different
+   sizes, the Barn a painted pen and the Bonfire a doubled campfire). Units
+   walk round what is drawn. Without godmode, a building being built shows its model's stage for the
+   work done (foundations, walls, roof, each with its own scaffolding);
+   at or below half health it shows its damaged look (walls and ramparts
+   crack and break instead, as the defences section says), an out torch post is drawn
+   unlit, and a building that falls leaves its ruins for 30 seconds before
+   they sink away.
+
 ## How a tester checks running, climbing and jumping (Patch 5)
 
 *Patch 5's GP-16 (Run/Walk), GP-17 (no crude stairs), GP-18 (climbing and
@@ -3637,9 +3698,8 @@ unit, in the balance editor under Units, "Running, jumping and climbing"),
    where they must. Their reach from home (what they walk in dusk's 40 s)
    counts each metre of height above or below the base as 5 m more, so a
    deep ravine or a tall hill nearby is out of their reach. Units never climb walls or buildings; monsters that climbed walls
-   before still do. A climber plays its body's climb clip: Jade's improved
-   worker, warrior and mage bodies carry one (on main once the unit looks
-   work lands); a body without one goes on with its walk.
+   before still do. A climber plays its body's climb clip (Jade's improved
+   worker, warrior and mage bodies carry one).
 5. **Jumps.** Units on foot jump rises up to 56 cm (5 terrain units; 45 cm
    before) and step up 22 cm. A horse jumps 2.5 m. Every monster jumps at
    least 1 m; the ones that already climbed keep doing so.
