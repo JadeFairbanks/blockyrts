@@ -30,7 +30,7 @@ import { askHooks, asking, foesName, say, sayBuilding } from '../peoples/speech.
 import { UnitKind, type AskInfo, type SimEvent, type SimState } from '../state.ts';
 import { Role } from '../threats/types.ts';
 import { giveOrder, stopUnit } from './behaviour.ts';
-import { chooseNode, fromBuilding, GATHER_SWITCH_M, homeOf } from './forage.ts';
+import { chooseNode, fromBuilding, fromHome, GATHER_SWITCH_M, homeOf } from './forage.ts';
 import { inFront, kitHolder, orderUpgradeEquipment, pendingKitUp, pendingLines, techOf } from './gear.ts';
 import { equipmentPlans, Line, KIT_LINES, upgradeTarget, type EquipmentHolder, type KitHolder, type TechView } from './kits.ts';
 import { topOf } from './top.ts';
@@ -770,7 +770,7 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
       const z = e.z[speaker]!;
       const h = homeOf(state, speaker);
       const max = h ? h.reach + fromBuilding(h.b, x, z) : GATHER_SWITCH_M * WU_PER_METRE;
-      const fits = h ? (px: number, pz: number): boolean => fromBuilding(h.b, px, pz) <= h.reach : undefined;
+      const fits = h ? (px: number, pz: number): boolean => fromHome(state, h.b, px, pz) <= h.reach : undefined;
       const pick = chooseNode(state, speaker, x, z, max, new Map([[o.res, 1000]]), fits);
       const name = resShort(o.res);
       if (!pick) {

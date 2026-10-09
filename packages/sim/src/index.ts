@@ -65,6 +65,7 @@ export * from './units/work-asks.ts';
 export * from './units/make-asks.ts';
 export * from './units/tools.ts';
 export * from './units/dig.ts';
+export * from './units/moves.ts';
 export * from './units/weight.ts';
 export * from './animals/species.ts';
 export * from './animals/animals.ts';

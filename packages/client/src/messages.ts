@@ -146,8 +146,13 @@ export const Task = { None: 0, Chop: 1, Mine: 2, Gather: 3, Fish: 4, Butcher: 5,
 /** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */
 export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 16, Hexed: 32 } as const;
 
-/** Bits of S.flags (OnTop: up on a tower or a main base's top, drawn there though it is inside). */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192 } as const;
+/**
+ * Bits of S.flags (OnTop: up on a tower or a main base's top, drawn there
+ * though it is inside; Climbing: a monster on a wall or one of the players'
+ * units on a face; Running: moving at its run; RunMode: its Run/Walk button
+ * is on Run).
+ */
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192, Running: 16384, RunMode: 32768 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;

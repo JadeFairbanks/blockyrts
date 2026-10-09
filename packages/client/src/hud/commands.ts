@@ -536,7 +536,14 @@ export class Commands {
       { lit: t === 'attack', double: () => this.pickOwn(PickOwn.Attack, 'Each one attacks the nearest enemy it can see.') },
     );
     const patrol = this.entry('patrol', 'Patrol', 'Then left click ground: they walk back and forth between here and there, fighting whatever they meet.', () => this.target('patrol', 'patrol'), { lit: t === 'patrol' });
-    const move = this.entry('move', 'Move', 'Then left click ground or the minimap to move there, or a unit to follow it. Right click or Esc cancels. Hold M (or Shift) to give several.', () => this.target('move', 'move'), { lit: t === 'move' });
+    const move = this.entry(
+      'move',
+      'Move',
+      'Then left click ground or the minimap to move there, or a unit to follow it. Right click or Esc cancels. Hold M (or Shift) to give several. Units on foot jump small rises and climb cliffs of earth and rock by themselves where the way needs it, at a fifth of their walking pace: workers up to 7 m, troops and mages up to 4 m. They never climb walls or buildings.',
+      () => this.target('move', 'move'),
+      { lit: t === 'move' },
+    );
+    const pace = this.paceEntry(active);
     if (active === 'worker') {
       const workers = this.workerIds();
       const carrying = workers.some((id) => {
@@ -580,13 +587,14 @@ export class Commands {
         this.eatEntry(),
         this.equipEntry(workers),
         this.cartEntry(workers),
+        pace,
       ];
     }
     if (active.startsWith('mage:')) {
       const ids = this.unitIds((u) => u.typeKey === active);
       const school = active === 'mage:battle' ? 2 : 1;
       // F is Fortify and Fireball on this card, so Eat has no key here; it is a click.
-      return [attack, patrol, move, ...schoolSpells(school).slice(0, 5).map((spell) => this.spellEntry(ids, spell)), { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids)];
+      return [attack, patrol, move, ...schoolSpells(school).slice(0, 5).map((spell) => this.spellEntry(ids, spell)), { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids), pace];
     }
     if (active === 'warrior:crew') {
       // The artillery crewman (Patch 2): siege, so no Hunt and no Upgrade equipment (it has no kit); Crew sends it to an engine, and Retrain makes it a worker (Patch 3).
@@ -603,6 +611,7 @@ export class Commands {
         ),
         this.eatEntry(),
         this.retrainEntry(),
+        pace,
       ];
     }
     const troops = this.unitIds((u) => u.typeKey === 'warrior');
@@ -619,7 +628,27 @@ export class Commands {
       ),
       this.eatEntry(),
       this.equipEntry(troops),
+      pace,
     ];
+  }
+
+  /**
+   * Run or Walk (Patch 5): every unit on foot has it, starting at Walk; it
+   * shows Run once all the selected units on foot run, and a press sets them
+   * all to the other. Cavalry and siege engines never run.
+   */
+  private paceEntry(active: string): CardEntry {
+    const units = this.unitIds((u) => u.typeKey === active)
+      .map((id) => this.d.game.unit(id))
+      .filter((u): u is UnitInfo => u !== null && u.mount === 0);
+    const running = units.length > 0 && units.every((u) => (u.flags & UnitFlag.RunMode) !== 0);
+    const face = running ? 'Run' : 'Walk';
+    const name = running ? 'Running (press to walk)' : 'Walking (press to run)';
+    const desc =
+      'Units on foot walk until told to run. Running is 40% faster than walking and costs 1 food from the stock for every 50 m each unit runs. A unit owes for every metre it runs, even if it walks for a while in between, and pays when it has run the full 50 m. With no food in the stock, runners walk until there is some. A worker pulling a cart walks. Cavalry and siege engines never run: a horse is already faster than a runner.';
+    if (units.length === 0) return this.off('pace', face, desc, 'Cavalry does not run: a horse is already faster than a runner.', name);
+    const run = running ? 0 : 1;
+    return this.entry('pace', face, desc, () => this.d.send({ kind: 'pace', player: this.d.player, units: units.map((u) => u.id), run }), { name, lit: running });
   }
 
   /** A spell button: greyed with the reason when none of the selected mages can cast it now (a cooldown only delays it). */

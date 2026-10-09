@@ -72,6 +72,7 @@ import {
   visionSources,
   workersAt,
   workSteps,
+  runsNow,
   STEPS_PER_SECOND,
   WU_PER_COLUMN,
   type Building,
@@ -166,7 +167,6 @@ function taskOf(s: SimState, i: number): number {
     case 'job':
       return order === OrderKind.Farm ? Task.Field : Task.None;
     case 'dig':
-    case 'stairs':
       return Task.Dig;
   }
   return order === OrderKind.Dig ? Task.Dig : Task.None;
@@ -204,7 +204,8 @@ function postState(s: SimState): void {
     data[o + S.tips] = e.tips[i]!;
     data[o + S.swing] = e.atkAt[i] !== 0 ? e.atkWith[i]! + 1 : 0;
     let flags = 0;
-    if (e.climbUntil[i]! > s.step) flags |= UnitFlag.Climbing;
+    if (e.climbUntil[i]! > s.step || e.onFace[i] !== 0) flags |= UnitFlag.Climbing;
+    if (e.running[i] === 1) flags |= runsNow(s, i) ? UnitFlag.RunMode | UnitFlag.Running : UnitFlag.RunMode;
     if (e.fleeing[i]) flags |= UnitFlag.Fleeing;
     if (e.slowUntil[i]! > s.step) flags |= UnitFlag.Slowed;
     if (e.heldUntil[i]! > s.step) flags |= UnitFlag.Held;

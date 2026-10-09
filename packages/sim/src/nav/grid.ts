@@ -16,10 +16,18 @@ const N = COLUMNS_PER_CHUNK;
 
 /** Rises a person walks up at full speed, in terrain units (about 22 cm, a stair step). */
 export const STEP_UNITS = 2;
-/** Rises a person jumps or clambers up, slowing for a moment (33 to 45 cm). */
+/** Rises a person jumps or clambers up, slowing for a moment (33 to 45 cm): the peoples' units and the engines; the players' units jump their own (units/moves.ts). */
 export const CLAMBER_UNITS = 4;
-/** The largest drop a person steps or jumps down (about 1 m); more is treated like a cliff. */
+/** The largest drop a person steps or jumps down (about 1 m); more is treated like a cliff, or climbed down by a climber. */
 export const DROP_UNITS = 9;
+/** Every walking monster jumps 1 m (Patch 5 MB-3: "All enemy mobs can jump at least 1m"; none jumped higher before, the big ones 67 cm, so the +0.2 m for those that did goes to none). */
+export const MOB_JUMP_UNITS = 9;
+/**
+ * Climbing a face is 5 times slower than walking (Patch 5 GP-18): a path
+ * weighs each terrain unit (11.25 cm) climbed, up or down, as 5 times the
+ * walk across it, a column's walk (45 cm) being 10.
+ */
+export const CLIMB_COST_PER_UNIT = 12;
 /** Water up to about waist height is waded (1 m, 9 terrain units). */
 export const WADE_UNITS = 9;
 /** A swimmer floats with the water surface this far above its feet's level, so it can climb out on a bank of about that height. */
@@ -74,16 +82,24 @@ export interface Mover {
   climbs?: boolean;
   /** Wheels (carts) take no clamber or drop: only steps and ramps (Inventory and carrying weight: carts). */
   wheels?: boolean;
-  /** Big creatures step and jump higher (Moving over the land: "scale with size"): the largest rise they jump, terrain units. */
+  /** The largest rise it jumps, terrain units (CLAMBER_UNITS when absent). */
   clamber?: number;
+  /** The largest drop it jumps down, terrain units (DROP_UNITS when absent). */
+  drop?: number;
+  /**
+   * The highest face of land or rock it climbs, up or down, slowly, where it
+   * cannot jump (Patch 5 GP-18), terrain units; 0 or absent for none. Walls
+   * and buildings are never climbed this way: they block their columns.
+   */
+  climb?: number;
 }
 
-/** The players' units. */
+/** A person who neither climbs nor jumps farther than a clamber: the peoples' units, the engines; the players' units go by units/moves.ts. */
 export const PERSON: Mover = { id: 0, canSwim: true, passGates: true };
-/** A walker that cannot swim or pass gates: closed regions (claimed land) and walking monsters. */
+/** A walker that cannot swim or pass gates: wild animals, and where things may stand. */
 export const WALKER: Mover = { id: 1, canSwim: false };
 /** Monsters planning a route: buildings are weighed as break costs, not walls. */
-export const MOB_PLAN: Mover = { id: 2, canSwim: false, ignoreBuildings: true };
+export const MOB_PLAN: Mover = { id: 2, canSwim: false, ignoreBuildings: true, clamber: MOB_JUMP_UNITS };
 /** Climbing monsters planning a route. */
 export const CLIMBER_PLAN: Mover = { id: 3, canSwim: false, ignoreBuildings: true, climbs: true };
 /** Climbing monsters on the ground (walls are climbed by their own rule). */
@@ -94,8 +110,8 @@ export const PERSON_ARMOURED: Mover = { id: 5, canSwim: false, passGates: true }
 export const WHEELS: Mover = { id: 6, canSwim: false, passGates: true, wheels: true };
 /** Wild crocodiles and crabs: walkers that also swim. */
 export const SWIMMER: Mover = { id: 7, canSwim: true };
-/** Monsters 2.5 m tall and up on the ground: they jump rises of up to 6 units (67 cm) (s). */
-export const BIG_WALKER: Mover = { id: 8, canSwim: false, clamber: 6 };
+/** Walking monsters on the ground, and closed regions (claimed land): what a monster can jump up to, 1 m (MB-3). */
+export const MOB_WALKER: Mover = { id: 8, canSwim: false, clamber: MOB_JUMP_UNITS };
 
 interface NavChunk {
   version: number;
@@ -235,7 +251,10 @@ export class NavGrid {
     const from = this.levelOf(ax, az, la);
     const to = this.levelOf(bx, bz, lb);
     const rise = to - from;
-    if (!m.climbs && (rise > (m.clamber ?? CLAMBER_UNITS) || rise < -DROP_UNITS)) return null;
+    if (!m.climbs) {
+      const climb = m.climb ?? 0;
+      if (rise > Math.max(m.clamber ?? CLAMBER_UNITS, climb) || rise < -Math.max(m.drop ?? DROP_UNITS, climb)) return null;
+    }
     if (m.wheels && (rise > STEP_UNITS || rise < -STEP_UNITS)) return null;
     // Under a roof, a person needs headroom above the higher of the two floors.
     const high = Math.max(from, to);
@@ -258,24 +277,63 @@ export class NavGrid {
     return Math.abs(under) < Math.abs(top) ? UNDER : TOP;
   }
 
+  /** Whether a rise (or, negative, a drop) is one the mover climbs, slowly on the face, rather than steps or jumps (Patch 5 GP-18). */
+  climbs(rise: number, m: Mover): boolean {
+    return !m.climbs && (rise > (m.clamber ?? CLAMBER_UNITS) || rise < -(m.drop ?? DROP_UNITS));
+  }
+
+  /** Whether a straight step beside a diagonal one is open without a climb (a diagonal step never cuts the corner of a face it would have to climb). */
+  private side(ax: number, az: number, la: number, bx: number, bz: number, m: Mover): boolean {
+    const lb = this.layerTo(ax, az, la, bx, bz, m);
+    return lb >= 0 && !this.climbs(this.levelOf(bx, bz, lb) - this.levelOf(ax, az, la), m);
+  }
+
   /**
    * The cost of stepping from walk level la of column (ax, az) to its
    * neighbour (bx, bz), or -1 if the step is not allowed: 10 straight, 14
-   * diagonal, +10 for a clamber, doubled in water. A diagonal step also needs
-   * both straight steps beside it to be open, so units never cut a corner.
+   * diagonal, +10 for a clamber, doubled in water, and for a climb up or
+   * down a face CLIMB_COST_PER_UNIT a terrain unit. A diagonal step also
+   * needs both straight steps beside it to be open, so units never cut a
+   * corner; a climb is only ever straight, onto the face in front.
    */
   stepCostFrom(ax: number, az: number, la: number, bx: number, bz: number, m: Mover): number {
     const lb = this.layerTo(ax, az, la, bx, bz, m);
     if (lb < 0) return -1;
     const rise = this.rise(ax, az, la, bx, bz, lb, m)!;
     const diagonal = ax !== bx && az !== bz;
-    if (diagonal && (this.layerTo(ax, az, la, bx, az, m) < 0 || this.layerTo(ax, az, la, ax, bz, m) < 0)) return -1;
+    const climb = this.climbs(rise, m);
+    if (diagonal && (climb || !this.side(ax, az, la, bx, az, m) || !this.side(ax, az, la, ax, bz, m))) return -1;
     let cost = diagonal ? 14 : 10;
-    if (rise > STEP_UNITS) cost += 10;
-    // Climbing is slow: each terrain unit above a clamber costs a little more.
-    if (rise > CLAMBER_UNITS) cost += (rise - CLAMBER_UNITS) * 4;
+    if (climb) cost += Math.abs(rise) * CLIMB_COST_PER_UNIT;
+    else {
+      if (rise > STEP_UNITS) cost += 10;
+      // A climbing monster going up a rise past a clamber: each terrain unit above it costs a little more.
+      if (m.climbs && rise > CLAMBER_UNITS) cost += (rise - CLAMBER_UNITS) * 4;
+    }
     if (lb === TOP && this.flags(bx, bz) & (Walk.Wade | Walk.Deep)) cost *= 2;
     return cost;
+  }
+
+  /** Whether stepping from walk level la of (ax, az) onto its neighbour (bx, bz) is a climb up or down a face for the mover (and the step is allowed at all). */
+  climbFrom(ax: number, az: number, la: number, bx: number, bz: number, m: Mover): boolean {
+    const lb = this.layerTo(ax, az, la, bx, bz, m);
+    return lb >= 0 && this.climbs(this.levelOf(bx, bz, lb) - this.levelOf(ax, az, la), m);
+  }
+
+  /** climbFrom for a unit standing at height y (terrain units) on (ax, az). */
+  climbStep(ax: number, az: number, bx: number, bz: number, m: Mover, y: number): boolean {
+    return this.climbFrom(ax, az, this.layerAt(ax, az, y), bx, bz, m);
+  }
+
+  /**
+   * stepCost for a move made in one go, without a climb (a chase's last
+   * stretch, a slide round a corner, a push): -1 where the step is not
+   * allowed or would need a climb.
+   */
+  hopCost(ax: number, az: number, bx: number, bz: number, m: Mover, y?: number): number {
+    const la = y === undefined ? TOP : this.layerAt(ax, az, y);
+    if (this.climbFrom(ax, az, la, bx, bz, m)) return -1;
+    return this.stepCostFrom(ax, az, la, bx, bz, m);
   }
 
   /**

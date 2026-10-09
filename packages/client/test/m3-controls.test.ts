@@ -123,10 +123,11 @@ describe('the warrior card', () => {
   it("has only Jade's Patch 2 buttons: Attack, Patrol, Move, Hunt, Eat and Upgrade equipment", () => {
     const { c } = harness(game(), warriors, 'warrior');
     const card = c.card();
-    expect(card.map((e) => e.action)).toEqual(['attack', 'patrol', 'move', 'hunt', 'eat', 'equip']);
-    expect(card.map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Hunt', 'Eat', 'Equip']);
+    // Patch 5's Run/Walk last.
+    expect(card.map((e) => e.action)).toEqual(['attack', 'patrol', 'move', 'hunt', 'eat', 'equip', 'pace']);
+    expect(card.map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Hunt', 'Eat', 'Equip', 'Walk']);
     expect(card.slice(0, 4).every((e) => e.enabled)).toBe(true);
-    expect(card.map((e) => e.key)).toEqual(['KeyA', 'KeyP', 'KeyM', 'KeyN', 'KeyF', 'KeyQ']);
+    expect(card.map((e) => e.key)).toEqual(['KeyA', 'KeyP', 'KeyM', 'KeyN', 'KeyF', 'KeyQ', 'KeyH']);
     // Stop, Hold, Enter, the lock, Cannon crew and the two upgrades and their Max twins are gone [before Patch 2 they were all here].
     for (const gone of ['stop', 'hold', 'enter', 'lock', 'train', 'upgradeWeapon', 'upgradeArmour', 'upgradeWeaponMax', 'upgradeArmourMax']) expect(button(card, gone)).toBeUndefined();
     // The next weapon, and what it costs: weapons come first.

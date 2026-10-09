@@ -285,6 +285,14 @@ export interface TroopLockOrder {
   lock: number;
 }
 
+/** Run/Walk (Patch 5 GP-16): run 1 sets the units on foot to Run, 0 to Walk. */
+export interface PaceOrder {
+  kind: 'pace';
+  player: number;
+  units: number[];
+  run: number;
+}
+
 /** The lock (Warriors): 0 switches by itself, 1 melee only, 2 ranged only. */
 export interface LockOrder {
   kind: 'lock';
@@ -662,6 +670,7 @@ export type Order =
   | CartOrder
   | TroopLockOrder
   | LockOrder
+  | PaceOrder
   | DigOrder
   | WallStretchOrder
   | TunnelStretchOrder
@@ -763,6 +772,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   cart: ['back'],
   troopLock: ['building', 'troop', 'lock'],
   lock: ['lock'],
+  pace: ['run'],
   dig: ['x0', 'z0', 'x1', 'z1', 'level', 'level2', 'tunnel'],
   wallStretch: ['building', 'x', 'z', 'dir', 'length', 'skip'],
   tunnelStretch: ['x', 'z', 'dir', 'length', 'level', 'level2'],
@@ -801,7 +811,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   greyed: ['what', 'id', 'building'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'debugKill']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'debugKill']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -861,6 +871,9 @@ export function validateOrder(o: Order): void {
       return;
     case 'cart':
       if (o.back !== 0 && o.back !== 1) throw new Error('bad cart order');
+      return;
+    case 'pace':
+      if (o.run !== 0 && o.run !== 1) throw new Error('bad Run/Walk order');
       return;
     case 'troopLock':
       if (o.troop < 1 || o.troop > 7 || o.lock < 0 || o.lock > 89) throw new Error('bad troop lock');
