@@ -369,6 +369,8 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   'SPELLS:shot',
   // The peoples' gear is fixed rows of the gear catalogue (Troops and gear), not numbers to tune here.
   'PEOPLE_UNITS:weapon', 'PEOPLE_UNITS:ranged', 'PEOPLE_UNITS:armour', 'PEOPLE_UNITS:shield',
+  // Patch 7: which piece a trophy is, and which special effect a looted piece carries, are links, not numbers.
+  'BUILDINGS:item', 'LOOT_KITS:effect',
   // A kit row's tier is its place in the table, and its material tier follows from it (a shield's from the armour it comes with).
   'need', 'TIER_NEEDS:tier', 'TOOL_KITS:tier', 'CLOSE_KITS:tier', 'LONG_KITS:tier', 'RANGER_KITS:tier', 'BRAWLER_KIT:tier', 'ARMOUR_KITS:tier',
   'SHIELD_KITS:tier', 'WAND_KITS:tier', 'ROBE_KITS:tier',
