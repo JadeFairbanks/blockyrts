@@ -95,14 +95,14 @@ function freeSpot(s: SimState, kind: number): [number, number] {
   throw new Error('no free spot');
 }
 
-/** The nearest prop of a kind to the first worker, as the gather order addresses it. */
-function nearestProp(s: SimState, kind: number): { cx: number; cz: number; index: number } {
+/** The nearest prop of a kind to the first worker within `reach` columns, as the gather order addresses it. */
+function nearestProp(s: SimState, kind: number, reach = 200): { cx: number; cz: number; index: number } {
   const x = col(s.entities.x[0]!);
   const z = col(s.entities.z[0]!);
   let best: { cx: number; cz: number; index: number } | null = null;
   let bestD = Infinity;
-  for (let cz = (z - 200) >> CHUNK_SHIFT; cz <= (z + 200) >> CHUNK_SHIFT; cz++) {
-    for (let cx = (x - 200) >> CHUNK_SHIFT; cx <= (x + 200) >> CHUNK_SHIFT; cx++) {
+  for (let cz = (z - reach) >> CHUNK_SHIFT; cz <= (z + reach) >> CHUNK_SHIFT; cz++) {
+    for (let cx = (x - reach) >> CHUNK_SHIFT; cx <= (x + reach) >> CHUNK_SHIFT; cx++) {
       for (const p of s.world.props(cx, cz, s.step)) {
         if (p.kind !== kind || p.amount <= 0) continue;
         const d = ((cx << CHUNK_SHIFT) + p.lx - x) ** 2 + ((cz << CHUNK_SHIFT) + p.lz - z) ** 2;
@@ -218,7 +218,8 @@ describe('early tools by job', () => {
     const e = s.entities;
     e.toolBreak[0] = MAUL;
     e.toolBuild[0] = HAMMER;
-    const birch = nearestProp(s, PropKind.Birch);
+    // Birch grows in the Fringe, 155 to 175 m out since Patch 5 (WL-8).
+    const birch = nearestProp(s, PropKind.Birch, 480);
     expect(texts(s, 3, [{ kind: 'gather', player: 0, units: [e.id[0]!], ...birch }])).toContain('Birch: needs a flint axe or better.');
     e.toolChop[0] = FLINT;
     run(s, 1, [{ kind: 'gather', player: 0, units: [e.id[0]!], ...birch }]);

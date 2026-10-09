@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addWarrior,
   ARMOUR_KITS,
   Blocked,
   BuildingKind,
+  CLOSE_GEAR,
   CLOSE_KITS,
   createWorld,
+  gearSpec,
   giveWaveGear,
   Line,
   LONG_KITS,
+  OBSIDIAN_AXE_GEAR,
   piecesCost,
   pieceSteps,
   placeBuilding,
@@ -26,6 +30,7 @@ import {
   trainSteps,
   Troop,
   troopProduct,
+  UnitKind,
   upgradeSteps,
   upgradeTarget,
   waveGearTier,
@@ -160,6 +165,46 @@ describe('gear as items (GP-1, GP-3)', () => {
     const plan = planPieces(bow, pool)!;
     expect(plan.cost).toEqual([[Res.Obsidian, 1], [Res.Feathers, 1], [Res.HardwoodLumber, 3], [Res.SpiderSilk, 1]]);
     expect(piecesCost(bow, plan.ways)).toEqual(plan.cost);
+  });
+});
+
+describe('the obsidian hand-axe', () => {
+  it('goes on as itself with the bronze shortsword\'s numbers, stays through other upgrades, goes back to stock as itself, and a troop trained with one holds it', () => {
+    const s = createWorld(1, { peaceful: true });
+    const e = s.entities;
+    const pool = s.players[0]!.pool;
+    const w = [...Array(e.count).keys()].find((j) => e.owner[j] === 0 && e.kind[j] === UnitKind.Worker)!;
+    const i = addWarrior(s, 0, e.x[w]!, e.z[w]!, Troop.Close, 1);
+    const until = (done: () => boolean): void => {
+      for (let k = 0; k < 200 * SEC && !done(); k++) step(s);
+      expect(done()).toBe(true);
+    };
+    pool[Res.ObsidianHandAxe] = 1;
+    run(s, 1, [{ kind: 'equip', player: 0, units: [e.id[i]!], res: Res.ObsidianHandAxe }]);
+    until(() => e.wTier[i] === 4);
+    expect(e.weapon[i]).toBe(OBSIDIAN_AXE_GEAR);
+    expect(gearSpec(OBSIDIAN_AXE_GEAR)).toMatchObject({ name: 'Obsidian hand-axe', tier: 4, melee: gearSpec(CLOSE_GEAR[4]!).melee });
+    // New armour leaves the axe in hand.
+    const jerkin = ARMOUR_KITS[2]!.items[0]!;
+    pool[jerkin] = 1;
+    run(s, 1, [{ kind: 'equip', player: 0, units: [e.id[i]!], res: jerkin }]);
+    until(() => e.aTier[i] === 2);
+    expect(e.weapon[i]).toBe(OBSIDIAN_AXE_GEAR);
+    // A better sword sends it back to stock as itself, not as a bronze shortsword.
+    pool[Res.SteelSideSword] = 1;
+    run(s, 1, [{ kind: 'equip', player: 0, units: [e.id[i]!], res: Res.SteelSideSword }]);
+    until(() => e.wTier[i] === 7);
+    expect(e.weapon[i]).toBe(CLOSE_GEAR[7]);
+    expect([pool[Res.ObsidianHandAxe], pool[Res.BronzeShortsword]]).toEqual([1, 0]);
+    // Trained with it, a new troop holds it too.
+    pool[Res.Venison] = 200;
+    const barracks = built(s, BuildingKind.Barracks);
+    const first = s.nextEntityId;
+    run(s, 1, [{ kind: 'produce', player: 0, building: barracks.id, product: troopProduct(Troop.Close, 4, 0), count: 1 }]);
+    expect(pool[Res.ObsidianHandAxe]).toBe(0);
+    const trained = (): number => [...Array(e.count).keys()].findIndex((j) => e.id[j]! >= first && e.kind[j] === UnitKind.Warrior);
+    until(() => trained() >= 0);
+    expect([e.wTier[trained()], e.weapon[trained()]]).toEqual([4, OBSIDIAN_AXE_GEAR]);
   });
 });
 

@@ -56,6 +56,7 @@ import { CHUNK_M, COLUMN_M, UNIT_M, type MeshArrays } from './mesher.ts';
 import { CUBE_STRIDE } from './props-gen.ts';
 import { propDetails, propLabel } from './plant-text.ts';
 import { BuildingsView } from './buildings-view.ts';
+import { TavernView } from './tavern-view.ts';
 import { UnitsView } from './units-view.ts';
 import { PortraitView } from './portrait-view.ts';
 import { LootView } from './loot-view.ts';
@@ -244,6 +245,8 @@ export class WorldView {
   private viewRing = QUARTER_DETAIL_RING;
   private shadows = false;
   readonly buildings: BuildingsView;
+  /** The Tavern's lit windows, smoke and bar (Patch 5). */
+  private readonly taverns: TavernView;
   readonly overlay: Overlay;
   private game: GameInfo | null = null;
   /** Unit keys inside buildings this step (not drawn, not selectable). */
@@ -295,6 +298,7 @@ export class WorldView {
     this.unitsView = new UnitsView(scene, this.fow);
     this.outlines = new HiddenOutlines(scene, this.unitsView, this.colours[this.player] ?? NEUTRAL_COLOUR);
     this.buildings = new BuildingsView(scene, this.fow, this.colours);
+    this.taverns = new TavernView(scene);
     this.portrait = new PortraitView(this.colours, NEUTRAL_COLOUR);
     this.overlay = new Overlay(scene);
     this.lootView = new LootView(scene);
@@ -414,8 +418,9 @@ export class WorldView {
         u.details = details;
       } else if (kind === UnitKind.Warrior) {
         const troop = d[o + S.troop]!;
-        // The artillery crewman (Patch 2) is its own type: its own card and subgroup, never upgraded or sent hunting.
-        u.typeKey = troop === Troop.Crew ? 'warrior:crew' : 'warrior';
+        // The artillery crewman (Patch 2) is its own type: its own card and subgroup, never upgraded or sent hunting; so is the Dreadnought (Patch 5).
+        const dread = troop === Troop.Dreadnought;
+        u.typeKey = troop === Troop.Crew ? 'warrior:crew' : dread ? 'warrior:dreadnought' : 'warrior';
         // A double click's types (Jade's Patch 5, CT-5): cavalry (anyone mounted), close melee, long melee, and every other kind its own.
         u.clickType = d[o + S.mount] !== Mount.None || troop === Troop.Cavalry ? 'warrior:cavalry' : `warrior:${troop}`;
         u.label = this.title(d, o, kind);
@@ -424,13 +429,16 @@ export class WorldView {
         const tips = d[o + S.tips] ? 'poison tips' : '';
         const gear = [gearName(d[o + S.ranged]!), tips, weapon, gearName(d[o + S.shield]!), gearName(d[o + S.armour]!) || 'no armour'].filter((x) => x);
         const shield = troop === Troop.Close ? `, shield tier ${d[o + S.sTier]}` : '';
-        const details = [health, `${capital(gear.map((x) => x.toLowerCase()).join(', '))}.`, `Weapon tier ${d[o + S.wTier]}, armour tier ${d[o + S.aTier]}${shield}.`];
+        // The Dreadnought's mace and plate are his own, with no tiers (Patch 5).
+        const details = [health, `${capital(gear.map((x) => x.toLowerCase()).join(', '))}.`, dread ? 'A smash, then a sweep at everything in front of him, every 3 s.' : `Weapon tier ${d[o + S.wTier]}, armour tier ${d[o + S.aTier]}${shield}.`];
         this.lootLine(details, id);
         const up = upgradeText(d, o, 'warrior');
         if (up) details.push(up);
         const mount = d[o + S.mount]!;
         if (mount !== Mount.None) details.push(`Riding a ${mountSpec(mount).name.toLowerCase()} (health ${d[o + S.mountHp]} / ${d[o + S.mountMax]}).`);
-        u.halfSize.set(mount !== Mount.None ? 0.6 : 0.3, mount !== Mount.None ? 1.3 : 0.85, mount !== Mount.None ? 0.6 : 0.3);
+        // A rider is as tall as his mount and him; the Dreadnought stands 2.5 m (Patch 5).
+        if (dread) u.halfSize.set(0.5, 1.25, 0.5);
+        else u.halfSize.set(mount !== Mount.None ? 0.6 : 0.3, mount !== Mount.None ? 1.3 : 0.85, mount !== Mount.None ? 0.6 : 0.3);
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
           details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
@@ -656,6 +664,7 @@ export class WorldView {
     this.lootView.update(now);
     this.updateSky();
     if (this.game) this.buildings.update(this.game, now, focus);
+    if (this.game) this.taverns.update(this.game, now, focus, this.buildings.darkness);
     const fcx = Math.floor(focus.x / CHUNK_M);
     const fcz = Math.floor(focus.z / CHUNK_M);
     if (fcx !== this.focusChunk.cx || fcz !== this.focusChunk.cz) {

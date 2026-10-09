@@ -119,13 +119,12 @@ TRINKET_METALS.forEach((metal, m) =>
 // Moonleaf is made of silver and emeralds, Sunheart of gold and rubies.
 set(Res.Moonleaf, 'trinket_moonleaf_silver');
 set(Res.Sunheart, 'trinket_sunheart_gold');
-// Patch 5's Stone Circle goods borrow marble's and the herbs' pictures, tinted, until icons of their own are made.
-set(Res.Bluestone, 'marble', { tint: 'sepia(1) hue-rotate(170deg) saturate(2.4) brightness(0.85)' });
-set(Res.MoonRose, 'medicinal_herbs', { tint: 'sepia(1) hue-rotate(230deg) saturate(1.6) brightness(1.25)' });
-// Patch 5: obsidian borrows flint's picture, darkened; the satyrs' hand-axe the flint war axe's.
-const OBSIDIAN = 'brightness(0.45) saturate(0.3) contrast(1.4)';
-set(Res.Obsidian, 'flint', { tint: OBSIDIAN });
-set(Res.ObsidianHandAxe, 'axe_war_flint', { tint: OBSIDIAN });
+// Patch 5's Stone Circle goods and the satyrs' hand-axe, each its own picture (the icon batch).
+set(Res.Bluestone, 'bluestone');
+set(Res.MoonRose, 'moon_rose');
+set(Res.ObsidianHandAxe, 'axe_hand_obsidian');
+// Patch 5: obsidian borrows flint's picture, darkened.
+set(Res.Obsidian, 'flint', { tint: 'brightness(0.45) saturate(0.3) contrast(1.4)' });
 set(Res.PoisonTips, 'arrow_poison_flint');
 // Patch 5 (Jade's GP-1): weapons, armour, shields, tools, wands and robes are goods in the stock, each with the picture its slot shows.
 const KIT_PICS: ReadonlyArray<readonly [readonly Piece[], (tier: number) => Pic]> = [
@@ -148,6 +147,11 @@ for (const [table, picOf] of KIT_PICS) {
     }
   }
 }
+// Jade's Patch 5 wild foods (GP-30, GP-31).
+set(Res.BlackBerries, 'black_berries');
+set(Res.Raspberries, 'raspberries');
+set(Res.Blueberries, 'blueberries');
+set(Res.Mushrooms, 'mushrooms');
 
 /** A good's icon. */
 export function goodIcon(res: number): GoodIcon | undefined {
@@ -161,12 +165,13 @@ export const SUPPLY_ICON = 'icon_supply';
 // Only the icons above go into the build, each as its own file fetched when a slot first shows it.
 const URLS = import.meta.glob<string>(
   [
-    '../../../assets/src/ui/icon_{softwood_lumber,hardwood_lumber,hardwood_sticks,planks,resin,medicinal_herbs,stone,flint,marble,earth,clay,sand,coal,charcoal}.png',
+    '../../../assets/src/ui/icon_{softwood_lumber,hardwood_lumber,hardwood_sticks,planks,resin,medicinal_herbs,moon_rose,stone,flint,marble,bluestone,earth,clay,sand,coal,charcoal}.png',
     '../../../assets/src/ui/icon_{copper_ore,tin_ore,bog_iron,iron_rock,vein_iron_ore,lead_ore,saltpetre,sulphur,silver,gold,emerald,ruby,diamond,hexstone,mana_crystal}.png',
     '../../../assets/src/ui/icon_ingot_{copper,tin,bronze,pig_iron,iron_refined,iron_wrought,steel,carbon_steel}.png',
     '../../../assets/src/ui/icon_meat_{venison,boar,hare,goose,pheasant,beef,chicken,horse,wolf,lynx,badger,bear,frog,crab,crocodile,griffin,minotaur,rat}.png',
     '../../../assets/src/ui/icon_fish{,_salmon,_catfish}.png',
     '../../../assets/src/ui/icon_{eggs,farm_fare,bandage,healing_remedy}.png',
+    '../../../assets/src/ui/icon_{black_berries,raspberries,blueberries,mushrooms}.png',
     '../../../assets/src/ui/icon_{hides,leather,hardened_leather,flax,rope,feathers,bone,spider_silk,venom,demon_horn,bricks,glass,gunpowder}.png',
     '../../../assets/src/ui/icon_{hand_cart,ox_cart,food,supply}.png',
     '../../../assets/src/ui/icon_trinket_{token,charm,brooch,heirloom}_{copper,tin,bronze,iron,steel,silver,gold}.png',

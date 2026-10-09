@@ -6,15 +6,24 @@
 // a full load goes to the nearest drop-off and the worker comes back to the
 // dig (Patch 4; before it, every bite went straight to the pool). Patch 5
 // took out the earthworks (banks, fill and ramps heaped from the pool). A
-// tunnel chain's stretch is a line of columns instead of a box.
+// tunnel chain's stretch is a line of columns instead of a box. Jade's Patch
+// 5 (GP-4): a dig can be drawn upwards from the ground clicked, to level a
+// hill or a mountain; diggers take the high points first and spread over
+// the area a layer at a time rather than finishing one column after
+// another; and they reach material up to 2 m over their heads. BL-2: a bite
+// takes a tenth of its Table 10 time. BG-6: a tunnel is dug from its face
+// inwards, so workers coming back from the far side of a hill go round to the
+// face rather than to whichever end of the tunnel is nearest.
 
 import { stretchBetween, stretchCells, stretchEnd, TUNNEL_WIDTH_COLUMNS } from '../buildings/chains.ts';
 import { Res } from '../economy/resources.ts';
-import { floorDiv, headingTowards, length2d, WU_PER_COLUMN } from '../fixed.ts';
-import { NO_CARRY, OrderKind, SiteKind, tunnelSite, UnitKind, type Loot, type SimState, type Site } from '../state.ts';
+import { floorDiv, headingTowards, length2d, WU_PER_COLUMN, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
+import { NO_CARRY, OrderKind, SiteKind, tunnelSite, UnitKind, WILD, type Loot, type SimState, type Site } from '../state.ts';
 import { DigClass, Mat, MATERIALS } from '../world/materials.ts';
 import { Tool, ToolJob } from '../world/props.ts';
-import { DIG_LIMIT_UNITS } from '../world/world.ts';
+import { digFloor } from '../world/world.ts';
+import { NO_FLOOR } from '../nav/grid.ts';
+import type { Goal } from '../nav/path.ts';
 import { Act, ARRIVED, columnCentre, FAILED, MOVING, resetWalk, toDropoff, walkTo } from './behaviour.ts';
 import { bagRoom } from './loot.ts';
 import { Work, workXp } from './ranks.ts';
@@ -30,10 +39,27 @@ const RATES: Record<number, readonly number[]> = {
 };
 /** One bite: a column 11.25 cm deep, 0.0228 m3, as millionths of a cubic metre (Table 10 (s)). */
 const BITE_MICRO_M3 = 22781;
+/** Jade's Patch 5 (BL-2): "Make digging 10X faster": a bite takes a tenth of its Table 10 time (the walks to the drop-off are as long as before). */
+export const DIG_SPEED_TIMES = 10;
 /** A worker reaches columns up to 4 away (1.8 m) from where it stands (s). */
 const REACH_COLUMNS = 4;
+/**
+ * Jade's Patch 5 (GP-4): "builders can dig material that is up to 2M above
+ * them, if it is above their head level": a bite's top at most 34 units
+ * above the digger's feet, 2 m over the head of a worker 1.8 m tall (s).
+ * Below head height a dig keeps its reach, REACH_COLUMNS to the side.
+ */
+export const REACH_UP_UNITS = 34;
+/** A digger takes its column down to this many units below the highest bite left on the site before it moves on (GP-4: high points first, spread over the area): 3 units, 34 cm (s). */
+export const SPREAD_UNITS = 3;
+/** A digger that cannot reach a column this many times in a row leaves the dig and says so (s). */
+const MISS_LIMIT = 6;
 /** A tunnel's worker stands within 9 units (1 m) above or below its floor (s). */
 const TUNNEL_REACH_UNITS = 9;
+/** A digger with no column free (the others have a tunnel's face) looks again after this many steps, 1 s (s). */
+const DIG_WAIT_STEPS = 20;
+/** The four sides of a column. */
+const SIDES: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 /** A box is at most 64 columns (29 m) a side, so one order stays a sensible size. */
 export const SITE_MAX_COLUMNS = 64;
 
@@ -45,9 +71,9 @@ export function digRate(tool: number, mat: number): number {
   return RATES[info.dig]![tool] ?? 0;
 }
 
-/** Steps a bite takes at a rate, with the bite's own size (750 to 1250 per mille). */
+/** Steps a bite takes at a rate, with the bite's own size (750 to 1250 per mille), DIG_SPEED_TIMES faster than Table 10 (Patch 5, BL-2). */
 export function biteSteps(rate: number, sizePm: number): number {
-  return Math.max(1, floorDiv(BITE_MICRO_M3 * 1200 * sizePm, rate * 1000 * 1000));
+  return Math.max(1, floorDiv(BITE_MICRO_M3 * 1200 * sizePm, rate * 1000 * 1000 * DIG_SPEED_TIMES));
 }
 
 /** The resource carving a material gives. */
@@ -77,17 +103,17 @@ function yieldOf(mat: number): number {
   }
 }
 
-/** The material and its bottom of the solid unit a dig takes next from a column, or null when it is done. */
+/** The material and its bottom of the solid unit a dig takes next from a column, or null when it is done: off the top of a dig down; the highest between the floor and the roof of a tunnel or a dig drawn upwards. */
 function nextBite(state: SimState, s: Site, x: number, z: number): { mat: number; y: number } | null {
   const w = state.world;
   const layers = w.columnAt(x, z);
-  const limit = Math.min(0, w.naturalTop(x, z)) - DIG_LIMIT_UNITS;
+  const limit = digFloor(w.naturalTop(x, z));
   if (s.kind === SiteKind.Dig) {
     const top = layers[layers.length - 2]!;
     if (top <= s.level || top - 1 < limit) return null;
     return { mat: layers[layers.length - 1]!, y: top - 1 };
   }
-  // A tunnel: the highest solid unit between its floor and roof.
+  // A tunnel, or a dig drawn upwards: the highest solid unit between its floor and roof.
   for (let k = layers.length - 3; k >= 0; k -= 3) {
     const y0 = layers[k]!;
     const y1 = layers[k + 1]!;
@@ -110,11 +136,46 @@ function needsWork(state: SimState, s: Site, x: number, z: number): boolean {
   return nextBite(state, s, x, z) !== null;
 }
 
-function occupied(state: SimState, x: number, z: number, except: number): boolean {
+/** Whether a digger's column still has work for it within its layer (GP-4: down to `band`, then another column). */
+function inBand(state: SimState, s: Site, x: number, z: number, band: number): boolean {
+  if (state.buildings.footprintAt(x, z) !== 0) return false;
+  const bite = nextBite(state, s, x, z);
+  return bite !== null && bite.y >= band;
+}
+
+/** Whether unit j stands on a bite of column (x, z) whose top is `top` (its feet within 2 units of it): one on the hill over a tunnel, or under an overhang, does not (BG-6). */
+function standsOn(state: SimState, j: number, x: number, z: number, top: number): boolean {
+  const e = state.entities;
+  if (e.inside[j] !== 0 || floorDiv(e.x[j]!, WU_PER_COLUMN) !== x || floorDiv(e.z[j]!, WU_PER_COLUMN) !== z) return false;
+  return Math.abs(floorDiv(e.y[j]!, WU_PER_TERRAIN_UNIT) - top) <= 2;
+}
+
+/**
+ * Whether someone stands on the bite, so the digger waits for them to move.
+ * A wild animal does not count: one that wandered into a pit may never walk
+ * out, so the ground under it is dug and it drops with the floor (s).
+ */
+function occupied(state: SimState, x: number, z: number, top: number, except: number): boolean {
   const e = state.entities;
   for (let j = 0; j < e.count; j++) {
-    if (j === except || e.inside[j] !== 0) continue;
-    if (floorDiv(e.x[j]!, WU_PER_COLUMN) === x && floorDiv(e.z[j]!, WU_PER_COLUMN) === z) return true;
+    if (j === except || (e.kind[j] === UnitKind.Animal && e.owner[j] === WILD)) continue;
+    if (standsOn(state, j, x, z, top)) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether a tunnel's column is at its face: beside a column a worker can
+ * stand in near the tunnel's floor (the open ground in front, or tunnel
+ * already dug). A tunnel is dug from the face inwards (BG-6), never from the
+ * inside of the hill out.
+ */
+function atFace(state: SimState, s: Site, x: number, z: number): boolean {
+  const nav = state.nav;
+  for (const [dx, dz] of SIDES) {
+    if (Math.abs(nav.level(x + dx, z + dz) - s.level) <= TUNNEL_REACH_UNITS) return true;
+    const under = nav.under(x + dx, z + dz);
+    if (under !== NO_FLOOR && Math.abs(under - s.level) <= TUNNEL_REACH_UNITS) return true;
   }
   return false;
 }
@@ -130,48 +191,75 @@ export function siteCells(s: Site): Array<[number, number]> {
   return out;
 }
 
-/** Columns other diggers on the same site are working now. */
+/** The key of a column in a set of columns. */
+function columnKey(x: number, z: number): number {
+  return z * 0x100000 + x;
+}
+
+/** Columns other diggers on the same site are working now, or on their way to. */
 function taken(state: SimState, site: number, except: number): Set<number> {
   const e = state.entities;
   const out = new Set<number>();
   for (let j = 0; j < e.count; j++) {
-    if (j === except || e.act[j] !== Act.Work) continue;
+    if (j === except || (e.act[j] !== Act.Work && e.act[j] !== Act.Walk)) continue;
     const o = e.queue[j]![0];
-    if (o?.t === 'dig' && o.site === site) out.add(e.climbZ[j]! * 0x100000 + e.climbX[j]!);
+    if (o?.t === 'dig' && o.site === site) out.add(columnKey(e.climbX[j]!, e.climbZ[j]!));
   }
   return out;
 }
 
 /**
- * The column of a site a worker should take next: the nearest that needs
- * work and is free. A worker back from a drop-off
- * takes up the column it left if it can, as a gatherer goes back to its
- * node; one carrying a load (`want`, or -1) takes the nearest whose next
- * bite gives more of the same, if there is one, so a load fills with one
- * kind as a gatherer's does (s).
+ * The column of a site a worker should take next, and the level it digs it
+ * down to (`band`) before it moves on. A dig takes its high points first
+ * and spreads over the area (Jade's Patch 5, GP-4): of the free columns
+ * whose next bite lies within SPREAD_UNITS of the highest left, the nearest,
+ * dug down to that layer's bottom. A tunnel takes the nearest column at its
+ * face, dug through. A worker back from a drop-off takes up the column it left if it
+ * can, as a gatherer goes back to its node; one carrying a load (`want`, or
+ * -1) takes a column whose next bite gives more of the same, if there is
+ * one, so a load fills with one kind as a gatherer's does (s). One that could
+ * not reach its column (`miss`) leaves that one out and takes the nearest,
+ * at whatever height, until its next load home. One giving way (`avoid`, a
+ * column someone stands on) leaves that one out and may share another's.
  */
-function pickColumn(state: SimState, s: Site, i: number, want: number): [number, number] | null {
+function pickColumn(state: SimState, s: Site, i: number, want: number, o: Extract<UnitOrder, { t: 'dig' }>, avoid = -1): [number, number, number] | null {
   const e = state.entities;
   const ux = floorDiv(e.x[i]!, WU_PER_COLUMN);
   const uz = floorDiv(e.z[i]!, WU_PER_COLUMN);
-  const busy = taken(state, s.id, i);
-  const back = want < 0;
-  let best: [number, number] | null = null;
+  const busy = avoid >= 0 ? new Set([avoid]) : taken(state, s.id, i);
+  const back = want < 0 && o.miss === 0;
+  const tunnel = tunnelSite(s.kind);
+  // Every free column with work left, and its next bite's height.
+  const open: Array<[number, number, number, number]> = [];
+  let high = -0x7fffffff;
+  for (const [x, z] of siteCells(s)) {
+    if (busy.has(columnKey(x, z))) continue;
+    if (o.miss > 0 && x === e.climbX[i] && z === e.climbZ[i]) continue;
+    if (state.buildings.footprintAt(x, z) !== 0) continue;
+    const bite = nextBite(state, s, x, z);
+    if (!bite || (tunnel && !atFace(state, s, x, z))) continue;
+    if (back && x === e.climbX[i] && z === e.climbZ[i] && (tunnel || bite.y >= o.band)) return [x, z, o.band];
+    open.push([x, z, bite.y, yieldOf(bite.mat)]);
+    if (bite.y > high) high = bite.y;
+  }
+  const spread = !tunnel && o.miss === 0;
+  const floor = spread ? high - SPREAD_UNITS + 1 : -0x7fffffff;
+  let best: [number, number, number, number] | null = null;
   let bestD = 0;
   let bestMatch = false;
-  for (const [x, z] of siteCells(s)) {
-    if (busy.has(z * 0x100000 + x)) continue;
-    if (back && x === e.climbX[i] && z === e.climbZ[i] && needsWork(state, s, x, z)) return [x, z];
-    const d = (x - ux) * (x - ux) + (z - uz) * (z - uz);
-    if (best && d >= bestD && (bestMatch || want < 0)) continue;
-    if (!needsWork(state, s, x, z)) continue;
-    const match = want >= 0 && yieldAt(state, s, x, z) === want;
+  for (const c of open) {
+    if (c[2] < floor) continue;
+    const d = (c[0] - ux) * (c[0] - ux) + (c[1] - uz) * (c[1] - uz);
+    const match = want >= 0 && c[3] === want;
     if (best && (match ? bestMatch && d >= bestD : bestMatch || d >= bestD)) continue;
-    best = [x, z];
+    best = c;
     bestD = d;
     bestMatch = match;
   }
-  return best;
+  if (!best) return null;
+  // A tunnel's column is dug through; a dig's down to the layer (one taken at whatever height, SPREAD_UNITS down).
+  const band = tunnel ? -0x7fffffff : spread ? floor : best[2] - SPREAD_UNITS + 1;
+  return [best[0], best[1], band];
 }
 
 export function siteOf(state: SimState, id: number): Site | undefined {
@@ -246,6 +334,23 @@ function leaveDig(state: SimState, i: number): boolean {
 }
 
 /**
+ * Where a digger stands to take a column's next bite. In a tunnel, near its
+ * floor, in the passage or at the face, not on the hill above it. On a dig,
+ * within REACH_COLUMNS, and low enough under the bite to reach it (Jade's
+ * Patch 5, GP-4: up to 2 m over its head, REACH_UP_UNITS); on a dig drawn
+ * upwards, no higher than its roof, so nobody digs from on top of what is
+ * left above it.
+ */
+function digStand(state: SimState, s: Site, cx: number, cz: number): Goal {
+  if (tunnelSite(s.kind)) return { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS, ylo: s.level - TUNNEL_REACH_UNITS, yhi: s.level + TUNNEL_REACH_UNITS };
+  const bite = nextBite(state, s, cx, cz);
+  const goal: Goal = { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS };
+  if (bite) goal.ylo = bite.y + 1 - REACH_UP_UNITS;
+  if (s.kind === SiteKind.Up) goal.yhi = s.level2;
+  return goal;
+}
+
+/**
  * One step of a worker on a dig or tunnel. A digger carries what
  * it carves as a gatherer carries its load (Patch 4, Jade: "they should
  * still be required to, and then return to their task just like with
@@ -257,6 +362,12 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
   const e = state.entities;
   if (e.kind[i] !== UnitKind.Worker) return true;
   const s = siteOf(state, o.site);
+  if (e.act[i] === Act.Wait) {
+    // Waiting by the dig for a column to come free.
+    if (s && state.step < e.waitUntil[i]!) return false;
+    e.act[i] = Act.Start;
+    e.waitUntil[i] = 0;
+  }
   if (e.act[i] === Act.ToDrop) {
     // To the drop-off, and back.
     const r = e.carryAmt[i]! > 0 ? toDropoff(state, i, null) : ARRIVED;
@@ -264,6 +375,8 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
     if (r === FAILED || !s) return true;
     e.act[i] = Act.Start;
     resetWalk(state, i);
+    // A new load: the high points again, even if it could not reach them before (GP-4).
+    o.miss = 0;
     // Back at the dig, what it left on the ground there comes first.
     if (fetchSpoil(state, s, i)) return false;
   }
@@ -271,19 +384,24 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
   if (!s || s.owner !== e.owner[i]) return e.carryAmt[i]! > 0 ? homeWithLoad(state, i) : true;
   // What it carries off the dig, or -1.
   const load = e.carryAmt[i]! > 0 && e.carryRes[i] !== NO_CARRY ? e.carryRes[i]! : -1;
-  if (e.act[i] === Act.Start || (e.act[i] === Act.Work && !needsWork(state, s, e.climbX[i]!, e.climbZ[i]!))) {
+  if (e.act[i] === Act.Start || (e.act[i] === Act.Work && !inBand(state, s, e.climbX[i]!, e.climbZ[i]!, o.band))) {
     // It came with a full load: to the drop-off first.
     if (load >= 0 && e.carryAmt[i]! >= carryCapacity(state, i, load)) return homeWithLoad(state, i);
-    const c = pickColumn(state, s, i, load);
+    const c = pickColumn(state, s, i, load, o);
     if (!c) {
       if (finishIfDone(state, s)) return !stillGoing(state, i, o);
-      // No column free for it now: its last load goes home first.
-      return leaveDig(state, i);
+      // The others have every column it could take now (a tunnel's face is two wide): its load home first, then it waits by the dig for one (s).
+      // With nobody else at work on it, what is left is out of reach (behind a building, or beyond a pit): its last load goes home and it stops.
+      if (e.carryAmt[i]! > 0 || taken(state, s.id, i).size === 0) return leaveDig(state, i);
+      e.act[i] = Act.Wait;
+      e.waitUntil[i] = state.step + DIG_WAIT_STEPS;
+      return false;
     }
     // Carrying what no column left gives (another layer, or a load from before the dig): home with it first, then back (s).
     if (load >= 0 && yieldAt(state, s, c[0], c[1]) !== load) return homeWithLoad(state, i);
     e.climbX[i] = c[0];
     e.climbZ[i] = c[1];
+    o.band = c[2];
     e.act[i] = Act.Walk;
     e.timer[i] = 0;
     resetWalk(state, i);
@@ -291,14 +409,12 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
   const cx = e.climbX[i]!;
   const cz = e.climbZ[i]!;
   if (e.act[i] === Act.Walk) {
-    // In a tunnel the worker stands near its floor, in the passage or at the face, not on the hill above it.
-    const goal = tunnelSite(s.kind) ? { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS, ylo: s.level - TUNNEL_REACH_UNITS, yhi: s.level + TUNNEL_REACH_UNITS } : { x0: cx, z0: cz, x1: cx, z1: cz, min: 1, max: REACH_COLUMNS };
-    const r = walkTo(state, i, goal);
+    const r = walkTo(state, i, digStand(state, s, cx, cz));
     if (r === 0) return false;
     if (r === 2) {
-      // That column cannot be reached from here: try another next step.
+      // That column cannot be reached from here: another, the nearest, next step.
       e.act[i] = Act.Start;
-      if ((e.stuck[i] = e.stuck[i]! + 1) > 6) {
+      if ((o.miss = o.miss + 1) > MISS_LIMIT) {
         state.events.push({ player: s.owner, kind: 'alert', text: 'A worker cannot reach the dig.', x: e.x[i]!, z: e.z[i]! });
         return leaveDig(state, i);
       }
@@ -313,12 +429,29 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
   const tz = columnCentre(cz);
   if (length2d(tx - e.x[i]!, tz - e.z[i]!) > 0) e.heading[i] = headingTowards(tx - e.x[i]!, tz - e.z[i]!);
   e.order[i] = OrderKind.Dig;
-  if (occupied(state, cx, cz, i)) return false;
+  const next = nextBite(state, s, cx, cz);
+  if (next && occupied(state, cx, cz, next.y + 1, i)) {
+    // Someone stands on it: after a second, another column, shared if need be, so two diggers standing on each other's columns step off them (s).
+    if ((e.stuck[i] = e.stuck[i]! + 1) < DIG_WAIT_STEPS) return false;
+    e.stuck[i] = 0;
+    const c = pickColumn(state, s, i, load, o, columnKey(cx, cz));
+    if (c) {
+      e.climbX[i] = c[0];
+      e.climbZ[i] = c[1];
+      o.band = c[2];
+      e.act[i] = Act.Walk;
+      e.timer[i] = 0;
+      e.waitUntil[i] = 0;
+      resetWalk(state, i);
+    }
+    return false;
+  }
+  e.stuck[i] = 0;
   if (e.waitUntil[i] === 0) {
     // A new bite: how long it takes (Table 10, the bite's size from the 'ai' stream).
-    const bite = nextBite(state, s, cx, cz);
-    // Done, or a layer of something other than its load: another column, or home with the load (s).
-    if (!bite || (load >= 0 && yieldOf(bite.mat) !== load)) {
+    const bite = next;
+    // Done, down to its layer, or a layer of something other than its load: another column, or home with the load (s).
+    if (!bite || bite.y < o.band || (load >= 0 && yieldOf(bite.mat) !== load)) {
       e.act[i] = Act.Start;
       return false;
     }
@@ -345,6 +478,8 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
       return false;
     }
     state.world.editBox(cx, cz, cx, cz, bite.y, bite.y + 1, Mat.Air);
+    // A wild animal standing on it drops with the floor.
+    for (let j = 0; j < e.count; j++) if (j !== i && standsOn(state, j, cx, cz, bite.y + 1)) e.y[j] = bite.y * WU_PER_TERRAIN_UNIT;
     e.carryAmt[i] = e.carryAmt[i]! + 1;
     e.carryRes[i] = res;
     state.hits.push({ look: bite.mat >= Mat.Stone && bite.mat !== Mat.Ash && bite.mat !== Mat.DeadEarth ? 'stone' : 'shake', x: tx, y: bite.y * 900, z: tz, id: e.id[i]! });
@@ -352,7 +487,7 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
   if (!needsWork(state, s, cx, cz)) {
     e.act[i] = Act.Start;
     if (finishIfDone(state, s)) return !stillGoing(state, i, o);
-  }
+  } else if (!inBand(state, s, cx, cz, o.band)) e.act[i] = Act.Start;
   // A full load (25 lb, or a cart's or pack's) goes to the nearest drop-off, and the worker comes back.
   if (e.carryAmt[i]! > 0 && e.carryAmt[i]! >= carryCapacity(state, i, e.carryRes[i]!)) return homeWithLoad(state, i);
   return false;

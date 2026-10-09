@@ -11,8 +11,11 @@ import {
   BuildingKind,
   costText,
   craftRate,
+  DREADNOUGHT,
+  DREADNOUGHT_TEXT,
+  dreadnoughtProduct,
   CREWMAN_RETRAIN_STEPS,
-  EAT_NUTRITION,
+  eatNeed,
   ENGINE_PRODUCT,
   type Engine,
   engineSpec,
@@ -33,6 +36,8 @@ import {
   MAGE_RANK_TRAINING,
   MONSTERS,
   FactionKind,
+  Gait,
+  gaitSpec,
   PEOPLES,
   OUT_OF_REACH,
   HAND_CART_TENTHS_LB,
@@ -44,6 +49,7 @@ import {
   RESEARCH_PRODUCT,
   recipeSpec,
   RESOURCES,
+  RUN_FOOD_METRES,
   schoolSpells,
   plannedSpots,
   chainPiece,
@@ -51,8 +57,11 @@ import {
   siteCells,
   SiteKind,
   SITE_MAX_COLUMNS,
+  DIG_UP_MAX_UNITS,
   snapStretch,
   speciesSpec,
+  STEPS_PER_SECOND,
+  TAVERN,
   stretchBetween,
   stretchCells,
   stretchSpots,
@@ -91,7 +100,7 @@ import {
 import type { UnitInfo } from '../game/game-info.ts';
 import type { GameInfo } from '../game/game-info.ts';
 import { keyFor, spellAction } from '../input/bindings.ts';
-import { UnitFlag, type BuildingInfo, type PeopleInfo } from '../messages.ts';
+import { UnitFlag, type BuildingInfo, type PeopleInfo, type TavernPanel } from '../messages.ts';
 import { isOwn } from '../selection/rules.ts';
 import { buildingIdOf, entityIdOf, lootIdOf, type Selectable } from '../selection/types.ts';
 import type { Settings } from '../settings/settings.ts';
@@ -136,10 +145,12 @@ export interface CardEntry {
   troop?: number;
 }
 
-/** One choice of a card button's right-click dropdown. */
+/** One choice of a right-click dropdown: a card button's, or an item's (item-menu.ts). */
 export interface CardChoice {
   name: string;
   description: string;
+  /** Why it cannot be picked now; the choice is greyed out with it. */
+  why?: string;
   run(): void;
 }
 
@@ -152,7 +163,7 @@ type Slots = Array<CardEntry | null>;
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
 const ALLIED_ACTIONS = new Set(['attack', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt';
+type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'equip';
 
 /**
  * Pages of the command card: the main card, the build menu (Patch 2: one, in
@@ -171,7 +182,7 @@ export interface Area {
   from: { x: number; z: number } | null;
   to: { x: number; z: number } | null;
   dragging: boolean;
-  /** Dig depth, terrain units. */
+  /** Dig depth, terrain units: below 0 the box goes up from the ground where the drag started, by as much (Jade's Patch 5, GP-4). */
   units: number;
   /** A tunnel's height, terrain units. */
   tunnelUnits: number;
@@ -200,8 +211,8 @@ export interface AreaPlan {
   z0: number;
   x1: number;
   z1: number;
-  /** Dig: the face is a hillside, so this is a tunnel. */
-  tunnel: boolean;
+  /** A box drawn upwards from the ground where the drag started (a negative depth, GP-4): only what is inside it is dug. */
+  up: boolean;
   /** As in the dig order (terrain units). */
   level: number;
   level2: number;
@@ -213,14 +224,30 @@ export interface AreaPlan {
 
 /** A terrain unit in metres (about 11 cm). */
 export const TERRAIN_UNIT_M = WU_PER_TERRAIN_UNIT / WU_PER_METRE;
-/** Depth and height steps of the + and - buttons and the wheel: 3 units, about 34 cm (s). */
+/** Depth and height steps of the + and - buttons and the wheel: 3 units, about 34 cm (s); a box drawn upwards steps 1 m from 3 m up and 2 m from 12 m up (AREA_UP_STEPS), so a mountain is covered in a few dozen presses (s). */
 export const AREA_STEP_UNITS = 3;
 /** Depth of a new dig: 9 units, about 1 m (s). */
 export const AREA_DEFAULT_UNITS = 9;
 /** The dig limit: 3 m below the natural ground (Digging and building up the land). */
 export const AREA_MAX_UNITS = 27;
-/** A dig starts a tunnel when the box rises this far above where the drag started: a face about 2.25 m tall (s). */
-export const TUNNEL_FACE_UNITS = 20;
+/** Up from these heights (terrain units over the ground where the drag started) a box drawn upwards steps this many units at a press (s). */
+export const AREA_UP_STEPS: ReadonlyArray<readonly [number, number]> = [[108, 18], [27, 9]];
+
+/** The depth one press or wheel notch from `units` makes, deeper (dir 1) or higher (dir -1), from 3 m deep to DIG_UP_MAX_UNITS up (GP-4). */
+export function stepDepth(units: number, dir: number): number {
+  // The step on the side it goes towards: a notch up from 3 m up is a metre; one down to 3 m up is a metre too.
+  const up = dir < 0 ? -units : -units - 1;
+  const size = AREA_UP_STEPS.find(([from]) => up >= from)?.[1] ?? AREA_STEP_UNITS;
+  return Math.max(-DIG_UP_MAX_UNITS, Math.min(AREA_MAX_UNITS, units + dir * size));
+}
+
+/** The dig card's words for a depth. */
+function depthWords(units: number): string {
+  const m = (Math.abs(units) * TERRAIN_UNIT_M).toFixed(2);
+  if (units > 0) return `The dig is ${m} m deep, and takes everything above that in the box.`;
+  if (units === 0) return 'The dig takes everything above the ground where the drag started.';
+  return `The box goes ${m} m up from the ground where the drag started (depth -${m} m), and the dig takes what is inside it.`;
+}
 /** A press on the side of land at least this much taller than the ground in front of it (a rise nobody can jump, 5 units) starts a tunnel chain into that face (s). */
 export const FACE_MIN_UNITS = 5;
 
@@ -235,11 +262,11 @@ const TROOP_ACTIONS: Readonly<Record<number, readonly [string, string, number]>>
 };
 
 /** Whether a selectable's type is one of the player's units that wears gear and eats: workers, warriors and mages. */
-const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey === 'warrior' || u.typeKey.startsWith('mage:');
+const geared = (u: Selectable): boolean => u.typeKey === 'worker' || u.typeKey === 'warrior' || u.typeKey === 'warrior:dreadnought' || u.typeKey.startsWith('mage:');
 
 /** Whether a building trains workers, warriors or mages, which come out to its rally point. */
 const trainsUnits = (b: BuildingInfo): boolean =>
-  buildingSpec(b.kind).trainsWorkers || b.troops.length > 0 || (b.mages?.length ?? 0) > 0 || b.products.some(([p]) => p === Product.SupportMage || p === Product.BattleMage);
+  buildingSpec(b.kind).trainsWorkers || b.troops.length > 0 || (b.mages?.length ?? 0) > 0 || b.products.some(([p]) => p === Product.SupportMage || p === Product.BattleMage) || b.kind === BuildingKind.Tavern;
 
 export interface Targeting {
   command: TargetCommand;
@@ -247,6 +274,8 @@ export interface Targeting {
   key: string;
   /** For 'cast': the spell waiting for its target. */
   spell?: number;
+  /** For 'equip': the item from the stock (Patch 5, GP-2). */
+  res?: number;
 }
 
 export interface Placing {
@@ -291,6 +320,8 @@ export interface CommandDeps {
   confirmWar(faction: number, then: () => void): void;
   /** The trade menu, or a mercenary camp's hire box. */
   openPeople(faction: number): void;
+  /** The Tavern's Hire Dreadnought window (Patch 5, GP-21), for these Taverns. */
+  hireDreadnought?(buildings: readonly number[]): void;
   /** How many buttons the card can show at once, at the smallest size it may shrink them to (hud-layout.ts buttonRoom); 15 when left out. */
   slots?(): CardSize;
 }
@@ -431,7 +462,7 @@ export class Commands {
 
   private slotsFor(active: string, waiting: boolean): Slots {
     if (this.area && active === 'worker') return this.areaCard();
-    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active.startsWith('mage:')) {
+    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active === 'warrior:dreadnought' || active.startsWith('mage:')) {
       if (this.alliedOnly(active)) return this.alliedCard(active);
       if (this.menu.page === 'build' && active === 'worker') return this.buildMenuCard(waiting);
       return this.unitCard(active);
@@ -546,11 +577,7 @@ export class Commands {
     const pace = this.paceEntry(active);
     if (active === 'worker') {
       const workers = this.workerIds();
-      const carrying = workers.some((id) => {
-        const u = this.d.game.unit(id);
-        return (u !== null && u.carryAmt > 0) || this.bagOf(id).length > 0;
-      });
-      const unload = 'Take what they carry, and any loot, to the nearest drop-off, then go back to the node or the dig.';
+      // No Unload here from Patch 5 (Jade's GP-8): one unit's inventory in the panel has Unload all, and its goods Unload and Drop.
       return [
         move,
         this.entry(
@@ -560,9 +587,6 @@ export class Commands {
           () => this.target('gather', 'gather'),
           { lit: t === 'gather', right: () => this.forage(), double: () => this.forage() },
         ),
-        carrying
-          ? this.entry('returnCargo', 'Unload', unload, () => this.unitOrder({ kind: 'returnCargo' }))
-          : this.off('returnCargo', 'Unload', unload, 'They are not carrying anything.'),
         this.entry(
           'repair',
           'Repair',
@@ -612,6 +636,19 @@ export class Commands {
         this.eatEntry(),
         this.retrainEntry(),
         pace,
+      ];
+    }
+    // The Dreadnought (Patch 5, GP-21): no Upgrade equipment (he keeps his mace and plate) and no Hunt (he is hired to fight);
+    // he never climbs, jumps higher and pays double for running (units/moves.ts Gait.Dreadnought).
+    if (active === 'warrior:dreadnought') {
+      const g = gaitSpec(Gait.Dreadnought);
+      const jump = Math.round((g.jump * WU_PER_TERRAIN_UNIT * 10) / WU_PER_METRE) / 10;
+      return [
+        attack,
+        patrol,
+        { ...move, description: `${move.description} A Dreadnought never climbs; he jumps rises up to ${jump} m.` },
+        this.eatEntry(),
+        { ...pace, description: `${pace.description} A Dreadnought pays ${g.runFood} food for every ${RUN_FOOD_METRES} m he runs.` },
       ];
     }
     const troops = this.unitIds((u) => u.typeKey === 'warrior');
@@ -731,12 +768,24 @@ export class Commands {
     });
   }
 
+  /**
+   * Eat (Jade's Patch 5, GP-13 and GP-27): the hurt walk to the nearest main
+   * base or storehouse and eat 1 food for each quarter of their health they
+   * lack (4 for a full heal), healing it all over 10 s; those at full health
+   * stay where they are.
+   */
   private eatEntry(): CardEntry {
     const units = this.unitIds(geared);
-    const desc = `Walk to the nearest main base or storehouse and sit down there to eat for 10 s, with a bar over their heads: 2 food heals half their health over those 10 s, and a remedy or a bandage from the stock heals what is left. Hit by an enemy, they get up at once and their health still comes back.`;
+    let need = 0;
+    for (const id of units) {
+      const u = this.d.game.unit(id);
+      if (u) need += eatNeed(u.hp, u.maxHp);
+    }
+    const desc = `The hurt walk to the nearest main base or storehouse and sit down there to eat for 10 s, with a bar over their heads: 1 food for each quarter of their health they lack (4 food heals one from nothing), healing all of it over those 10 s. Short of food, a remedy or a bandage from the stock heals more. Those at full health do not eat. Hit by an enemy, they get up at once and their health still comes back.${need > 0 ? `\nThese need ${need} food.` : ''}`;
     const where = [...this.d.game.buildings.values()].some((b) => b.owner === this.d.player && b.complete && (b.kind === BuildingKind.MainBase || b.kind === BuildingKind.Storehouse));
     if (!where) return this.off('eat', 'Eat', desc, 'There is no main base or storehouse to eat at.');
-    if (this.d.game.food() < EAT_NUTRITION) return this.off('eat', 'Eat', desc, this.d.game.food() === 0 ? 'There is no food.' : `Not enough food (needs ${EAT_NUTRITION}).`);
+    if (need === 0) return this.off('eat', 'Eat', desc, units.length === 1 ? 'It is at full health.' : 'They are all at full health.');
+    if (this.d.game.food() === 0) return this.off('eat', 'Eat', desc, 'There is no food.');
     return this.entry('eat', 'Eat', desc, () => this.d.send({ kind: 'eat', player: this.d.player, units, building: 0, queued: this.d.queued() }));
   }
 
@@ -1023,6 +1072,8 @@ export class Commands {
       if (first.products.some(([p]) => p === Product.Crewman)) rows.push([Product.Crewman, 'trainCrewman', 'Crewman', 0]);
     }
     for (const [p, action, face, slot] of rows) card[slot] = this.productEntry(all, p, action, face);
+    // Patch 5: the Tavern's Open for business, Withdraw funds and Hire Dreadnought (GP-20, GP-21).
+    if (first.complete && first.tavern) [card[0], card[1], card[2]] = this.tavernEntries(all, first.tavern);
     if (first.complete) {
       for (const t of first.troops) {
         const [action, face, slot] = TROOP_ACTIONS[t.troop]!;
@@ -1099,6 +1150,55 @@ export class Commands {
       );
     }
     return card;
+  }
+
+  /**
+   * The Tavern's buttons (Jade, GP-20 and GP-21): Open for business, lit
+   * while open, which opens or closes every selected Tavern alike; Withdraw
+   * funds, which takes the whole silver ingots out of their tills; and Hire
+   * Dreadnought, which opens the window where the player sets how the price
+   * is paid. Its tooltip is his description and his price.
+   */
+  private tavernEntries(all: BuildingInfo[], t: TavernPanel): [CardEntry, CardEntry, CardEntry] {
+    const burn = `${TAVERN.burnSteps / STEPS_PER_SECOND} s`;
+    const open = this.entry(
+      'tavernOpen',
+      t.open ? 'Close' : 'Open',
+      t.open
+        ? `Close for business: the Tavern stops serving food and making silver. The silver in its till stays there.`
+        : `Open for business: the Tavern serves a food every ${burn} from your stock, and every ${TAVERN.foodPerSilver} food served make one silver ingot, kept in its till until you withdraw it.`,
+      () => {
+        for (const b of all) this.d.send({ kind: 'tavernOpen', player: this.d.player, building: b.id, open: t.open ? 0 : 1 });
+      },
+      { name: t.open ? 'Close for business' : 'Open for business', lit: t.open },
+    );
+    const whole = all.reduce((n, b) => n + (b.tavern?.whole ?? 0), 0);
+    const takes = 'Take the whole silver ingots in the till into your stock; the part of the next ingot stays in the till.';
+    const withdraw =
+      whole > 0
+        ? this.entry('tavernWithdraw', 'Withdraw', `${takes} ${whole} silver ingot${whole === 1 ? '' : 's'} now.`, () => {
+            for (const b of all) if ((b.tavern?.whole ?? 0) > 0) this.d.send({ kind: 'tavernWithdraw', player: this.d.player, building: b.id });
+          }, { name: 'Withdraw funds' })
+        : this.off('tavernWithdraw', 'Withdraw', takes, 'There is no whole silver ingot in the till yet.', 'Withdraw funds');
+    const info = this.d.game.info;
+    const g = this.d.game;
+    let why = t.hireWhy;
+    if (!why && Math.min(g.have(Res.Gold), DREADNOUGHT.gold) * DREADNOUGHT.silverPerGold + g.have(Res.Silver) < DREADNOUGHT.gold * DREADNOUGHT.silverPerGold) why = `Not enough gold and silver ingots (${DREADNOUGHT.gold} gold or ${DREADNOUGHT.gold * DREADNOUGHT.silverPerGold} silver).`;
+    if (!why && info && info.supplyUsed + DREADNOUGHT.supply > info.supplyCap) why = `Not enough supply for him (he takes ${DREADNOUGHT.supply}; ${info.supplyUsed} of ${info.supplyCap}). Build farms or upgrade the main base.`;
+    if (!why && all.every((b) => b.queue.length >= 5)) why = 'The queue is full (5).';
+    const hire: CardEntry = {
+      action: 'hireDreadnought',
+      face: 'Dreadnought',
+      name: 'Hire Dreadnought',
+      key: this.key('hireDreadnought'),
+      description: productSpec(dreadnoughtProduct(DREADNOUGHT.gold, 0)).tooltip || DREADNOUGHT_TEXT,
+      icon: productIcon(dreadnoughtProduct(DREADNOUGHT.gold, 0)),
+      enabled: why === '',
+      reason: why,
+      run: () => this.d.hireDreadnought?.(all.map((b) => b.id)),
+      grey: () => this.greyed(Greyed.Product, dreadnoughtProduct(DREADNOUGHT.gold, 0), all[0]!.id),
+    };
+    return [open, withdraw, hire];
   }
 
   /** A training, making or research button, greyed out with the reason it cannot be queued; a K menu's products are menu buttons. */
@@ -1298,6 +1398,54 @@ export class Commands {
     };
   }
 
+  /**
+   * Equip from the stock (Jade's Patch 5, GP-2: "click the equip and then
+   * click the unit you want to equip it to"): the next left click on one of
+   * the player's units sends it to put the item on.
+   */
+  startEquip(res: number): void {
+    this.placing = null;
+    this.targeting = { command: 'equip', key: '', res };
+    this.d.message(`Left click one of your units to give it the ${RESOURCES[res]?.name.toLowerCase() ?? 'item'}. Right click or Esc cancels.`);
+    this.d.changed();
+  }
+
+  /** The clicked unit walks to the nearest place to upgrade and puts the item on (the sim says why when it cannot). */
+  private equipOn(item: Selectable, res: number): boolean {
+    const id = item.kind === 'unit' && item.owner === this.d.player && geared(item) ? entityIdOf(item.key) : null;
+    if (id === null || res < 0) return false;
+    this.d.send({ kind: 'equip', player: this.d.player, units: [id], res, queued: this.d.queued() });
+    this.d.marker(item.centre, 'move');
+    return true;
+  }
+
+  /** The Workshop product that scraps an item, or -1 when it is not scrapped. */
+  private scrapProduct(res: number): number {
+    return makeList(BuildingKind.Workshop).find((p) => makeSub(p) === SCRAP_SUB && recipeSpec(productSpec(p).recipe!).scrap === res) ?? -1;
+  }
+
+  /** The item menu's Scrap (item-menu.ts): null when the item is not scrapped at all, '' when a Workshop can scrap one now, else why not. */
+  scrapWhy(res: number): string | null {
+    const p = this.scrapProduct(res);
+    if (p < 0) return null;
+    const shops = this.workshops();
+    if (shops.length === 0) return 'There is no Workshop to scrap it at.';
+    const why = shops[0]!.products.find(([x]) => x === p)?.[1];
+    return why ?? 'The Workshop cannot scrap it yet.';
+  }
+
+  /** Scraps one of an item at the player's Workshop with the shortest queue. */
+  scrapItem(res: number): void {
+    const p = this.scrapProduct(res);
+    if (p < 0 || this.scrapWhy(res) !== '') return;
+    this.scrap(this.workshops(), p, 1);
+  }
+
+  /** The player's finished Workshops, wherever they are. */
+  private workshops(): BuildingInfo[] {
+    return [...this.d.game.buildings.values()].filter((b) => b.owner === this.d.player && b.kind === BuildingKind.Workshop && b.complete);
+  }
+
   /** Scraps a stack at the building with the shortest queue: one order, one place in its queue (the sim takes as many as the stock holds). */
   private scrap(all: BuildingInfo[], product: number, count: number): void {
     const ready = all.filter((b) => b.complete).sort((a, b) => a.queue.length - b.queue.length || a.id - b.id);
@@ -1342,15 +1490,21 @@ export class Commands {
     const a = this.area!;
     const plan = this.areaPlan();
     const chain = a.tunnel || a.chain !== null;
-    const tunnel = chain || plan?.tunnel === true;
-    const what = tunnel ? 'tunnel height' : 'depth';
-    const m = ((tunnel ? a.tunnelUnits : a.units) * TERRAIN_UNIT_M).toFixed(2);
-    card[0] = this.entry('deeper', tunnel ? 'Higher' : 'Deeper', `The ${what} is ${m} m. Press for about 34 cm more. The wheel does the same while marking.`, () => this.adjustArea(1), { name: `More ${what}` });
-    card[1] = this.entry('shallower', tunnel ? 'Lower' : 'Shallower', `The ${what} is ${m} m. Press for about 34 cm less.`, () => this.adjustArea(-1), { name: `Less ${what}` });
+    if (chain) {
+      const m = (a.tunnelUnits * TERRAIN_UNIT_M).toFixed(2);
+      card[0] = this.entry('deeper', 'Higher', `The tunnel height is ${m} m. Press for about 34 cm more. The wheel does the same while marking.`, () => this.adjustArea(1), { name: 'More tunnel height' });
+      card[1] = this.entry('shallower', 'Lower', `The tunnel height is ${m} m. Press for about 34 cm less.`, () => this.adjustArea(-1), { name: 'Less tunnel height' });
+    } else {
+      const now = depthWords(a.units);
+      // How far one press goes from here, or that it goes no further.
+      const by = (u: number, more: string): string => (u === 0 ? `It goes no ${more}.` : `Press for ${u >= 9 ? `${(u * TERRAIN_UNIT_M).toFixed(0)} m` : `about ${Math.round(u * TERRAIN_UNIT_M * 100)} cm`} ${more}.`);
+      card[0] = this.entry('deeper', 'Deeper', `${now} ${by(stepDepth(a.units, 1) - a.units, 'deeper')} The wheel does the same while marking.`, () => this.adjustArea(1), { name: 'More depth' });
+      card[1] = this.entry('shallower', 'Shallower', `${now} ${by(a.units - stepDepth(a.units, -1), 'higher')} Past 0 the box is drawn upwards from the ground where the drag started, to dig away a hill or a mountain.`, () => this.adjustArea(-1), { name: 'Less depth' });
+    }
     card[2] = this.entry('tunnel', 'Tunnel', TUNNEL_CHAIN_HELP, () => this.toggleTunnel(), { key: this.key('dig'), lit: chain, name: 'Dig a tunnel' });
     if (chain) return card;
     const ready = plan !== null && !a.dragging;
-    const name = tunnel ? 'Dig the tunnel' : 'Dig it out';
+    const name = 'Dig it out';
     card[4] = {
       action: 'markArea',
       face: 'Mark',
@@ -1366,7 +1520,7 @@ export class Commands {
 
   // ---- Orders ----
 
-  private unitOrder(o: { kind: 'returnCargo' } | { kind: 'repairAll' }, units = this.workerIds()): void {
+  private unitOrder(o: { kind: 'repairAll' }, units = this.workerIds()): void {
     if (units.length === 0) return;
     this.d.send({ ...o, player: this.d.player, units, queued: this.d.queued() } as Order);
   }
@@ -1465,6 +1619,10 @@ export class Commands {
         break;
       case 'cast':
         ok = this.cast(t.spell ?? 0, item, ground);
+        break;
+      case 'equip':
+        ok = item !== null && this.equipOn(item, t.res ?? -1);
+        if (!ok) this.d.message('Pick one of your workers, troops or mages to equip it.', 'alert');
         break;
     }
     if (ok && !this.d.held(t.key) && !this.d.queued()) {
@@ -1710,13 +1868,17 @@ export class Commands {
     return b !== undefined && b.complete && garrisonRoom(b) > 0;
   }
 
-  private enter(item: Selectable): boolean {
+  private isMainBase(item: Selectable): boolean {
     const b = this.buildingOf(item);
-    const units = this.unitIds();
+    return b !== undefined && b.complete && b.kind === BuildingKind.MainBase;
+  }
+
+  private enter(item: Selectable, units = this.unitIds()): boolean {
+    const b = this.buildingOf(item);
     if (!b || units.length === 0) return false;
     const room = b.complete ? levelSpec(b.kind, b.level).shelters + garrisonRoom(b) : 0;
     if (room === 0) {
-      this.d.message(`${b.name} cannot take anyone in. Men go up on towers and on a main base from tier 2; workers shelter in main bases and farms.`, 'alert');
+      this.d.message(`${b.name} cannot take anyone in. Men go up on towers; everyone on foot shelters in a main base, and workers in farms too.`, 'alert');
       return false;
     }
     this.d.send({ kind: 'enter', player: this.d.player, units, building: b.id, queued: this.d.queued() });
@@ -1782,23 +1944,31 @@ export class Commands {
           this.d.marker(item.centre, 'target');
         };
         if (!b.complete || b.upgrading || b.hp < b.maxHp) return send({ kind: 'work', player, units: workers, building: b.id, queued });
+        // Workers turn in all they carry, the loot in their bags too where everything is taken (Jade's Patch 5, GP-5).
         const carriers = workers.filter((id) => {
           const u = this.d.game.unit(id);
-          if (!u || u.carryAmt === 0) return false;
-          if (spec.dropoff === 'all') return true;
-          return spec.dropoff === 'wood' && (u.carryRes === 0 || u.carryRes === 1);
+          if (!u) return false;
+          if (spec.dropoff === 'all') return u.carryAmt > 0 || this.bagOf(id).length > 0;
+          return u.carryAmt > 0 && spec.dropoff === 'wood' && (u.carryRes === 0 || u.carryRes === 1);
         });
-        if (carriers.length > 0) return send({ kind: 'dropoff', player, units: carriers, building: b.id, queued });
+        if (carriers.length > 0) {
+          send({ kind: 'dropoff', player, units: carriers, building: b.id, queued });
+          // At a main base everyone else in the selection goes in (GP-5 and GP-10).
+          const rest = units.filter((id) => !carriers.includes(id));
+          if (b.kind === BuildingKind.MainBase && rest.length > 0) this.enter(item, rest);
+          return;
+        }
         // Patch 2: nobody hauls from a mineshaft; its miners carry their own bags out, so workers right clicking it go to mine.
         if (levelSpec(b.kind, b.level).workers > 0) return send({ kind: 'assign', player, units: workers, building: b.id, queued });
         if (spec.light && !b.lit) return send({ kind: 'relight', player, units: workers, building: b.id, queued });
       }
     }
-    // One of the player's towers: everyone on foot goes up on its top (Jade's patch notes 1). With Enter cut in Patch 2, a main
-    // base with a top takes men up too; workers alone still walk to it, as their main base is where they work.
+    // One of the player's towers: everyone on foot goes up on its top (Jade's patch notes 1). A main base takes everyone on foot
+    // but riders (Jade's Patch 5, GP-5 and GP-10): workers with nothing to turn in shelter inside, melee deeper inside, rangers and
+    // mages up on its ramparts (decisions 3.8), as the sim sorts them (units/shelter.ts).
     const engines = this.unitIds((u) => u.typeKey.startsWith('engine:'));
     const men = units.length > workers.length + engines.length;
-    if (item && engines.length < units.length && this.ownBuilding(item) && (this.isTower(item) || (men && this.hasTop(item))) && this.enter(item)) return;
+    if (item && engines.length < units.length && this.ownBuilding(item) && (this.isTower(item) || this.isMainBase(item) || (men && this.hasTop(item))) && this.enter(item)) return;
     // Engines and cannons: an own horse or ox hitches (Patch 5: no engine goes into a building).
     if (item && engines.length > 0 && engines.length === units.length && item.typeKey.startsWith('animal:own:') && this.hitchTo(item)) return;
     if (item && this.ownEngine(item)) {
@@ -1859,7 +2029,7 @@ export class Commands {
       return true;
     }
     const box = { player: this.d.player, units: workers, x0: site.x0, z0: site.z0, x1: site.x1, z1: site.z1, level: site.level, level2: site.level2, queued: this.d.queued() };
-    this.d.send({ kind: 'dig', ...box, tunnel: site.kind === SiteKind.Tunnel ? 1 : 0 });
+    this.d.send({ kind: 'dig', ...box, tunnel: site.kind === SiteKind.Tunnel ? 1 : site.kind === SiteKind.Up ? 2 : 0 });
     this.d.marker(at, 'target');
     return true;
   }
@@ -1884,12 +2054,13 @@ export class Commands {
   updateArea(ground: THREE.Vector3 | null): void {
     const a = this.area;
     if (!a || !ground) return;
-    const x = Math.floor(ground.x / COLUMN_M);
-    const z = Math.floor(ground.z / COLUMN_M);
     if (a.chain) {
-      if (!a.cursor || a.cursor.x !== x || a.cursor.z !== z) a.cursor = { x, z };
+      const c = this.chainColumn(ground);
+      if (!a.cursor || a.cursor.x !== c.x || a.cursor.z !== c.z) a.cursor = c;
       return;
     }
+    const x = Math.floor(ground.x / COLUMN_M);
+    const z = Math.floor(ground.z / COLUMN_M);
     if (!a.dragging) return;
     if (a.to && a.to.x === x && a.to.z === z) return;
     a.to = { x, z };
@@ -1911,7 +2082,7 @@ export class Commands {
     if (!ground) return;
     const c = { x: Math.floor(ground.x / COLUMN_M), z: Math.floor(ground.z / COLUMN_M) };
     // A press on the side of a cliff or hillside starts a tunnel chain into it instead.
-    if (this.faceAt(ground, c.x, c.z)) {
+    if (this.faceAt(ground)) {
       this.tunnelClick(ground);
       return;
     }
@@ -1931,9 +2102,9 @@ export class Commands {
   private tunnelClick(ground: THREE.Vector3 | null): void {
     const a = this.area;
     if (!a || !ground) return;
-    const c = { x: Math.floor(ground.x / COLUMN_M), z: Math.floor(ground.z / COLUMN_M) };
+    const c = this.chainColumn(ground);
     if (!a.chain) {
-      const face = this.faceAt(ground, c.x, c.z);
+      const face = this.faceAt(ground);
       a.chain = face ? { x: face.x, z: face.z, floor: face.floor } : { x: c.x, z: c.z, floor: this.groundUnits(c.x, c.z) };
       a.cursor = c;
       a.from = null;
@@ -1985,25 +2156,43 @@ export class Commands {
 
   /**
    * Whether a point the cursor picked is on the side of a cliff or hillside
-   * rather than on top of the ground: below its column's top, on the edge of
-   * the column next to lower ground at least FACE_MIN_UNITS down. Returns the
-   * face column, the way out of it and the ground in front of it, or null.
+   * rather than on top of the ground: on a column edge, below the top of the
+   * column on one side of it, with ground at least FACE_MIN_UNITS lower on
+   * the other. Returns the face column (the high side, whichever way the face
+   * looks: a point on an edge can fall in either column, BG-6), the way out
+   * of it and the ground in front of it, or null.
    */
-  private faceAt(p: THREE.Vector3, x: number, z: number): { x: number; z: number; nx: number; nz: number; floor: number } | null {
-    const top = this.groundUnits(x, z);
-    if (p.y / TERRAIN_UNIT_M > top - 1) return null;
-    // Which side of the column the point is on: the nearest edge with low ground beyond it.
-    const fx = p.x / COLUMN_M - x;
-    const fz = p.z / COLUMN_M - z;
+  private faceAt(p: THREE.Vector3): { x: number; z: number; nx: number; nz: number; floor: number } | null {
+    const y = p.y / TERRAIN_UNIT_M;
+    const u = p.x / COLUMN_M;
+    const v = p.z / COLUMN_M;
     let best: { x: number; z: number; nx: number; nz: number; floor: number } | null = null;
     let bestD = 0.2;
-    for (const [nx, nz, d] of [[-1, 0, fx], [1, 0, 1 - fx], [0, -1, fz], [0, 1, 1 - fz]] as const) {
-      const floor = this.groundUnits(x + nx, z + nz);
-      if (top - floor < FACE_MIN_UNITS || d >= bestD) continue;
-      best = { x, z, nx, nz, floor };
-      bestD = d;
+    // The nearest edge across x, then across z; the face column is on whichever side of it is high.
+    for (const [along, across, onX] of [[u, v, true], [v, u, false]] as const) {
+      const edge = Math.round(along);
+      const d = Math.abs(along - edge);
+      if (d >= bestD) continue;
+      const k = Math.floor(across);
+      for (const side of [-1, 0]) {
+        const face = edge + side;
+        const front = edge - 1 - side;
+        const [fx, fz] = onX ? [face, k] : [k, face];
+        const [ox, oz] = onX ? [front, k] : [k, front];
+        const top = this.groundUnits(fx, fz);
+        const floor = this.groundUnits(ox, oz);
+        if (y > top - 1 || top - floor < FACE_MIN_UNITS) continue;
+        best = { x: fx, z: fz, nx: ox - fx, nz: oz - fz, floor };
+        bestD = d;
+      }
     }
     return best;
+  }
+
+  /** The column a click of a tunnel chain means: the face column when it is on the side of a cliff, else the column under it. */
+  private chainColumn(p: THREE.Vector3): { x: number; z: number } {
+    const face = this.faceAt(p);
+    return face ? { x: face.x, z: face.z } : { x: Math.floor(p.x / COLUMN_M), z: Math.floor(p.z / COLUMN_M) };
   }
 
   areaUp(): void {
@@ -2013,12 +2202,12 @@ export class Commands {
     this.d.changed();
   }
 
-  /** + / - and the wheel: deeper or shallower (higher or lower for banks and tunnels). */
+  /** + / - and the wheel: deeper or shallower, on past 0 into a box drawn upwards (GP-4); higher or lower for tunnels. */
   adjustArea(dir: number): void {
     const a = this.area;
     if (!a) return;
-    if (a.chain || a.tunnel || this.areaPlan()?.tunnel) a.tunnelUnits = Math.max(TUNNEL_MIN_UNITS, Math.min(TUNNEL_MAX_UNITS, a.tunnelUnits + dir * AREA_STEP_UNITS));
-    else a.units = Math.max(AREA_STEP_UNITS, Math.min(AREA_MAX_UNITS, a.units + dir * AREA_STEP_UNITS));
+    if (a.chain || a.tunnel) a.tunnelUnits = Math.max(TUNNEL_MIN_UNITS, Math.min(TUNNEL_MAX_UNITS, a.tunnelUnits + dir * AREA_STEP_UNITS));
+    else a.units = stepDepth(a.units, dir);
     this.d.changed();
   }
 
@@ -2046,8 +2235,9 @@ export class Commands {
         low = Math.min(low, h);
       }
     }
-    const tunnel = top - start >= TUNNEL_FACE_UNITS;
-    const plan: AreaPlan = { x0, z0, x1, z1, tunnel, level: tunnel ? start : start - a.units, level2: tunnel ? start + a.tunnelUnits : 0, start, top, low };
+    // Patch 5 (GP-4): a box over a hill digs it away rather than tunnelling into it (tunnels are the Tunnel button's, or a press on a face).
+    const up = a.units < 0;
+    const plan: AreaPlan = { x0, z0, x1, z1, up, level: up ? start : start - a.units, level2: up ? start - a.units : 0, start, top, low };
     this.plan = { sig, plan };
     return plan;
   }
@@ -2059,8 +2249,9 @@ export class Commands {
     const units = this.workerIds();
     if (!a || !plan || units.length === 0) return;
     const box = { player: this.d.player, units, x0: plan.x0, z0: plan.z0, x1: plan.x1, z1: plan.z1, level: plan.level, level2: plan.level2, queued: this.d.queued() };
-    this.d.send({ kind: 'dig', ...box, tunnel: plan.tunnel ? 1 : 0 });
-    this.d.message(plan.tunnel ? 'Tunnelling into the face.' : `Digging out ${((plan.start - plan.level) * TERRAIN_UNIT_M).toFixed(1)} m deep.`);
+    this.d.send({ kind: 'dig', ...box, tunnel: plan.up ? 2 : 0 });
+    const m = (u: number): string => (u * TERRAIN_UNIT_M).toFixed(1);
+    this.d.message(plan.up ? `Digging away ${m(plan.level2 - plan.level)} m up from where the drag started.` : plan.level === plan.start ? 'Digging away everything above where the drag started.' : `Digging out ${m(plan.start - plan.level)} m deep.`);
     const cx = ((plan.x0 + plan.x1 + 1) / 2) * COLUMN_M;
     const cz = ((plan.z0 + plan.z1 + 1) / 2) * COLUMN_M;
     this.d.marker(new THREE.Vector3(cx, this.d.heightAt(cx, cz), cz), 'target');

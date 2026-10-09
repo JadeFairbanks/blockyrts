@@ -7,7 +7,7 @@
 import { RANK_NAMES } from '../combat/combat.ts';
 import { mageTitle } from '../magic/mages.ts';
 import { UnitKind, type SimState } from '../state.ts';
-import { troopTierName } from './kits.ts';
+import { Troop, troopTierName } from './kits.ts';
 
 /** What a unit's name is made from (the entity fields of the same names). */
 export interface Nameable {
@@ -21,6 +21,8 @@ export interface Nameable {
 /** A worker's, troop's or mage's name with its rank: "Worker (Foreman)", "Copper swordsman (Recruit)", "Battle mage (Acolyte)". */
 export function unitTitle(u: Nameable): string {
   if (u.kind === UnitKind.Mage) return mageTitle(u.school, u.rank);
+  // The Dreadnought (Patch 5) has no ranks: he goes by his name alone.
+  if (u.kind === UnitKind.Warrior && u.troop === Troop.Dreadnought) return troopTierName(u.troop, 0);
   if (u.kind === UnitKind.Warrior) return `${troopTierName(u.troop, u.wTier)} (${RANK_NAMES.warrior[u.rank] || `rank ${u.rank}`})`;
   return `Worker (${RANK_NAMES.worker[u.rank] || `rank ${u.rank}`})`;
 }

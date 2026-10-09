@@ -45,7 +45,7 @@ function game(buildings: BuildingInfo[]): GameInfo {
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
-    loot: [], bags: [],
+    loot: [], bags: [], carry: [], effects: [],
   };
   g.onInfo(info);
   return g;
@@ -92,7 +92,7 @@ describe('the build menu on letters (Patch 4)', () => {
     button(c.card(), 'Build').run(PRESS);
     expect(read(c.card())).toEqual([
       'Big House=H', 'Farm=F', 'Barn=R', 'Storehouse=S', 'Fishing dock=I', 'Workshop=W', 'Forge=G',
-      'Artillery workshop=A', 'Barracks=B', 'Magi Sanctum=M', "Scholar's Lodge=C", 'Mineshaft=N', 'Defences=D', 'Lights=T', 'Back=Esc',
+      'Artillery workshop=A', 'Barracks=B', 'Magi Sanctum=M', "Scholar's Lodge=C", 'Mineshaft=N', 'Tavern=V', 'Defences=D', 'Lights=T', 'Back=Esc',
     ]);
     button(c.card(), 'Defences').run(PRESS);
     expect(read(c.card())).toEqual([
@@ -111,6 +111,8 @@ describe('the build menu on letters (Patch 4)', () => {
     // A phone's card shows 15, which holds Defences' 13 choices (Patch 5 cut the earthworks and added the earth rampart); on a card of 8 they take three pages.
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker', 15);
     button(c.card(), 'Build').run(PRESS);
+    // Patch 5: with the Tavern in, the build menu takes two pages on a card of 15 (until the Fishing dock goes).
+    button(c.card(), 'More 1/2').run(PRESS);
     button(c.card(), 'Defences').run(PRESS);
     small(c);
     const first = c.card();
@@ -130,6 +132,7 @@ describe('the build menu on letters (Patch 4)', () => {
     button(c.card(), 'Build').run(PRESS);
     expect(button(c.card(), 'Farm').key).toBe('KeyY');
     keys[placeAction(BuildingKind.Wall, 0)] = 'Equal';
+    button(c.card(), 'More 1/2').run(PRESS);
     button(c.card(), 'Defences').run(PRESS);
     small(c);
     expect(button(c.card(), 'Wooden wall').key).toBe('');

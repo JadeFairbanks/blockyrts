@@ -36,7 +36,7 @@ export const ACTIONS: readonly Action[] = [
   { id: 'deeper', name: 'Dig or heap: deeper or higher', key: 'Equal', group: 'Workers' },
   { id: 'shallower', name: 'Dig or heap: shallower or lower', key: 'Minus', group: 'Workers' },
   { id: 'gather', name: 'Gather (workers fetch what the camp needs, home by nightfall)', key: 'KeyG', group: 'Workers' },
-  { id: 'returnCargo', name: 'Unload (take what they carry to a drop-off)', key: 'KeyC', group: 'Workers' },
+  { id: 'returnCargo', name: 'Unload all (one unit: everything it carries to a drop-off)', key: 'KeyC', group: 'Workers' },
   { id: 'repair', name: 'Repair', key: 'KeyR', group: 'Workers' },
   { id: 'dig', name: 'Dig', key: 'KeyD', group: 'Workers' },
   { id: 'prospect', name: 'Prospect', key: 'KeyT', group: 'Workers' },
@@ -65,6 +65,10 @@ export const ACTIONS: readonly Action[] = [
   { id: 'craft', name: 'Smelting, research, making or slaughter menu', key: 'KeyK', group: 'Buildings' },
   // Patch 5: the Citadel's Build defense menu, on D, a letter no building card uses.
   { id: 'buildDefense', name: 'Build defense (the Citadel\'s engine platform)', key: 'KeyD', group: 'Buildings' },
+  // Patch 5: the Tavern's buttons, on letters of their names (O is the Peoples panel's, W the Worker's).
+  { id: 'tavernOpen', name: 'Open for business or close (Tavern)', key: 'KeyF', group: 'Buildings' },
+  { id: 'tavernWithdraw', name: 'Withdraw funds (Tavern)', key: 'KeyI', group: 'Buildings' },
+  { id: 'hireDreadnought', name: 'Hire Dreadnought (Tavern)', key: 'KeyH', group: 'Buildings' },
   // Jade's Patch 4: and every product in the K menus (with more products than letters, the rest are clicks until given a key).
   ...makeMenuActions(),
   ...defenseMenuActions(),
@@ -74,6 +78,10 @@ export const ACTIONS: readonly Action[] = [
   { id: 'townhall', name: 'Town Hall', key: 'Backspace', group: 'Camera and selection' },
   // Jade's patch notes 1: Space centres the camera on the selection, so the latest urgent message moves to F4 (s).
   { id: 'centre', name: 'Centre on the selection', key: 'Space', group: 'Camera and selection' },
+  // Jade's Patch 5: two keys that turn the camera round the middle of the view while held, the downward angle fixed; a double
+  // tap of either turns it back to north. Comma and full stop: side by side, and on no card (s).
+  { id: 'turnLeft', name: 'Turn the camera left (hold; double tap to turn back to north)', key: 'Comma', group: 'Camera and selection' },
+  { id: 'turnRight', name: 'Turn the camera right (hold; double tap to turn back to north)', key: 'Period', group: 'Camera and selection' },
   { id: 'urgent', name: 'Latest urgent message', key: 'F4', group: 'Camera and selection' },
   { id: 'follow', name: 'Follow', key: 'KeyL', group: 'Camera and selection' },
   { id: 'home', name: 'Everyone Home', key: 'KeyJ', group: 'Camera and selection' },

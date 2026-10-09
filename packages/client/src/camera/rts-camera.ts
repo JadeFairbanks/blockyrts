@@ -1,7 +1,10 @@
-// The RTS camera (Controls > Camera): a fixed downward angle that never tilts
-// or rotates, zoom between two limits towards the point under the cursor,
-// panning clamped to the world limits, and a focus height that follows the
-// ground so hills never swallow the camera.
+// The RTS camera (Controls > Camera): a fixed downward angle that never tilts,
+// zoom between two limits towards the point under the cursor, panning clamped
+// to the world limits, and a focus height that follows the ground so hills
+// never swallow the camera. Jade's Patch 5: it turns round the middle of the
+// view on two keys, "the angle the camera is looking down at something is
+// still fixed", so the far side of a building can be seen; a double tap of
+// either key turns it back to north.
 import * as THREE from 'three';
 import type { Pt } from '../hud/rects.ts';
 import type { CameraLimits, GroundPicker } from '../selection/types.ts';
@@ -22,9 +25,21 @@ export const DEFAULT_DISTANCE = 36;
 export const PAN_RATE = 0.9;
 /** Each wheel notch (deltaY 100) at zoom speed 1 changes the distance by this factor. */
 export const ZOOM_STEP = 1.18;
+/** Patch 5: how fast the camera turns while a turn key is held, degrees a second (s: the far side of a building in 1.5 s). */
+export const TURN_RATE_DEG = 120;
+/** How quickly a turn gets up to speed and stops once the key is let go, per second (s: about a twentieth of a second). */
+const TURN_EASE = 20;
+/** How quickly a double tap turns the camera back to north, per second (s: most of the way in a quarter of a second). */
+const RESET_EASE = 12;
 
 const PITCH = THREE.MathUtils.degToRad(CAMERA_PITCH_DEG);
 const DOWN = new THREE.Vector3(0, -1, 0);
+const TURN_RATE = THREE.MathUtils.degToRad(TURN_RATE_DEG);
+
+/** An angle brought into -π to π, so a reset takes the short way round. */
+function wrapAngle(a: number): number {
+  return a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
+}
 
 export interface CameraView {
   x: number;
@@ -36,6 +51,15 @@ export class RtsCamera {
   readonly camera: THREE.PerspectiveCamera;
   readonly focus = new THREE.Vector3();
   distance = DEFAULT_DISTANCE;
+  /**
+   * How far the camera has turned round the focus, radians, -π to π: 0 looks
+   * north (towards -z) from the south, as the camera always did before Patch
+   * 5; more turns it to its right round the focus.
+   */
+  yaw = 0;
+  private turnDir = 0;
+  private turnVel = 0;
+  private resetting = false;
   private targetDistance = DEFAULT_DISTANCE;
   private zoomAnchor: Pt | null = null;
   private width = 1;
@@ -69,7 +93,8 @@ export class RtsCamera {
 
   private place(): void {
     const f = this.focus;
-    this.camera.position.set(f.x, f.y + Math.sin(PITCH) * this.distance, f.z + Math.cos(PITCH) * this.distance);
+    const flat = Math.cos(PITCH) * this.distance;
+    this.camera.position.set(f.x + Math.sin(this.yaw) * flat, f.y + Math.sin(PITCH) * this.distance, f.z + Math.cos(this.yaw) * flat);
     this.camera.lookAt(f);
     this.camera.updateMatrixWorld();
   }
@@ -121,6 +146,31 @@ export class RtsCamera {
     this.place();
   }
 
+  /** Moves the focus by an offset along the view, metres: dx to the right of the screen, dy down it. */
+  panView(dx: number, dy: number): void {
+    const c = Math.cos(this.yaw);
+    const s = Math.sin(this.yaw);
+    this.panBy(dx * c + dy * s, dy * c - dx * s);
+  }
+
+  /** The direction that is right on the screen, along the ground (a unit vector). */
+  right(): { x: number; z: number } {
+    return { x: Math.cos(this.yaw), z: -Math.sin(this.yaw) };
+  }
+
+  /** Patch 5: which way a held turn key turns the camera this frame: -1 left, 1 right, 0 neither. */
+  setTurn(dir: number): void {
+    this.turnDir = Math.sign(dir);
+    if (this.turnDir !== 0) this.resetting = false;
+  }
+
+  /** Patch 5: a double tap of a turn key: back to north, the short way round, smoothly. */
+  resetTurn(): void {
+    this.resetting = true;
+    this.turnDir = 0;
+    this.turnVel = 0;
+  }
+
   jumpTo(x: number, z: number): void {
     this.focus.x = x;
     this.focus.z = z;
@@ -167,6 +217,18 @@ export class RtsCamera {
   }
 
   update(dt: number): void {
+    // Patch 5: turn round the focus while a turn key is held, easing in and out; or back to north after a double tap.
+    this.turnVel += (this.turnDir * TURN_RATE - this.turnVel) * (1 - Math.exp(-TURN_EASE * dt));
+    if (this.turnDir === 0 && Math.abs(this.turnVel) < 1e-3) this.turnVel = 0;
+    if (this.turnVel !== 0) this.yaw = wrapAngle(this.yaw + this.turnVel * dt);
+    if (this.resetting) {
+      this.yaw *= Math.exp(-RESET_EASE * dt);
+      if (Math.abs(this.yaw) < 1e-3) {
+        this.yaw = 0;
+        this.resetting = false;
+      }
+    }
+    this.place();
     // Follow the ground height under the focus, smoothed.
     if (this.ground) {
       this.ray.set(this.tmp.set(this.focus.x, 1e5, this.focus.z), DOWN);

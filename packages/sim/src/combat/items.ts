@@ -8,8 +8,12 @@ import { Res, type Cost } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { BuildingKind } from '../buildings/data.ts';
 
-/** How a melee weapon hits (Combat, Melee): a stab hits one target, an arc everything in front. */
-export const Hit = { Stab: 0, Arc: 1 } as const;
+/**
+ * How a melee weapon hits (Combat, Melee): a stab hits one target, an arc
+ * everything in front (the rest for half), a sweep everything in front in
+ * full (Patch 5: the Dreadnought's swing).
+ */
+export const Hit = { Stab: 0, Arc: 1, Sweep: 2 } as const;
 export type Hit = (typeof Hit)[keyof typeof Hit];
 
 /** The flying things (How ranged attacks hit): each has its speed and drop. */
@@ -66,6 +70,8 @@ export interface MeleeStats {
   oneHanded: boolean;
   /** Long melee and cavalry: a hit in the outer third of reach is a critical for +30% (Long melee: the edge of reach). */
   crit: boolean;
+  /** Steps from the swing's start to the blow, where its clip strikes (Patch 5: the Dreadnought's); 40% of the attack time when left out. */
+  landSteps?: number;
 }
 
 export interface RangedStats {

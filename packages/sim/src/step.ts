@@ -4,6 +4,8 @@
 import { computeEnclosed, outlyingLights } from './buildings/lights.ts';
 import { installCrewHooks, updateBuildings } from './buildings/production.ts';
 import { updateMines } from './buildings/mining.ts';
+import { updateTaverns } from './buildings/tavern.ts';
+import { updateDreadnoughts } from './units/dreadnought.ts';
 import { clockAt, Period, periodMessage, periodStarting } from './clock.ts';
 import { applyOrders } from './commands.ts';
 import { clamp, floorDiv, HASH_INTERVAL_STEPS, headingTowards, length2d, WU_PER_METRE } from './fixed.ts';
@@ -11,7 +13,7 @@ import type { Order } from './orders.ts';
 import { hashState } from './serialize.ts';
 import { FOG_INTERVAL_STEPS, NEUTRAL, OrderKind, revealVision, UnitKind, visionSources, type SimState } from './state.ts';
 import { Act, leaveBuilding, resetWalk, runUnit } from './units/behaviour.ts';
-import { updateLoot } from './units/loot.ts';
+import { autoDropoff, updateLoot } from './units/loot.ts';
 import { hurtHooks, settleDeaths } from './combat/combat.ts';
 import { installDeathHooks, updateElimination } from './combat/deaths.ts';
 import { forgetSideSight, onUnitHurt } from './combat/fight.ts';
@@ -24,6 +26,7 @@ import { installFoes } from './threats/foes.ts';
 import { onFoeHurt, threatsAtPeriod, updateThreats } from './threats/update.ts';
 import { checkCell } from './threats/villages.ts';
 import { updateSeen } from './threats/lairs.ts';
+import { guardSpring, updateSprings } from './threats/springs.ts';
 import { updateMagic } from './magic/cast.ts';
 import { refillMages } from './magic/mages.ts';
 import { peoplesAtPeriod, runBeast, runWagon, updatePeoples } from './peoples/ai.ts';
@@ -51,6 +54,7 @@ installCrewHooks(crewHooks);
 installFoes();
 installLateMobs();
 mountHooks.rearRider = rearRider;
+stockHooks.chunk = guardSpring;
 stockHooks.cell = (state, cellId) => {
   checkCell(state, cellId);
   // Runkin who left a camp settle in the cell they went to; else the cell may hold one of the peoples.
@@ -182,6 +186,7 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateProjectiles(state);
   updateSun(state);
   updateThreats(state);
+  updateSprings(state);
   updatePeoples(state);
   updateMagic(state);
   refillMages(state);
@@ -193,7 +198,12 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateMakeAsks(state);
   settleDeaths(state);
   updateLoot(state);
+  // Patch 5 (GP-6): units near a drop-off hand in what they carry.
+  autoDropoff(state);
   updateBuildings(state);
+  // Patch 5: open Taverns burn food into silver, and Dreadnoughts speak their minds.
+  updateTaverns(state);
+  updateDreadnoughts(state);
   updateMines(state);
   updateElimination(state);
   state.world.flowWater();

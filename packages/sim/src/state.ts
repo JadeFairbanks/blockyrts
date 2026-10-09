@@ -843,8 +843,13 @@ export interface Loot {
   src: number;
 }
 
-/** Site kinds: a dig down, a tunnel into a hillside, a stretch of a tunnel chain (Patch 5 took out the earthworks: banks, fill and ramps). */
-export const SiteKind = { Dig: 0, Tunnel: 1, TunnelLine: 2 } as const;
+/**
+ * Site kinds: a dig down, a tunnel into a hillside, a stretch of a tunnel
+ * chain (Patch 5 took out the earthworks: banks, fill and ramps), and a dig
+ * drawn upwards (Jade's Patch 5, GP-4: a box from the ground clicked up to
+ * its roof, to level a hill or a mountain, dug from the top down).
+ */
+export const SiteKind = { Dig: 0, Tunnel: 1, TunnelLine: 2, Up: 3 } as const;
 
 /** Whether a site is a tunnel: a marked box, or a stretch of a tunnel chain. */
 export function tunnelSite(kind: number): boolean {
@@ -865,9 +870,9 @@ export interface Site {
   z0: number;
   x1: number;
   z1: number;
-  /** Dig: the floor to dig down to. Tunnels: the floor. */
+  /** Dig: the floor to dig down to. Tunnels and digs drawn upwards: the floor. */
   level: number;
-  /** Tunnels: the roof. */
+  /** Tunnels and digs drawn upwards: the roof (nothing above it is dug). */
   level2: number;
   /** TunnelLine: its width in columns. */
   axis: number;
@@ -880,9 +885,10 @@ export interface Site {
  * 'violet' Morvath's staff splash (MB-4), a ring of vivid purple; 'drain' life drained into a monster, white motes from
  * where it was taken to `to`, `n` of them (one for every 2 health); 'crimson' the necromancer's bolt bursting and his
  * dead rising (MB-5); 'summon' a summoner calling up its kin (the necromancer, Morvath opening the Rift), at the
- * summoner `id`.
+ * summoner `id`. 'sweep': the Dreadnought's swing landing, its crescent drawn in front of him; 'warcry': a remark
+ * of his, said with his war cry.
  */
-export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon';
+export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 'burst' | 'blast' | 'death' | 'shake' | 'shot' | 'swing' | 'spell' | 'tick' | 'fell' | 'bomb' | 'dirt' | 'violet' | 'drain' | 'crimson' | 'summon' | 'sweep' | 'warcry';
 
 export interface HitEvent {
   look: HitLook;
@@ -891,9 +897,10 @@ export interface HitEvent {
   z: number;
   /** The entity hit, swinging or dying (0 for none). */
   id: number;
-  /** Death: what died (UnitKind and mob), for the death animation. */
+  /** Death: what died (UnitKind and mob, and a warrior's troop type: the Dreadnought falls as himself, Patch 5), for the death animation. */
   kind?: number;
   mob?: number;
+  troop?: number;
   heading?: number;
   /** A spell landing (look 'spell'): which (magic/spells.ts Spell); x, y, z are where it shows. */
   spell?: number;

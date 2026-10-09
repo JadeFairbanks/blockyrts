@@ -60,7 +60,6 @@ function block(w: number, d: number): LevelFootprint {
   return { rows: Array.from({ length: d }, () => '#'.repeat(w)) };
 }
 
-/** A tower's deck, 4.1 m up (the 5 m tower less its parapet): a man at each corner. */
 /** A wall column (Patch 5): its model centred on the column; the client turns it along its stretch, puts a corner piece where it turns, and swaps in its damage states (UI-9). */
 function wallAt(id: string): LevelFootprint[] {
   return [{ models: [{ id, x: 8, z: 8 }], rows: ['#'] }];
@@ -72,8 +71,8 @@ function gateAt(id: string): LevelFootprint[] {
 }
 
 /** A tower (Patch 5: 4 columns square, as its model is), its 4 places at the model's slot_tower_1 to 4, on its fighting deck `y` units up. */
-function towerAt(id: string, y: number, drawn = true): LevelFootprint[] {
-  return [{ ...(drawn ? { models: [{ id, x: 32, z: 32 }] } : {}), rows: ['####', '####', '####', '####'], posts: [[20, 20, y], [44, 20, y], [20, 44, y], [44, 44, y]] }];
+function towerAt(id: string, y: number): LevelFootprint[] {
+  return [{ models: [{ id, x: 32, z: 32 }], rows: ['####', '####', '####', '####'], posts: [[20, 20, y], [44, 20, y], [20, 44, y], [44, 44, y]] }];
 }
 
 /** The Farm (Patch 2): the tier 1 crop field and its farmhouse in the north-west corner. */
@@ -278,8 +277,8 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
   [BuildingKind.GateStone]: gateAt('gate_stone'),
   // The wooden towers' roofs sit 52 units over their deck, too low for the men up there (60): drawn as blocks until their models
   // have the roof raised (asked of the models session, Patch 5).
-  [BuildingKind.Tower]: towerAt('tower_softwood', 124, false),
-  [BuildingKind.TowerHardwood]: towerAt('tower_hardwood', 124, false),
+  [BuildingKind.Tower]: towerAt('tower_softwood', 124),
+  [BuildingKind.TowerHardwood]: towerAt('tower_hardwood', 124),
   [BuildingKind.TowerStone]: towerAt('tower_stone', 171),
   // Patch 5 (Jade, GP-43): 2 columns square, as its model is.
   [BuildingKind.EarthRampart]: [{ models: [{ id: 'rampart_earth', x: 16, z: 16 }], rows: ['##', '##'] }],
@@ -371,6 +370,24 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
         '.######.',
         '.######.',
         '........',
+      ],
+    },
+  ],
+  // Patch 5: the Tavern, 10 x 10 columns; its woodshed's eave reaches 3.5 u past the back, over open ground.
+  [BuildingKind.Tavern]: [
+    {
+      models: [{ id: 'tavern', x: 80, z: 80 }],
+      rows: [
+        '..........',
+        '.##.......',
+        '##########',
+        '.########.',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '##########',
+        '.######...',
       ],
     },
   ],

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  Band,
   BuildingKind,
   buildingCentre,
   clockAt,
@@ -161,9 +162,11 @@ describe('the peoples', () => {
     run(a, 200);
     run(b, 200);
     expect(a.peoples.factions.map((f) => [f.kind, f.x, f.z])).toEqual(b.peoples.factions.map((f) => [f.kind, f.x, f.z]));
-    // The Elf kingdom's cell is in the Deepwoods.
-    const cell = a.world.layout.cell(elfKingdomCell(a));
-    expect(cell.ring).toBe(a.world.layout.bands.deepwoods + 1);
+    // The Elf kingdom's cell is in the Deepwoods, a ring in from its edge where the band is that deep (its band is its site's since Patch 5).
+    const layout = a.world.layout;
+    const cell = layout.cell(elfKingdomCell(a));
+    expect(cell.band).toBe(Band.Deepwoods);
+    expect(cell.ring).toBe(Math.min(layout.bands.deepwoods + 1, layout.bands.barrens - 1));
   });
 });
 
@@ -538,6 +541,7 @@ describe('caravans and mercenaries', () => {
     const hired: number[] = [];
     for (let i = 0; i < e.count; i++) if (e.owner[i] === 0 && e.role[i] === Role.Mercenary) hired.push(i);
     expect(hired.length).toBe(2);
+    const hiredIds = hired.map((j) => e.id[j]!);
     expect(f.survivors).toBe(size - 2);
     expect(supplyUsed(s, 0)).toBe(supply + 2);
     // Theirs to command, and theirs still after dusk.
@@ -546,7 +550,11 @@ describe('caravans and mercenaries', () => {
     expect(e.queue[e.indexOf(id)]!.length).toBeGreaterThan(0);
     runUntil(s, () => clockAt(s.step).period === Period.Dusk, 10 * 60 * SEC);
     run(s, 2);
-    for (const j of hired) if (e.hp[j]! > 0) expect(e.owner[j]).toBe(0);
+    // By id: a death elsewhere can move a unit's index.
+    for (const hid of hiredIds) {
+      const j = e.indexOf(hid);
+      if (j >= 0 && e.hp[j]! > 0) expect(e.owner[j]).toBe(0);
+    }
     expect(f.survivors).toBe(size - 2);
   });
 });
