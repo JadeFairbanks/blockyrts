@@ -1663,7 +1663,7 @@ Interface art (section K): icons, portraits, badges, minimap icons, cursors, 9-s
 | icon_mushrooms | ui/icon_mushrooms.png | 1 | 32x32 | Patch 5 resource icon mushrooms (GP-30): two edible mushrooms, domed tan caps on pale stems, drawn in code to K1's style (no model yet), 32x32, 1px outline, top-left light. |
 | icon_armour_copper_scale | ui/icon_armour_copper_scale.png | 1 | 32x32 | K2 item icon armour_copper_scale (rendered from armour_copper_scale.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_armour_iron_plates | ui/icon_armour_iron_plates.png | 1 | 32x32 | K2 item icon armour_iron_plates (rendered from armour_iron_plates.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
-| icon_axe_hand_obsidian | ui/icon_axe_hand_obsidian.png | 1 | 32x32 | K2 item icon axe_hand_obsidian (rendered from axe_hand_obsidian.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
+| icon_axe_hand_obsidian | ui/icon_axe_hand_obsidian.png | 1 | 32x32 | K2 item icon axe_hand_obsidian (rendered from obsidian_handaxe.bbmodel, Jade's model and the game's obsidian hand-axe, in Patch 5), 32x32, 1px dark outline, top-left light. |
 | icon_barn | ui/icon_barn.png | 1 | 32x32 | K3 building icon barn (rendered from barn.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_bog_pear | ui/icon_bog_pear.png | 1 | 32x32 | K2 item icon bog_pear (rendered from bog_pear.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
 | icon_bonfire | ui/icon_bonfire.png | 1 | 32x32 | K3 building icon bonfire (rendered from bonfire.bbmodel in Patch 5), 32x32 three-quarter view, 1px dark outline, top-left light. |
