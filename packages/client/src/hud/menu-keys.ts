@@ -31,9 +31,29 @@ export function submenuChoices(specs: readonly BuildingSpec[]): Array<{ spec: Bu
   return out;
 }
 
-/** The binding name of a building (or one way of a gate) in the build menu; also its button's action. */
+/** Each building kind's name in the sim's BuildingKind ('Farm', 'WallHardwood'), which stays put when kinds are added or cut. */
+const KIND_NAMES: ReadonlyMap<number, string> = new Map(Object.entries(BuildingKind).map(([name, kind]) => [kind, name]));
+
+/** A building kind's name in binding names: its BuildingKind name, so a rebound key keeps its building when the list of kinds changes (Patch 5). */
+export function kindName(kind: number): string {
+  return KIND_NAMES.get(kind) ?? String(kind);
+}
+
+/** A product's name in binding names: its name in lower case, words joined by dashes ('bronze-ingots-10'). */
+export function productName(product: number): string {
+  return productSpec(product)
+    .name.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
+ * The binding name of a building (or one way of a gate) in the build menu;
+ * also its button's action. Patch 5: by the building's name, not its number,
+ * which shifted one along when the earthworks went.
+ */
 export function placeAction(kind: number, variant: number): string {
-  return `build-${kind}-${variant}`;
+  return `build-${kindName(kind)}-${variant}`;
 }
 
 /** The binding name of the button opening a build submenu. */
@@ -41,9 +61,9 @@ export function submenuAction(group: string): string {
   return `menu-${group.toLowerCase()}`;
 }
 
-/** The binding name of a product in a building's K menu (the same product can sit in two menus: rope at the Big House and the Workshop). */
+/** The binding name of a product in a building's K menu (the same product can sit in two menus: rope at the Big House and the Workshop), by names as placeAction (Patch 5). */
 export function makeAction(kind: number, product: number): string {
-  return `make-${kind}-${product}`;
+  return `make-${kindName(kind)}-${productName(product)}`;
 }
 
 /** The page turn of a menu too long for the card (More). */

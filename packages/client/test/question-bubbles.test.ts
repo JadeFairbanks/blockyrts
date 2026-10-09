@@ -156,7 +156,8 @@ describe("held bubbles (Jade's Patch 3)", () => {
     const text = 'If you upgrade all their tools you may not be able to make any structures right away, choose wisely.';
     bubbles.speak({ id: 3, building: true }, text, 0, 'own', 'long');
     bubbles.speak({ id: 4, building: true }, text, 0);
-    const usual = 3500 + text.length * 40;
+    // Patch 5 (UI-19): a second longer than the 3.5 s base before.
+    const usual = 4500 + text.length * 40;
     bubbles.update(usual + 1, anchor, nobody);
     expect(texts(root)).toEqual([text]);
     bubbles.update(2 * usual - 1, anchor, nobody);

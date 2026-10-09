@@ -4,12 +4,12 @@
 // there": each of its 16 windows glows and flickers on its own, now and then
 // someone walks past inside, a warm light spills out of the door at night,
 // and the chimney smokes hard. Closed, the windows and the lantern go dark
-// (the model paints them lit) and the chimney only smokes a little. Over a
-// Tavern of the player's a plain bar shows its progress: the Dreadnought
-// being hired, else the till filling to the next silver ingot while it is
-// open. [The shared bar stack over buildings (UI-18) and the lit windows and
+// (the model paints them lit) and the chimney only smokes a little. Its bars
+// are in the shared stack over buildings (UI-18): the stack draws a
+// Dreadnought being hired as any queue's gold bar, and hud/tavern-bars.ts adds
+// the till's silver bar to the next ingot while it is open. [The lit windows and
 // chimney smoke of other buildings (VX-2, VX-3) belong to other threads; this
-// bar and this smoke are the Tavern's own until those land.]
+// smoke is the Tavern's own until those land.]
 import * as THREE from 'three';
 import { BuildingKind } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
@@ -42,8 +42,6 @@ const WINDOWS: ReadonlyArray<readonly [number, number, number, number, number, n
 /** The lantern over the door (glow_lantern), and the chimney pot's top (fx_smoke), model units. */
 const LANTERN = [-2.6, 58.8, -46.6, 2.6, 64.8, -43.4] as const;
 const CHIMNEY = [70.75, 245, 8] as const;
-/** The roof's top, model units: the bar floats above it. */
-const ROOF_U = 245;
 
 const MAX_TAVERNS = 24;
 const MAX_PANES = MAX_TAVERNS * WINDOWS.length;
@@ -83,8 +81,6 @@ export class TavernView {
   private readonly figures: THREE.InstancedMesh;
   private readonly smoke: THREE.InstancedMesh;
   private readonly light = new THREE.PointLight(0xffa850, 0, 9, 1.6);
-  private readonly bars: Array<{ back: THREE.Sprite; fill: THREE.Sprite }> = [];
-  private readonly fillMats: Record<'hire' | 'till', THREE.SpriteMaterial>;
   private readonly puffs: Puff[] = [];
   /** When each Tavern last puffed, s. */
   private readonly lastPuff = new Map<number, number>();
@@ -92,10 +88,7 @@ export class TavernView {
   private readonly colour = new THREE.Color();
   private last = 0;
 
-  constructor(
-    private readonly scene: THREE.Scene,
-    private readonly player: number,
-  ) {
+  constructor(scene: THREE.Scene) {
     const plane = new THREE.PlaneGeometry(1, 1);
     const make = (mat: THREE.Material, n: number, geo: THREE.BufferGeometry = plane): THREE.InstancedMesh => {
       const m = new THREE.InstancedMesh(geo, mat, n);
@@ -113,10 +106,6 @@ export class TavernView {
     this.covers.renderOrder = 3;
     this.smoke = make(new THREE.MeshLambertMaterial({ color: 0x9a9894, transparent: true, opacity: 0.5, depthWrite: false }), MAX_PUFFS, new THREE.BoxGeometry(1, 1, 1));
     scene.add(this.light);
-    this.fillMats = {
-      hire: new THREE.SpriteMaterial({ color: 0xe8c25a, depthTest: false }),
-      till: new THREE.SpriteMaterial({ color: 0xc8d2dc, depthTest: false }),
-    };
   }
 
   /** Where a Tavern's model stands (its origin), metres. */
@@ -140,7 +129,6 @@ export class TavernView {
     let halos = 0;
     let figures = 0;
     let lanterns = 0;
-    let bars = 0;
     let nearest: { p: THREE.Vector3; d: number; flicker: number } | null = null;
     const p = new THREE.Vector3();
     const d = this.dummy;
@@ -196,17 +184,12 @@ export class TavernView {
         this.at(o, CHIMNEY[0], CHIMNEY[1], CHIMNEY[2], p);
         this.puffs.push({ x: p.x, y: p.y + 0.05, z: p.z, vx: (Math.random() - 0.5) * 0.25 + 0.12, vz: (Math.random() - 0.5) * 0.25, age: 0 });
       }
-      if (b.owner === this.player) bars = this.bar(b, o, bars, p);
     }
     for (const id of this.lastPuff.keys()) if (!info.buildings.has(id)) this.lastPuff.delete(id);
     this.finish(this.covers, covers);
     this.finish(this.halos, halos);
     this.finish(this.figures, figures);
     this.finish(this.lanterns, lanterns);
-    for (let k = bars; k < this.bars.length; k++) {
-      this.bars[k]!.back.visible = false;
-      this.bars[k]!.fill.visible = false;
-    }
     this.updateSmoke(dt);
     if (nearest && darkness > 0.02) {
       this.light.position.copy(nearest.p);
@@ -232,40 +215,6 @@ export class TavernView {
     d.rotation.set(0, turn(face), 0);
     d.scale.set(Math.max(0.001, w * U), h * U, 1);
     d.updateMatrix();
-  }
-
-  /** The bar over one of the player's Taverns: hiring the Dreadnought, else the till while open. Returns the bars used. */
-  private bar(b: BuildingInfo, o: THREE.Vector3, n: number, p: THREE.Vector3): number {
-    const head = b.queue[0];
-    const till = b.tavern?.open ? b.tavern.done : -1;
-    const done = head ? head.done : till;
-    if (done < 0) return n;
-    let bar = this.bars[n];
-    if (!bar) {
-      const back = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x101010, transparent: true, opacity: 0.75, depthTest: false }));
-      const fill = new THREE.Sprite(this.fillMats.till);
-      for (const s of [back, fill]) {
-        s.renderOrder = 10;
-        this.scene.add(s);
-      }
-      fill.renderOrder = 11;
-      bar = { back, fill };
-      this.bars.push(bar);
-    }
-    const W = 2.2;
-    const H = 0.16;
-    this.at(o, 0, ROOF_U + 20, 4, p);
-    const frac = Math.max(0.01, Math.min(1, done / 1000));
-    bar.back.position.copy(p);
-    bar.back.scale.set(W + 0.06, H + 0.06, 1);
-    bar.back.visible = true;
-    bar.fill.material = head ? this.fillMats.hire : this.fillMats.till;
-    bar.fill.position.copy(p);
-    bar.fill.scale.set(W * frac, H, 1);
-    // Anchored at its left end: the bar grows from the left of the trough.
-    bar.fill.center.set(0.5 / frac, 0.5);
-    bar.fill.visible = true;
-    return n + 1;
   }
 
   private finish(m: THREE.InstancedMesh, n: number): void {

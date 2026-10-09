@@ -2,6 +2,7 @@
 // a player leaving, and the buildings and units everyone inherits.
 import { describe, expect, it } from 'vitest';
 import {
+  addWarrior,
   BuildingKind,
   createWorld,
   deserializeState,
@@ -38,21 +39,25 @@ function mainBase(s: SimState, player: number): number {
 }
 
 describe('Milestone 9: shared control', () => {
-  it('lets an ally move, stop and gather with shared units, but not build with them or upgrade their kit', () => {
+  it('lets an ally move and stop shared troops, but not their workers, nor build or upgrade kit with them', () => {
     const s = createWorld(3, { players: 2, peaceful: true });
     const [w] = unitsOf(s, 0);
     const [x0, z0] = at(s, w!);
-    const move = (player: number): Order => ({ kind: 'move', player, units: [w!], x: x0 + 8000 * 6, z: z0 });
+    const t = s.entities.id[addWarrior(s, 0, x0, z0)]!;
+    const move = (player: number, id = t): Order => ({ kind: 'move', player, units: [id], x: x0 + 8000 * 6, z: z0 });
+    const orders = (id: number): number => s.entities.queue[s.entities.indexOf(id)]!.length;
     // Without sharing, player 2's order is ignored.
     step(s, [move(1)]);
+    expect(orders(t)).toBe(0);
     for (let k = 0; k < 40; k++) step(s);
-    expect(at(s, w!)[0]).toBe(x0);
-    // Player 1 ticks Share control for player 2.
+    const [xt] = at(s, t);
+    // Player 1 ticks Share control for player 2: combat units only (Patch 5, UI-14).
     step(s, [{ kind: 'shareControl', player: 0, with: 1, on: 1 }]);
     expect(s.players[0]!.share).toBe(2);
-    step(s, [move(1)]);
+    step(s, [move(1), move(1, w!)]);
+    expect(orders(w!)).toBe(0);
     for (let k = 0; k < 40; k++) step(s);
-    expect(at(s, w!)[0]).toBeGreaterThan(x0);
+    expect(at(s, t)[0]).toBeGreaterThan(xt + 8000);
     // Upgrading their kit (Troops and gear) and building are not shared.
     const queueBefore = s.entities.queue[s.entities.indexOf(w!)]!.length;
     step(s, [{ kind: 'build', player: 1, units: [w!], building: BuildingKind.TorchPost, variant: 0, x: 0, z: 0 }]);
@@ -64,11 +69,11 @@ describe('Milestone 9: shared control', () => {
     // Unticking stops it again.
     step(s, [{ kind: 'shareControl', player: 0, with: 1, on: 0 }]);
     expect(s.players[0]!.share).toBe(0);
-    step(s, [{ kind: 'stop', player: 0, units: [w!] }]);
-    const [x1] = at(s, w!);
+    step(s, [{ kind: 'stop', player: 0, units: [t] }]);
+    const [x1] = at(s, t);
     step(s, [move(1)]);
     for (let k = 0; k < 40; k++) step(s);
-    expect(at(s, w!)[0]).toBe(x1);
+    expect(at(s, t)[0]).toBe(x1);
   });
 
   it('ignores sharing with yourself or a player who is not in the game', () => {
