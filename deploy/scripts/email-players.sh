@@ -91,9 +91,11 @@ latest=$(r2 s3 ls "s3://$bucket/backups/" | awk '{print $4}' | grep -E '^db-[0-9
 if [ -n "$latest" ]; then
   # The accounts table's rows sit between its COPY line and a line "\.".
   in_backup=$(r2 s3 cp --quiet "s3://$bucket/backups/$latest" - | gunzip -c |
-    awk '/^COPY public\.accounts /{on=1; next} on && /^\\\.$/{on=0} on{n++} END{print n+0}') ||
+    awk '/^COPY public\.accounts /{on=1; seen=1; next} on && /^\\\.$/{on=0} on{n++}
+      END{if (seen) print n+0; else printf "unknown (no accounts table in it: %d lines)", NR}') ||
     in_backup="unknown (the backup could not be read)"
-  echo "- Accounts in the newest nightly backup ($latest, taken at 10:00 UTC): $in_backup" | say
+  size=$(r2 s3api head-object --bucket "$bucket" --key "backups/$latest" --query ContentLength --output text || echo '?')
+  echo "- Accounts in the newest nightly backup ($latest, $size bytes, taken at 10:00 UTC): $in_backup" | say
 fi
 
 request="run-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
