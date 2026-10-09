@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, Res, NO_CARRY, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, Mob, Res, NO_CARRY, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { ACTIONS, clashes, keyFor, sanitizeBindings } from '../src/input/bindings.ts';
 import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
@@ -181,6 +181,12 @@ describe('the worker card', () => {
     expect(card[0]!.description).toMatch(/night monsters within 15 m of it move 10% slower/);
     expect(card[0]!.description).not.toMatch(/Drag to place a line/);
     expect(card[1]!.enabled).toBe(false);
+  });
+
+  it('gives a risen skeleton archer Attack, Patrol, Move and Run or Walk, and nothing that changes its bow (Patch 7)', () => {
+    const risen = [sel('e:1', 'unit', `risen:${Mob.SkeletonArcher}`), sel('e:2', 'unit', `risen:${Mob.SkeletonArcher}`)];
+    const { c } = harness(game([building(9, BuildingKind.MainBase)]), risen, `risen:${Mob.SkeletonArcher}`);
+    expect(c.card().map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Walk']);
   });
 
   it('pages a menu longer than the card can show', () => {

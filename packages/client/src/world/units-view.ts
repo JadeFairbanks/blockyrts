@@ -442,11 +442,10 @@ const SCHOOL_LOOKS = ['support', 'support', 'battle'];
 
 /**
  * A skeleton archer the Deathless Shroud raised (Patch 7): the skeleton
- * archer's own model, tinted all over in its player's colour (Jade: "tinted
- * your color"), this far from white toward it so the bones still read.
+ * archer's own model, its bones tinted all over in its player's colour
+ * (Jade: "tinted your color"), in full so the colour reads at a glance.
  */
 const RISEN_MODEL = mobSpec(Mob.SkeletonArcher).model;
-const RISEN_TINT = 0.7;
 
 interface Corpse {
   model: string;
@@ -1097,11 +1096,11 @@ export class UnitsView {
     return b;
   }
 
-  /** A risen skeleton archer's pool (Patch 7): the skeleton archer's model tinted toward its player's colour, one pool a colour. */
+  /** A risen skeleton archer's pool (Patch 7): the skeleton archer's model tinted in its player's colour, one pool a colour. */
   private risenBody(colour: THREE.Color | null): BodyPool | null {
     const plain = this.body(RISEN_MODEL);
     if (!plain || !colour) return plain;
-    const tint = new THREE.Color(0xffffff).lerp(colour, RISEN_TINT).getHex();
+    const tint = colour.getHex();
     const key = `${RISEN_MODEL}#${tint.toString(16)}`;
     let b = this.bodies.get(key);
     if (!b) {
@@ -1622,7 +1621,8 @@ export class UnitsView {
       // The woodsman (Patch 5) on his own body.
       const woodsman = kind === UnitKind.Warrior && d[o + S.troop] === Troop.Woodsman && !people;
       if (woodsman) this.woodsmen.add(id);
-      const pool = kin ?? this.body(dread ? DREADNOUGHT_MODEL : woodsman ? 'woodsman' : kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker');
+      // A risen archer whose skeleton is still loading is a block in its colour meanwhile, never a soldier's body.
+      const pool = kin ?? (risen ? null : this.body(dread ? DREADNOUGHT_MODEL : woodsman ? 'woodsman' : kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker'));
       const body = pool?.model ?? null;
       // A cart carries the load in its bed; otherwise it is in the arms, the hand or on the shoulder.
       const cart = d[o + S.kit]!;

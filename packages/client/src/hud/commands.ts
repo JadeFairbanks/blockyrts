@@ -484,7 +484,7 @@ export class Commands {
 
   private slotsFor(active: string, waiting: boolean): Slots {
     if (this.area && active === 'worker') return this.areaCard();
-    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active === 'warrior:woods' || active === 'warrior:dreadnought' || active.startsWith('mage:')) {
+    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active === 'warrior:woods' || active === 'warrior:dreadnought' || active.startsWith('mage:') || active.startsWith('risen:')) {
       if (this.alliedOnly(active)) return this.alliedCard(active);
       if (this.menu.page === 'build' && active === 'worker') return this.buildMenuCard(waiting);
       return this.unitCard(active);
