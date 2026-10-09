@@ -1360,6 +1360,26 @@ body.playing * {
 .send-list {
   margin-bottom: 6px;
 }
+/* Patch 5: the Tavern's Hire Dreadnought window (GP-21), a trade-style panel like the mercenaries' hire box. */
+.dread-dialog {
+  z-index: 5;
+  left: 50%;
+  top: 120px;
+  transform: translateX(-50%);
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100vh - 120px - var(--card-top, 250px) - 8px);
+  padding: 10px 12px 12px;
+  background: rgba(18, 22, 28, 0.96);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dread-dialog .send-list > * {
+  flex: none;
+}
+.dread-worth.warn {
+  color: #e8a050;
+}
 .net-banner {
   z-index: 6;
   top: 52px;
@@ -2244,12 +2264,14 @@ body.playing.touch .hud {
   filter: grayscale(1) brightness(0.5);
   opacity: 0.6;
 }
-.sel-strip.farm .hud-btn.sel-bar.meal {
+.sel-strip.farm .hud-btn.sel-bar.meal,
+.sel-strip.tavern .hud-btn.sel-bar.meal {
   flex: 1 1 auto;
   max-width: 260px;
   height: 16px;
 }
-.sel-strip.farm .hud-btn.sel-bar .num {
+.sel-strip.farm .hud-btn.sel-bar .num,
+.sel-strip.tavern .hud-btn.sel-bar .num {
   font-size: 14px;
   line-height: 16px;
 }
@@ -2428,6 +2450,24 @@ body.playing.touch .hud {
 .tier-row {
   display: flex;
   gap: 3px;
+}
+/* A card button's right-click dropdown (Patch 5: Scrap 1, Scrap 10, Scrap all), framed like the tier strip. */
+.hud .panel.card-pop {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 3px;
+  border: 6px solid transparent;
+  border-image: var(--kit-popup) 12 fill / 6px round;
+}
+.hud .panel.card-pop[hidden] {
+  display: none;
+}
+.hud-btn.pop-item {
+  min-width: 96px;
+  height: 28px;
 }
 .tier-point {
   position: absolute;
@@ -2813,4 +2853,165 @@ body.playing.touch .hud {
   width: 20px;
   height: 20px;
   margin-top: 9px;
+}
+
+/* ---- Patch 5 (Jade's GP-7 and her picture of the middle): one of the
+   player's own units. The title row's pieces and the body's two halves sit
+   on one grid: the name over the kit slots and what it is doing on the left,
+   the bars over its inventory on the right, the divider running on down
+   between them. The meal sits right after the kit, with no gap. ---- */
+.sel-content.split {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(0, 1fr) max-content;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: start;
+  row-gap: 5px;
+}
+.sel-content.split > .sel-head,
+.sel-content.split > .sel-body,
+.sel-content.split .sel-extra {
+  display: contents;
+}
+.sel-content.split .sel-title {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+}
+.sel-content.split .sel-divider {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: stretch;
+}
+.sel-content.split .sel-bars {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: center;
+}
+.sel-content.split .sel-corner {
+  grid-column: 4;
+  grid-row: 1;
+  align-self: stretch;
+  margin-left: 0;
+}
+.sel-content.split .sel-left {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+}
+.sel-content.split .sel-left > .sel-strip.kit {
+  margin-top: 0;
+}
+.sel-content.split .unit-inv {
+  grid-column: 3 / 5;
+  grid-row: 2;
+}
+/* The inventory: a dark well with a slot per good carried and empty wells for the rest, the weight and Unload all under them. */
+.unit-inv {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 3px 4px;
+  border: 4px solid transparent;
+  border-image: var(--kit-well) 4 fill / 4px;
+  background: rgba(0, 0, 0, 0.45);
+  background-clip: padding-box;
+  image-rendering: pixelated;
+}
+.unit-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.hud-btn.chip.unit-slot,
+.unit-slot.empty {
+  flex: none;
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+}
+.hud-btn.chip.unit-slot {
+  border: 0 !important;
+  border-image: var(--kit-well) 4 fill / 4px !important;
+}
+/* Its counts and the weight are very tiny text: UI-1's crisp font, a step smaller than Jersey 10 would be. */
+.hud-btn.chip.unit-slot > .face {
+  font: 700 11px/1 var(--crisp);
+  color: var(--parchment);
+  text-shadow: 1px 1px 0 #000, 0 0 2px rgba(0, 0, 0, 0.85);
+}
+.unit-slot.empty {
+  display: block;
+  border: 4px solid transparent;
+  border-image: var(--kit-well) 4 fill / 4px;
+  opacity: 0.55;
+}
+.unit-inv-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.unit-inv .hud-btn.chip.weight {
+  height: 22px;
+  min-width: 0;
+  border-image: none !important;
+}
+.unit-inv .hud-btn.chip.weight > .face {
+  padding: 0 2px;
+  font: 700 13px/1 var(--crisp);
+  color: var(--parchment);
+  text-shadow: 1px 1px 0 #000, 0 0 2px rgba(0, 0, 0, 0.85);
+}
+.unit-inv .hud-btn.chip.weight.warn > .face {
+  color: #ff9a7a;
+}
+.hud-btn.unload-all {
+  flex: none;
+  height: 24px;
+  padding: 0 16px 0 8px;
+  font: 16px/1 var(--display);
+  white-space: nowrap;
+}
+/* A spell's time left on its picture (GP-34), placed as the meal's bar is. */
+.hud-btn.chip.spell .meal-bar {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  height: 4px;
+  background: var(--kit-trough) 0 0 / 100% 100%;
+}
+/* GP-9: the main base's Eject, a button with the sheltered picture. */
+.hud-btn.eject {
+  flex: none;
+  height: 34px;
+  justify-content: flex-start;
+  padding: 0 8px 0 36px;
+}
+.hud-btn.eject .btn-icon {
+  right: auto;
+  width: 34px;
+}
+.hud-btn.eject > .face {
+  display: block;
+  font: 17px/1 var(--display);
+  white-space: nowrap;
+}
+/* GP-10: each portrait in a main base with ramparts wears a small arrow, up or down, in its top corner. */
+.garrison-unit {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+}
+.hud-btn.shelter-swap {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  font: 9px/1 var(--crisp);
+  color: var(--parchment);
+  z-index: 1;
 }

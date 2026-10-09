@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BuildingKind, BUILDINGS, Engine, ENGINE_PRODUCT, Greyed, levelSpec, Product, RECIPE_PRODUCT, RECIPES, Res, RESEARCH_PRODUCT, RESOURCE_COUNT, SLAUGHTER_PRODUCT, Species, Troop, troopProduct, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
+import { makeSub } from '../src/hud/menu-keys.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
@@ -19,7 +20,7 @@ function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): Buil
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
     queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: BUILDINGS[kind]!.name, upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
-    troops: [], horses: 0, farm: null, ...o,
+    troops: [], horses: 0, farm: null, room: 0, fixedEngine: 0, ...o,
   };
 }
 
@@ -44,7 +45,7 @@ function game(buildings: BuildingInfo[], pool: Array<[number, number]> = []): Ga
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
-    loot: [], bags: [],
+    loot: [], bags: [], carry: [], effects: [],
   };
   g.onInfo(info);
   return g;
@@ -134,16 +135,18 @@ describe('a card with one button that only opens a menu opens on that menu (Patc
     const card = c.card();
     expect(card.some((e) => e.action === 'craft')).toBe(false);
     expect(card.some((e) => e.action === 'back')).toBe(false);
-    // The Workshop's long list pages on More (V), as its Make menu did.
-    const shown = card.filter((e) => e.action !== 'more');
-    expect(shown.map((e) => e.product)).toEqual(products.slice(0, shown.length).map(([p]) => p));
+    // The Workshop's trinkets and scrapping sit behind buttons of their own (Patch 5).
+    const shown = card.filter((e) => e.action !== 'more' && e.product !== undefined);
+    expect(shown.map((e) => e.product)).toEqual(products.filter(([p]) => makeSub(p) < 0).slice(0, shown.length).map(([p]) => p));
     expect(Commands.lone(card)).toBe(false);
   });
 
-  it('keeps the menu button where the card has more on it: the Artillery workshop trains its crewman too', () => {
+  it('puts a short list on the card itself: the Artillery workshop trains its crewman beside its engines (Patch 5, no Make button)', () => {
     const b = building(41, BuildingKind.ArtilleryWorkshop, { products: [[Product.Crewman, ''], [ENGINE_PRODUCT + Engine.BronzeCannon, '']] });
     const card = harness(game([b]), [picked(b)], picked(b).typeKey).c.card();
-    expect(card.map((e) => e.action)).toEqual(expect.arrayContaining(['trainCrewman', 'craft']));
+    expect(card.map((e) => e.action)).toEqual(expect.arrayContaining(['trainCrewman']));
+    expect(card.some((e) => e.action === 'craft')).toBe(false);
+    expect(card.some((e) => e.product === ENGINE_PRODUCT + Engine.BronzeCannon)).toBe(true);
   });
 
   it('keeps Cancel on a Forge still going up, not the menu', () => {
@@ -166,7 +169,7 @@ describe('a click on a greyed-out action asks the sim (Patch 3)', () => {
   });
 
   it('sends the troop with the kit on its card for a Barracks button', () => {
-    const b = building(51, BuildingKind.Barracks, { troops: [{ troop: Troop.Close, w: 2, a: 1, lock: 0 }] });
+    const b = building(51, BuildingKind.Barracks, { troops: [{ troop: Troop.Close, w: 2, a: 1, s: 0, lock: 0 }] });
     const { c, sent } = harness(game([b]), [picked(b)], picked(b).typeKey);
     const close = c.card().find((e) => e.action === 'trainClose')!;
     expect(close.enabled).toBe(false);

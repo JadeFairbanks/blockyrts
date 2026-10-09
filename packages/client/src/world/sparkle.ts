@@ -1,8 +1,7 @@
-// The world's flashes and glitter (Jade's Patch 5, VX-6: "Flash for gun
-// muzzles, glitter of gold color for gold, glitter of silver color for
-// silver"): a muzzle flash, a puff of smoke and a moment of light where a
-// musket, pistol or cannon fires, and tiny pixel stars that wink on gold and
-// silver lying in the world. All of it is cubes (AR-3), the light additive.
+// The world's glitter (Jade's Patch 5, VX-6: "glitter of gold color for
+// gold, glitter of silver color for silver"): tiny pixel stars that wink on
+// gold and silver lying in the world. Cubes (AR-3), the light additive. The
+// muzzle flashes are drawn from each gun's muzzle (units-view.ts, MB-7).
 // Decoration only; nothing here reaches the sim. Every number is a pick (s).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -45,28 +44,12 @@ export function glitterOfGood(res: number): number {
   return name.includes('gold') ? GOLD_GLINT : name.includes('silver') ? SILVER_GLINT : 0;
 }
 
-/** A shot leaving: a musket or pistol's flash, or a cannon's bigger one. */
-export const Muzzle = { Gun: 0, Cannon: 1 } as const;
-export type Muzzle = (typeof Muzzle)[keyof typeof Muzzle];
-
 const MAX_GLINTS = 120;
-const MAX_FLASH = 96;
-const MAX_SMOKE = 200;
 /** Glints alive at once by one spot, at most; and how often a spot starts one, on average, seconds. */
 const GLINTS_PER_SPOT = 2;
 const GLINT_EVERY_S = 1.1;
 const GLINT_LIFE_S = 0.5;
 const GLINT_SIZE_M = 0.2;
-/** Lights kept for the flashes: always in the scene, dark until a shot, so the shaders never change. */
-const FLASH_LIGHTS = 2;
-
-const FLASH = {
-  [Muzzle.Gun]: { core: 0.22, sparks: 6, speed: 3, life: 0.09, smoke: 5, puff: 0.32, light: 18, lightS: 0.1, reach: 10 },
-  [Muzzle.Cannon]: { core: 0.6, sparks: 14, speed: 5.5, life: 0.14, smoke: 14, puff: 0.8, light: 60, lightS: 0.2, reach: 22 },
-} as const;
-const CORE = 0xfff2b0;
-const SPARK = 0xffa030;
-const SMOKE = 0x9a968e;
 
 /** A small three-armed star: one thin bar along each axis, so it reads as a twinkle from any side. */
 function starGeometry(): THREE.BufferGeometry {
@@ -86,8 +69,6 @@ class Pool {
     geometry: THREE.BufferGeometry,
     material: THREE.Material,
     readonly max: number,
-    /** Light fades as it ages (additive) rather than shrinking at the end (smoke). */
-    private readonly fade: boolean,
   ) {
     this.p = new Float32Array(max * 11);
     this.mesh = new THREE.InstancedMesh(geometry, material, max);
@@ -127,14 +108,14 @@ class Pool {
       p[d + 2] = p[d + 2]! + p[d + 5]! * dt;
       p[d + 6] = age;
       const f = age / p[d + 7]!;
-      // Light swells and dies away (a sine over its life); smoke grows, then thins to nothing at the end.
-      const s = this.fade ? p[d + 8]! * Math.sin(Math.PI * Math.min(1, f + 0.15)) : (p[d + 8]! + p[d + 9]! * f) * Math.min(1, (1 - f) * 4);
+      // Light swells and dies away (a sine over its life).
+      const s = p[d + 8]! * Math.sin(Math.PI * Math.min(1, f + 0.15));
       this.dummy.position.set(p[d]!, p[d + 1]!, p[d + 2]!);
       this.dummy.scale.setScalar(Math.max(0.001, s));
       this.dummy.updateMatrix();
       this.mesh.setMatrixAt(w, this.dummy.matrix);
       this.c.setHex(p[d + 10]!);
-      if (this.fade) this.c.multiplyScalar(Math.max(0, 1 - f * f));
+      this.c.multiplyScalar(Math.max(0, 1 - f * f));
       this.mesh.setColorAt(w, this.c);
       w++;
     }
@@ -147,9 +128,6 @@ class Pool {
 
 export class WorldFx {
   private readonly glints: Pool;
-  private readonly flash: Pool;
-  private readonly smoke: Pool;
-  private readonly lights: Array<{ light: THREE.PointLight; peak: number; left: number; span: number }> = [];
   private spots: readonly GlitterSpot[] = [];
   /** Glints running at each spot this frame. */
   private readonly running = new Map<GlitterSpot, number>();
@@ -157,18 +135,9 @@ export class WorldFx {
 
   constructor(scene: THREE.Scene) {
     const light = new THREE.MeshBasicMaterial({ blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
-    this.glints = new Pool(starGeometry(), light, MAX_GLINTS, true);
-    this.flash = new Pool(new THREE.BoxGeometry(1, 1, 1), light, MAX_FLASH, true);
-    this.smoke = new Pool(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial(), MAX_SMOKE, false);
+    this.glints = new Pool(starGeometry(), light, MAX_GLINTS);
     this.glints.mesh.renderOrder = 3;
-    this.flash.mesh.renderOrder = 3;
-    scene.add(this.glints.mesh, this.flash.mesh, this.smoke.mesh);
-    for (let k = 0; k < FLASH_LIGHTS; k++) {
-      const l = new THREE.PointLight(0xffc070, 0, 10, 2);
-      l.castShadow = false;
-      scene.add(l);
-      this.lights.push({ light: l, peak: 0, left: 0, span: 1 });
-    }
+    scene.add(this.glints.mesh);
   }
 
   /** The spots that glitter now (gold and silver nodes and loot near the view). */
@@ -176,32 +145,7 @@ export class WorldFx {
     this.spots = spots;
   }
 
-  /** A shot leaving a gun or cannon at a point (metres). */
-  fire(x: number, y: number, z: number, muzzle: Muzzle): void {
-    const f = FLASH[muzzle];
-    this.flash.add(x, y, z, 0, 0, 0, f.life * 1.4, f.core, 0, CORE);
-    for (let k = 0; k < f.sparks; k++) {
-      const a = Math.random() * Math.PI * 2;
-      const up = Math.random() * 0.8 - 0.2;
-      const s = f.speed * (0.5 + Math.random() * 0.5);
-      this.flash.add(x, y, z, Math.cos(a) * s, up * s, Math.sin(a) * s, f.life * (0.8 + Math.random() * 0.6), f.core * 0.35, 0, SPARK);
-    }
-    for (let k = 0; k < f.smoke; k++) {
-      const a = Math.random() * Math.PI * 2;
-      const s = 0.25 + Math.random() * 0.35;
-      this.smoke.add(x, y, z, Math.cos(a) * s, 0.45 + Math.random() * 0.4, Math.sin(a) * s, 0.9 + Math.random() * 0.6, f.puff * 0.4, f.puff, SMOKE);
-    }
-    // The dimmest light takes the flash.
-    let best = this.lights[0]!;
-    for (const l of this.lights) if (l.left * l.peak < best.left * best.peak) best = l;
-    best.light.position.set(x, y + 0.3, z);
-    best.light.distance = f.reach;
-    best.peak = f.light;
-    best.left = f.lightS;
-    best.span = f.lightS;
-  }
-
-  /** Each frame: the glitter winks where it is seen, the flashes fade and the smoke drifts. */
+  /** Each frame: the glitter winks where it is seen. */
   update(dt: number, seen: (x: number, z: number) => boolean): void {
     this.running.clear();
     for (let k = 0; k < this.glints.n; k++) {
@@ -219,12 +163,6 @@ export class WorldFx {
     }
     this.compactOwners(dt);
     this.glints.update(dt);
-    this.flash.update(dt);
-    this.smoke.update(dt);
-    for (const l of this.lights) {
-      l.left = Math.max(0, l.left - dt);
-      l.light.intensity = l.peak * (l.left / l.span) ** 2;
-    }
   }
 
   /** Keeps each glint's spot beside it as the pool drops the finished ones (the same order as Pool.update). */

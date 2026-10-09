@@ -58,11 +58,11 @@ import { CUBE_STRIDE } from './props-gen.ts';
 import { propDetails, propLabel } from './plant-text.ts';
 import { circlePieceDetails, circlePieceLabel } from './circle-text.ts';
 import { BuildingsView } from './buildings-view.ts';
+import { TavernView } from './tavern-view.ts';
 import { UnitsView } from './units-view.ts';
 import { PortraitView } from './portrait-view.ts';
 import { LootView } from './loot-view.ts';
-import { glitterOfResource, Muzzle, WorldFx, type GlitterSpot } from './sparkle.ts';
-import { shotSound } from '../audio/sound-map.ts';
+import { glitterOfResource, WorldFx, type GlitterSpot } from './sparkle.ts';
 import { Overlay } from './overlay.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
 import { PropModelsView, PROP_VIEW_IDS, type PlacedProp } from './prop-models-view.ts';
@@ -131,13 +131,16 @@ const UNIT_TYPE_KEYS = ['worker', 'warrior', 'wanderer', 'mob', 'animal', 'mage:
 /** A gear id's name, or '' for an empty slot. */
 const gearName = (id: number): string => (id ? gearSpec(id).name : '');
 
+/** A troop's kit lines in words (units/kits.ts Line). */
+const LINE_WORDS = ['weapon', 'armour', 'shield', 'arrows'];
+
 /** "Upgrading the weapon to Bronze spear: 40%." for a unit with an upgrade under way, or ''. */
 function upgradeText(d: Int32Array, o: number, kind: 'worker' | 'warrior' | 'mage'): string {
   const line = d[o + S.upLine]! - 1;
   if (line < 0) return '';
-  const h = { kind, troop: d[o + S.troop]!, w: d[o + S.wTier]!, a: d[o + S.aTier]! };
+  const h = { kind, troop: d[o + S.troop]!, w: d[o + S.wTier]!, a: d[o + S.aTier]!, s: d[o + S.sTier]!, t: d[o + S.tips]! };
   const piece = linePiece(h, line, d[o + S.upTo]!);
-  const what = kind === 'worker' ? 'tools' : kind === 'mage' ? (line === Line.Weapon ? 'wand' : 'robe') : line === Line.Weapon ? 'weapon' : 'armour';
+  const what = kind === 'worker' ? 'tools' : kind === 'mage' ? (line === Line.Weapon ? 'wand' : 'robe') : (LINE_WORDS[line] ?? 'kit');
   const done = d[o + S.upDone]!;
   return `Upgrading the ${what}${piece ? ` to ${piece.name}` : ''}${done > 0 ? `: ${Math.floor(done / 10)}%` : ' (on the way)'}.`;
 }
@@ -285,7 +288,7 @@ export class WorldView {
   private propModelsToldAt = 0;
   /** Prop models a chunk asked the library for. */
   private readonly propModelsAsked = new Set<string>();
-  /** Muzzle flashes and gold and silver glitter (Patch 5, VX-6). */
+  /** Gold and silver glitter (Patch 5, VX-6). */
   private readonly fx: WorldFx;
   private glitterDirty = true;
   private lastFx = 0;
@@ -296,6 +299,8 @@ export class WorldView {
   private viewRing = QUARTER_DETAIL_RING;
   private shadows = false;
   readonly buildings: BuildingsView;
+  /** The Tavern's lit windows, smoke and bar (Patch 5). */
+  private readonly taverns: TavernView;
   readonly overlay: Overlay;
   private game: GameInfo | null = null;
   /** Unit keys inside buildings this step (not drawn, not selectable). */
@@ -363,6 +368,7 @@ export class WorldView {
     this.unitsView = new UnitsView(scene, this.fow);
     this.outlines = new HiddenOutlines(scene, this.unitsView, this.colours[this.player] ?? NEUTRAL_COLOUR);
     this.buildings = new BuildingsView(scene, this.fow, this.colours);
+    this.taverns = new TavernView(scene);
     this.portrait = new PortraitView(this.colours, NEUTRAL_COLOUR);
     this.overlay = new Overlay(scene);
     this.lootView = new LootView(scene);
@@ -523,21 +529,27 @@ export class WorldView {
         u.details = details;
       } else if (kind === UnitKind.Warrior) {
         const troop = d[o + S.troop]!;
-        // The artillery crewman (Patch 2) is its own type: its own card and subgroup, never upgraded or sent hunting.
-        u.typeKey = troop === Troop.Crew ? 'warrior:crew' : 'warrior';
+        // The artillery crewman (Patch 2) is its own type: its own card and subgroup, never upgraded or sent hunting; so is the Dreadnought (Patch 5).
+        const dread = troop === Troop.Dreadnought;
+        u.typeKey = troop === Troop.Crew ? 'warrior:crew' : dread ? 'warrior:dreadnought' : 'warrior';
         // A double click's types (Jade's Patch 5, CT-5): cavalry (anyone mounted), close melee, long melee, and every other kind its own.
         u.clickType = d[o + S.mount] !== Mount.None || troop === Troop.Cavalry ? 'warrior:cavalry' : `warrior:${troop}`;
         u.label = this.title(d, o, kind);
         // Rangers fight close with their fists, which go unsaid; the brawler's pistol comes first.
         const weapon = troop === Troop.Ranger ? '' : gearName(d[o + S.weapon]!);
-        const gear = [gearName(d[o + S.ranged]!), weapon, gearName(d[o + S.shield]!), gearName(d[o + S.armour]!) || 'no armour'].filter((x) => x);
-        const details = [health, `${capital(gear.map((x) => x.toLowerCase()).join(', '))}.`, `Weapon tier ${d[o + S.wTier]}, armour tier ${d[o + S.aTier]}.`];
+        const tips = d[o + S.tips] ? 'poison tips' : '';
+        const gear = [gearName(d[o + S.ranged]!), tips, weapon, gearName(d[o + S.shield]!), gearName(d[o + S.armour]!) || 'no armour'].filter((x) => x);
+        const shield = troop === Troop.Close ? `, shield tier ${d[o + S.sTier]}` : '';
+        // The Dreadnought's mace and plate are his own, with no tiers (Patch 5).
+        const details = [health, `${capital(gear.map((x) => x.toLowerCase()).join(', '))}.`, dread ? 'A smash, then a sweep at everything in front of him, every 3 s.' : `Weapon tier ${d[o + S.wTier]}, armour tier ${d[o + S.aTier]}${shield}.`];
         this.lootLine(details, id);
         const up = upgradeText(d, o, 'warrior');
         if (up) details.push(up);
         const mount = d[o + S.mount]!;
         if (mount !== Mount.None) details.push(`Riding a ${mountSpec(mount).name.toLowerCase()} (health ${d[o + S.mountHp]} / ${d[o + S.mountMax]}).`);
-        u.halfSize.set(mount !== Mount.None ? 0.6 : 0.3, mount !== Mount.None ? 1.3 : 0.85, mount !== Mount.None ? 0.6 : 0.3);
+        // A rider is as tall as his mount and him; the Dreadnought stands 2.5 m (Patch 5).
+        if (dread) u.halfSize.set(0.5, 1.25, 0.5);
+        else u.halfSize.set(mount !== Mount.None ? 0.6 : 0.3, mount !== Mount.None ? 1.3 : 0.85, mount !== Mount.None ? 0.6 : 0.3);
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
           details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
@@ -561,11 +573,13 @@ export class WorldView {
         u.details = details;
       } else if (kind === UnitKind.Mob) {
         const spec = mobSpec(d[o + S.mob]!);
-        u.label = spec.name;
+        // A mana crystal's guardian is named for what it guards (Jade's Patch 5, MB-13).
+        const guardian = (d[o + S.flags]! & UnitFlag.Guardian) !== 0;
+        u.label = guardian ? 'Mana crystal guardian' : spec.name;
         u.typeKey = `mob:${spec.id}`;
         u.owner = MONSTERS;
         u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
-        u.details = [health];
+        u.details = guardian ? [`${spec.name}. It keeps to its crystal and never comes back once killed.`, health] : [health];
       } else if (kind === UnitKind.Engine) {
         const spec = engineSpec(d[o + S.mob]!);
         u.label = spec.name;
@@ -573,8 +587,8 @@ export class WorldView {
         u.halfSize.set(spec.halfWidth / WU_PER_METRE, spec.height / WU_PER_METRE / 2, spec.halfWidth / WU_PER_METRE);
         const crew = d[o + S.crew]! % 1000;
         const hauled = d[o + S.crew]! >= 1000;
-        const details = [health, `Crew ${crew} of ${spec.crew} artillery crewmen.`, hauled ? 'Hauled by its animal, which stands in for its crew: it fires with none.' : crew >= spec.crew && spec.pushed > 0 ? 'Pushed by its crew.' : spec.pushed > 0 ? 'Needs a horse or an ox, or its crew, to move.' : 'Fixed in place.'];
-        if (d[o + S.inside] !== 0) details.push('In a cannon port.');
+        const details = [health, `Crew ${crew} of ${spec.crew} ${spec.mobile >= 0 ? 'garrison ' : ''}artillery crewmen.`, hauled ? 'Hauled by its animal, which stands in for its crew: it fires with none.' : crew >= spec.crew && spec.pushed > 0 ? 'Pushed by its crew.' : spec.pushed > 0 ? 'Needs a horse or an ox, or its crew, to move.' : 'Fixed in place.'];
+        if (d[o + S.inside] !== 0) details.push('On the Citadel\'s engine platform, for good.');
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
           details.push(`${unitOrderText(q[0])}.`);
@@ -600,23 +614,7 @@ export class WorldView {
       const group = d[o + S.group]!;
       if (group !== 0 && kind !== UnitKind.Animal && (owner === PEOPLES || (owner === NEUTRAL && kind === UnitKind.Mob) || (owner < 8 && kind !== UnitKind.Mob))) this.peoplesLabel(u, d, o, owner, kind, group, health);
     }
-    this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());
-    this.muzzles(msg);
-  }
-
-  /** A flash where a musket, pistol or cannon fires (Patch 5, VX-6). */
-  private muzzles(msg: StateMessage): void {
-    for (const h of msg.hits) {
-      if (h.look !== 'shot') continue;
-      const x = h.x / WU_PER_METRE;
-      const z = h.z / WU_PER_METRE;
-      if (!this.seenNow(x, z)) continue;
-      const u = this.game?.unit(h.id);
-      if (!u) continue;
-      const sound = shotSound({ kind: u.kind, owner: u.owner, mob: u.mob, ranged: u.ranged, shield: u.shield, order: u.order });
-      if (sound === 'shot_musket') this.fx.fire(x, h.y / WU_PER_METRE, z, Muzzle.Gun);
-      else if (sound === 'shot_cannon') this.fx.fire(x, h.y / WU_PER_METRE, z, Muzzle.Cannon);
-    }
+    this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now(), (id) => this.game?.unit(id) ?? null);
   }
 
   /** A worker's, troop's or mage's name: the sim's unitTitle, so it reads the same as its bubbles and lines. */
@@ -784,6 +782,7 @@ export class WorldView {
     this.terrain.terrainTime.value = now / 1000;
     this.water.waterTime.value = now / 1000;
     if (this.game) this.buildings.update(this.game, now, focus);
+    if (this.game) this.taverns.update(this.game, now, focus, this.buildings.darkness);
     const fcx = Math.floor(focus.x / CHUNK_M);
     const fcz = Math.floor(focus.z / CHUNK_M);
     if (fcx !== this.focusChunk.cx || fcz !== this.focusChunk.cz) {
@@ -1210,6 +1209,7 @@ export class WorldView {
     this.sun.shadow.intensity = Math.min(1, m.shadow / SKY_MID_DAY.shadow);
     (this.scene.background as THREE.Color).copy(m.edge);
     this.buildings.darkness = k;
+    this.unitsView.darkness = k;
     this.buildings.fog = this.fogK * k;
     this.terrain.terrainNight.value = k;
     // A Bright Night comes on and goes over a few seconds too, and only shows in the dark.

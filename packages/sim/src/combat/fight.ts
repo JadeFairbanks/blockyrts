@@ -15,7 +15,7 @@ import { placedDims } from '../buildings/store.ts';
 import { SALVAGE } from '../peoples/data.ts';
 import { sayAttacked, sayUpTop } from '../peoples/speech.ts';
 import { Act, fleeFrom, moverOf, moveSpeed, resetWalk, unitLevel, walkTo } from '../units/behaviour.ts';
-import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, Side, sideOf, soaring, startSwing } from './combat.ts';
+import { canReach, dealt, flyingHigh, gap, hexed, hostile, huntable, isMob, landPlayerSwing, meleeOf, nextBlow, Side, sideOf, soaring, startSwing } from './combat.ts';
 import { MOUNTED } from '../mounts/data.ts';
 import { CREW_GUARD_WU } from '../siege/data.ts';
 import { cloaked } from '../threats/late-mobs.ts';
@@ -259,7 +259,7 @@ export function pickTarget(state: SimState, i: number, range: number, structures
     // Lairs and village buildings are broken on an order or an attack-move, never taken up by an idle unit (s).
     if (!structures && isMob(state, j) && isStructure(e.mob[j]!)) continue;
     if (cloaked(state, j, d)) continue;
-    const harmless = isMob(state, j) && mobSpec(e.mob[j]!).damage === 0;
+    const harmless = isMob(state, j) && mobSpec(e.mob[j]!).damageTenths === 0;
     const attacking = e.target[j] === e.id[i] || (e.attacker[i] === e.id[j] && state.step - e.hurtAt[i]! < 100);
     const tier = attacking ? 0 : e.mob[j] === Mob.BombKeg && isMob(state, j) ? 2 : harmless ? 2 : 1;
     if (tier < bestTier || (tier === bestTier && (d < bestD || (d === bestD && e.id[j]! < e.id[best]!)))) {
@@ -271,7 +271,7 @@ export function pickTarget(state: SimState, i: number, range: number, structures
   return best;
 }
 
-/** One step straight towards (or, with a negative speed, away from) a point, if the land allows it. */
+/** One step straight towards (or, with a negative speed, away from) a point, if the land allows it without a climb (a climb is a walk's, Patch 5). */
 export function stepToward(state: SimState, i: number, x: number, z: number, speed: number): boolean {
   const e = state.entities;
   const dx = x - e.x[i]!;
@@ -286,7 +286,7 @@ export function stepToward(state: SimState, i: number, x: number, z: number, spe
   const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
   const ncx = floorDiv(nx, WU_PER_COLUMN);
   const ncz = floorDiv(nz, WU_PER_COLUMN);
-  if ((ncx !== cx || ncz !== cz) && state.nav.stepCost(cx, cz, ncx, ncz, moverOf(state, i), unitLevel(state, i)) < 0) return false;
+  if ((ncx !== cx || ncz !== cz) && state.nav.hopCost(cx, cz, ncx, ncz, moverOf(state, i), unitLevel(state, i)) < 0) return false;
   e.heading[i] = headingTowards(sign * dx, sign * dz);
   landAt(state, i, nx, nz);
   e.order[i] = OrderKind.Move;
@@ -339,7 +339,8 @@ function land(state: SimState, i: number): void {
   const t = e.indexOf(e.target[i]!);
   const r = rangedOf(state, i);
   if (!r || t < 0 || e.hp[t]! <= 0) return;
-  const flags = r.blunt ? ProjectileFlag.Blunt : 0;
+  // A bow or crossbow with poison tips on (Patch 5) poisons what it hits.
+  const flags = (r.blunt ? ProjectileFlag.Blunt : 0) | (e.tips[i] ? ProjectileFlag.Venom : 0);
   const [x, y, z] = shotOrigin(state, i);
   // A bow from the saddle misses twice as wide (Table 1's mounted row).
   const spread = e.mount[i] && r.shot === Shot.Arrow ? r.spreadBp * MOUNTED.bowSpreadMul : r.spreadBp;
@@ -387,7 +388,13 @@ function engage(state: SimState, i: number, t: number, canMove: boolean): boolea
   // Up top only a swooping flyer comes within reach (combat.ts canReach); nobody climbs down to chase.
   if (canReach(state, i, t, w)) {
     face(state, i, t);
-    if (state.step >= e.atkNext[i]!) startSwing(state, i, e.id[t]!, w.attackSteps, Slot.Weapon);
+    if (state.step >= e.atkNext[i]!) {
+      // A weapon with a second blow swings its two in turn (Patch 5: the Dreadnought's smash, then his sweep).
+      const blow = nextBlow(state, i);
+      e.atkWith[i] = blow;
+      const next = meleeOf(state, i);
+      startSwing(state, i, e.id[t]!, next.attackSteps, blow, next.landSteps);
+    }
     return true;
   }
   if (!canMove || garrisoned) return false;
@@ -500,6 +507,12 @@ export function fightStep(state: SimState, i: number): boolean {
     leashed = true;
   }
   if (t >= 0 && gap(state, i, t) > acquire + LEASH_WU) t = -1;
+  // Held on a target it cannot get at (a zombie chewing the far side of a wall), it turns on whatever is biting it from within reach.
+  if (t >= 0 && !hold && !rangedOf(state, i) && state.step - e.hurtAt[i]! < 100 && e.attacker[i] !== e.id[t]) {
+    const a = e.indexOf(e.attacker[i]!);
+    const w = meleeOf(state, i);
+    if (a >= 0 && validTarget(state, i, a) && canHarm(state, i, a) && canReach(state, i, a, w) && !canReach(state, i, t, w)) t = a;
+  }
   if (t < 0) {
     if (e.target[i] !== 0) disengage(state, i);
     // Walking back from a leashed chase, it takes no new target until it is halfway home.

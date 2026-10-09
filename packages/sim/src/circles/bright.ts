@@ -7,6 +7,7 @@ import { clockAt, Period } from '../clock.ts';
 import { length2d } from '../fixed.ts';
 import { hash32 } from '../rng.ts';
 import type { SimState } from '../state.ts';
+import { brightHooks } from '../threats/bright.ts';
 import { BLESSED_EVERY_NIGHTS, CircleType, IDOL_AREA_EVERY_NIGHTS, IDOL_AREA_M, circleMetres as m } from './data.ts';
 import { circleSites, type CircleSite } from './place.ts';
 
@@ -81,3 +82,6 @@ export function nightsToBright(state: SimState, player: number, night: number): 
   }
   return best;
 }
+
+// The waves ask the same question (threats/bright.ts): which nights are a player's Bright Nights.
+brightHooks.bright = brightFor;

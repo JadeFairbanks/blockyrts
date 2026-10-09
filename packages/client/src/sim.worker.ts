@@ -18,9 +18,18 @@ import {
   validateOrder,
 } from '@blockyrts/sim';
 import {
+  DREADNOUGHT,
+  dreadnoughtCap,
+  dreadnoughtProblem,
+  dreadnoughtsAlive,
+  eatableFood,
+  mainBaseLevel,
+  tavernInfo,
   animalsAt,
   assigned,
   bagItems,
+  canLoot,
+  carryView,
   circlesView,
   FOG_TILE_COLUMNS,
   BuildingKind,
@@ -46,6 +55,7 @@ import {
   farmBandLine,
   farmHarvest,
   queueHead,
+  stackLeft,
   chunkDelta,
   claimShapes,
   clockAt,
@@ -72,6 +82,7 @@ import {
   visionSources,
   workersAt,
   workSteps,
+  runsNow,
   STEPS_PER_SECOND,
   WU_PER_COLUMN,
   type Building,
@@ -89,9 +100,10 @@ import {
   spellProblem,
   spellReadyAt,
 } from '@blockyrts/sim';
-import { cloaked, crewOf, haulerOf, Mount, mountSpec, onTop, unitsOnTop } from '@blockyrts/sim';
+import { cloaked, crewOf, haulerOf, isCrystalGuardian, menOnTop, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom } from '@blockyrts/sim';
+import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
-import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type ToWorker } from './messages.ts';
+import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type TavernPanel, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
 
 const STEP_MS = 1000 / STEPS_PER_SECOND;
@@ -136,6 +148,42 @@ function send(msg: FromWorker, transfer: Transferable[] = []): void {
   self.postMessage(msg, { transfer });
 }
 
+/** A gathered node's work by its shape (props.ts PropShape): trees and bushes chopped, plants picked, fish caught, carcasses butchered, the rest mined. */
+const GATHER_TASKS: Record<number, number> = { [PropShape.Tree]: Task.Chop, [PropShape.Bush]: Task.Chop, [PropShape.Plant]: Task.Gather, [PropShape.Fish]: Task.Fish, [PropShape.Carcass]: Task.Butcher };
+
+/** What a worker is at now (Task), from the order at the head of its list and how it is working it; 0 while it walks or waits. */
+function taskOf(s: SimState, i: number): number {
+  const e = s.entities;
+  const order = e.order[i]!;
+  const head = e.queue[i]![0];
+  // Standing by a wild animal with its food; at a gun, pushing it or working it.
+  if (head?.t === 'tame' && order === OrderKind.Idle) return Task.Tame;
+  if (head?.t === 'crew') return Task.Crew;
+  if (order !== OrderKind.Chop && order !== OrderKind.Mine && order !== OrderKind.Farm && order !== OrderKind.Dig) return Task.None;
+  switch (head?.t) {
+    case 'gather': {
+      const view = s.world.prop(head.cx, head.cz, head.i, s.step);
+      return view ? (GATHER_TASKS[propInfo(view.kind).shape] ?? Task.Mine) : Task.None;
+    }
+    case 'work':
+    case 'repairAll':
+    case 'mend':
+      return Task.Build;
+    // Saplings and sprouts pulled off a building's spot.
+    case 'build':
+      return Task.Clear;
+    case 'relight':
+      return Task.Relight;
+    case 'prospect':
+      return Task.Prospect;
+    case 'job':
+      return order === OrderKind.Farm ? Task.Field : Task.None;
+    case 'dig':
+      return Task.Dig;
+  }
+  return order === OrderKind.Dig ? Task.Dig : Task.None;
+}
+
 function postState(s: SimState): void {
   const e = s.entities;
   const data = new Int32Array(e.count * STATE_STRIDE);
@@ -164,9 +212,12 @@ function postState(s: SimState): void {
     data[o + S.shield] = e.shield[i]!;
     data[o + S.wTier] = e.wTier[i]!;
     data[o + S.aTier] = e.aTier[i]!;
+    data[o + S.sTier] = e.sTier[i]!;
+    data[o + S.tips] = e.tips[i]!;
     data[o + S.swing] = e.atkAt[i] !== 0 ? e.atkWith[i]! + 1 : 0;
     let flags = 0;
-    if (e.climbUntil[i]! > s.step) flags |= UnitFlag.Climbing;
+    if (e.climbUntil[i]! > s.step || e.onFace[i] !== 0) flags |= UnitFlag.Climbing;
+    if (e.running[i] === 1) flags |= runsNow(s, i) ? UnitFlag.RunMode | UnitFlag.Running : UnitFlag.RunMode;
     if (e.fleeing[i]) flags |= UnitFlag.Fleeing;
     if (e.slowUntil[i]! > s.step) flags |= UnitFlag.Slowed;
     if (e.heldUntil[i]! > s.step) flags |= UnitFlag.Held;
@@ -180,6 +231,7 @@ function postState(s: SimState): void {
     if (e.shared[i] !== 0) flags |= UnitFlag.Shared;
     if (onTop(s, i)) flags |= UnitFlag.OnTop;
     if (e.autoRepair[i] !== 0) flags |= UnitFlag.AutoRepair;
+    if (isCrystalGuardian(s, i)) flags |= UnitFlag.Guardian;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
     data[o + S.target] = e.target[i]!;
@@ -227,6 +279,15 @@ function postState(s: SimState): void {
     const [tinkerDone, tinkerOf] = tinkerProgress(s, i);
     data[o + S.tinkerDone] = tinkerDone;
     data[o + S.tinkerOf] = tinkerOf;
+    if (e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior) {
+      const task = taskOf(s, i);
+      data[o + S.task] = task;
+      // Prospecting shows its bar like a timed action (Patch 5): the steps done of the steps it takes with the worker's tools.
+      if (task === Task.Prospect) {
+        data[o + S.tinkerDone] = e.timer[i]!;
+        data[o + S.tinkerOf] = e.wTier[i]! >= PROSPECT_TOOL_TIER ? PROSPECT_HAMMER_STEPS : PROSPECT_STEPS;
+      }
+    }
     const [xp, xpNext] = rankXp(s, i);
     data[o + S.xp] = xp;
     data[o + S.xpNext] = xpNext;
@@ -265,12 +326,35 @@ function farmInfo(s: SimState, b: Building): FarmInfo | null {
   };
 }
 
+/** A finished Tavern's panel (Patch 5), or null. */
+function tavernPanel(s: SimState, b: Building): TavernPanel | null {
+  const t = tavernInfo(b);
+  if (!t) return null;
+  const me = s.players[PLAYER];
+  const hireWhy = !usableBy(s, b, PLAYER) || !me ? 'Not your Tavern.' : dreadnoughtProblem(s, PLAYER) || (eatableFood(me) < DREADNOUGHT.food ? `Not enough food (${DREADNOUGHT.food} food).` : '');
+  return {
+    open: t.open,
+    whole: t.whole,
+    thousandths: t.thousandths,
+    done: Math.min(1000, Math.floor((t.done * 1000) / t.span)),
+    stepsLeft: t.open ? t.span - t.done : 0,
+    madeWhole: t.madeWhole,
+    madeThousandths: t.madeThousandths,
+    food: t.food,
+    hireWhy,
+    dreadnoughts: dreadnoughtsAlive(s, PLAYER),
+    cap: dreadnoughtCap(mainBaseLevel(s, PLAYER)),
+  };
+}
+
 /** A building's queue for the panel: the head item's bar and the steps it has left at the sim's own pace (0 while on hold), the rest waiting. */
 function queueInfo(s: SimState, b: Building): BuildingInfo['queue'] {
   const h = queueHead(s, b);
   return b.queue.map((q, k) => {
-    if (k > 0 || !h) return { product: q.product, done: 0, stepsLeft: 0 };
-    return { product: q.product, done: Math.min(1000, Math.floor((h.done * 1000) / Math.max(1, h.whole))), stepsLeft: h.stepsLeft };
+    const n = stackLeft(q);
+    const count = n > 1 ? { count: n } : {};
+    if (k > 0 || !h) return { product: q.product, done: 0, stepsLeft: 0, ...count };
+    return { product: q.product, done: Math.min(1000, Math.floor((h.done * 1000) / Math.max(1, h.whole))), stepsLeft: h.stepsLeft, ...count };
   });
 }
 
@@ -298,8 +382,11 @@ function postInfo(s: SimState): void {
       lit: isLit(b),
       assigned: assigned(s, b.id).length,
       working: b.complete ? workersAt(s, b) : 0,
-      inside: unitsInside(s, b.id).map((i) => s.entities.id[i]!),
-      up: unitsOnTop(s, b.id).map((i) => s.entities.id[i]!),
+      // A Citadel's fixed engine and its crew are on the platform for good (Patch 5): not in the panel's portraits, nobody to let out.
+      inside: unitsInside(s, b.id).filter((i) => s.entities.kind[i] !== UnitKind.Engine && !platformCrew(s, i)).map((i) => s.entities.id[i]!),
+      up: menOnTop(s, b.id).map((i) => s.entities.id[i]!),
+      room: topRoom(s, b),
+      fixedEngine: platformEngine(s, b.id) >= 0 ? s.entities.id[platformEngine(s, b.id)]! : 0,
       status: buildingStatus(s, b),
       name: buildingName(b.kind, b.level, b.variant),
       upgradeWhy: usableBy(s, b, PLAYER) ? upgradeProblem(s, b, PLAYER) : '',
@@ -311,8 +398,8 @@ function postInfo(s: SimState): void {
       troops:
         usableBy(s, b, PLAYER) && b.complete
           ? troopTypesAt(b).map((troop) => {
-              const { w, a } = troopDefault(s, b, troop, PLAYER);
-              return { troop, w, a, lock: b.locks[troop] ?? 0 };
+              const { w, a, s: sh } = troopDefault(s, b, troop, PLAYER);
+              return { troop, w, a, s: sh, lock: b.locks[troop] ?? 0 };
             })
           : [],
       mages:
@@ -324,6 +411,7 @@ function postInfo(s: SimState): void {
           : [],
       horses: b.kind === BuildingKind.Barracks && b.complete ? stalledHorses(s, b, PLAYER).length : 0,
       farm: farmInfo(s, b),
+      tavern: tavernPanel(s, b),
     };
   });
   const e = s.entities;
@@ -331,10 +419,18 @@ function postInfo(s: SimState): void {
   const spells: Array<[number, Array<[number, string, number]>]> = [];
   const mageRanks: Array<[number, string]> = [];
   const bags: Array<[number, Array<[number, number]>]> = [];
+  const carry: Array<[number, number, number]> = [];
+  const effects: Array<[number, Array<[number, number]>]> = [];
+  const untils = [[SpellOn.Quicken, e.quickUntil], [SpellOn.Fortify, e.fortUntil], [SpellOn.Rally, e.rallyUntil], [SpellOn.Warding, e.wardUntil], [SpellOn.Healing, e.healUntil], [SpellOn.Hexed, e.hexUntil]] as const;
   for (let i = 0; i < e.count; i++) {
+    // The spells on any unit, with the steps they have left (Patch 5, GP-34: a bar on each picture).
+    let on: Array<[number, number]> | null = null;
+    for (const [bit, until] of untils) if (until[i]! > s.step) (on ??= []).push([bit, until[i]! - s.step]);
+    if (on) effects.push([e.id[i]!, on]);
     if (e.owner[i] !== PLAYER) continue;
     queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
     if (e.bag[i]!.length > 0) bags.push([e.id[i]!, bagItems(s, i)]);
+    if (canLoot(s, i)) carry.push([e.id[i]!, ...carryView(s, i)]);
     if (e.kind[i] === UnitKind.Mage) mageRanks.push([e.id[i]!, mageTrainingProblem(s, i)]);
     if (e.kind[i] === UnitKind.Mage) spells.push([e.id[i]!, schoolSpells(e.school[i]!).map((sp): [number, string, number] => [sp, spellProblem(s, i, sp), Math.max(0, spellReadyAt(s, i, sp) - s.step)])]);
   }
@@ -379,6 +475,8 @@ function postInfo(s: SimState): void {
         .filter((l) => s.world.isExplored(Math.floor(l.x / FOG_TILE_WU), Math.floor(l.z / FOG_TILE_WU)))
         .map((l) => ({ id: l.id, res: l.res, amt: l.amt, x: l.x, y: l.y, z: l.z, own: l.owner < 0 || l.owner === PLAYER })),
       bags,
+      carry,
+      effects,
       circles: circlesView(s, PLAYER, openedChests),
     },
     [pool.buffer, open.buffer],

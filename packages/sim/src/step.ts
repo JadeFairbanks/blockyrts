@@ -4,6 +4,8 @@
 import { computeEnclosed, outlyingLights } from './buildings/lights.ts';
 import { installCrewHooks, updateBuildings } from './buildings/production.ts';
 import { updateMines } from './buildings/mining.ts';
+import { updateTaverns } from './buildings/tavern.ts';
+import { updateDreadnoughts } from './units/dreadnought.ts';
 import { clockAt, Period, periodMessage, periodStarting } from './clock.ts';
 import { applyOrders } from './commands.ts';
 import { clamp, floorDiv, HASH_INTERVAL_STEPS, headingTowards, length2d, WU_PER_METRE } from './fixed.ts';
@@ -11,7 +13,7 @@ import type { Order } from './orders.ts';
 import { hashState } from './serialize.ts';
 import { FOG_INTERVAL_STEPS, NEUTRAL, OrderKind, revealVision, UnitKind, visionSources, type SimState } from './state.ts';
 import { Act, leaveBuilding, resetWalk, runUnit } from './units/behaviour.ts';
-import { updateLoot } from './units/loot.ts';
+import { autoDropoff, updateLoot } from './units/loot.ts';
 import { hurtHooks, settleDeaths } from './combat/combat.ts';
 import { installDeathHooks, updateElimination } from './combat/deaths.ts';
 import { forgetSideSight, onUnitHurt } from './combat/fight.ts';
@@ -34,6 +36,7 @@ import { onPeoplesDeath, onSalvage, onTreeCut, recampIn } from './peoples/war.ts
 import { trackRuns } from './mounts/riding.ts';
 import { runEngine } from './siege/engines.ts';
 import { installLateMobs } from './threats/late-mobs.ts';
+import { brightTonight } from './threats/bright.ts';
 import { mountHooks } from './mounts/riding.ts';
 import { rearRider } from './peoples/factions.ts';
 import { onTop } from './units/top.ts';
@@ -41,6 +44,7 @@ import { crewHooks, updateQuestions } from './units/questions.ts';
 import { releaseSheltered } from './units/night-work.ts';
 import { updateSpacing } from './units/spacing.ts';
 import { updateWorkAsks } from './units/work-asks.ts';
+import { updateMakeAsks } from './units/make-asks.ts';
 import { circlesAtPeriod } from './circles/update.ts';
 import { updateGods } from './debug/god.ts';
 
@@ -127,7 +131,7 @@ function periodChange(state: SimState): void {
     computeEnclosed(state);
     for (let player = 0; player < state.players.length; player++) {
       const { halves, limit } = outlyingLights(state, player, c.cycle);
-      if (halves > limit * 2) {
+      if (halves > limit * 2 && !brightTonight(state, player)) {
         const n = floorDiv(halves + 1, 2);
         state.events.push({ player, kind: 'alert', text: `Too many lights burn outside the base: ${n}, and the limit tonight is ${limit}. Goblins will come for them.` });
       }
@@ -192,9 +196,16 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateQuestions(state);
   // Jade's Patch 4: an empty farm, a building no one works on and an idle worker ask by themselves.
   updateWorkAsks(state);
+  // Patch 5 (UI-8): the Workshop offers now and then to make something the stock pays for.
+  updateMakeAsks(state);
   settleDeaths(state);
   updateLoot(state);
+  // Patch 5 (GP-6): units near a drop-off hand in what they carry.
+  autoDropoff(state);
   updateBuildings(state);
+  // Patch 5: open Taverns burn food into silver, and Dreadnoughts speak their minds.
+  updateTaverns(state);
+  updateDreadnoughts(state);
   updateMines(state);
   updateElimination(state);
   state.world.flowWater();

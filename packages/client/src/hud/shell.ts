@@ -57,6 +57,8 @@ import type { Ghost } from '../world/buildings-view.ts';
 import { COLUMN_M } from '../world/mesher.ts';
 import type { Overlay } from '../world/overlay.ts';
 import { AlliesUi } from './allies.ts';
+import { DreadnoughtUi } from './dreadnought-ui.ts';
+import { tillBars } from './tavern-bars.ts';
 import { ButtonRegistry, Tooltip, type ButtonPress, type HudButton } from './buttons.ts';
 import { queueSeconds } from './queue-clock.ts';
 import { ChatBox } from './chat.ts';
@@ -65,6 +67,7 @@ import { ControlGroups } from './groups.ts';
 import { applyGeometry, buildLayout, fitDebug, type Folds, type HudLayout } from './layout.ts';
 import { buttonRoom, cardInner, fitButtons, hudLayout, type ButtonFit, type HudGeometry } from './hud-layout.ts';
 import { SpeechBubbles, type Speaker } from './bubbles.ts';
+import { remarkLine, remarkVoice, sceneOf } from './remarks.ts';
 import { markEntry, WorldMarks, type MarkEntry, type MarkSource, type StackBar } from './world-marks.ts';
 import { ATTACK_COLOUR, orderColour, OrderFlags, orderLines, RALLY_COLOUR, type Mover } from './order-lines.ts';
 import { YesNoButtons } from './yes-no.ts';
@@ -78,6 +81,8 @@ import type { Pt } from './rects.ts';
 import { InventoryUi } from './inventory-ui.ts';
 import { typeWorth } from './worth.ts';
 import { actionIcon } from './card-icons.ts';
+import { CardPop, ITEM_MENU } from './card-pop.ts';
+import { itemChoices, type ItemMenuActions } from './item-menu.ts';
 import { siteTraces, sitesInOrders, TRACE_LIFT_M, TRACE_NUDGE_M } from './site-marks.ts';
 import { doingActions } from './doing.ts';
 import { speechToPanel } from './wording.ts';
@@ -227,6 +232,8 @@ export class GameShell {
   /** The little sky by the day clock (Patch 5). */
   private readonly skyDial: SkyDial;
   readonly allies: AlliesUi;
+  /** The Tavern's Hire Dreadnought window (Patch 5). */
+  readonly hire: DreadnoughtUi;
   readonly inventory: InventoryUi;
   readonly chat: ChatBox;
   /** Waiting for a spot to ping (the Ping button). */
@@ -237,6 +244,10 @@ export class GameShell {
   private readonly selector: SelectionController;
   private readonly panel: SelectionPanel;
   private readonly cardButtons: HudButton[] = [];
+  /** A card button's right-click dropdown (Patch 5: the Workshop's Scrap 1, Scrap 10, Scrap all). */
+  private readonly cardPop: CardPop;
+  /** What the item menu's choices do (item-menu.ts). */
+  private readonly itemActions: ItemMenuActions;
   /** What each card button stands for, to mark what the selection is doing now (its action, or the product or troop a building makes). */
   private cardDoing: string[] = [];
   /** Selected units seen outside any building at the last info (CT-2, CT-3: leaveForBuildings). */
@@ -292,6 +303,9 @@ export class GameShell {
   /** The active subgroup's type. */
   private active: string | null = null;
   private lastKey = { id: '', t: 0 };
+  /** Patch 5: the last turn key pressed, for its double tap; and a turn key held down from a double tap, which turns nothing until let go. */
+  private lastTurn = { id: '', t: 0 };
+  private turnHeldFromReset = '';
   private idleCycle = 0;
   private townCycle = 0;
   private readonly urgent: Array<{ x: number; z: number; text: string }> = [];
@@ -403,6 +417,7 @@ export class GameShell {
       },
       confirmWar: (faction, then) => this.peoples.confirmWar(faction, then),
       openPeople: (faction) => this.peoples.open(faction),
+      hireDreadnought: (taverns) => this.hire.show(taverns),
       openAltar: (circle, type) => this.circles.openAltar(circle, type),
       slots: () => {
         const room = buttonRoom(cardInner(this.geometry).w, this.geometry.maxH);
@@ -412,7 +427,7 @@ export class GameShell {
     this.input = new InputManager(
       {
         game: this.gameMouse(),
-        anyPress: (button, inHud, el) => this.panel.cards.pressed(button === Btn.Left, inHud, el),
+        anyPress: (button, inHud, el) => this.cardPop.pressed(inHud, el) || this.panel.cards.pressed(button === Btn.Left, inHud, el),
         hudPress: (_panel, button, area) => {
           // Clicking a HUD panel other than the minimap cancels a targeted command (not the ghost: the card is how the player picks another).
           if (this.commands.targeting && area !== 'minimap' && button !== Btn.Middle) {
@@ -442,13 +457,31 @@ export class GameShell {
       colour: (p) => session.colour(p),
       addArea: (id, el, target) => this.input.addArea(id, el, target),
     });
+    this.hire = new DreadnoughtUi(this.layout.root, this.panels, this.buttons, opts.game, opts.player, {
+      send: (o) => opts.issueOrder(o),
+      message: (t) => this.message(t),
+      addArea: (id, el, target) => this.input.addArea(id, el, target),
+    });
+    // The Tavern's till in its bar stack (Patch 5, GP-20); a Dreadnought being hired is its queue's gold bar.
+    this.stackBars.push((key) => tillBars(key, this.game.buildings, this.player));
     this.chat = new ChatBox(this.layout.chat, session.chat);
-    this.inventory = new InventoryUi(this.layout.stockpile, this.buttons, {
-      // Don't eat (Food: keeping a food back): right click on a food's slot.
+    // One right-click menu for every item, in the stockpile and in one unit's inventory (Jade's Patch 5, decisions 3.6, item-menu.ts).
+    this.itemActions = {
+      have: (res) => this.game.pool()[res] ?? 0,
+      kept: (res) => this.game.info?.kept.includes(res) ?? false,
+      // Don't eat (Food: keeping a food back).
       dontEat: (res, on) => {
         opts.issueOrder({ kind: 'dontEat', player: this.player, res, on: on ? 1 : 0 });
         this.message(on ? `${RESOURCES[res]!.name} is kept back: nobody eats it.` : `${RESOURCES[res]!.name} is eaten again.`);
       },
+      equip: (res) => this.commands.startEquip(res),
+      scrapWhy: (res) => this.commands.scrapWhy(res),
+      scrap: (res) => this.commands.scrapItem(res),
+      unload: (unit, res) => opts.issueOrder({ kind: 'unloadItem', player: this.player, units: [unit], res }),
+      drop: (unit, res) => opts.issueOrder({ kind: 'dropItem', player: this.player, units: [unit], res }),
+    };
+    this.inventory = new InventoryUi(this.layout.stockpile, this.buttons, {
+      menu: (at, res) => this.cardPop.show(at, ITEM_MENU, itemChoices({ res, unit: null }, this.itemActions)),
       addWheel: (id, el, onWheel) => this.input.addWheel(id, el, onWheel),
       pickSpawn: (k) => this.pickSpawn(k),
     });
@@ -494,6 +527,7 @@ export class GameShell {
       centreOn: (list) => this.centreOn(list),
       message: (t) => this.message(t),
     });
+    this.cardPop = new CardPop(this.layout.cardPop, this.buttons);
     this.panel = new SelectionPanel(this.layout.selectionTitle, this.layout.selectionExtra, this.layout.selectionBody, this.layout.tierStrip, this.buttons, {
       player: this.player,
       health: (t) => this.health(t),
@@ -518,8 +552,23 @@ export class GameShell {
       dropType: (k) => this.selection.set(this.selection.list().filter((x) => x.typeKey !== k)),
       cancelQueued: (b, index) => opts.issueOrder({ kind: 'cancelProduce', player: this.player, building: b, index }),
       letOut: (b, unit) => opts.issueOrder({ kind: 'unload', player: this.player, building: b, unit }),
+      shelterSwap: (b, unit) => opts.issueOrder({ kind: 'shelter', player: this.player, building: b, unit }),
+      carry: (id) => {
+        const c = this.game.info?.carry.find(([u]) => u === id);
+        return c ? [c[1], c[2]] : null;
+      },
+      effects: (id) => {
+        const info = this.game.info;
+        const on = info?.effects.find(([u]) => u === id)?.[1];
+        // Steps left as the sim last said, less what has run since (as the queue's clock does).
+        const gone = info ? Math.max(0, this.game.step - info.step) : 0;
+        return on ? on.map(([bit, left]) => [bit, Math.max(0, left - gone)] as const) : [];
+      },
+      itemMenu: (at, unit, res) => this.cardPop.show(at, ITEM_MENU, itemChoices({ res, unit }, this.itemActions)),
+      unloadAll: (unit) => opts.issueOrder({ kind: 'unloadItem', player: this.player, units: [unit], res: -1 }),
       unitName: (id) => this.fresh.get(`e:${id}`)?.label ?? 'Worker',
       keyName: (action) => keyLabel(keyFor(this.settings.keys, action)),
+      keyCode: (action) => keyFor(this.settings.keys, action),
       game: this.game,
       trainCard: (ids, card, count) => this.commands.trainCard(ids, card, count),
       lockTroop: (b, troop, lock) => opts.issueOrder({ kind: 'troopLock', player: this.player, building: b, troop, lock }),
@@ -532,7 +581,7 @@ export class GameShell {
       look: (t) => {
         const u = entityIdOf(t.key);
         const info = u === null ? null : this.game.unit(u);
-        return info ? { troop: info.troop, wTier: info.wTier } : null;
+        return info ? { troop: info.troop, wTier: info.wTier, aTier: info.aTier } : null;
       },
       queueLeft: (b) => {
         const head = b.queue[0];
@@ -732,6 +781,7 @@ export class GameShell {
     this.peoples.refresh();
     this.circles.refresh();
     this.allies.refresh();
+    this.hire.refresh();
     // Idle gatherers and the dusk button.
     const idle = this.game.idleWorkers().length;
     const idleBtn = this.buttons.get('idle');
@@ -972,9 +1022,11 @@ export class GameShell {
       if (t.typeKey.startsWith('people:')) {
         const spec = PEOPLE_UNITS[Number(t.typeKey.slice(7))];
         if (spec) out.push([id, REMARK_KEYS[spec.people]!]);
-      } else if (t.owner === this.player) {
-        const key = t.typeKey === 'worker' ? 'worker' : t.typeKey.startsWith('warrior') ? 'warrior' : t.typeKey.startsWith('mage:') ? 'mage' : '';
-        if (key) out.push([id, key]);
+      } else if (t.owner < 8 && (t.typeKey === 'worker' || t.typeKey.startsWith('warrior') || t.typeKey.startsWith('mage:'))) {
+        // Every player's workers, troops and mages (Jade's Patch 5, GP-28), each in its own voice.
+        const u = this.game.unit(id);
+        const voice = u ? remarkVoice(u.kind, u.troop, u.mount) : '';
+        if (voice) out.push([id, voice]);
       }
     }
     return out;
@@ -1364,7 +1416,7 @@ export class GameShell {
     const army: Selectable[] = [];
     let posted = 0;
     for (const t of this.world.selectables.candidates()) {
-      if (t.kind !== 'unit' || t.owner !== this.player || (t.typeKey !== 'warrior' && !t.typeKey.startsWith('mage:'))) continue;
+      if (t.kind !== 'unit' || t.owner !== this.player || (t.typeKey !== 'warrior' && t.typeKey !== 'warrior:dreadnought' && !t.typeKey.startsWith('mage:'))) continue;
       // Not the men on towers and tops (Jade's Patch 5, CT-4), so F2 never pulls them off their posts.
       const id = entityIdOf(t.key);
       if (id !== null && (this.game.unit(id)?.inside ?? 0) !== 0) posted++;
@@ -1575,11 +1627,12 @@ export class GameShell {
     }
     if (id === 'Escape') {
       // Esc backs out of a pending order, ghost or menu first, then clears the selection.
-      if (this.panel.cards.close()) return;
+      if (this.cardPop.close() || this.panel.cards.close()) return;
       if (this.godPick >= 0) this.dropSpawn();
       else if (this.selector.dragging) this.selector.cancel();
       else if (this.pinging) this.endPing();
       else if (this.commands.back()) this.cardDirty = true;
+      else if (this.hire.closeTop()) return;
       else if (this.allies.closeTop()) return;
       else if (this.peoples.closeTop()) return;
       else if (this.circles.closeTop()) return;
@@ -1599,6 +1652,7 @@ export class GameShell {
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (this.groups.key(id, this.input.held('Backquote'), ev.shiftKey)) return;
     const k = (action: string): string => keyFor(this.settings.keys, action);
+    if (id === k('turnLeft') || id === k('turnRight')) return this.turnKey(id);
     if (id === k('subgroup')) return this.cycleSubgroup(ev.shiftKey);
     if (id === k('centre')) return this.centreSelection();
     if (id === k('urgent')) return this.jumpUrgent();
@@ -1611,6 +1665,22 @@ export class GameShell {
     this.lastKey = { id, t: now };
     if (twice && btn.def.onDoubleClick && btn.enabled) btn.def.onDoubleClick(press);
     else this.input.pressButton(btn, press);
+  }
+
+  /**
+   * Jade's Patch 5: a turn key turns the camera while it is held (frame());
+   * pressed twice within the double-tap time, either one turns it back to
+   * north instead.
+   */
+  private turnKey(id: string): void {
+    const now = performance.now();
+    if (this.lastTurn.id === id && now - this.lastTurn.t <= DOUBLE_TAP_MS) {
+      this.cam.resetTurn();
+      this.turnHeldFromReset = id;
+      this.lastTurn = { id: '', t: 0 };
+      return;
+    }
+    this.lastTurn = { id, t: now };
   }
 
   // ---- Mouse ----
@@ -1775,10 +1845,17 @@ export class GameShell {
       this.edgeSince = -1;
     }
     if (moved) {
-      // Screen right is world +x and screen down is world +z: the camera never rotates.
+      // Along the screen, whichever way the camera is turned (Patch 5).
       this.setFollow(null);
-      this.cam.panBy(panX, panY);
+      this.cam.panView(panX, panY);
     }
+    // Patch 5: the camera turns while a turn key is held, in play, like the arrow keys pan.
+    if (this.turnHeldFromReset && !this.input.held(this.turnHeldFromReset)) this.turnHeldFromReset = '';
+    const turning = (action: string): boolean => {
+      const key = keyFor(this.settings.keys, action);
+      return playing && key !== this.turnHeldFromReset && this.input.held(key);
+    };
+    this.cam.setTurn((turning('turnRight') ? 1 : 0) - (turning('turnLeft') ? 1 : 0));
 
     // This frame's candidates and their snapshots.
     this.fresh.clear();
@@ -1807,7 +1884,10 @@ export class GameShell {
     const sitting = new Set(this.game.tinkering().map(([id]) => id));
     // No random remarks while the game is paused (Jade's patch notes 1). Bubbles sit over the bar stacks.
     const anchor = { head: (id: number) => this.overMarks(`e:${id}`, this.headOnScreen(id)), roof: (id: number) => this.overMarks(`b:${id}`, this.roofOnScreen(id)) };
-    this.bubbles.update(now, anchor, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting);
+    this.bubbles.update(now, anchor, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting, (id, voice) => {
+      const scene = sceneOf(this.game, id, voice);
+      return scene ? remarkLine(scene) : null;
+    });
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
@@ -1994,7 +2074,7 @@ export class GameShell {
     const worked = sitesInOrders(selected, this.game.queues);
     const traces = siteTraces(sites);
     for (const s of sites) {
-      const c = s.kind === SiteKind.Dig ? DIG : TUNNEL;
+      const c = s.kind === SiteKind.Dig || s.kind === SiteKind.Up ? DIG : TUNNEL;
       if (!worked.has(s.id)) {
         for (const r of traces.get(s.id) ?? []) {
           const y = r.y;
@@ -2008,7 +2088,7 @@ export class GameShell {
       if (s.kind === SiteKind.TunnelLine) {
         const { dir, length } = stretchBetween(s.x0, s.z0, s.x1, s.z1);
         stretch(s.x0, s.z0, dir, length, s.axis, s.level * tu, s.level2 * tu, c);
-      } else if (s.kind === SiteKind.Tunnel) box(s.x0, s.z0, s.x1, s.z1, s.level * tu, s.level2 * tu, c);
+      } else if (s.kind === SiteKind.Tunnel || s.kind === SiteKind.Up) box(s.x0, s.z0, s.x1, s.z1, s.level * tu, s.level2 * tu, c);
       else box(s.x0, s.z0, s.x1, s.z1, s.level * tu, ground + 0.1, c);
     }
     // A tunnel chain: its anchor, and the next stretch towards the cursor.
@@ -2022,7 +2102,8 @@ export class GameShell {
     }
     const plan = this.commands.areaPlan();
     if (!plan || !a) return;
-    if (plan.tunnel) box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.level2 * tu, TUNNEL);
+    // A box drawn upwards (GP-4) is what it digs; a dig down takes everything above its floor.
+    if (plan.up) box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.level2 * tu, DIG);
     else box(plan.x0, plan.z0, plan.x1, plan.z1, plan.level * tu, plan.top * tu + 0.05, DIG);
   }
 
@@ -2171,12 +2252,15 @@ export class GameShell {
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
         ...(e.right ? { onRightClick: (p: ButtonPress) => e.right!(p) } : {}),
         ...(e.grey ? { onGreyPress: () => e.grey!() } : {}),
+        ...(e.choices ? { onRightClick: () => this.cardPop.show(b.el, e.action, e.choices!()) } : {}),
       });
       this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
       b.setEnabled(e.enabled, e.reason);
       b.setLit(e.lit === true);
       b.el.hidden = false;
     }
+    // The dropdown goes with the button it was opened on.
+    if (this.cardPop.open && this.cardPop.action !== ITEM_MENU && !card.slice(0, fit.shown).some((e) => e.action === this.cardPop.action && e.enabled)) this.cardPop.close();
     this.input.refreshHover();
   }
 }

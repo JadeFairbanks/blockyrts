@@ -16,7 +16,7 @@ import { Res, type Cost } from '../economy/resources.ts';
 import { CYCLE_STEPS } from '../rules.ts';
 import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 
-/** Building kinds. Patch 2 cut 17 of them and Patch 5 the earthworks and ramps, and the ids closed up each time; the ones kept or added are in build menu order, then the defences' other materials. */
+/** Building kinds. Patch 2 cut 17 of them and Patch 5 the earthworks and ramps, and the ids closed up each time; the ones kept or added are in build menu order, then the defences' other materials, then Patch 5's earth rampart and Tavern. */
 export const BuildingKind = {
   MainBase: 0,
   /** Patch 2: one Farm, in place of the crop field, vegetable farm and herb bed. */
@@ -47,6 +47,10 @@ export const BuildingKind = {
   GateStone: 20,
   TowerHardwood: 21,
   TowerStone: 22,
+  /** Patch 5 (Jade, GP-43): the earth rampart, the only thing built of earth. */
+  EarthRampart: 23,
+  /** Patch 5 (Jade, GP-19 to GP-21): burns food into silver while open for business, and hires the Dreadnought. */
+  Tavern: 24,
 } as const;
 export type BuildingKind = (typeof BuildingKind)[keyof typeof BuildingKind];
 
@@ -58,6 +62,8 @@ export interface LevelSpec {
   ws: number;
   health: number;
   supply: number;
+  /** Another way to pay `cost`, taken when the stock cannot cover it (Patch 5: the Tavern's 7 silver in place of its gold). */
+  alt?: Cost;
   /** Main base tier needed to place or upgrade to this level; 0 for none. */
   needsBase: number;
   /** A research or other need not met in this milestone, shown as the greyed reason; '' for none. */
@@ -88,7 +94,7 @@ export interface BuildingSpec {
   purpose: string;
   /**
    * Its place in the one build menu (Patch 2: basic and advanced merged), 1 to
-   * 14; 0 for none. Kinds that share a slot open a submenu named `group`.
+   * 15 (Patch 5: the Tavern after the Mineshaft); 0 for none. Kinds that share a slot open a submenu named `group`.
    */
   slot: number;
   /** The submenu a kind sits in: Defences (walls, gates and towers) or Lights. */
@@ -140,7 +146,7 @@ const MAIN_BASE_GIVES = [
   'drop-off for everything, trains workers and tier 1 troops; shelters 8',
   'the Barracks; parapets with room for 8 up top; cavalry; the Forge\'s wrought iron, charcoal, bricks and glass; the Workshop\'s charms and hand carts',
   'the Magi Sanctum, Mineshaft and Artillery workshop; trains mages; the Forge\'s pig iron, iron, steel, carbon steel and gunpowder; the Workshop\'s brooches, heirlooms, moonleafs, sunhearts and ox carts; catapults and ballistas; marble',
-  'the Cannons and Muskets research and cannons; 4 cannon ports on the roof',
+  'the Cannons and Muskets research and cannons; the engine platform on top, where Build defense puts a fixed engine with its garrison crew, or up to 4 more units while it stands empty',
 ];
 
 const mainBase = (name: string, cost: Cost, ws: number, health: number, supply: number, n: number, needs = ''): LevelSpec =>
@@ -158,7 +164,7 @@ function metresText(cm: number): string {
 }
 
 /** Walls, gates and towers share the Defences slot (Patch 2). */
-const DEFENCES = { slot: 13, group: 'Defences' } as const;
+const DEFENCES = { slot: 14, group: 'Defences' } as const;
 
 function wall(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number, heightCm: number, wooden: boolean): SpecInput {
   return {
@@ -169,24 +175,41 @@ function wall(kind: BuildingKind, name: string, cost: Cost, ws: number, health: 
   };
 }
 
-/** A gate 3 columns wide that the players' units walk through and monsters do not (Table 4). */
+/** A gate 6 columns wide (Patch 5, Jade's GP-42: twice the 3 it was) that the players' units walk through and monsters do not (Table 4). */
 function gate(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number, wooden: boolean): SpecInput {
   return {
-    kind, name, purpose: 'A gate 3 columns wide: your units walk through it, monsters must break it. Shut and lit by a torch, rats and spiders will not climb it.',
-    ...DEFENCES, w: 3, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    kind, name, purpose: 'A gate 6 columns wide: your units walk through it, monsters must break it. Shut and lit by a torch, rats and spiders will not climb it.',
+    ...DEFENCES, w: 6, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     heightCm: 300, defence: 'gate', wooden, turns: true,
     variants: [`${name} (east to west)`, `${name} (north to south)`],
     levels: [lvl(name, cost, ws, health, { gives: 'stops rats and spiders climbing when lit by a torch' })],
   };
 }
 
-/** A tower (Table 4): 4 places on its top and +10 m sight. */
+/** A tower (Table 4): 4 places on its top and +10 m sight; 4 columns square since Patch 5, as its model is. */
 function tower(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number, wooden: boolean): SpecInput {
   return {
     kind, name, purpose: 'Men sent up (E and click it, or right click it) stand on its top: archers shoot and mages cast from there, the rest strike only at flyers that swoop down. 4 places, +10 m sight; U lets them down.',
-    ...DEFENCES, w: 3, d: 3, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    ...DEFENCES, w: 4, d: 4, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
     heightCm: 500, defence: 'tower', wooden, slots: 4, sightBonusM: 10,
     levels: [lvl(name, cost, ws, health, { gives: '4 places up top, +10 m sight' })],
+  };
+}
+
+/**
+ * The earth rampart (Patch 5, Jade's GP-43): a chunk of earth 2 m high and
+ * about 1 m across (2 columns square), placed a stretch at a time like a wall
+ * and a wall in every other way. Each has the health of one wooden wall
+ * column, so for its length it is much weaker; each takes one worker's full
+ * load of earth (25 lb: 10 earth since BL-2 halved earth's weight). It is a
+ * building, so no dig takes it away.
+ */
+function rampart(kind: BuildingKind, name: string, cost: Cost, ws: number, health: number): SpecInput {
+  return {
+    kind, name, purpose: 'A chunk of packed earth 2 m tall and 1 m across, placed a stretch at a time from point to point. As strong as one wooden wall column, so weaker for its length, and a wall in every other way: your units cannot climb it, climbing monsters go over it as they go over any wall, and breakers smash it. Each takes a worker\'s full load of earth.',
+    ...DEFENCES, w: 2, d: 2, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    heightCm: 200, defence: 'wall', wooden: false,
+    levels: [lvl(name, cost, ws, health)],
   };
 }
 
@@ -250,7 +273,7 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   },
   {
     // The Great Workshop's upgrade cost from before Patch 2, from main base tier 3, where its first engine opens (s, Jade's rebalance).
-    kind: BuildingKind.ArtilleryWorkshop, name: 'Artillery workshop', purpose: 'Builds every siege engine, with no workers: catapults and ballistas from main base tier 3, bronze and iron cannons at tier 4 after Cannons. Each rolls out with its full crew of artillery crewmen (catapult 2, ballista 1, cannon 2), and it trains crewmen to replace any who fall. No engine needs ammunition.',
+    kind: BuildingKind.ArtilleryWorkshop, name: 'Artillery workshop', purpose: 'Builds every siege engine, with no workers: catapults and ballistas from main base tier 3, bronze and iron cannons at tier 4 after Cannons. Each rolls out with its full crew of artillery crewmen (catapult 2, ballista 1, cannon 2), and it trains crewmen to replace any who fall. No engine needs ammunition. Cannons need lead ore. While it stands, the Citadel can build each engine\'s fixed version on its engine platform.',
     slot: 8, w: 12, d: 12, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', crafts: true,
     levels: [lvl('Artillery workshop', [[L, 50], [ST, 40], [Res.Bricks, 20], [Res.WroughtIron, 10]], 400, 1200, { needsBase: 3, gives: 'catapults, ballistas, cannons' })],
   },
@@ -280,14 +303,14 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   tower(BuildingKind.Tower, 'Wooden tower', [[L, 15]], 100, 800, true),
   {
     kind: BuildingKind.TorchPost, name: 'Torch post', purpose: 'A light (10 m) that claims the land 5 m around it while lit. Needs no fuel.',
-    slot: 14, group: 'Lights', w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
+    slot: 15, group: 'Lights', w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 250,
     light: { lightM: 10, claimM: 5, outlyingHalves: 2 },
     levels: [lvl('Torch post', [[L, 2], [Res.Resin, 1]], 10, 40, { gives: 'light 10 m, claims 5 m' })],
   },
   {
     // Patch 2 (Jade): 15 softwood, light 20 m, claims 10 m. The size, build work, health and the whole count against the dusk limit are suggestions for Jade's rebalance.
     kind: BuildingKind.Bonfire, name: 'Bonfire', purpose: 'A big fire that lights 20 m and claims the land 10 m around it while lit. Needs no fuel.',
-    slot: 14, group: 'Lights', w: 3, d: 3, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 150,
+    slot: 15, group: 'Lights', w: 3, d: 3, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 150,
     light: { lightM: 20, claimM: 10, outlyingHalves: 2 },
     levels: [lvl('Bonfire', [[L, 15]], 30, 150, { gives: 'light 20 m, claims 10 m' })],
   },
@@ -297,6 +320,15 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
   gate(BuildingKind.GateStone, 'Stone gate', [[ST, 10], [L, 2]], 90, 3000, false),
   tower(BuildingKind.TowerHardwood, 'Hardwood tower', [[H, 15]], 150, 1600, true),
   tower(BuildingKind.TowerStone, 'Stone tower', [[ST, 30], [L, 10]], 300, 4000, false),
+  // Patch 5 (Jade, GP-43): "one worker inventory of earth", 10 earth (a 25 lb load, BL-2), and the wooden wall's 300 health; its build work is a pick (s).
+  rampart(BuildingKind.EarthRampart, 'Earth rampart', [[Res.Earth, 10]], 8, 300),
+  {
+    // Patch 5 (Jade, GP-19): stone and lumber as its looks and the other tier 3 buildings go (s: a stone ground floor under a
+    // timber frame), 5 leather, and a gold ingot or 7 silver. Its work, health and size are suggestions for Jade's rebalance.
+    kind: BuildingKind.Tavern, name: 'Tavern', purpose: 'A lively tavern. Open for business, it burns 1 food every 3 s and makes silver from it: 18 food burned make a silver ingot, which builds up in its till to 3 decimals. Withdraw funds takes the whole silver ingots into your stock. Hires the Dreadnought.',
+    slot: 13, w: 10, d: 10, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 600,
+    levels: [lvl('Tavern', [[L, 80], [ST, 60], [Res.Leather, 5], [Res.Gold, 1]], 400, 1200, { alt: [[L, 80], [ST, 60], [Res.Leather, 5], [Res.Silver, 7]], needsBase: 3, gives: 'silver from food while open for business; hires Dreadnoughts' })],
+  },
 ]);
 
 export function buildingSpec(kind: number): BuildingSpec {
@@ -407,5 +439,5 @@ export const BUILDING_SIGHT_M: Readonly<Partial<Record<number, number>>> = {
   [BuildingKind.Barracks]: 10, [BuildingKind.MagiSanctum]: 10, [BuildingKind.ScholarsLodge]: 10, [BuildingKind.Mineshaft]: 10,
   [BuildingKind.Wall]: 10, [BuildingKind.Gate]: 10, [BuildingKind.Tower]: 20, [BuildingKind.TorchPost]: 10, [BuildingKind.Bonfire]: 20,
   [BuildingKind.WallHardwood]: 10, [BuildingKind.WallStone]: 10, [BuildingKind.GateHardwood]: 10, [BuildingKind.GateStone]: 10,
-  [BuildingKind.TowerHardwood]: 20, [BuildingKind.TowerStone]: 20,
+  [BuildingKind.TowerHardwood]: 20, [BuildingKind.TowerStone]: 20, [BuildingKind.EarthRampart]: 10, [BuildingKind.Tavern]: 10,
 };

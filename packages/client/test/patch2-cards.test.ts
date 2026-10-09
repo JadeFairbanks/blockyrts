@@ -19,12 +19,12 @@ function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): Buil
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
     queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: '', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false,
-    troops: [], horses: 0, farm: null, ...o,
+    troops: [], horses: 0, farm: null, room: 0, fixedEngine: 0, ...o,
   };
 }
 
 const barracks = (id: number): BuildingInfo =>
-  building(id, BuildingKind.Barracks, { name: 'Barracks', troops: [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler].map((troop) => ({ troop, w: troop === Troop.Brawler ? 8 : 1, a: 0, lock: 0 })) });
+  building(id, BuildingKind.Barracks, { name: 'Barracks', troops: [Troop.Close, Troop.Long, Troop.Ranger, Troop.Brawler].map((troop) => ({ troop, w: troop === Troop.Brawler ? 8 : 1, a: 0, s: 0, lock: 0 })) });
 
 const sanctum = (id: number, w = 1, a = 1): BuildingInfo =>
   building(id, BuildingKind.MagiSanctum, { name: 'Magi Sanctum', mages: [School.Support, School.Battle].map((school) => ({ school, w, a, lock: 0 })) });
@@ -38,7 +38,7 @@ function game(buildings: BuildingInfo[], stock: Array<[number, number]> = []): G
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
-    loot: [], bags: [],
+    loot: [], bags: [], carry: [], effects: [],
   };
   g.onInfo(info);
   return g;
@@ -51,7 +51,7 @@ describe('cardsOf', () => {
   });
 
   it('gives the Big House no cards (A, Q and N train tier 1 there, as before Patch 2), nor a building still going up', () => {
-    expect(cardsOf(building(203, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, lock: 0 }] }))).toEqual([]);
+    expect(cardsOf(building(203, BuildingKind.MainBase, { troops: [{ troop: Troop.Close, w: 1, a: 0, s: 0, lock: 0 }] }))).toEqual([]);
     expect(cardsOf({ ...barracks(204), complete: false })).toEqual([]);
   });
 });
@@ -60,10 +60,10 @@ describe('the Sanctum cards', () => {
   it('pick wand and robe tiers 1 to 6, as the Barracks cards pick weapon and armour', () => {
     const s = sanctum(210, 2, 1);
     const card = mageLock(School.Battle);
-    expect(cardChoice(s, card)).toEqual({ w: 2, a: 1, picked: false, locked: false });
+    expect(cardChoice(s, card)).toEqual({ w: 2, a: 1, s: 0, picked: false, locked: false });
     expect(cardOptions(game([s]), s, card, 'w').map((o) => o.tier)).toEqual([1, 2, 3, 4, 5, 6]);
     pickTier([s], card, 'a', 4);
-    expect(cardChoice(s, card)).toEqual({ w: 2, a: 4, picked: true, locked: false });
+    expect(cardChoice(s, card)).toEqual({ w: 2, a: 4, s: 0, picked: true, locked: false });
     // The support card keeps its own.
     expect(cardChoice(s, mageLock(School.Support)).picked).toBe(false);
     keepPicks(new Set());
@@ -99,8 +99,8 @@ describe('the Sanctum cards', () => {
 
 describe('the card tooltips', () => {
   it('name the kit, its numbers, its cost with counted ingots, and the card state', () => {
-    expect(cardTrainsText(Troop.Close, 4, 3)).toBe('Trains a Bronze swordsman: bronze shortsword, copper scale jack, boiled-leather targe.');
-    expect(cardCostText(Troop.Close, 4, 3)).toBe('30 food, 2 bronze ingots, 1 lumber, 2 leather, 5 copper ingots, 3 hardened leather, 3 planks. 3 minutes, 1 supply.');
+    expect(cardTrainsText(Troop.Close, 4, 3, 2)).toBe('Trains a Bronze swordsman: bronze shortsword, copper scale jack, boiled-leather targe.');
+    expect(cardCostText(Troop.Close, 4, 3, 2)).toBe('30 food, 2 bronze ingots, 1 lumber, 2 leather, 5 copper ingots, 3 hardened leather, 3 planks. 2 minutes 55 seconds, 1 supply.');
     expect(cardTooltip(Troop.Long, { w: 2, a: 1, picked: true, locked: false }, 'Barracks').split('\n')).toEqual([
       'Trains a Flint spearman: flint-headed spear, leather jerkin.',
       'Damage 12, a swing every 1.4 s, reach 2.5 m. Protection 10%.',
@@ -112,7 +112,7 @@ describe('the card tooltips', () => {
   });
 
   it('show a tier against the kit trained now, protection from nothing included', () => {
-    expect(piecesStats(cardPieces(Troop.Close, 4, 3), cardPieces(Troop.Close, 1, 0))).toBe('Damage 16 (+8), a swing every 1.2 s (−0.1 s), reach 1.2 m. Protection 25% (+25%), block 20% (+20%).');
+    expect(piecesStats(cardPieces(Troop.Close, 4, 3, 2), cardPieces(Troop.Close, 1, 0))).toBe('Damage 16 (+8), a swing every 1.2 s (−0.1 s), reach 1.2 m. Protection 25% (+25%), block 20% (+20%).');
     expect(piecesStats(cardPieces(mageLock(School.Support), 3, 2), cardPieces(mageLock(School.Support), 1, 1), true)).toBe(
       'Spell power 110% (+10%), mana bar +20 (+20), protection 5% (+5%), mana regain +5% (+5%).',
     );

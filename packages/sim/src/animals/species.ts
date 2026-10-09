@@ -71,7 +71,8 @@ export interface SpeciesSpec {
   nature: Nature;
   hp: number;
   armourBp: number;
-  damage: number;
+  /** Its bite or blow in tenths (the wolf's 15% cut in Patch 5 left a half), whole on each hit (combat/combat.ts wholeDamage). */
+  damageTenths: number;
   attackSteps: number;
   reach: number;
   /** Walking (grazing) and running speed, wu per step; swimming speed for crocodiles. */
@@ -130,76 +131,76 @@ const defaults: Pick<SpeciesSpec, 'youngVariant' | 'armourBp' | 'swim' | 'extra'
   youngVariant: '', armourBp: 0, swim: 0, extra: [], groupMin: 2, groupMax: 2, tameFood: 0, tameFoods: [], tameSteps: 0, tameAt: [], upkeep: 0, barnFeed: 0, cartTenthsLb: 0, cartSpeed: 0, packTenthsLb: 0,
   guard: 0, chase: 0, roam: 0, venom: 0, loot: [],
 };
-const sp = (o: Partial<Base> & Pick<Base, 'name' | 'model' | 'nature' | 'hp' | 'damage' | 'attackSteps' | 'reach' | 'walk' | 'run' | 'halfWidth' | 'height' | 'meat' | 'bands' | 'perCell'>): Base => ({ ...defaults, ...o });
+const sp = (o: Partial<Base> & Pick<Base, 'name' | 'model' | 'nature' | 'hp' | 'damageTenths' | 'attackSteps' | 'reach' | 'walk' | 'run' | 'halfWidth' | 'height' | 'meat' | 'bands' | 'perCell'>): Base => ({ ...defaults, ...o });
 
 const LIST: readonly Base[] = [
   // Livestock and working animals, all kept in a Barn once tamed (Patch 2, Jade: in place of the livestock farm, the pen and barn and the Stables).
   // A cow gives twenty times a chicken's food (Jade): 20 beef against 1 chicken meat, 4 food each (s, Jade's rebalance). In a Barn
   // they eat farm fare every day, as much as they ate of crops when short of grass before Patch 2 (s, Jade's rebalance).
   sp({
-    name: 'Cattle', model: 'cow', youngVariant: 'calf', nature: Nature.Shy, hp: 120, damage: 6, attackSteps: ds(15), reach: m(15), walk: mps(10), run: mps(40), halfWidth: m(5), height: m(15),
+    name: 'Cattle', model: 'cow', youngVariant: 'calf', nature: Nature.Shy, hp: 120, damageTenths: 60, attackSteps: ds(15), reach: m(15), walk: mps(10), run: mps(40), halfWidth: m(5), height: m(15),
     meat: 20, extra: [[Res.Leather, 2]], bands: [H], perCell: 3, tameFood: 10, tameFoods: FARM_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Barn], barnFeed: 2,
   }),
   sp({
-    name: 'Chicken', model: 'chicken_hen', youngVariant: 'chick', nature: Nature.Shy, hp: 10, damage: 1, attackSteps: ds(10), reach: m(5), walk: mps(8), run: mps(30), halfWidth: m(2), height: m(4),
+    name: 'Chicken', model: 'chicken_hen', youngVariant: 'chick', nature: Nature.Shy, hp: 10, damageTenths: 10, attackSteps: ds(10), reach: m(5), walk: mps(8), run: mps(30), halfWidth: m(2), height: m(4),
     meat: 1, extra: [[Res.Feathers, 2]], bands: [H, F], perCell: 4, tameFood: 2, tameFoods: FARM_FOOD, tameSteps: sec(20), tameAt: [BuildingKind.Barn], barnFeed: 1,
   }),
   sp({
-    name: 'Horse', model: 'horse', youngVariant: 'foal', nature: Nature.Shy, hp: 160, damage: 8, attackSteps: ds(15), reach: m(15), walk: mps(20), run: mps(80), halfWidth: m(5), height: m(16),
+    name: 'Horse', model: 'horse', youngVariant: 'foal', nature: Nature.Shy, hp: 160, damageTenths: 80, attackSteps: ds(15), reach: m(15), walk: mps(20), run: mps(80), halfWidth: m(5), height: m(16),
     meat: 4, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 5, tameFoods: FARM_FOOD, tameSteps: sec(45), tameAt: [BuildingKind.Barn], upkeep: 2, barnFeed: 2,
     // Patch 5 (BL-12): a horse cart holds 700 lb (it held 400) (s).
     cartTenthsLb: 7000, cartSpeed: mps(25), packTenthsLb: 1000,
   }),
   sp({
-    name: 'Ox', model: 'ox', youngVariant: 'young', nature: Nature.Shy, hp: 250, armourBp: 1000, damage: 10, attackSteps: ds(18), reach: m(15), walk: mps(15), run: mps(40), halfWidth: m(6), height: m(15),
+    name: 'Ox', model: 'ox', youngVariant: 'young', nature: Nature.Shy, hp: 250, armourBp: 1000, damageTenths: 100, attackSteps: ds(18), reach: m(15), walk: mps(15), run: mps(40), halfWidth: m(6), height: m(15),
     meat: 6, extra: [[Res.Hides, 2]], bands: [F], perCell: 2, tameFood: 10, tameFoods: FARM_FOOD, tameSteps: sec(60), tameAt: [BuildingKind.Barn], upkeep: 3, barnFeed: 2,
     // Patch 5 (BL-12): an ox cart holds 1000 lb (it held 600) (s).
     cartTenthsLb: 10000, cartSpeed: mps(15), packTenthsLb: 1500,
   }),
   // Game (Table 6): hares and deer run; wild boar fight back (roster 6.1).
-  sp({ name: 'Hare', model: 'hare', youngVariant: 'young', nature: Nature.Shy, hp: 20, damage: 0, attackSteps: ds(10), reach: m(5), walk: mps(15), run: mps(60), halfWidth: m(2), height: m(4), meat: 1, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 4 }),
-  sp({ name: 'Deer', model: 'deer', youngVariant: 'young', nature: Nature.Shy, hp: 40, damage: 0, attackSteps: ds(10), reach: m(10), walk: mps(15), run: mps(70), halfWidth: m(4), height: m(14), meat: 4, extra: [[Res.Hides, 2]], bands: [H, F, D], perCell: 3, groupMin: 2, groupMax: 4 }),
-  sp({ name: 'Wild boar', model: 'wild_boar', nature: Nature.FightsBack, hp: 40, armourBp: 1000, damage: 8, attackSteps: ds(12), reach: m(12), walk: mps(15), run: mps(45), halfWidth: m(4), height: m(9), meat: 3, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 2, groupMin: 1, groupMax: 3 }),
+  sp({ name: 'Hare', model: 'hare', youngVariant: 'young', nature: Nature.Shy, hp: 20, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(15), run: mps(60), halfWidth: m(2), height: m(4), meat: 1, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 4 }),
+  sp({ name: 'Deer', model: 'deer', youngVariant: 'young', nature: Nature.Shy, hp: 40, damageTenths: 0, attackSteps: ds(10), reach: m(10), walk: mps(15), run: mps(70), halfWidth: m(4), height: m(14), meat: 4, extra: [[Res.Hides, 2]], bands: [H, F, D], perCell: 3, groupMin: 2, groupMax: 4 }),
+  sp({ name: 'Wild boar', model: 'wild_boar', nature: Nature.FightsBack, hp: 40, armourBp: 1000, damageTenths: 80, attackSteps: ds(12), reach: m(12), walk: mps(15), run: mps(45), halfWidth: m(4), height: m(9), meat: 3, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 2, groupMin: 1, groupMax: 3 }),
   // Other wild creatures (roster 6.1).
-  sp({ name: 'Wolf', model: 'wolf', youngVariant: 'young', nature: Nature.Pack, hp: 70, damage: 10, attackSteps: ds(10), reach: m(12), walk: mps(20), run: mps(55), halfWidth: m(4), height: m(8), meat: 1, extra: [[Res.Hides, 1]], bands: [F, D], perCell: 1, groupMin: 3, groupMax: 5 }),
-  sp({ name: 'Lynx', model: 'lynx', nature: Nature.Stalker, hp: 36, damage: 8, attackSteps: ds(9), reach: m(12), walk: mps(20), run: mps(55), halfWidth: m(3), height: m(6), meat: 1, extra: [[Res.Hides, 1]], bands: [F, D], perCell: 1, groupMin: 1, groupMax: 1 }),
-  sp({ name: 'Giant frog', model: 'giant_frog', nature: Nature.Territorial, hp: 50, damage: 6, attackSteps: ds(12), reach: m(40), walk: mps(10), run: mps(20), halfWidth: m(5), height: m(6), meat: 2, bands: [H, F, D], perCell: 1, groupMin: 1, groupMax: 2 }),
-  sp({ name: 'Crocodile', model: 'crocodile', nature: Nature.Territorial, hp: 180, armourBp: 3000, damage: 15, attackSteps: ds(18), reach: m(15), walk: mps(10), run: mps(25), swim: mps(50), halfWidth: m(6), height: m(5), meat: 3, extra: [[Res.Hides, 2]], bands: [F, D], perCell: 1, groupMin: 1, groupMax: 1 }),
-  sp({ name: 'Giant crab', model: 'giant_crab', nature: Nature.FightsBack, hp: 50, armourBp: 4000, damage: 6, attackSteps: ds(13), reach: m(12), walk: mps(10), run: mps(20), halfWidth: m(5), height: m(5), meat: 2, bands: [H, F, D], perCell: 1, groupMin: 1, groupMax: 2 }),
-  sp({ name: 'Badger', model: 'badger', nature: Nature.TorchBreaker, hp: 20, damage: 5, attackSteps: ds(10), reach: m(10), walk: mps(12), run: mps(25), halfWidth: m(3), height: m(4), meat: 1, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 1, groupMin: 1, groupMax: 1 }),
+  sp({ name: 'Wolf', model: 'wolf', youngVariant: 'young', nature: Nature.Pack, hp: 70, damageTenths: 85, attackSteps: ds(10), reach: m(12), walk: mps(20), run: mps(55), halfWidth: m(4), height: m(8), meat: 1, extra: [[Res.Hides, 1]], bands: [F, D], perCell: 1, groupMin: 3, groupMax: 5 }),
+  sp({ name: 'Lynx', model: 'lynx', nature: Nature.Stalker, hp: 36, damageTenths: 80, attackSteps: ds(9), reach: m(12), walk: mps(20), run: mps(55), halfWidth: m(3), height: m(6), meat: 1, extra: [[Res.Hides, 1]], bands: [F, D], perCell: 1, groupMin: 1, groupMax: 1 }),
+  sp({ name: 'Giant frog', model: 'giant_frog', nature: Nature.Territorial, hp: 50, damageTenths: 60, attackSteps: ds(12), reach: m(40), walk: mps(10), run: mps(20), halfWidth: m(5), height: m(6), meat: 2, bands: [H, F, D], perCell: 1, groupMin: 1, groupMax: 2 }),
+  sp({ name: 'Crocodile', model: 'crocodile', nature: Nature.Territorial, hp: 180, armourBp: 3000, damageTenths: 150, attackSteps: ds(18), reach: m(15), walk: mps(10), run: mps(25), swim: mps(50), halfWidth: m(6), height: m(5), meat: 3, extra: [[Res.Hides, 2]], bands: [F, D], perCell: 1, groupMin: 1, groupMax: 1 }),
+  sp({ name: 'Giant crab', model: 'giant_crab', nature: Nature.FightsBack, hp: 50, armourBp: 4000, damageTenths: 60, attackSteps: ds(13), reach: m(12), walk: mps(10), run: mps(20), halfWidth: m(5), height: m(5), meat: 2, bands: [H, F, D], perCell: 1, groupMin: 1, groupMax: 2 }),
+  sp({ name: 'Badger', model: 'badger', nature: Nature.TorchBreaker, hp: 20, damageTenths: 50, attackSteps: ds(10), reach: m(10), walk: mps(12), run: mps(25), halfWidth: m(3), height: m(4), meat: 1, extra: [[Res.Hides, 1]], bands: [H, F], perCell: 1, groupMin: 1, groupMax: 1 }),
   // Bears (doc; Table 14's tamed bear for the numbers): never tamed, one pair and cubs per Deepwoods cell, 60 at most.
-  sp({ name: 'Bear', model: 'bear', youngVariant: 'cub', nature: Nature.Bear, hp: 200, armourBp: 1500, damage: 16, attackSteps: ds(15), reach: m(20), walk: mps(15), run: mps(60), halfWidth: m(7), height: m(15), meat: 8, extra: [[Res.Hides, 2]], bands: [D], perCell: 1 }),
+  sp({ name: 'Bear', model: 'bear', youngVariant: 'cub', nature: Nature.Bear, hp: 200, armourBp: 1500, damageTenths: 160, attackSteps: ds(15), reach: m(20), walk: mps(15), run: mps(60), halfWidth: m(7), height: m(15), meat: 8, extra: [[Res.Hides, 2]], bands: [D], perCell: 1 }),
   // Territorial creatures (roster 6 and 6.1). Where they guard and how far they chase are mine (s): beetles 8 m and give up at 20 m,
   // a hornet nest 8 m and chases 60 m, vipers wait hidden until a unit is 3 m off, scorpions roam 25 m round their spot, and
   // griffins and minotaurs, once disturbed within 20 m and 15 m, hunt to the death.
   sp({
-    name: 'Giant beetle', model: 'giant_beetle', nature: Nature.Territorial, hp: 60, armourBp: 4000, damage: 4, attackSteps: ds(15), reach: m(15), walk: mps(10), run: mps(30), halfWidth: m(6), height: m(6),
+    name: 'Giant beetle', model: 'giant_beetle', nature: Nature.Territorial, hp: 60, armourBp: 4000, damageTenths: 40, attackSteps: ds(15), reach: m(15), walk: mps(10), run: mps(30), halfWidth: m(6), height: m(6),
     meat: 0, bands: [F], perCell: 1, groupMin: 1, groupMax: 2, guard: m(80), chase: m(200), loot: [{ res: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   }),
   sp({
-    name: 'Giant hornet', model: 'giant_hornet', nature: Nature.Nest, hp: 10, damage: 4, attackSteps: ds(15), reach: m(10), walk: mps(20), run: mps(60), halfWidth: m(3), height: m(3),
+    name: 'Giant hornet', model: 'giant_hornet', nature: Nature.Nest, hp: 10, damageTenths: 40, attackSteps: ds(15), reach: m(10), walk: mps(20), run: mps(60), halfWidth: m(3), height: m(3),
     meat: 0, bands: [D], perCell: 1, groupMin: 3, groupMax: 5, guard: m(80), chase: m(600), loot: [{ res: Res.Venom, min: 1, max: 1, chancePm: 200 }],
   }),
   sp({
-    name: 'Viper', model: 'viper', nature: Nature.Territorial, hp: 40, damage: 5, attackSteps: ds(12), reach: m(15), walk: mps(8), run: mps(15), halfWidth: m(2), height: m(2),
+    name: 'Viper', model: 'viper', nature: Nature.Territorial, hp: 40, damageTenths: 50, attackSteps: ds(12), reach: m(15), walk: mps(8), run: mps(15), halfWidth: m(2), height: m(2),
     meat: 0, extra: [[Res.Hides, 1]], bands: [B], perCell: 2, groupMin: 1, groupMax: 1, guard: m(30), chase: m(100), venom: 20, loot: [{ res: Res.Venom, min: 1, max: 1, chancePm: 300 }],
   }),
   sp({
-    name: 'Giant scorpion', model: 'giant_scorpion', nature: Nature.Territorial, hp: 40, armourBp: 3500, damage: 6, attackSteps: ds(12), reach: m(15), walk: mps(12), run: mps(30), halfWidth: m(6), height: m(5),
+    name: 'Giant scorpion', model: 'giant_scorpion', nature: Nature.Territorial, hp: 40, armourBp: 3500, damageTenths: 60, attackSteps: ds(12), reach: m(15), walk: mps(12), run: mps(30), halfWidth: m(6), height: m(5),
     meat: 0, bands: [B], perCell: 1, groupMin: 1, groupMax: 2, guard: m(80), chase: m(250), roam: m(250), venom: 25,
     loot: [{ res: Res.Venom, min: 1, max: 1, chancePm: 400 }, { res: Res.Emeralds, alt: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
   }),
   sp({
-    name: 'Griffin', model: 'griffin', nature: Nature.Hunter, hp: 300, armourBp: 2000, damage: 20, attackSteps: ds(15), reach: m(20), walk: mps(15), run: mps(40), halfWidth: m(10), height: m(18),
+    name: 'Griffin', model: 'griffin', nature: Nature.Hunter, hp: 300, armourBp: 2000, damageTenths: 200, attackSteps: ds(15), reach: m(20), walk: mps(15), run: mps(40), halfWidth: m(10), height: m(18),
     meat: 4, extra: [[Res.Feathers, 6]], bands: [B, X], perCell: 1, groupMin: 1, groupMax: 1, guard: m(200), loot: [{ res: Res.Gold, min: 1, max: 1, chancePm: 50 }],
   }),
   sp({
-    name: 'Minotaur', model: 'minotaur', nature: Nature.Hunter, hp: 250, armourBp: 3000, damage: 30, attackSteps: ds(20), reach: m(25), walk: mps(15), run: mps(35), halfWidth: m(8), height: m(26),
+    name: 'Minotaur', model: 'minotaur', nature: Nature.Hunter, hp: 250, armourBp: 3000, damageTenths: 300, attackSteps: ds(20), reach: m(25), walk: mps(15), run: mps(35), halfWidth: m(8), height: m(26),
     meat: 5, extra: [[Res.Hides, 3]], bands: [X], perCell: 1, groupMin: 1, groupMax: 1, guard: m(150), loot: [{ res: Res.Gold, min: 2, max: 2, chancePm: 100 }],
   }),
   // Wild birds (s): geese in flocks by Heartland water, pheasants in the Fringe woods; hunted with N like deer, for meat and feathers.
-  sp({ name: 'Wild goose', model: 'wild_goose', nature: Nature.Shy, hp: 15, damage: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(6), meat: 1, extra: [[Res.Feathers, 3]], bands: [H], perCell: 1, groupMin: 3, groupMax: 5 }),
-  sp({ name: 'Pheasant', model: 'pheasant', nature: Nature.Shy, hp: 10, damage: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(4), meat: 1, extra: [[Res.Feathers, 2]], bands: [F], perCell: 2, groupMin: 1, groupMax: 2 }),
+  sp({ name: 'Wild goose', model: 'wild_goose', nature: Nature.Shy, hp: 15, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(6), meat: 1, extra: [[Res.Feathers, 3]], bands: [H], perCell: 1, groupMin: 3, groupMax: 5 }),
+  sp({ name: 'Pheasant', model: 'pheasant', nature: Nature.Shy, hp: 10, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(4), meat: 1, extra: [[Res.Feathers, 2]], bands: [F], perCell: 2, groupMin: 1, groupMax: 2 }),
 ];
 
 export const SPECIES: readonly SpeciesSpec[] = LIST.map((s, id) => ({ ...s, id: id as Species }));

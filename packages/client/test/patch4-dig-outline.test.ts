@@ -29,8 +29,8 @@ function cols(r: TraceRun): [number, number, number, number] {
 
 describe('which digs show in full', () => {
   const queues = new Map<number, UnitOrder[]>([
-    [1, [{ t: 'dig', site: 5 }, { t: 'dig', site: 7 }]],
-    [2, [{ t: 'dig', site: 9 }]],
+    [1, [{ t: 'dig', site: 5, band: 0, miss: 0 }, { t: 'dig', site: 7, band: 0, miss: 0 }]],
+    [2, [{ t: 'dig', site: 9, band: 0, miss: 0 }]],
     [3, [{ t: 'move', x: 0, z: 0 }]],
   ]);
 

@@ -21,6 +21,9 @@ export function troopIconFile(troop: number, wTier: number): string {
       return 'icon_train_warrior_mounted';
     case Troop.Crew:
       return 'icon_train_warrior_cannon_crew';
+    case Troop.Dreadnought:
+      // Patch 5: the brawler's mace-man stands in until the Dreadnought has a picture of his own.
+      return 'icon_train_warrior_mace';
     default:
       return 'icon_train_warrior_club';
   }
@@ -30,10 +33,14 @@ export const WORKER_ICON = 'icon_train_worker_labourer';
 export const SUPPORT_MAGE_ICON = 'icon_train_mage_support';
 export const BATTLE_MAGE_ICON = 'icon_train_mage_battle';
 
-/** Models the kit has no picture of, and the nearest it has (the catalogue borrows the hen for the wild birds too). */
+/** A mage's picture: her robe look's portrait from robe tier 1 (Patch 5, as she is drawn), else her school's training picture. */
+export function mageIconFile(battle: boolean, robe: number): string {
+  const own = robe > 0 ? firstKit(`portrait_mage_${battle ? 'battle' : 'support'}_${Math.min(6, robe)}`) : '';
+  return own || (battle ? BATTLE_MAGE_ICON : SUPPORT_MAGE_ICON);
+}
+
+/** Models the kit has no picture of yet, and the nearest it has. */
 const MODEL_STAND_INS: Record<string, string> = {
-  wild_goose: 'portrait_hen',
-  pheasant: 'portrait_hen',
   cannon_bronze: 'icon_train_cannon',
   cannon_iron: 'icon_train_cannon',
   cannon_dwarf: 'icon_train_cannon',
@@ -43,12 +50,15 @@ const MODEL_STAND_INS: Record<string, string> = {
 
 /**
  * A catalogue model's picture: its portrait, or a near one for a model named
- * with a prefix (chicken_hen is the hen). Lairs and the peoples' buildings
- * have none: their portrait is the rendered still.
+ * with a prefix (chicken_hen is the hen), else its icon (the wild goose and
+ * the pheasant, Patch 5). Lairs and the peoples' buildings have none: their
+ * portrait is the rendered still.
  */
 export function modelIconFile(model: string): string {
   const bare = model.replace(/^(chicken|fish|wild)_/, '');
-  return firstKit(`icon_train_${bare}`, `portrait_${model}`, `portrait_${bare}`, MODEL_STAND_INS[model] ?? '');
+  const own = firstKit(`icon_train_${bare}`, `portrait_${model}`, `portrait_${bare}`, `icon_${model}`, MODEL_STAND_INS[model] ?? '');
+  // A Citadel's fixed engine has the picture of the engine it is built from until it has one of its own (Patch 5).
+  return own || (model.endsWith('_fixed') ? modelIconFile(model.slice(0, -'_fixed'.length)) : '');
 }
 
 /** A building's picture by kind and level (the main base's tiers). */
@@ -56,13 +66,13 @@ export function buildingIconFile(kind: number, level: number): string {
   const l = Math.max(1, level);
   switch (kind) {
     case BuildingKind.MainBase:
-      // Patch 5: four tiers, each drawn as the old level it stands on.
-      return `icon_main_base_l${MAIN_BASE_TIER_LEVELS[Math.min(l, MAIN_BASE_TIER_LEVELS.length) - 1]!}`;
+      // Patch 5: four tiers, the first three drawn as the old level each stands on, the fourth as the Citadel.
+      return l >= MAIN_BASE_TIER_LEVELS.length ? 'icon_main_base_citadel' : `icon_main_base_l${MAIN_BASE_TIER_LEVELS[l - 1]!}`;
     case BuildingKind.Farm:
-      return 'icon_crop_field_t1';
+      // Patch 5: the farm as its remade farmhouse.
+      return 'icon_farmhouse_t1';
     case BuildingKind.Barn:
-      // The pen and barn's picture stands in until the red barn's comes (Patch 2).
-      return 'icon_pen_barn';
+      return 'icon_barn';
     case BuildingKind.Storehouse:
       return 'icon_storehouse';
     case BuildingKind.FishingDock:
@@ -90,8 +100,9 @@ export function buildingIconFile(kind: number, level: number): string {
     case BuildingKind.TorchPost:
       return 'icon_torch_post';
     case BuildingKind.Bonfire:
-      // The campfire's picture stands in until the bonfire has its own.
-      return 'icon_cooking_campfire';
+      return 'icon_bonfire';
+    case BuildingKind.EarthRampart:
+      return 'icon_rampart_earth';
     case BuildingKind.ScholarsLodge:
       return 'icon_scholars_lodge';
     case BuildingKind.MagiSanctum:
@@ -99,12 +110,14 @@ export function buildingIconFile(kind: number, level: number): string {
     case BuildingKind.Barracks:
       return 'icon_barracks';
     case BuildingKind.ArtilleryWorkshop:
-      // The gunnery yard's picture stands in, as its model does (Patch 2).
+      // Its model keeps the gunnery yard's id (remade in Patch 5), and so does its picture.
       return 'icon_gunnery_yard';
     case BuildingKind.Mineshaft:
       return 'icon_mineshaft_t1';
     case BuildingKind.Forge:
       return 'icon_forge_l1';
+    case BuildingKind.Tavern:
+      return 'icon_tavern';
     default:
       return 'icon_storehouse';
   }
@@ -114,6 +127,8 @@ export function buildingIconFile(kind: number, level: number): string {
 export interface UnitLook {
   troop: number;
   wTier: number;
+  /** The armour or robe tier: a mage's robe look (Patch 5). */
+  aTier?: number;
 }
 
 /**
@@ -127,8 +142,9 @@ export function selectableIconFile(typeKey: string, look?: UnitLook | null): str
   if (typeKey === 'worker') return WORKER_ICON;
   if (typeKey === 'warrior') return troopIconFile(look?.troop ?? Troop.Close, look?.wTier ?? 1);
   if (typeKey === 'warrior:crew') return troopIconFile(Troop.Crew, 0);
-  if (typeKey === 'mage:support') return SUPPORT_MAGE_ICON;
-  if (typeKey === 'mage:battle') return BATTLE_MAGE_ICON;
+  if (typeKey === 'warrior:dreadnought') return troopIconFile(Troop.Dreadnought, 0);
+  if (typeKey === 'mage:support') return mageIconFile(false, look?.aTier ?? 0);
+  if (typeKey === 'mage:battle') return mageIconFile(true, look?.aTier ?? 0);
   const [head, a, b] = typeKey.split(':');
   const n = Number(head === 'animal' ? b : a);
   switch (head) {

@@ -18,7 +18,7 @@ function sel(key: string, typeKey: string, owner = ME): Selectable {
 function building(id: number, kind: number, o: Partial<BuildingInfo> = {}): BuildingInfo {
   return {
     id, owner: ME, kind, variant: 0, level: 1, x: 0, z: 0, y: 0, hp: 100, maxHp: 100, complete: true, built: 1000, upgrading: 0, upgraded: 0,
-    queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: '', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, farm: null, ...o,
+    queue: [], rally: [], lit: false, assigned: 0, working: 0, inside: [], up: [], status: '', name: '', upgradeWhy: '', products: [], stock: [], rating: 0, herd: 0, shared: false, troops: [], horses: 0, farm: null, room: 0, fixedEngine: 0, ...o,
   };
 }
 
@@ -65,7 +65,7 @@ function game(o: { buildings?: BuildingInfo[]; spells?: InfoMessage['spells']; m
     mageRanks: o.mageRanks ?? [[5, ''], [6, ''], [7, 'Training to Mage needs 300 experience from combat.']],
     peoples: [],
     players: [{ share: 0, out: false }],
-    loot: [], bags: [],
+    loot: [], bags: [], carry: [], effects: [],
   };
   g.onInfo(info);
   return g;
@@ -92,7 +92,8 @@ describe('the mage card', () => {
   it("has Attack, Patrol and Move, her five spells, then Eat, Upgrade equipment and Rank (Jade's Patch 2)", () => {
     const { c } = harness(game(), support, 'mage:support');
     const card = c.card();
-    expect(card.map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Heal', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Equip', 'Rank']);
+    // Patch 5's Run/Walk last, the twelfth.
+    expect(card.map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Heal', 'Quicken 3', 'Fortify', 'Rally', 'Warding', 'Eat', 'Equip', 'Rank', 'Walk']);
     expect(card.slice(3, 8).map((e) => e.key)).toEqual(['KeyR', 'KeyK', 'KeyF', 'KeyY', 'KeyW']);
     // A cooldown only delays a spell; rank and research grey it out with the reason.
     expect(card[4]!.enabled).toBe(true);

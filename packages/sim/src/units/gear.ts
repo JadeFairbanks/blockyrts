@@ -1,20 +1,23 @@
 // Upgrading units (Troops and gear: Upgrading units, Jade 2026-10-03). Patch
 // 2 cut the last specialist training, cannon crew: artillery crewmen are
-// trained at the Artillery workshop (siege/data.ts CREWMAN). There are no
-// items: Upgrade Weapon and Upgrade Armour raise a line of a unit's kit
-// one tier, their Max twins to the best tier researched and affordable. The
-// new kit is paid from stock when the button is pressed, the most capable
-// units first (highest rank, then the lowest id), whole steps only; each
-// unit then walks to the nearest Forge, Barracks or main base (mages also
-// the Magi Sanctum), stands beside it while the bar
-// fills, and comes back better armed. A dropped upgrade gives its payment
-// back. Workers also fetch and return carts at a main base.
+// trained at the Artillery workshop (siege/data.ts CREWMAN). Upgrade
+// equipment raises every line of a unit's kit (units/kits.ts Line) to the
+// best tier it can have; Upgrade Weapon and Upgrade Armour raise one line,
+// a tier or (Max) to the best. The new kit is paid from stock when the
+// button is pressed, the most capable units first (highest rank, then the
+// lowest id), whole steps only; each unit then walks to the nearest Forge,
+// Barracks or main base (mages also the Magi Sanctum), stands beside it
+// while the bar fills, and comes back better armed. A dropped upgrade gives
+// its payment back. Patch 5 (Jade, GP-1 and GP-3): a ready item in stock is
+// put on first, at no cost and in a fifth of the time, and the piece taken
+// off goes to stock as an item. Workers also fetch and return carts at a
+// main base.
 
 import { BuildingKind, buildingName } from '../buildings/data.ts';
 import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
 import { forgeStepOf } from '../buildings/production.ts';
-import { costText, pay, refund, Res } from '../economy/resources.ts';
+import { costText, pay, refund, Res, RESOURCES } from '../economy/resources.ts';
 import { isGod, UnitKind, type SimState } from '../state.ts';
 import { RESEARCH } from '../combat/items.ts';
 import { Act, besideBuilding, resetWalk, walkTo } from './behaviour.ts';
@@ -26,13 +29,21 @@ import { tinker } from './tinker.ts';
 import {
   applyKit,
   equipmentPlans,
+  ITEM_WAY,
   holderKind,
   Line,
+  KIT_LINES,
   linePiece,
+  lineTier,
+  lineTop,
   mainCost,
+  ownGear,
+  ownGearItem,
   piecesCost,
-  replacedPieces,
-  TRAINING,
+  planItem,
+  replacedItem,
+  takesTips,
+  TIPS_KIT,
   upgradePieces,
   upgradeSteps,
   upgradeTarget,
@@ -50,7 +61,11 @@ export function kitHolder(state: SimState, i: number): KitHolder | undefined {
   if (e.role[i] === Role.Mercenary || e.role[i] === Role.People) return undefined;
   const kind = holderKind(e.kind[i]!);
   if (!kind) return undefined;
-  return { kind, troop: e.troop[i]!, w: e.wTier[i]!, a: e.aTier[i]! };
+  const h: KitHolder = { kind, troop: e.troop[i]!, w: e.wTier[i]!, a: e.aTier[i]!, s: e.sTier[i]!, t: e.tips[i]! };
+  // A weapon with a gear row of its own (the obsidian hand-axe) goes back to stock as itself.
+  const wItem = ownGearItem(e.weapon[i]!);
+  if (wItem !== undefined) h.wItem = wItem;
+  return h;
 }
 
 /** What a player has for the kit's needs: research, the Forge step their town is at and research names. */
@@ -118,6 +133,25 @@ function pieceName(h: KitHolder, line: number, tier: number): string {
   return p ? p.name.toLowerCase() : 'kit';
 }
 
+/** The gear row of its own an upgrade puts on (the obsidian hand-axe, paid with it), or 0. */
+function ownPutOn(h: KitHolder, o: KitUpOrder): number {
+  const p = o.line === Line.Weapon ? linePiece(h, o.line, o.to) : undefined;
+  return p ? ownGear(planItem(p, o.ways)) : 0;
+}
+
+/** The lower-case name of what an upgrade puts on: the item's own name when it has a row of its own. */
+function newPieceName(h: KitHolder, o: KitUpOrder): string {
+  const own = ownPutOn(h, o);
+  return own ? RESOURCES[ownGearItem(own)!]!.name.toLowerCase() : pieceName(h, o.line, o.to);
+}
+
+/** The same with its article: "a bronze sword", "an iron coat of plates", "poison tips". */
+function aPiece(h: KitHolder, line: number, tier: number): string {
+  const name = pieceName(h, line, tier);
+  if (line === Line.Tips) return name;
+  return `${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name}`;
+}
+
 /**
  * Upgrade Weapon or Upgrade Armour (and their Max twins) on some units. The
  * highest rank goes first; each unit that can take a whole step pays for it
@@ -128,7 +162,7 @@ function pieceName(h: KitHolder, line: number, tier: number): string {
 export function orderUpgrade(state: SimState, player: number, units: readonly number[], line: number, max: boolean): number {
   const e = state.entities;
   const p = state.players[player];
-  if (!p || (line !== Line.Weapon && line !== Line.Armour)) return 0;
+  if (!p || !KIT_LINES.includes(line as Line)) return 0;
   const tech = techOf(state, player);
   const order = units.filter((i) => e.owner[i] === player && e.hp[i]! > 0).sort((a, b) => e.rank[b]! - e.rank[a]! || e.id[a]! - e.id[b]!);
   let sent = 0;
@@ -156,7 +190,7 @@ export function orderUpgrade(state: SimState, player: number, units: readonly nu
     pay(p.pool, t.plan.cost);
     inFront(state, i, { t: 'kitUp', line, to: t.to, ways: t.plan.ways, paid: 1, b: place.id });
     // Information, not an alert: a bubble only (Jade's play-test notes).
-    say(state, i, `Off to the ${buildingName(place.kind, place.level, place.variant).toLowerCase()} for a ${pieceName(h, line, t.to)}.`, false, true);
+    say(state, i, `Off to the ${buildingName(place.kind, place.level, place.variant).toLowerCase()} for ${aPiece(h, line, t.to)}.`, false, true);
     sent++;
   }
   if (sent === 0 && why) {
@@ -168,10 +202,11 @@ export function orderUpgrade(state: SimState, player: number, units: readonly nu
 
 /**
  * Upgrade equipment (Jade's Patch 2: one button for every combat unit but
- * siege, and for workers' tools): each unit's weapon, then its armour, to the
- * best tier researched the stock pays for, weapons first for every unit and
- * the highest ranks first (kits.ts equipmentPlans). Each unit with something
- * to take pays for it now and walks to the nearest place to upgrade, where it
+ * siege, and for workers' tools): each unit's weapon, then its armour, then
+ * close melee's shield and a bow's poison tips (Patch 5), to the best tier
+ * the stock gives, a ready item first, weapons first for every unit and the
+ * highest ranks first (kits.ts equipmentPlans). Each unit with something to
+ * take pays for it now and walks to the nearest place to upgrade, where it
  * sits tinkering through each piece's time, the weapon first. Returns how
  * many units were sent; when none were, the player hears why. The action
  * menu's button and the better-kit question both give this order.
@@ -199,13 +234,13 @@ export function orderUpgradeEquipment(state: SimState, player: number, units: re
       continue;
     }
     places.set(e.id[i]!, place);
-    list.push({ id: e.id[i]!, h, rank: e.rank[i]!, pendingW: pendingKitUp(state, i, Line.Weapon) !== undefined, pendingA: pendingKitUp(state, i, Line.Armour) !== undefined });
+    list.push({ id: e.id[i]!, h, rank: e.rank[i]!, pending: pendingLines(state, i) });
   }
   let sent = 0;
   for (const plan of equipmentPlans(list, p.pool, tech)) {
     const i = e.indexOf(plan.id);
     const h = kitHolder(state, i)!;
-    if (!plan.wPlan && !plan.aPlan) {
+    if (!plan.plans.some((x) => x)) {
       // A reason the player can act on beats one about having no place.
       if (!why || whoWhy < 0 || why.startsWith('There is no')) {
         why = plan.why;
@@ -215,18 +250,17 @@ export function orderUpgradeEquipment(state: SimState, player: number, units: re
     }
     const place = places.get(plan.id)!;
     const pieces: string[] = [];
-    // In front of whatever it was doing: the armour first, then the weapon before it, so the weapon goes on first.
-    if (plan.aPlan) {
-      pay(p.pool, plan.aPlan.cost);
-      inFront(state, i, { t: 'kitUp', line: Line.Armour, to: plan.a, ways: plan.aPlan.ways, paid: 1, b: place.id });
-      pieces.unshift(pieceName(h, Line.Armour, plan.a));
+    // In front of whatever it was doing, the last line first, so the weapon goes on first, then the armour, the shield and the tips.
+    for (let k = KIT_LINES.length - 1; k >= 0; k--) {
+      const line = KIT_LINES[k]!;
+      const lp = plan.plans[line];
+      if (!lp) continue;
+      const to = plan.to[line]!;
+      pay(p.pool, lp.cost);
+      inFront(state, i, { t: 'kitUp', line, to, ways: lp.ways, paid: 1, b: place.id });
+      pieces.unshift(aPiece(h, line, to));
     }
-    if (plan.wPlan) {
-      pay(p.pool, plan.wPlan.cost);
-      inFront(state, i, { t: 'kitUp', line: Line.Weapon, to: plan.w, ways: plan.wPlan.ways, paid: 1, b: place.id });
-      pieces.unshift(pieceName(h, Line.Weapon, plan.w));
-    }
-    say(state, i, `Off to the ${buildingName(place.kind, place.level, place.variant).toLowerCase()} for ${pieces.map((x) => `a ${x}`).join(' and ')}.`, false, true);
+    say(state, i, `Off to the ${buildingName(place.kind, place.level, place.variant).toLowerCase()} for ${listText(pieces)}.`, false, true);
     sent++;
   }
   if (sent === 0 && why) {
@@ -234,6 +268,87 @@ export function orderUpgradeEquipment(state: SimState, player: number, units: re
     else state.events.push({ player, kind: 'alert', text: why });
   }
   return sent;
+}
+
+/** "a steel halberd", "an iron pike", "poison tips": a good's name with its article. */
+function aGood(res: number): string {
+  const name = (RESOURCES[res]?.name ?? 'that').toLowerCase();
+  if (res === Res.PoisonTips) return name;
+  return `${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name}`;
+}
+
+/**
+ * What a stock item goes on as for a unit (Patch 5, GP-2: Equip): the line,
+ * the tier and the item's place in its piece's list, or why it cannot: a
+ * piece the unit's kind has no slot for (a spear for a swordsman, a robe for
+ * a ranger), or no better than what it has.
+ */
+export function equipTarget(h: KitHolder, res: number): { line: Line; to: number; item: number } | { why: string } {
+  for (const line of KIT_LINES) {
+    const top = lineTop(h, line);
+    for (let to = 1; to <= top; to++) {
+      const item = linePiece(h, line, to)?.items.indexOf(res as Res) ?? -1;
+      if (item < 0) continue;
+      if (to <= lineTier(h, line)) return { why: `I already have ${to === lineTier(h, line) ? 'one' : 'better'}.` };
+      return { line, to, item };
+    }
+  }
+  return { why: `I cannot use ${aGood(res)}.` };
+}
+
+/**
+ * Equip (Jade's Patch 5, GP-2: "click the equip and then click the unit you
+ * want to equip it to, causing them to return to a drop off point to receive
+ * it, and upgrade to that item via the usual process"): the first of the
+ * units that can take the stock's item pays it now and walks to the nearest
+ * place to upgrade, where it puts it on in a fifth of its time, as Upgrade
+ * equipment does with a ready item. Returns how many went (0 or 1); a unit
+ * that cannot says why.
+ */
+export function orderEquip(state: SimState, player: number, units: readonly number[], res: number): number {
+  const e = state.entities;
+  const p = state.players[player];
+  if (!p) return 0;
+  if ((p.pool[res] ?? 0) <= 0) {
+    state.events.push({ player, kind: 'alert', text: `There is no ${(RESOURCES[res]?.name ?? 'such item').toLowerCase()} in the stock.` });
+    return 0;
+  }
+  for (const i of units) {
+    if (e.owner[i] !== player || e.hp[i]! <= 0) continue;
+    const h = kitHolder(state, i);
+    if (!h) continue;
+    const t = equipTarget(h, res);
+    if ('why' in t) {
+      say(state, i, t.why, true);
+      continue;
+    }
+    if (pendingKitUp(state, i, t.line)) {
+      say(state, i, 'I am already on my way to upgrade that.', true);
+      continue;
+    }
+    const place = nearestUpgradePlace(state, i, h);
+    if (!place) {
+      say(state, i, h.kind === 'mage' ? 'There is no Forge, Barracks, main base or Magi Sanctum to upgrade at.' : 'There is no Forge, Barracks or main base to upgrade at.', true);
+      continue;
+    }
+    pay(p.pool, [[res as Res, 1]]);
+    inFront(state, i, { t: 'kitUp', line: t.line, to: t.to, ways: ITEM_WAY + 8 * t.item, paid: 1, b: place.id });
+    say(state, i, `Off to the ${buildingName(place.kind, place.level, place.variant).toLowerCase()} for ${aGood(res)}.`, false, true);
+    return 1;
+  }
+  return 0;
+}
+
+/** The lines a unit already has an upgrade on the way for, a bit per Line. */
+export function pendingLines(state: SimState, i: number): number {
+  let bits = 0;
+  for (const q of state.entities.queue[i]!) if (q.t === 'kitUp') bits |= 1 << q.line;
+  return bits;
+}
+
+/** "a, b and c". */
+function listText(parts: readonly string[]): string {
+  return parts.length < 2 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
 /** Gives back what an upgrade it had not finished paid (a new order, Stop, or death). */
@@ -254,7 +369,7 @@ export function upgradeProgress(state: SimState, i: number): [number, number] {
   const o = e.queue[i]![0];
   if (!o || o.t !== 'kitUp' || e.act[i] !== Act.Work) return [0, 0];
   const h = kitHolder(state, i);
-  return h ? [e.timer[i]!, upgradeSteps(h, o.line, o.to)] : [0, 0];
+  return h ? [e.timer[i]!, upgradeSteps(h, o.line, o.to, o.ways)] : [0, 0];
 }
 
 /** Walks to the place to upgrade, sits beside it tinkering while the bar fills, and takes the new kit. */
@@ -285,33 +400,51 @@ export function runKitUp(state: SimState, i: number, o: KitUpOrder): boolean {
     e.act[i] = Act.Work;
     e.timer[i] = 0;
     // What it is doing, in the present tense, its bubble up while the bar runs (Jade's Patch 3).
-    sayTinkering(state, i, `Upgrading to ${pieceName(h, o.line, o.to)}.`);
+    sayTinkering(state, i, `Upgrading to ${newPieceName(h, o)}.`);
   }
   // Beside it, the unit sits and tinkers while the bar over its head fills (Jade's Patch 2).
   // Godmode: the new piece goes on at once.
-  if (!tinker(state, i, isGod(state, e.owner[i]!) ? 1 : upgradeSteps(h, o.line, o.to))) return false;
+  if (!tinker(state, i, isGod(state, e.owner[i]!) ? 1 : upgradeSteps(h, o.line, o.to, o.ways))) return false;
   finishKitUp(state, i, h, o);
   return true;
 }
 
-/** Puts the new tier on: the old piece is scrapped and its cost goes back to the stock (in full, Jade), the slots take the new kit. */
+/** Puts an item in its owner's stock. */
+function toStock(state: SimState, owner: number, item: Res | undefined): void {
+  if (item === undefined || owner >= state.players.length) return;
+  const pool = state.players[owner]!.pool;
+  pool[item] = pool[item]! + 1;
+}
+
+/**
+ * Puts the new tier on, the slots taking the new kit: the old piece goes to
+ * stock as an item (Patch 5, GP-3: no longer back to its materials). A bow
+ * swapped for a sling or a gun hands its poison tips back to stock too.
+ */
 function finishKitUp(state: SimState, i: number, h: KitHolder, o: KitUpOrder): void {
   const e = state.entities;
   const owner = e.owner[i]!;
-  const cur = o.line === Line.Weapon ? h.w : h.a;
-  if (o.to <= cur) {
-    // Already there (a second upgrade got in first): the payment goes back.
+  if (o.to <= lineTier(h, o.line) || o.to > lineTop(h, o.line)) {
+    // Already there (a second upgrade got in first), or no longer fits (tips for a bow that is gone): the payment goes back.
     refundKit(state, i, o);
     return;
   }
-  if (TRAINING.upgradeRefundPm > 0 && owner < state.players.length) refund(state.players[owner]!.pool, piecesCost(replacedPieces(h, o.line, o.to), 0), TRAINING.upgradeRefundPm);
+  toStock(state, owner, replacedItem(h, o.line));
   o.paid = 0;
   if (o.line === Line.Weapon) e.wTier[i] = o.to;
+  else if (o.line === Line.Shield) e.sTier[i] = o.to;
+  else if (o.line === Line.Tips) e.tips[i] = o.to;
   else e.aTier[i] = o.to;
+  if (e.tips[i]! > 0 && !takesTips(h.troop, e.wTier[i]!)) {
+    e.tips[i] = 0;
+    toStock(state, owner, TIPS_KIT.items[0]);
+  }
   applyKit(e, i, h.kind);
+  const own = ownPutOn(h, o);
+  if (own) e.weapon[i] = own;
   // Done, after its last piece: the next piece's bar would cover the line at once (Jade's Patch 3: no past tense while a bar runs).
   if (e.queue[i]![1]?.t === 'kitUp') return;
-  say(state, i, h.kind === 'worker' ? `New tools: ${pieceName(h, o.line, o.to)}.` : `Upgraded to ${pieceName(h, o.line, o.to)}.`, false, true);
+  say(state, i, h.kind === 'worker' ? `New tools: ${newPieceName(h, o)}.` : `Upgraded to ${newPieceName(h, o)}.`, false, true);
 }
 
 /** The text an upgrade would cost, for tooltips: the new kit's main cost. */

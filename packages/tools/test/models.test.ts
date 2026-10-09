@@ -114,7 +114,7 @@ describe('the model converter on the base bodies', () => {
     const s = results.get('worker')?.sidecar;
     expect(s?.bounds.min[1]).toBeCloseTo(0, 6);
     expect(s?.bounds.max[1]).toBeCloseTo(60 * 0.028125, 6);
-    expect(s?.parts).toEqual(['hardwood_axe', 'hoe', 'fishing_rod']);
+    expect(s?.parts).toEqual(['hardwood_axe', 'hoe', 'fishing_rod', 'iron_pick', 'spade', 'hammer']);
     expect(s?.clips.find((c) => c.name === 'walk')).toMatchObject({ length: 1, loop: true, keys: [] });
     expect(s?.clips.find((c) => c.name === 'death')).toMatchObject({ loop: false, mode: 'hold' });
   });
@@ -149,9 +149,9 @@ describe('the model converter on the base bodies', () => {
     const leg = json.nodes.findIndex((n) => n.name === 'leg_upper_r');
     const ch = walk?.channels.find((c) => c.target.node === leg && c.target.path === 'rotation');
     const q = accessor(json, bin, walk?.samplers[ch?.sampler ?? -1]?.output ?? -1).slice(0, 4);
-    // Blockbench key x = -25 degrees: the foot moves forward, toward -Z.
+    // Jade's improved walk (Patch 5) starts at x = -47.5 degrees, with a little y and z: the foot well forward, toward -Z.
     const foot = rotate(q, [0, -1, 0]);
-    expect(foot[2]).toBeCloseTo(-Math.sin((25 * Math.PI) / 180), 4);
+    expect(foot[2]).toBeLessThan(-Math.sin((40 * Math.PI) / 180));
   });
 
   it('builds index.json and a sidecar per model', () => {
@@ -159,10 +159,15 @@ describe('the model converter on the base bodies', () => {
     try {
       const result = buildModels({ outDir: out });
       expect(result.ok).toBe(true);
-      const index = JSON.parse(readFileSync(join(out, 'index.json'), 'utf8')) as { models: { id: string }[] };
+      const index = JSON.parse(readFileSync(join(out, 'index.json'), 'utf8')) as { models: { id: string; lazy?: true }[] };
       // The base bodies are always there; the modelling bot's catalogue (packages/assets/src) adds more once merged.
       expect(index.models.map((m) => m.id)).toEqual(expect.arrayContaining(BASE));
       expect(new Set(index.models.map((m) => m.id)).size).toBe(index.models.length);
+      // Patch 5: the robe looks, a kit tier's metal look and a building's stages, ruins and damaged look, the last three loaded only when drawn.
+      const lazy = new Map(index.models.map((m) => [m.id, m.lazy === true]));
+      expect(lazy.get('mage_battle_6')).toBe(false);
+      for (const id of ['sword@iron_wrought', 'main_base_l2@construction_33', 'main_base_l2@ruined', 'main_base_l2@damaged']) expect(lazy.get(id), id).toBe(true);
+      expect(lazy.get('bush_hazel@cut')).toBe(false);
       const sidecar = JSON.parse(readFileSync(join(out, 'mage.json'), 'utf8')) as { id: string };
       expect(sidecar.id).toBe('mage');
     } finally {
@@ -172,18 +177,19 @@ describe('the model converter on the base bodies', () => {
 });
 
 describe('the model converter on state sets hidden by default', () => {
-  const source = 'src/models/buildings/main_base_l1/main_base_l1.bbmodel';
+  const source = 'src/models/buildings/main_base_l2/main_base_l2.bbmodel';
   const raw = JSON.parse(readFileSync(join(ASSETS_DIR, source), 'utf8')) as {
     elements: { uuid: string; faces: Record<string, { texture: unknown } | undefined> }[];
     outliner: Array<{ name: string; visibility?: boolean; children: unknown[] }>;
   };
-  const r = convertModel(raw, { id: 'main_base_l1', category: 'buildings', source });
+  const r = convertModel(raw, { id: 'main_base_l2', category: 'buildings', source });
 
   /** Cubes under a group, however deep. */
   const cubesIn = (node: { children: unknown[] }): string[] =>
     node.children.flatMap((c) => (typeof c === 'string' ? [c] : cubesIn(c as { children: unknown[] })));
 
-  it('draws only the finished Big House, not its scaffolds and ruin', () => {
+  // main_base_l2 (unused since Patch 5) still carries its state sets; the remade tiers have none.
+  it('draws only the finished main base, not its scaffolds and ruin', () => {
     const root = raw.outliner[0]!;
     const groups = root.children.filter((c): c is { name: string; visibility?: boolean; children: unknown[] } => typeof c !== 'string');
     const finished = groups.find((g) => g.name === 'finished')!;

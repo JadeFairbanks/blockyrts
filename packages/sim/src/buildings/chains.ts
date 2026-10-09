@@ -32,6 +32,8 @@ export const TUNNEL_HEIGHT_UNITS = 20;
 /** The lowest and highest a tunnel's roof is set, in terrain units over its floor (2 m to 4 m); + and - step it 34 cm (s). */
 export const TUNNEL_MIN_UNITS = 18;
 export const TUNNEL_MAX_UNITS = 36;
+/** The tallest a dig drawn upwards is marked (Jade's Patch 5, GP-4: "keep extending it up until it covers the entire hill or even mountain"): 360 terrain units, 40.5 m (s). */
+export const DIG_UP_MAX_UNITS = 360;
 
 const sign = (v: number): number => (v > 0 ? 1 : v < 0 ? -1 : 0);
 
@@ -111,6 +113,32 @@ export function stretchCells(x: number, z: number, dir: number, length: number, 
     }
   }
   return out;
+}
+
+/**
+ * The corners of the pieces of a chain of square pieces `size` columns across
+ * (Patch 5: the earth rampart's 2 x 2 chunks), from the anchor outward: one
+ * every `size` columns along the stretch, and on a diagonal one more beside
+ * each step, as stretchCells joins a wall's, so no two pieces meet only at a
+ * corner. A size of 1 is stretchCells itself.
+ */
+export function stretchSpots(x: number, z: number, dir: number, length: number, size: number): Array<[number, number]> {
+  if (size <= 1) return stretchCells(x, z, dir, length);
+  const [dx, dz] = STRETCH_DIRS[dir]!;
+  const out: Array<[number, number]> = [];
+  const diagonal = dx !== 0 && dz !== 0;
+  for (let k = 0; k * size <= length; k++) {
+    const cx = x + dx * k * size;
+    const cz = z + dz * k * size;
+    if (diagonal && k > 0) out.push([cx, cz - dz * size]);
+    out.push([cx, cz]);
+  }
+  return out;
+}
+
+/** Whether a building kind is placed in chains of stretches (Building placement: wall chains): the walls, one column each, and the earth rampart's square chunks (Patch 5). */
+export function chainPiece(spec: { defence?: string; w: number; d: number }): number {
+  return spec.defence === 'wall' && spec.w === spec.d ? spec.w : 0;
 }
 
 /**

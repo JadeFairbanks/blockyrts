@@ -3,8 +3,10 @@
 // its left; then 16 square slots, 8 across and 2 down, each a HUD button with
 // the good's picture, its count in the corner and a tooltip; then the scroll
 // arrows with a thumb between them. The mouse wheel over the grid scrolls a
-// row at a time. Right click on a food keeps it back from meals (Food,
-// supply and health: Don't eat), shown crossed out. Food counts are whole
+// row at a time. Right click on a slot opens the item's menu (Patch 5, Jade's
+// GP-2 with decisions 3.6, item-menu.ts): Use, Equip and Scrap for gear,
+// Don't eat for a food (Food, supply and health), a food kept back shown
+// crossed out. Food counts are whole
 // items; the Food cell is the food value of them all (patch 1). In the
 // debugger's godmode (Jade's Patch 5) the grid holds everything godmode can
 // place instead of the goods: a click puts one on the cursor.
@@ -13,11 +15,12 @@ import type { InfoMessage } from '../messages.ts';
 import type { ButtonRegistry, HudButton, HudButtonDef } from './buttons.ts';
 import { FOOD_ICON, goodIcon, iconUrl, SUPPLY_ICON, type GoodIcon } from './inventory-icons.ts';
 import { changeText, INVENTORY_COLUMNS, INVENTORY_ROWS, INVENTORY_SLOTS, InventoryGrid, PoolHistory, slotCount, WheelRows } from './inventory.ts';
+import { equippable } from './item-menu.ts';
 import { godSpawnIconFile } from './unit-icons.ts';
 
 export interface InventoryActions {
-  /** Keeps a food back from meals (on) or lets it be eaten again. */
-  dontEat(res: number, on: boolean): void;
+  /** Opens the item's menu (item-menu.ts) over its slot. */
+  menu(at: HTMLElement, res: number): void;
   /** Sends wheel deltas over an element to a handler (the cursor may be locked). */
   addWheel(id: string, el: HTMLElement, onWheel: (dy: number) => void): void;
   /** Godmode: puts one of GOD_SPAWNS on the cursor to place. */
@@ -302,16 +305,17 @@ export class InventoryUi {
     // The started item is out of the count until it is eaten up; its food still counts on the Food cell.
     if (open > 0) parts.push(`One more is started: ${foodAmountText(open)} of it is left for the next meals.`);
     if (change) parts.push(change);
-    if (food) parts.push(kept ? 'Kept back: nobody eats it. Right click to eat it again.' : 'Right click to keep it back from meals (Don\'t eat).');
-    const toggle = (): void => this.actions.dontEat(res, !(this.info?.kept.includes(res) ?? false));
+    if (kept) parts.push('Kept back: nobody eats it.');
+    const btn = slot.btn;
     slot.btn.redefine({
       id: slot.btn.def.id,
       face: slotCount(have),
       name: r.name,
       keys: [],
       description: parts.join(' '),
+      foot: food ? 'Right click: Don\'t eat, or eat it again.' : equippable(res) ? 'Right click: Equip or Scrap.' : 'Right click: its menu.',
       className: `inv-slot${have === 0 ? ' zero' : ''}${kept ? ' dont-eat' : ''}`,
-      ...(food ? { onRightClick: toggle } : {}),
+      onRightClick: () => this.actions.menu(btn.el, res),
     });
     if (slot.pic.getAttribute('src') !== src) slot.pic.src = src;
     slot.pic.style.filter = icon?.tint ?? '';

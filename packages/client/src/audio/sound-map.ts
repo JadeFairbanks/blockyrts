@@ -3,7 +3,7 @@
 // copies of the state, so they can be checked without a browser. The
 // engine that plays them is @blockyrts/audio.
 import { MOB_SOUND_NAMES, type AmbienceId, type MobSoundName, type MusicStateId, type VoiceEventId, type VoiceFamilyId } from '@blockyrts/audio';
-import { Ask, Engine, gearSpec, mobSpec, MONSTERS, OrderKind, Period, PEOPLES, peopleUnitSpec, People, UnitKind, type HitLook, type UnitOrder } from '@blockyrts/sim';
+import { Ask, Engine, engineSpec, gearSpec, mobSpec, MONSTERS, OrderKind, Period, PEOPLES, peopleUnitSpec, People, UnitKind, type HitLook, type UnitOrder } from '@blockyrts/sim';
 
 /** What the client knows about the thing a hit, death or shot names. */
 export interface Who {
@@ -76,7 +76,12 @@ export function voiceFamily(kind: number, owner: number, mob: number): VoiceFami
 
 /** The sound of a shot leaving (bows, slings, muskets, cannons and engines). */
 export function shotSound(who: Who | null): string {
-  if (who?.kind === UnitKind.Engine) return who.mob === Engine.Catapult ? 'shot_sling' : who.mob === Engine.Ballista ? 'shot_bow' : 'shot_cannon';
+  if (who?.kind === UnitKind.Engine) {
+    // A Citadel's fixed engine sounds as the engine it is built from (Patch 5).
+    const spec = engineSpec(who.mob);
+    const mob = spec.mobile >= 0 ? spec.mobile : who.mob;
+    return mob === Engine.Catapult ? 'shot_sling' : mob === Engine.Ballista ? 'shot_bow' : 'shot_cannon';
+  }
   if (who && who.ranged > 0) {
     const name = gearSpec(who.ranged).name.toLowerCase();
     if (name.includes('musket') || name.includes('pistol')) return 'shot_musket';
@@ -122,14 +127,29 @@ export function hitSound(look: HitLook, who: Who | null, arrow: boolean): string
       return who.shield > 0 && gearSpec(who.shield).tier >= 6 ? 'block_metal' : 'block_wood';
     case 'spark':
       return 'block_metal';
+    case 'bomb':
+      // Patch 5 (BL-7): a wall breaker going off.
+      return 'explosion_large';
+    case 'fell':
+      // A tree a cannonball blew apart comes down (MB-6).
+      return 'chop';
+    case 'dirt':
+      // A catapult stone or a boulder landing.
+      return 'hit_blunt';
     case 'blast':
       // Cannonballs, gunpowder and the late monsters' fire are big; bombers and kegs small.
       return who && (who.kind === UnitKind.Engine || (who.kind === UnitKind.Mob && who.owner === MONSTERS && bigBlast(who.mob))) ? 'explosion_large' : 'explosion_small';
     case 'burst':
       // A goblin mage snuffing a light, else a bloated corpse bursting.
       return who?.kind === 'building' ? 'torch_snuff' : 'explosion_small';
+    // A spell; Jade's Patch 5: the necromancer's crimson bolt and summons, Morvath's Rift (the drained life is silent).
     case 'spell':
+    case 'crimson':
+    case 'summon':
       return 'spell_cast';
+    case 'violet':
+      // Morvath's staff bursting violet where it lands.
+      return 'explosion_small';
     case 'shot':
       return shotSound(who);
     default:

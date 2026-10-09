@@ -47,7 +47,7 @@ const M = WU_PER_METRE;
 
 /** A plain body: no armour, one blow on one unit, no range or traits. */
 const BODY: ThreatInput = {
-  hp: 60, armourBp: 0, pierceBp: BP, bluntBp: BP, blockBp: 0, damage: 8, poison: 0, attackSteps: 32, area: Area.One,
+  hp: 60, armourBp: 0, pierceBp: BP, bluntBp: BP, blockBp: 0, damageTenths: 80, poisonTenths: 0, attackSteps: 32, area: Area.One,
   splash: 0, vsWalls: 0, range: 0, reach: M, speed: 2, once: false, traits: [],
 };
 
@@ -70,7 +70,7 @@ describe('threat worked out from a monster\'s numbers', () => {
     const zombie = mobSpec(Mob.Zombie);
     expect(rowThreatTenths({ ...zombie })).toBe(zombie.threatTenths);
     expect(rowThreatTenths({ ...zombie, hp: zombie.hp * 2 })).toBeGreaterThan(zombie.threatTenths);
-    expect(rowThreatTenths({ ...zombie, damage: zombie.damage * 2 })).toBeGreaterThan(zombie.threatTenths);
+    expect(rowThreatTenths({ ...zombie, damageTenths: zombie.damageTenths * 2 })).toBeGreaterThan(zombie.threatTenths);
   });
 
   it('makes a zombie one and a half threat points, a body with two thirds of its health and damage one', () => {
@@ -84,7 +84,7 @@ describe('threat worked out from a monster\'s numbers', () => {
     // Jade's example: the roster had it at three zombies. Its bite (16 every 1.3 s, two and a half times a zombie's) is what
     // keeps it above one; with a zombie's bite its 40 health, speed and climbing come out level with a zombie.
     expect(spider.threatTenths).toBeLessThan(2 * zombie.threatTenths);
-    expect(rowThreatTenths({ ...spider, damage: zombie.damage, attackSteps: zombie.attackSteps })).toBe(zombie.threatTenths);
+    expect(rowThreatTenths({ ...spider, damageTenths: zombie.damageTenths, attackSteps: zombie.attackSteps })).toBe(zombie.threatTenths);
   });
 
   it('never falls as health or damage rises', () => {
@@ -96,7 +96,7 @@ describe('threat worked out from a monster\'s numbers', () => {
     }
     last = 0;
     for (let damage = 1; damage <= 200; damage++) {
-      const t = threatTenths({ ...BODY, damage });
+      const t = threatTenths({ ...BODY, damageTenths: damage * 10 });
       expect(t).toBeGreaterThanOrEqual(last);
       last = t;
     }

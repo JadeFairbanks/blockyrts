@@ -22,7 +22,7 @@ import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import { maxHealth, type Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
 import { nearestFoe, UP_TOP_FOE_WU } from '../combat/fight.ts';
-import { EAT_NUTRITION, eatableFood } from '../economy/food.ts';
+import { eatableFood, eatNeed } from '../economy/food.ts';
 import { costText, RESOURCES, type Cost, type Res } from '../economy/resources.ts';
 import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import type { AnswerOrder } from '../orders.ts';
@@ -30,9 +30,9 @@ import { askHooks, asking, foesName, say, sayBuilding } from '../peoples/speech.
 import { UnitKind, type AskInfo, type SimEvent, type SimState } from '../state.ts';
 import { Role } from '../threats/types.ts';
 import { giveOrder, stopUnit } from './behaviour.ts';
-import { chooseNode, fromBuilding, GATHER_SWITCH_M, homeOf } from './forage.ts';
-import { inFront, kitHolder, orderUpgradeEquipment, pendingKitUp, techOf } from './gear.ts';
-import { equipmentPlans, Line, upgradeTarget, type EquipmentHolder, type KitHolder, type TechView } from './kits.ts';
+import { chooseNode, fromBuilding, fromHome, GATHER_SWITCH_M, homeOf } from './forage.ts';
+import { inFront, kitHolder, orderUpgradeEquipment, pendingKitUp, pendingLines, techOf } from './gear.ts';
+import { equipmentPlans, Line, KIT_LINES, upgradeTarget, type EquipmentHolder, type KitHolder, type TechView } from './kits.ts';
 import { topOf } from './top.ts';
 
 /** The questions (Patch 2, round 3's table, in its order). */
@@ -309,17 +309,17 @@ function kitCost(state: SimState, units: readonly number[], pool: Int32Array, te
   const list: EquipmentHolder[] = [];
   for (const i of units) {
     const h = kitHolder(state, i);
-    if (h) list.push({ id: e.id[i]!, h, rank: e.rank[i]!, pendingW: pendingKitUp(state, i, Line.Weapon) !== undefined, pendingA: pendingKitUp(state, i, Line.Armour) !== undefined });
+    if (h) list.push({ id: e.id[i]!, h, rank: e.rank[i]!, pending: pendingLines(state, i) });
   }
   const plans = equipmentPlans(list, pool, tech);
   const total = new Map<Res, number>();
-  for (const line of [Line.Weapon, Line.Armour]) {
+  for (const line of KIT_LINES) {
     for (const p of plans) {
-      const plan = line === Line.Weapon ? p.wPlan : p.aPlan;
+      const plan = p.plans[line];
       if (plan) for (const [r, n] of plan.cost) total.set(r, (total.get(r) ?? 0) + n);
     }
   }
-  return { cost: [...total], paid: plans.filter((p) => p.wPlan || p.aPlan).length };
+  return { cost: [...total], paid: plans.filter((p) => p.plans.some((x) => x)).length };
 }
 
 /** Yes's tooltip for a better-kit question about these units (the stock pays for `paid` of them). */
@@ -440,7 +440,8 @@ function askHeal(state: SimState, book: Book, i: number): void {
   const n = group.length;
   const pct = floorDiv(HURT_ASK_PM, 10);
   const text = n === 1 ? "I'm hurt. Can I eat to heal?" : `${countWord(n)} of us are hurt. Can we eat to heal?`;
-  const yes = `${n === 1 ? 'It goes' : `All ${n} go`} to the nearest main base or storehouse to eat, then carry on. From the stock: ${EAT_NUTRITION} food each${n > 1 ? ` (${EAT_NUTRITION * n} food)` : ''}, healing half ${n === 1 ? 'its' : 'their'} health over 10 seconds, and a remedy or bandage each if one is in stock and needed.`;
+  const food = group.reduce((sum, j) => sum + eatNeed(e.hp[j]!, e.maxHp[j]!), 0);
+  const yes = `${n === 1 ? 'It goes' : `All ${n} go`} to the nearest main base or storehouse to eat, then carry on. From the stock: 1 food for each quarter of health missing (${food} food), healing ${n === 1 ? 'it' : 'them'} fully over 10 seconds.`;
   const no = `${n === 1 ? 'It carries' : 'They carry'} on and heal slowly by ${n === 1 ? 'itself' : 'themselves'} while fed. Asked again only after ${n === 1 ? 'its' : 'their'} health has been back above ${pct}%.`;
   const q = unitQuestion(state, Ask.Heal, i, group, text, yes, no);
   // Asked only while every one of them is idle and left alone: once one is given an order, fights or is hurt, the
@@ -649,7 +650,7 @@ export function updateQuestions(state: SimState): void {
     const id = e.id[i]!;
     if (book.hurt.has(id) && !hurtNow(state, i)) book.hurt.delete(id);
     if (!asks(state, player) || !hasRoom(state, player)) continue;
-    if (wantsFood(state, book, i) && eatableFood(state.players[player]!) >= EAT_NUTRITION) {
+    if (wantsFood(state, book, i) && eatableFood(state.players[player]!) >= 1) {
       askHeal(state, book, i);
       continue;
     }
@@ -710,8 +711,8 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
         return (k === UnitKind.Worker || k === UnitKind.Warrior || k === UnitKind.Mage) && e.inside[i] === 0 && !e.queue[i]!.some((x) => x.t === 'eat');
       });
       if (units.length === 0) return;
-      if (eatableFood(state.players[player]!) < EAT_NUTRITION) {
-        say(state, speakerOk ? speaker : units[0]!, `Not enough food to eat (${EAT_NUTRITION} food).`, true);
+      if (eatableFood(state.players[player]!) < 1) {
+        say(state, speakerOk ? speaker : units[0]!, 'Not enough food to eat.', true);
         return;
       }
       // Eat at the nearest table, in front of what each was doing, so it carries on after (as an upgrade does).
@@ -770,7 +771,7 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
       const z = e.z[speaker]!;
       const h = homeOf(state, speaker);
       const max = h ? h.reach + fromBuilding(h.b, x, z) : GATHER_SWITCH_M * WU_PER_METRE;
-      const fits = h ? (px: number, pz: number): boolean => fromBuilding(h.b, px, pz) <= h.reach : undefined;
+      const fits = h ? (px: number, pz: number): boolean => fromHome(state, h.b, px, pz) <= h.reach : undefined;
       const pick = chooseNode(state, speaker, x, z, max, new Map([[o.res, 1000]]), fits);
       const name = resShort(o.res);
       if (!pick) {

@@ -44,9 +44,10 @@ export type ToWorker =
  * and a mage's school, mana, the spell she is casting, her beam and the
  * spells on her; the faction of one of the neutral peoples' units; what it
  * rides and the mount's health; an engine's crew standing by and whether
- * something hauls it; its meal and hunger; a timed action under way.
+ * something hauls it; its meal and hunger; a timed action under way; what
+ * work it is at, for its clip and the tool in its hand.
  */
-export const STATE_STRIDE = 56;
+export const STATE_STRIDE = 59;
 export const S = {
   id: 0,
   owner: 1,
@@ -132,13 +133,26 @@ export const S = {
   /** A timed action beside a building (Jade's Patch 2, sim units/tinker.ts): the steps done and the steps it takes, 0 when the unit is not sitting at one. */
   tinkerDone: 54,
   tinkerOf: 55,
+  /** Close melee's shield tier (Patch 5, GP-26), and 1 when a bow or crossbow ranger has poison tips on. */
+  sTier: 56,
+  tips: 57,
+  /** A worker's work now (Task), for its clip and the tool in its hand (Patch 5); 0 for none. */
+  task: 58,
 } as const;
+
+/** What a worker is at (S.task): each has a clip of its own and the tool for it in hand (Patch 5, units-view.ts). */
+export const Task = { None: 0, Chop: 1, Mine: 2, Gather: 3, Fish: 4, Butcher: 5, Field: 6, Clear: 7, Build: 8, Relight: 9, Prospect: 10, Dig: 11, Tame: 12, Crew: 13 } as const;
 
 /** Bits of S.spells: what support spells (and a Stumble hex) are on a unit. */
 export const SpellOn = { Quicken: 1, Fortify: 2, Rally: 4, Warding: 8, Healing: 16, Hexed: 32 } as const;
 
-/** Bits of S.flags (OnTop: up on a tower or a main base's top, drawn there though it is inside). */
-export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192 } as const;
+/**
+ * Bits of S.flags (OnTop: up on a tower or a main base's top, drawn there
+ * though it is inside; Climbing: a monster on a wall or one of the players'
+ * units on a face; Running: moving at its run; RunMode: its Run/Walk button
+ * is on Run; Guardian: a mana crystal's guardian, Jade's Patch 5).
+ */
+export const UnitFlag = { Climbing: 1, Fleeing: 2, Slowed: 4, Held: 8, Hurt: 16, Young: 32, Starving: 64, Male: 128, Charging: 256, Cloaked: 512, Swooping: 1024, Shared: 2048, OnTop: 4096, AutoRepair: 8192, Running: 16384, RunMode: 32768, Guardian: 65536 } as const;
 
 /** Per projectile in a state message (int32): where it is, where it will be next step (wu), its Shot and flags. */
 export const SHOT_STRIDE = 8;
@@ -202,8 +216,13 @@ export interface BuildingInfo {
   /** Level being built as an upgrade, or 0, and how far, per mille. */
   upgrading: number;
   upgraded: number;
-  /** Production queue: product, and for the first only the per mille done and the steps it has left at the sim's own pace now (0 while it is on hold). */
-  queue: Array<{ product: number; done: number; stepsLeft: number }>;
+  /**
+   * Production queue: product, and for the first only the per mille done and
+   * the steps it has left at the sim's own pace now (0 while it is on hold);
+   * a stack being scrapped (Patch 5) has `count`, how many are left with the
+   * one under way.
+   */
+  queue: Array<{ product: number; done: number; stepsLeft: number; count?: number }>;
   rally: RallyPoint[];
   /** Lights: lit now (from Patch 2 a light burns without fuel until something puts it out). */
   lit: boolean;
@@ -212,8 +231,12 @@ export interface BuildingInfo {
   working: number;
   /** Units in it: sheltering inside, and up on its top (also in `up`). */
   inside: number[];
-  /** The units up on its top (towers, a main base from tier 2), entity ids. */
+  /** The men up on its top (towers, a main base from tier 2), entity ids: not a Citadel's fixed engine and its crew (Patch 5). */
   up: number[];
+  /** How many men its top takes now: a Citadel's engine platform takes 4 more while no fixed engine stands there (Patch 5). */
+  room: number;
+  /** A Citadel's fixed engine on its engine platform, entity id, or 0 (Patch 5). */
+  fixedEngine: number;
   /** The panel's status line. */
   status: string;
   name: string;
@@ -231,10 +254,11 @@ export interface BuildingInfo {
   /**
    * Barracks and main bases (own and usable): each troop type it
    * trains, with the panel's default weapon and armour tiers (the Lock's
-   * combination, else the best the stock pays for) and the Lock (0 off, else
-   * 1 + weapon x 10 + armour).
+   * combination, else the best the stock pays for; close melee's shield
+   * after them from Patch 5) and the Lock (0 off, else 1 + shield x 100 +
+   * weapon x 10 + armour).
    */
-  troops: Array<{ troop: number; w: number; a: number; lock: number }>;
+  troops: Array<{ troop: number; w: number; a: number; s: number; lock: number }>;
   /**
    * A Magi Sanctum (own and usable): each school it trains on its cards
    * (Patch 2), with the default wand and robe tiers (the padlock's kit, else
@@ -245,6 +269,27 @@ export interface BuildingInfo {
   horses: number;
   /** Finished farms: the harvest the panel's progress bar fills towards, or null (production.ts farmHarvest). */
   farm: FarmInfo | null;
+  /** A finished Tavern (Patch 5): its till, its bar to the next silver ingot and its counters, or null. */
+  tavern?: TavernPanel | null;
+}
+
+/** A Tavern as the panel shows it (Patch 5, Jade, GP-20). */
+export interface TavernPanel {
+  open: boolean;
+  /** The till: whole silver ingots and the thousandths of the next (3 decimals). */
+  whole: number;
+  thousandths: number;
+  /** The bar to the next silver ingot, per mille, and its steps left (0 while it stands still: closed, or no food). */
+  done: number;
+  stepsLeft: number;
+  /** In all: silver made (whole and thousandths) and food burned. */
+  madeWhole: number;
+  madeThousandths: number;
+  food: number;
+  /** Why the local player cannot hire a Dreadnought now whatever the ingots (the cap, the food), or ''; and how many they have and may have. */
+  hireWhy: string;
+  dreadnoughts: number;
+  cap: number;
 }
 
 /** A farm's next harvest as the panel shows it (Jade, patch notes 1). */
@@ -320,6 +365,10 @@ export interface InfoMessage {
   loot: LootInfo[];
   /** The local player's units' loot bags: per unit id, (resource, count) pairs. */
   bags: Array<[number, Array<[number, number]>]>;
+  /** The local player's units that carry (workers, troops, mages): per unit id, what they carry and the most they can, tenths of a pound (Patch 5, GP-7: the unit inventory's weight). */
+  carry: Array<[number, number, number]>;
+  /** Spells on units (any side's): per unit id, (SpellOn bit, steps left) for each, for the bars on their pictures (Patch 5, GP-34). */
+  effects: Array<[number, Array<[number, number]>]>;
   /** Patch 5's stone circles: the Bright Night sky, the idols, the altar's acts, the chests opened and the items to use. */
   circles?: CirclesView;
 }
