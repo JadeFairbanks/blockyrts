@@ -33,6 +33,7 @@ import { onPeoplesDeath, onSalvage, onTreeCut, recampIn } from './peoples/war.ts
 import { trackRuns } from './mounts/riding.ts';
 import { runEngine } from './siege/engines.ts';
 import { installLateMobs } from './threats/late-mobs.ts';
+import { brightTonight } from './threats/bright.ts';
 import { mountHooks } from './mounts/riding.ts';
 import { rearRider } from './peoples/factions.ts';
 import { onTop } from './units/top.ts';
@@ -124,7 +125,7 @@ function periodChange(state: SimState): void {
     computeEnclosed(state);
     for (let player = 0; player < state.players.length; player++) {
       const { halves, limit } = outlyingLights(state, player, c.cycle);
-      if (halves > limit * 2) {
+      if (halves > limit * 2 && !brightTonight(state, player)) {
         const n = floorDiv(halves + 1, 2);
         state.events.push({ player, kind: 'alert', text: `Too many lights burn outside the base: ${n}, and the limit tonight is ${limit}. Goblins will come for them.` });
       }

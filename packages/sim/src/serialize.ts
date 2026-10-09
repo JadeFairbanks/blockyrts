@@ -15,6 +15,7 @@ const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'le
 const LOOT_FIELDS = ['id', 'res', 'amt', 'x', 'y', 'z', 'at', 'by', 'owner', 'brag', 'src'] as const satisfies ReadonlyArray<keyof Loot>;
 import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orders.ts';
 import { readWorld, writeWorld } from './world/serialize-world.ts';
+import { colKey, colKeyX, colKeyZ } from './world/world.ts';
 import { floorDiv } from './fixed.ts';
 import type { Burn, DuskReading, Ruin, ThreatState, TribeBand, Village, WildPatch } from './threats/types.ts';
 import { FACTION_FIELDS, FACTION_LISTS, type Faction, type Offer, type PeoplesState } from './peoples/types.ts';
@@ -65,6 +66,12 @@ function writeThreats(w: ByteWriter, t: ThreatState): void {
   w.i32(t.bossHp);
   w.i32(t.bossId);
   writeRecords(w, t.wild, WILD_FIELDS);
+  const guarded = [...t.guarded].sort((a, b) => a - b);
+  w.u32(guarded.length);
+  for (const k of guarded) {
+    w.i32(colKeyX(k));
+    w.i32(colKeyZ(k));
+  }
 }
 
 function readThreats(r: ByteReader): ThreatState {
@@ -89,7 +96,13 @@ function readThreats(r: ByteReader): ThreatState {
   const bossHp = r.i32();
   const bossId = r.i32();
   const wild = readRecordList<WildPatch>(r, WILD_FIELDS);
-  return { ruins, villages, bands, burns, dusk, fog, checked, tunnels, bossNext, bossHp, bossId, wild };
+  const guarded = new Set<number>();
+  const ng = r.u32();
+  for (let k = 0; k < ng; k++) {
+    const x = r.i32();
+    guarded.add(colKey(x, r.i32()));
+  }
+  return { ruins, villages, bands, burns, dusk, fog, checked, tunnels, bossNext, bossHp, bossId, wild, guarded };
 }
 
 /** The threats as canonical text for diffing: each record as its fields in serialisation order. */
@@ -98,7 +111,7 @@ function threatsJson(t: ThreatState): string {
   return JSON.stringify({
     ruins: rows(t.ruins, RUIN_FIELDS), villages: rows(t.villages, VILLAGE_FIELDS), kills: t.villages.map((v) => v.kills), bands: rows(t.bands, BAND_FIELDS),
     burns: rows(t.burns, BURN_FIELDS), dusk: rows(t.dusk, DUSK_FIELDS), fog: t.fog, checked: [...t.checked].sort((a, b) => a - b), tunnels: t.tunnels.map((m) => [m.x, m.z]),
-    boss: [t.bossNext, t.bossHp, t.bossId], wild: rows(t.wild, WILD_FIELDS),
+    boss: [t.bossNext, t.bossHp, t.bossId], wild: rows(t.wild, WILD_FIELDS), guarded: [...t.guarded].sort((a, b) => a - b),
   });
 }
 
@@ -178,13 +191,14 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * autorepair switch). 26: Patch 5's defences (the cannon ports' order gone, a
  * unit's order types renumbered). 27: Patch 5's run, climb and jump (each
  * unit's Run/Walk setting, the run it owes food for, and the face it is
- * climbing; the crude stairs' order gone). 28: Patch 5's gear (close
- * melee's shield and a ranger's poison tips on every unit, the shield in a
- * troop's product and a Barracks padlock). Every patch raises it, and a snapshot
- * from any other version is refused, never carried over (Jade, Patch 2: a
- * standing rule).
+ * climbing; the crude stairs' order gone). 28: Patch 5's mobs (Morvath's wing
+ * drain on each unit, the Deadlands' guarded mana crystals). 29: Patch 5's
+ * gear (close melee's shield and a ranger's poison tips on every unit, the
+ * shield in a troop's product and a Barracks padlock). Every patch raises it,
+ * and a snapshot from any other version is refused, never carried over (Jade,
+ * Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 28;
+export const SNAPSHOT_VERSION = 29;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 

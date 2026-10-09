@@ -17,9 +17,10 @@ import { hash32 } from '../rng.ts';
 import { burnThisStep } from '../rules.ts';
 import { HOP_SLOW_BP, hoppingUp, landAt, MONSTERS, OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
 import { Mat } from '../world/materials.ts';
-import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealt, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight } from './combat.ts';
+import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealtTenths, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight, wholeDamage } from './combat.ts';
 import { crater } from './blasts.ts';
 import { onPlatform, onTop } from '../units/top.ts';
+import { aimsOf, atBase, nearestAim, WAVE_AIMS } from './aims.ts';
 import { costAt, fieldFor, MobClass, nextStep, UNREACHED } from './fields.ts';
 import { Shot, spellShot } from './items.ts';
 import { BLAST, bomber, CLUSTER, ENGULF_STEPS, flies, FLY_HEIGHT, GRASP, HIGH_FLY_HEIGHT, HOWL, Mob, mobSpec, Moves, SHOUT, Strike, Sun, SUNBURN_PER_MILLE_PER_SECOND, SWOOP, SWOOP_HEIGHT, WEB, type MobSpec } from './mobs.ts';
@@ -508,7 +509,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
       return;
     }
     const flags = spec.shot === Shot.GoblinStone ? ProjectileFlag.Blunt : spellShot(spec.shot) ? ProjectileFlag.Spell : 0;
-    fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, spec.shot, dealt(state, i, spec.damage), spec.spreadBp, flags);
+    fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, spec.shot, dealtTenths(state, i, spec.damageTenths), spec.spreadBp, flags);
     return;
   }
   if (what === With.Web) {
@@ -519,7 +520,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
   if (!inReach(state, i, t, { ...spec, reach: spec.reach + TOLERANCE })) return;
   // A charge doubles the blow and throws the smaller back (Table 14); a hidden void stalker's first strike is triple.
   const charge = takeCharge(state, i);
-  const blow = { damage: dealt(state, i, spec.damage) * (charge ? 2 : 1) * lateHooks.hitMul(state, i, spec), from: e.id[i]!, projectile: false, blunt: false, pierce: false };
+  const blow = { damage: dealtTenths(state, i, spec.damageTenths) * (charge ? 2 : 1) * lateHooks.hitMul(state, i, spec), from: e.id[i]!, projectile: false, blunt: false, pierce: false };
   if (spec.slamRadius > 0) {
     // The Rift colossus's ground slam: everything within 6 m.
     state.hits.push({ look: 'blast', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
@@ -546,8 +547,8 @@ function land(state: SimState, i: number, spec: MobSpec): void {
     if (charge) chargeKnock(state, i, t);
     lateHooks.hit(state, i, spec, t, d);
     // A giant centipede's bite poisons (roster 6.1): more damage over 5 s.
-    if (d > 0 && spec.poison > 0 && e.hp[t]! > 0) {
-      e.dotLeft[t] = (e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0) + spec.poison;
+    if (d > 0 && spec.poisonTenths > 0 && e.hp[t]! > 0) {
+      e.dotLeft[t] = (e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0) + wholeDamage(state, i, spec.poisonTenths);
       e.dotUntil[t] = state.step + POISON.steps;
       e.dotFrom[t] = e.id[i]!;
     }
@@ -653,10 +654,75 @@ function blocked(state: SimState, i: number, spec: MobSpec, r: number, blocker: 
   if (r !== BLOCKED_BUILDING) return;
   const b = state.buildings.get(blocker.id);
   if (!b) return;
+  // After a unit, a wall in the way is broken only when there is no way round it (Jade's Patch 5 MB-2).
+  if (wayRound(state, i, spec)) return;
   // A cinderling climbs wooden walls only (roster 5.11).
   const climbable = !spec.woodClimber || buildingSpec(b.kind).wooden !== false;
   if (spec.moves === Moves.Climber && climbable && b.owner < state.players.length && !litGate(state, b) && startClimb(state, i, spec, b)) return;
   if (spec.vsWalls > 0 && state.step >= e.atkNext[i]!) begin(state, i, spec, b.id, With.Building);
+}
+
+/** A way round is taken when it is at most this many times the straight distance, and this much more (s). */
+const ROUND_TIMES = 3;
+const ROUND_EXTRA_WU = 20 * WU_PER_METRE;
+
+/**
+ * Jade's Patch 5 MB-2: "they will attack walls if necessary to get at
+ * units". A mob after one of the players' units that runs into a wall or a
+ * building looks for a way round to the unit first (one search, its answer
+ * held for a detour's time like any other) and takes it when it is not far
+ * out of the way; else it breaks (or climbs) what is in the way. True when
+ * it goes round, or waits a step for a search.
+ */
+function wayRound(state: SimState, i: number, spec: MobSpec): boolean {
+  const e = state.entities;
+  const t = e.indexOf(e.target[i]!);
+  if (t < 0 || e.kind[t] === UnitKind.Mob || bomber(spec) || flies(spec)) return false;
+  // Searched lately and no way round was found: through it.
+  if (state.step < e.waitUntil[i]!) return false;
+  if (mobBudget.searches >= MOB_SEARCHES_PER_STEP) return true;
+  mobBudget.searches++;
+  const cx = floorDiv(e.x[i]!, WU_PER_COLUMN);
+  const cz = floorDiv(e.z[i]!, WU_PER_COLUMN);
+  const found = state.paths.find(mobMover(spec), cx, cz, { ...pointGoal(floorDiv(e.x[t]!, WU_PER_COLUMN), floorDiv(e.z[t]!, WU_PER_COLUMN)), max: 1 }, state.nav.layerAt(cx, cz, floorDiv(e.y[i]!, WU_PER_TERRAIN_UNIT)));
+  e.waitUntil[i] = state.step + REPATH_STEPS;
+  if (!found.reached || found.points.length === 0) return false;
+  const out: number[] = [];
+  let walk = 0;
+  let px = e.x[i]!;
+  let pz = e.z[i]!;
+  for (let k = 0; k < found.points.length; k += 2) {
+    const x = found.points[k]! * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
+    const z = found.points[k + 1]! * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
+    walk += length2d(x - px, z - pz);
+    px = x;
+    pz = z;
+    out.push(x, z);
+  }
+  if (walk > length2d(e.x[t]! - e.x[i]!, e.z[t]! - e.z[i]!) * ROUND_TIMES + ROUND_EXTRA_WU) return false;
+  e.path[i] = out;
+  e.pathAt[i] = 0;
+  e.pathOk[i] = 1;
+  return true;
+}
+
+/** Shot at from inside a building this lately, a mob with no unit to go for breaks that building (Jade's Patch 5 MB-2) (s). */
+export const PERCH_ATTACK = { steps: 10 * STEPS_PER_SECOND, withinWu: 40 * WU_PER_METRE };
+
+/**
+ * Jade's Patch 5 MB-2: "Mobs will attack towers with units shooting them if
+ * no loose units are nearby". The tower (or any building) the unit that last
+ * hurt it shoots from, when that was in the last 10 s and the building is
+ * within 40 m; flyers and mobs that cannot hurt walls leave it be.
+ */
+function shotFrom(state: SimState, i: number, spec: MobSpec): Building | undefined {
+  const e = state.entities;
+  if (flies(spec) || spec.vsWalls <= 0 || state.step - e.hurtAt[i]! >= PERCH_ATTACK.steps) return undefined;
+  const a = e.indexOf(e.attacker[i]!);
+  if (a < 0 || e.hp[a]! <= 0 || e.inside[a] === 0 || sideOf(state, a) !== Side.Players) return undefined;
+  const b = state.buildings.get(e.inside[a]!);
+  if (!b || b.hp <= 0 || gapToBuilding(state, i, b) > PERCH_ATTACK.withinWu) return undefined;
+  return b;
 }
 
 /** Climbs over a building: slow, and the mob comes down on its far side. */
@@ -688,22 +754,25 @@ function startClimb(state: SimState, i: number, spec: MobSpec, b: Building): boo
 function marchOnTown(state: SimState, i: number, spec: MobSpec): void {
   const e = state.entities;
   const blocker = { id: 0 };
-  // Sent for a point first: it walks there, then joins the attack on the town.
+  const cls = classOf(spec);
+  // Sent for a point first: it walks there, then joins the attack on the town. Sent for a base (MB-1), it takes up the town's paths once near it.
   if (e.role[i] === Role.Aimed) {
-    if (length2d(e.homeX[i]! - e.x[i]!, e.homeZ[i]! - e.z[i]!) > AIM_REACHED_WU) {
+    const d = length2d(e.homeX[i]! - e.x[i]!, e.homeZ[i]! - e.z[i]!);
+    if (d > AIM_REACHED_WU && !(d <= WAVE_AIMS.baseReachM * WU_PER_METRE && atBase(state, e.foe[i]!, e.homeX[i]!, e.homeZ[i]!) && inField(state, i, cls))) {
       walkMob(state, i, spec, e.homeX[i]!, e.homeZ[i]!);
       return;
     }
     e.role[i] = Role.Night;
   }
-  const cls = classOf(spec);
   const town = townCentre(state, e.foe[i]!);
   if (!town) {
     e.order[i] = OrderKind.Idle;
     return;
   }
-  let px = town[0];
-  let pz = town[1];
+  // Off the town's paths, it goes for the nearest of its foe's bases and parties (MB-1), not the main base.
+  const aim = nearestAim(aimsOf(state, e.foe[i]!), e.x[i]!, e.z[i]!);
+  let px = aim ? aim.x : town[0];
+  let pz = aim ? aim.z : town[1];
   if (cls !== -1) {
     const f = fieldFor(state, e.foe[i]!, cls);
     const tx = floorDiv(e.x[i]!, WU_PER_COLUMN * TILE_COLUMNS);
@@ -729,6 +798,15 @@ function marchOnTown(state: SimState, i: number, spec: MobSpec): void {
   }
   const r = goToward(state, i, spec, px, pz, blocker);
   if (r !== MOVED) blocked(state, i, spec, r, blocker);
+}
+
+/** Whether a mob stands where its foe's town paths reach it (a walker, climber or breaker in its field). */
+function inField(state: SimState, i: number, cls: MobClass | -1): boolean {
+  if (cls === -1) return false;
+  const f = fieldFor(state, state.entities.foe[i]!, cls);
+  if (!f) return false;
+  const e = state.entities;
+  return costAt(f, floorDiv(e.x[i]!, WU_PER_COLUMN * TILE_COLUMNS), floorDiv(e.z[i]!, WU_PER_COLUMN * TILE_COLUMNS)) !== UNREACHED;
 }
 
 /** The closest of its foe's buildings to a mob, within a few metres. */
@@ -878,10 +956,12 @@ function actMob(state: SimState, i: number, spec: MobSpec): void {
   const k = troopAggro(state, i, spec, t, may);
   if (k >= 0) t = k;
   else if (t < 0) t = pickUnit(state, i, spec);
-  if (spec.firstNight >= LATE_FIRST_NIGHT && lateHooks.act(state, i, spec, t)) return;
+  if ((spec.firstNight >= LATE_FIRST_NIGHT || spec.id === Mob.Necromancer) && lateHooks.act(state, i, spec, t)) return;
   if (t < 0) {
     e.target[i] = 0;
-    marchOnTown(state, i, spec);
+    const perch = shotFrom(state, i, spec);
+    if (perch) attackBuilding(state, i, spec, perch);
+    else marchOnTown(state, i, spec);
     return;
   }
   engageUnit(state, i, spec, t);
@@ -1239,6 +1319,8 @@ export function updateSun(state: SimState): void {
 /** A lair's resident stands in its shade by day: within 30 m of its lair while the lair stands (s). */
 function inShade(state: SimState, i: number): boolean {
   const e = state.entities;
+  // A mana crystal's guardian never burns (Jade's Patch 5, MB-13).
+  if (e.role[i] === Role.Guardian) return true;
   if (e.role[i] !== Role.Resident) return false;
   const l = e.indexOf(e.group[i]!);
   return l >= 0 && e.hp[l]! > 0 && length2d(e.x[l]! - e.x[i]!, e.z[l]! - e.z[i]!) <= LAIR_LEASH_WU;

@@ -20,6 +20,7 @@ import { Role } from './types.ts';
 import { bossAtDawn, bossAtDusk, updateBoss } from './boss.ts';
 import { updateLateMobs } from './late-mobs.ts';
 import { updateWild } from './wanderers.ts';
+import { updateGuardians } from './guardians.ts';
 
 /** What a period's start brings. */
 export function threatsAtPeriod(state: SimState, period: Period, cycle: number): void {
@@ -46,6 +47,7 @@ export function updateThreats(state: SimState): void {
   updateBoss(state);
   if (state.step % STEPS_PER_SECOND === 0) updateBands(state);
   updateWild(state);
+  updateGuardians(state);
   const c = clockOf(state);
   if (c.period === Period.Dawn && c.into === RAID_AFTER_DAWN_STEPS) sendRaids(state, c.cycle);
 }

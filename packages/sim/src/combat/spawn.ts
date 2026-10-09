@@ -13,7 +13,11 @@
 // the dark edge, and each of the player's lairs sends monsters worth its own
 // sleepers' threat besides (Jade's Patch 3 notes: a budget per lair by its
 // threat); the depth weighting's extras come out of the dark edge nearest
-// the player's deepest asset and go for it.
+// the player's deepest asset and go for it. Since Patch 5 (MB-1) every
+// group goes for one of the player's targets, a base or a party out in the
+// open, picked by worth (combat/aims.ts), and comes out of the dark edge
+// near it; a lair's own go for the target nearest the lair. On a player's
+// Bright Night their share is left out (threats/bright.ts).
 
 import { buildingSpec } from '../buildings/data.ts';
 import { buildingCentre, claimShapes, dist2, isLit, type ClaimShapes } from '../buildings/lights.ts';
@@ -23,12 +27,15 @@ import { WALKER } from '../nav/grid.ts';
 import { NIGHT_STEPS } from '../rules.ts';
 import { UnitKind, type PendingSpawn, type SimState } from '../state.ts';
 import { FOG_TILE_COLUMNS } from '../world/world.ts';
+import { aimsOf, nearestAim, pickAim, WAVE_AIMS } from './aims.ts';
 import { addMob, townCentre } from './mob-ai.ts';
 import { Comes, Mob, MOBS, mobSpec } from './mobs.ts';
 import { DEPTH_AHEAD, LAIR_SHARE_DELAY_STEPS } from '../threats/data.ts';
 import { fogged, throughFog } from '../threats/fog.ts';
 import { lairBudgetTenths, lairsOf, lairSpawns } from '../threats/lairs.ts';
+import { brightTonight } from '../threats/bright.ts';
 import { giveWaveGear } from '../threats/loot.ts';
+import { necromancerNight } from '../threats/necromancer.ts';
 import { Role } from '../threats/types.ts';
 
 /** Spawns stand off at least this far from claimed land and from the players' units (Table 8). */
@@ -172,6 +179,8 @@ export function nightMobs(state: SimState, player: number, night: number): Plann
     const ahead = DEPTH_AHEAD[r.band] ?? 0;
     for (const mob of pickMobs(state, floorDiv(base * r.depthPm, 1000), unlocked(night + ahead), night + ahead, count)) out.push({ mob, role: Role.Aimed, ax: r.ax, az: r.az, src: 0 });
   }
+  // A necromancer on his nights, on top of the budget (Jade's Patch 5, MB-5).
+  if (necromancerNight(night)) out.push(edge(Mob.Necromancer));
   return out;
 }
 
@@ -211,7 +220,8 @@ export function planNight(state: SimState, player: number, night: number, start:
   for (const key of [...byKind.keys()].sort((a, b) => a - b)) {
     const list = byKind.get(key)!;
     const comes = mobSpec(list[0]!.mob).comes;
-    if (comes === Comes.Wave) {
+    // A necromancer (never bought, Comes.Never) comes as a wave does, at the start of the night.
+    if (comes === Comes.Wave || comes === Comes.Never) {
       // One wave of each kind, all from one spot.
       const at = start + rng.nextInt(10 * STEPS_PER_SECOND);
       const g = group++;
@@ -229,7 +239,34 @@ export function planNight(state: SimState, player: number, night: number, start:
       for (const p of list) out.push(spawn(start + rng.nextInt(span), p, group++));
     }
   }
+  aimGroups(state, player, out);
   return out.sort((a, b) => a.at - b.at || a.group - b.group || a.mob - b.mob);
+}
+
+/**
+ * Sends each group of a player's night for one of their targets (MB-1): a
+ * base or a party, picked by worth on the 'spawns' stream, a lair's own for
+ * the target nearest the lair. The depth weighting's extras keep their aim.
+ * With no target (no building, nobody out) a group marches on the town.
+ */
+function aimGroups(state: SimState, player: number, plan: PendingSpawn[]): void {
+  const aims = aimsOf(state, player);
+  if (aims.length === 0) return;
+  const chosen = new Map<number, readonly [number, number]>();
+  for (const s of plan) {
+    if (s.role !== Role.Night) continue;
+    let at = chosen.get(s.group);
+    if (!at) {
+      const l = s.src !== 0 ? state.entities.indexOf(s.src) : -1;
+      const a = l >= 0 ? nearestAim(aims, state.entities.x[l]!, state.entities.z[l]!) : pickAim(state.rng.spawns, aims);
+      if (!a) continue;
+      at = [a.x, a.z];
+      chosen.set(s.group, at);
+    }
+    s.role = Role.Aimed;
+    s.ax = at[0];
+    s.az = at[1];
+  }
 }
 
 /** Squared distance, wu, from a point to a player's claimed land (0 inside it). */
@@ -389,6 +426,30 @@ export function edgePointNear(state: SimState, player: number, x: number, z: num
   return best ?? fallbackPoint(state, player, claims);
 }
 
+/**
+ * A group's spawn point for its target (MB-1): a dark-edge tile no more
+ * than WAVE_AIMS.edgeSpreadM farther from the target than the nearest one,
+ * picked by weight on the 'spawns' stream (so a base is come at from more
+ * than one side), or the fallback when there is none.
+ */
+export function edgePointAround(state: SimState, player: number, x: number, z: number): [number, number] {
+  const claims = sideClaims(state);
+  const candidates = edgeCandidates(state, claims);
+  if (candidates.length === 0) return fallbackPoint(state, player, claims);
+  const d = candidates.map(([cx, cz]) => isqrt(dist2(cx, cz, x, z)));
+  const near = Math.min(...d) + WAVE_AIMS.edgeSpreadM * WU_PER_METRE;
+  let total = 0;
+  for (let k = 0; k < candidates.length; k++) if (d[k]! <= near) total += candidates[k]![2];
+  let r = state.rng.spawns.nextInt(total);
+  for (let k = 0; k < candidates.length; k++) {
+    if (d[k]! > near) continue;
+    const [cx, cz, wt] = candidates[k]!;
+    if (r < wt) return [cx, cz];
+    r -= wt;
+  }
+  return [candidates[0]![0], candidates[0]![1]];
+}
+
 /** The nearest unexplored tile 50 m from claimed land, searched in rings out from the player's town. */
 function fallbackPoint(state: SimState, player: number, claims: readonly Claims[]): [number, number] {
   const town = townCentre(state, player) ?? [0, 0];
@@ -412,14 +473,14 @@ function fallbackPoint(state: SimState, player: number, claims: readonly Claims[
 
 /**
  * Each step: at nightfall the night is planned for every player still in
- * the game; through the night mobs come at their times; at dawn whatever
- * has not come yet never does.
+ * the game but those with a Bright Night; through the night mobs come at
+ * their times; at dawn whatever has not come yet never does.
  */
 export function updateSpawns(state: SimState): void {
   const c = clockAt(state.step);
   if (c.period === Period.Night && c.into === 0 && !state.peaceful) {
     for (let p = 0; p < state.players.length; p++) {
-      if (state.players[p]!.out) continue;
+      if (state.players[p]!.out || brightTonight(state, p)) continue;
       const planned = planNight(state, p, c.cycle, state.step);
       // Patch 5 (GP-1): now and then one of them carries a weapon, armour or shield.
       giveWaveGear(state, planned, p, c.cycle);
@@ -443,7 +504,7 @@ export function updateSpawns(state: SimState): void {
       x = state.entities.x[l]!;
       z = state.entities.z[l]!;
     } else if (!s.placed) {
-      [x, z] = s.role === Role.Aimed ? edgePointNear(state, s.player, s.ax, s.az) : spawnPoint(state, s.player);
+      [x, z] = s.role === Role.Aimed ? edgePointAround(state, s.player, s.ax, s.az) : spawnPoint(state, s.player);
       // The rest of the group comes out at the same spot.
       for (const o of state.spawns) {
         if (o.group !== s.group) continue;
