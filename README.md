@@ -3541,8 +3541,9 @@ large mana crystal (MF-1 to MF-12). Picks in blueprint/patch5-mobs-picks.md.*
    and both drop lists.
 2. **The bog.** Start a game and look round the main base: a bog lies within
    70 m with bog iron (80 now) and a few small silver nuggets on the ground
-   (1 silver each, picked up by hand; they never grow back). A big ogre with
-   a club wanders it. Walk a unit in and he greets it in a bubble, asking
+   (1 silver each, picked up by hand; they never grow back) and two bog pear
+   bushes, one pear each. A big ogre with a club wanders it. Only a bog over
+   18 m2 has one, and every bog the land makes is bigger than that. Walk a unit in and he greets it in a bubble, asking
    it politely not to disturb the bog. Hover him: **Guards this bog -
    vagabonds beware!** shows for 10 s, then never again for that guardian.
 3. **His question.** Send a worker to pick up a nugget or dig the bog iron.
@@ -3567,19 +3568,73 @@ large mana crystal (MF-1 to MF-12). Picks in blueprint/patch5-mobs-picks.md.*
    a mana crystal - thieves beware!** Units that come near get a warning
    bubble. A worker with a bronze pick or better sent to mine it stops and
    asks whether to risk angering the fairy while she says "Don't you dare
-   even touch my crystal, worm!", until answered. **Yes:** she shoots the
-   worker with her pink-magenta bolts (30 to everyone within 2 m, every 5 s,
-   in a big burst) until it is dead, then settles; her tooltip is gone for
-   good. A spear or halberd reaches her while she is low.
+   even touch my crystal, worm!", until answered. **Yes:** she flies high,
+   out of a spear's reach, and shoots the worker with her pink-magenta bolts
+   (30 to everyone within 2 m, every 5 s, in a big burst) until it is dead,
+   then settles back down low; her tooltip is gone for good. A spear or
+   halberd reaches her only while she hovers low.
 6. **Her wrath.** Hit her: she rises high, runs, sways up and down
    erratically and goes for every player's unit near her crystal for good.
    Only bows, guns and spells reach her now. She heals 1 a second once
    nothing has hurt her for 10 s.
 7. **Drops.** The Bog guardian: 4 to 10 armours of bronze to iron, 10 to 15
-   silver, up to 2 gold, 3 to 10 weapons of tier 3 to 5 and a gemstone half
-   the time. The Fae Guardian: 1 or 2 trinkets, 1 or 2 weapons or armours of
+   silver, up to 2 gold, 3 to 10 weapons of tier 3 to 5, a gemstone half
+   the time and a bog pear. The Fae Guardian: 1 or 2 trinkets, 1 or 2 weapons or armours of
    tier 3 to 5, 3 to 6 berries, 2 to 5 mana crystals and one mage wand or
    robe of any tier. Neither comes back once killed.
+
+## How a tester checks the stone circles' keepers (Patch 5)
+
+*Jade's Patch 5, section 20: the Great White Ape at a Lunar circle (SCA-1
+to SCA-4), Silenus and his satyrs at a Silenus circle (SCS-1 to SCS-5,
+answer 8), the Lich at a Boneyard (SCB-1 to SCB-3) and the Headless God
+Idol's waves (SCB-4). Picks in blueprint/patch5-mobs-picks.md.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-encounters.test.ts:
+   the Ape coming at peace, his warning put as Yes or No, Sorry and his
+   standing down, rage at the next wrong and at once for the idol, a bundle
+   of fruit bought for a silver; Silenus' band, his change into the
+   sabretooth below half health and his return with his health when it
+   falls; the Lich's five necromancers raising ten dead once; Touch of the
+   Grave's 3 every 5 s and its floor of 2, carried through a save; the
+   Headless God Idol's war, its night, its 15-night wait, the quest menu's
+   rows and the waves coming round the faction at nightfall.
+2. **The Ape.** In a game with waves (not peaceful), walk a unit within 60 m
+   of a Lunar circle: a huge white gorilla stands by the altar. Right click
+   him: his goods (5 hawthorne fruit, 3 honey or 1 enchanted wine for a
+   silver, 3 bundles of each a day); Buy sends your selected unit to him.
+   Over a few minutes he plants flowers and now and then a Sweet Hawthorne,
+   and worships with players near. Pick fruit and he stands watching.
+3. **His warning.** Take from a chest, cut a hawthorne or break a trilithon:
+   he says "Do not dare to defile the circle!" and you get Yes or No. **I
+   will do what I want!**: he roars and runs your units down, leaping in
+   with a thunderclap (5 to 10 to everyone within 6 m) and grabbing and
+   throwing units up to 30 m. **Sorry!**: he stands down; loot again and he
+   rages, taunting you. Taking the idol enrages him at once, and the altar's
+   Yes or No shows his warning first. The quest menu shows his open warning
+   under Stone circles. Fight him long enough and he swears vengeance: he
+   leaves his circle for your bases, workers first.
+4. **Silenus.** At a Silenus circle a goat-legged god and his satyrs revel,
+   drinking and calling out, and leave you be until you strike one or loot
+   the circle. Then: nature bolts, a lash of thorns (40), entangling roots
+   that hold a unit for 20 s, and below half health he becomes a sabretooth
+   tiger (once in 5 days) that leaps up to 20 m; kill it and he is back as he
+   was. The Trickster vanishes for 10 s and comes back at your weakest unit,
+   swinging Jade's obsidian hand-axes, and drops one now and then; the
+   Reveler casts pale green bolts and lashes for 30 and drops hawthorne
+   cider. Those who wronged them are hunted whenever they come near again.
+5. **The Lich.** A Boneyard's Lich hovers among five necromancers and is
+   hostile to every player. As the fight starts each necromancer raises two
+   dead (ten in all: archers, barrow knights and bombers), once. His Acrid
+   Wind (5 to 16) sometimes leaves Touch of the Grave, a grey-green aura
+   that takes 3 every 5 s, never below 2, and spreads to units within 5 m.
+   Below 60% health he drains a follower (a crimson beam into his hand) for
+   its health. He speaks as he fights.
+6. **The Headless God Idol.** Take it from a Boneyard altar, then right click
+   it in your inventory and Use: pick a faction you know. One at peace is
+   declared war on. As that night falls your waves come out of the dark
+   round its town and break its buildings instead of coming for you; the
+   quest menu shows the night, then the 15-night wait.
 
 ## How a tester checks the defences and siege (Patch 5)
 

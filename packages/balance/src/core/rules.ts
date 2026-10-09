@@ -47,8 +47,8 @@ export const SKIP_MODULES: ReadonlySet<string> = new Set([
   'world/chunk.ts', 'world/serialize-world.ts', 'world/delta.ts', 'world/noise.ts',
   'nav/path.ts', 'nav/regions.ts', 'units/stuck.ts', 'threats/debug.ts', 'debug/god.ts', 'threats/types.ts', 'buildings/store.ts', 'combat/fields.ts', 'combat/space.ts',
   'magic/cast.ts', 'units/names.ts', 'peoples/orders.ts', 'peoples/hooks.ts', 'peoples/speech.ts', 'peoples/types.ts',
-  // Patch 5: the keepers' lines are words, not balance.
-  'threats/keeper-lines.ts',
+  // Patch 5: the keepers' lines are words, not balance; so are the stone circle keepers'.
+  'threats/keeper-lines.ts', 'threats/encounter-lines.ts',
 ]);
 
 /** Single exports that are plumbing, ids or names rather than balance. */
@@ -57,6 +57,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'threats/necromancer.ts:NECROMANCER_INGOTS', 'threats/guardians.ts:GUARDIAN_KINDS',
   // Patch 5: the keepers' kinds, moods and question ids.
   'threats/keepers.ts:KeeperKind', 'threats/keepers.ts:KeeperMode', 'threats/keepers.ts:KeeperAsk',
+  // Patch 5: the stone circle keepers' moods and question id, and what can lie on a unit.
+  'threats/encounters.ts:EncounterMode', 'threats/encounters.ts:EncounterAsk', 'threats/marks.ts:MarkKind',
   'state.ts:UNIT_FIELDS', 'state.ts:PLAYER_FIELDS', 'state.ts:MONSTERS', 'state.ts:NEUTRAL', 'state.ts:WILD', 'state.ts:NO_CARRY',
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
   'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/behaviour.ts:PATH_LEG', 'units/tools.ts:TOOL_FIELDS', 'buildings/chains.ts:STRETCH_DIRS',
@@ -204,6 +206,8 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'threats/necromancer.ts': 'mobs',
   'threats/guardians.ts': 'mobs',
   'threats/keepers.ts': 'mobs',
+  'threats/encounters.ts': 'mobs',
+  'threats/headless.ts': 'mobs',
   // Patch 5: the stone circles.
   'circles/data.ts': 'circles',
   'circles/place.ts': 'circles',
@@ -515,6 +519,8 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'threats/necromancer.ts': 'The necromancer', 'mobs:threats/necromancer.ts': 'The necromancer',
   'threats/guardians.ts': 'Mana crystal guardians', 'mobs:threats/guardians.ts': 'Mana crystal guardians',
   'threats/keepers.ts': 'The Bog guardian and the Fae Guardian', 'mobs:threats/keepers.ts': 'The Bog guardian and the Fae Guardian', 'mobs:world/generate.ts': 'The Bog guardian and the Fae Guardian',
+  'threats/encounters.ts': "The stone circles' keepers: the Great White Ape, Silenus and the Lich", 'mobs:threats/encounters.ts': "The stone circles' keepers: the Great White Ape, Silenus and the Lich",
+  'threats/headless.ts': 'The Headless God Idol', 'mobs:threats/headless.ts': 'The Headless God Idol',
   'units/spacing.ts': 'Making room (bodies standing on one another)',
   'units/night-work.ts': 'Working through the night',
   'buildings/farm-boost.ts': 'Fertilizing farms', 'animals/barn.ts': 'The Barn', 'units/barn-hand.ts': 'The barn hand',
