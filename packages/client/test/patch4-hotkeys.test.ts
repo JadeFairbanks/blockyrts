@@ -159,7 +159,7 @@ describe('the K menus on letters (Patch 4)', () => {
   it('skips the word every product shares: the Barn slaughters a cow on C, a chicken on H and an ox on X', () => {
     const barn = building(31, BuildingKind.Barn, { products: products(BuildingKind.Barn) });
     const { c } = harness(game([barn]), [picked(barn)], `building:${BuildingKind.Barn}:1`);
-    expect(c.card().map((e) => [productSpec(Number(e.action.split('-')[2])).name, keyLabel(e.key)])).toEqual([
+    expect(c.card().map((e) => [productSpec(e.product!).name, keyLabel(e.key)])).toEqual([
       ['Slaughter a cow', 'C'],
       ['Slaughter a chicken', 'H'],
       ['Slaughter a ox', 'X'],
@@ -211,6 +211,17 @@ describe('the menus\' hotkeys in the settings (Patch 4)', () => {
     }
     expect(sanitizeBindings({ [placeAction(BuildingKind.Farm, 0)]: 'KeyY', [MORE_ACTION]: 'KeyV' })).toEqual({ [placeAction(BuildingKind.Farm, 0)]: 'KeyY', [MORE_ACTION]: 'KeyV' });
     expect(new Set(ACTIONS.map((a) => a.id)).size).toBe(ACTIONS.length);
+  });
+
+  it('keeps a rebound building key on its building when building numbers shift (Patch 5)', () => {
+    // Bindings go by the building's name, so cutting a kind moves none of them.
+    expect(placeAction(BuildingKind.WallHardwood, 0)).toBe('build-WallHardwood-0');
+    expect(makeAction(BuildingKind.Forge, makeList(BuildingKind.Forge)[2]!)).toBe('make-Forge-bronze-ingots-10');
+    // Indev 0.9 saved the hardwood wall as kind 19 and the torch post as 17; the earthworks (15) are gone.
+    expect(sanitizeBindings({ 'build-19-0': 'KeyY', 'build-17-0': 'KeyV', 'build-15-0': 'KeyZ', 'make-6-514': 'KeyQ' })).toEqual({
+      [placeAction(BuildingKind.WallHardwood, 0)]: 'KeyY',
+      [placeAction(BuildingKind.TorchPost, 0)]: 'KeyV',
+    });
   });
 
   it('never put two buttons of one menu on one key, nor on Follow, Everyone Home, the Peoples panel, More or Esc', () => {

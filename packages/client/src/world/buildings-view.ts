@@ -129,6 +129,8 @@ export class BuildingsView {
   private readonly modelFog: ModelShaderPatch;
   /** 0 by day, 1 at night: how bright the flames' lights are. */
   darkness = 0;
+  /** Building ids the cursor is over, for their silhouette outline (Patch 5, UI-5). */
+  hovered: ReadonlySet<number> = new Set();
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -386,7 +388,7 @@ export class BuildingsView {
     const lib = this.models;
     if (!lib) return;
     const counts = new Map<string, number>();
-    const draw = (m: PlacedModel, b: BuildingInfo, sink: number): void => {
+    const draw = (m: PlacedModel, b: BuildingInfo, sink: number, hover: boolean): void => {
       const key = m.tint === undefined ? m.id : `${m.id}#${m.tint}`;
       let d = this.modelDraws.get(key);
       if (!d) {
@@ -400,10 +402,11 @@ export class BuildingsView {
       if (n >= MAX_MODEL_INSTANCES) return;
       counts.set(key, n + 1);
       d.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M - sink, b.z * COLUMN_M + m.dz, 0, '', 0, this.teamColour(b.owner), m.scale);
+      if (hover) d.setHover(n);
     };
     for (const b of info.buildings.values()) {
       const e = this.entries.get(b.id);
-      if (e) for (const m of e.models) draw(m, b, 0);
+      if (e) for (const m of e.models) draw(m, b, 0, this.hovered.has(b.id));
     }
     // Ruins stand, then sink out of sight.
     this.ruins = this.ruins.filter((r) => info.step - r.fell < RUIN_STEPS && info.step >= r.fell);
@@ -411,7 +414,7 @@ export class BuildingsView {
       const t = Math.max(0, info.step - r.fell - (RUIN_STEPS - RUIN_SINK_STEPS)) / RUIN_SINK_STEPS;
       for (const m of r.models) {
         if (!lib.models.has(m.id)) continue;
-        draw(m, r.b, t * lib.get(m.id).sidecar.boundsWithParts.max[1] * m.scale);
+        draw(m, r.b, t * lib.get(m.id).sidecar.boundsWithParts.max[1] * m.scale, false);
       }
     }
     for (const [id, d] of this.modelDraws) {
@@ -441,6 +444,17 @@ export class BuildingsView {
       l.distance = s.r * 1.4;
       l.intensity = 9 * this.darkness;
     }
+  }
+
+  /** What the hover outline draws of the buildings the cursor is over: catalogue models (their hovered instances) and code-built blocks. */
+  hoverParts(): { models: InstancedModel[]; meshes: THREE.Mesh[] } {
+    const models = [...this.modelDraws.values()].filter((d) => d.hoveredCount > 0);
+    const meshes: THREE.Mesh[] = [];
+    for (const id of this.hovered) {
+      const m = this.entries.get(id)?.mesh;
+      if (m) meshes.push(m);
+    }
+    return { models, meshes };
   }
 
   /** Every building's selectable, for the selection code. */

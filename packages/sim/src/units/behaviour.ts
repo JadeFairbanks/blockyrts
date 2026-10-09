@@ -10,8 +10,10 @@ import { payFood, STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
 import { canAffordAny, fishOf, meatOf, payAny, shortOfAny } from '../economy/food-kinds.ts';
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, clearingOn, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
 import { constructionHealth, footprintRect, garrisonRoom, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
+import { buildingWorth, repairCost } from '../buildings/repair.ts';
+import { autoRepairStep, repairShort } from './repairs.ts';
 import { isDark } from '../clock.ts';
-import { costText, Res, resourceByName, RESOURCES } from '../economy/resources.ts';
+import { costText, RAW_CARRY_TENTHS_LB, Res, resourceByName, RESOURCES } from '../economy/resources.ts';
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { HEX_SLOW_BP } from '../rules.ts';
 import { PERSON, SWIMMER, Walk, WALKER, WHEELS, type Mover } from '../nav/grid.ts';
@@ -24,7 +26,7 @@ import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool
 import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './unit-orders.ts';
-import { carryCapacity, cartSpeed, onWheels } from './weight.ts';
+import { carryCapacity, cartSpeed, onWheels, rawLimitTenthsLb } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
 import { freePost, onTop, spreadTop, unitsOnTop } from './top.ts';
 import { refundKit, runCart, runKitUp } from './gear.ts';
@@ -378,8 +380,12 @@ export function needsWork(b: Building): boolean {
   return !b.complete || b.upgrading > 0 || b.hp < maxHealth(b);
 }
 
-/** One worker-step of work on a building: construction, then an upgrade, then repair. */
-export function workOn(state: SimState, b: Building): void {
+/**
+ * One worker-step of work on a building: construction, then an upgrade, then
+ * repair. False when a repair is due and the stock cannot pay for it (Patch 5,
+ * UI-13: repairs cost the building's own resources, buildings/repair.ts).
+ */
+export function workOn(state: SimState, b: Building): boolean {
   if (!b.complete) {
     const total = workSteps(b.kind, 1);
     const before = constructionHealth(b.kind, b.progress);
@@ -387,7 +393,7 @@ export function workOn(state: SimState, b: Building): void {
     b.progress = isGod(state, b.owner) ? total : b.progress + 1;
     b.hp += constructionHealth(b.kind, b.progress) - before;
     if (b.progress >= total) finishBuilding(state, b);
-    return;
+    return true;
   }
   if (b.upgrading > 0) {
     b.upProgress = isGod(state, b.owner) ? workSteps(b.kind, b.upgrading) : b.upProgress + 1;
@@ -402,16 +408,26 @@ export function workOn(state: SimState, b: Building): void {
       const [x, z] = buildingCentre(b);
       state.events.push({ player: b.owner, kind: 'info', text: `Upgraded to ${buildingName(b.kind, b.level, b.variant)}.`, x, z });
     }
-    return;
+    return true;
   }
-  // Repair: a full repair takes as long as building the level did.
+  // Repair: a full repair takes as long as building the level did, and costs what the building cost.
   const max = maxHealth(b);
   const ws = workSteps(b.kind, b.level);
-  b.repairAcc += max;
-  const n = floorDiv(b.repairAcc, ws);
-  b.hp = Math.min(max, b.hp + n);
-  b.repairAcc -= n * ws;
+  const acc = b.repairAcc + max;
+  const n = floorDiv(acc, ws);
+  const to = Math.min(max, b.hp + n);
+  if (to > b.hp) {
+    const cost = repairCost(buildingWorth(b), max, b.hp, to);
+    const pool = state.players[b.owner]?.pool;
+    if (cost.length > 0) {
+      if (!pool || !canAffordAny(pool, cost)) return false;
+      payAny(pool, cost);
+    }
+  }
+  b.repairAcc = acc - n * ws;
+  b.hp = to;
   if (b.hp >= max) b.repairAcc = 0;
+  return true;
 }
 
 function finishBuilding(state: SimState, b: Building): void {
@@ -733,10 +749,11 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       e.timer[i] = e.timer[i]! + pace;
       // A worker learns as it gathers (Patch 3: experience for the work, at the work's pace).
       workXp(state, i, Work.Gather, pace);
-      if (e.timer[i]! < info.loadSteps * 1000) return CONTINUE;
-      e.timer[i] = 0;
       const room = carryCapacity(state, i, res) - (e.carryRes[i] === res ? e.carryAmt[i]! : 0);
       const want = Math.max(1, Math.min(info.perLoad, room));
+      // Less than a full load (the last of a cart, or 3 of the heavier ore, Patch 5) takes its share of the time (s).
+      if (e.timer[i]! < floorDiv(info.loadSteps * 1000 * want, info.perLoad)) return CONTINUE;
+      e.timer[i] = 0;
       const before = view.amount;
       const taken = state.world.harvest(o.cx, o.cz, o.i, want, state.step);
       // An Elf may be watching (Elves: tree warnings).
@@ -760,6 +777,18 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       }
       // A cart or pack is filled at the node before the trip home, and so is a fisher's catch.
       if (e.carryAmt[i]! < carryCapacity(state, i, res) && (before - taken > 0 || isFish(view.kind))) return CONTINUE;
+      // Patch 5 (Jade, BL-12: a cart worth using): a cart or pack with room left moves on to the nearest node of the same kind before the trip home (s).
+      if (e.carryAmt[i]! < carryCapacity(state, i, res) && rawLimitTenthsLb(state, i) > RAW_CARRY_TENTHS_LB) {
+        const alt = findNode(state, i, res, nx, nz, NODE_SEARCH_COLUMNS, o);
+        if (alt) {
+          o.cx = alt.cx;
+          o.cz = alt.cz;
+          o.i = alt.i;
+          e.act[i] = Act.Walk;
+          resetWalk(state, i);
+          return CONTINUE;
+        }
+      }
       e.act[i] = Act.ToDrop;
       resetWalk(state, i);
       return CONTINUE;
@@ -958,7 +987,13 @@ function runWork(state: SimState, i: number, o: Extract<UnitOrder, { t: 'work' }
   workXp(state, i, Work.Build, pace);
   while (e.timer[i]! >= 1000 && needsWork(b)) {
     e.timer[i] = e.timer[i]! - 1000;
-    workOn(state, b);
+    if (!workOn(state, b)) {
+      // Patch 5 (UI-13): nothing in the stock to repair it with.
+      e.timer[i] = 0;
+      const short = repairShort(state, b);
+      alert(state, b.owner, `Not enough ${short >= 0 ? RESOURCES[short]!.name.toLowerCase() : 'resources'} to repair the ${buildingName(b.kind, b.level, b.variant).toLowerCase()}.`, e.x[i]!, e.z[i]!, i);
+      return DONE;
+    }
   }
   return needsWork(b) ? CONTINUE : DONE;
 }
@@ -1429,6 +1464,8 @@ export function runUnit(state: SimState, i: number): void {
   // Inside a building's walls (a game saved before they were walls): out first.
   if (e.inside[i] === 0) stepOffSolid(state, i);
   if (fightStep(state, i)) return;
+  // Autorepair (Jade's Patch 5, UI-13): what is damaged near by comes first.
+  if (e.autoRepair[i] !== 0) autoRepairStep(state, i);
   // A few orders in a row may finish at once (a drop-off with nothing carried); bounded so a step stays short.
   for (let guard = 0; guard < 4; guard++) {
     const q = e.queue[i]!;

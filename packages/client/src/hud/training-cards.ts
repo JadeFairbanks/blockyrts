@@ -142,7 +142,7 @@ export class TrainingCards {
       }
       const el = div(`kit-card${c.locked ? ' locked' : ''}${why ? ' cannot' : ''}`, box);
       el.dataset.card = String(card);
-      const name = cardName(card);
+      const name = cardName(card, c.w);
       const horses = card === Troop.Cavalry ? `\n${first.horses} grown tamed horse${first.horses === 1 ? '' : 's'} ready in the nearest Barn.` : '';
       const pic = this.host.button(`card-${card}`, {
         face: name.slice(0, 1),

@@ -1,24 +1,26 @@
 // Trading with the peoples (Neutral villages and trade; Table 11; Table 19).
 // A player opens a faction's trade menu while one of their units is within
-// about 15 m of it and they are not at war; they put goods in the offer box
-// and the faction answers with three bundles from its stock, each worth
-// between 85% and 100% of what the offer is worth to it (s), or says it has
-// nothing worth that much. Values stay hidden: the menu shows the worth bar
-// and the bundles. A faction buys at most 300 vp of one kind of good a day;
-// a player who turns its answer down three times and offers the same again
-// is sent away until dawn; Halflings will not take gold, silver or gems, and
-// an Elf offered lumber is insulted and trades with no one from that player
-// for a day. Taking a bundle swaps the goods at once.
+// 10 m of one of its buildings and they are not at war (Patch 5, GP-46);
+// they put goods in the offer box and the faction answers with three bundles
+// from its stock, each worth between 85% and 100% of what the offer is worth
+// to it (s), or says it has nothing worth that much. Values stay hidden: the
+// menu shows the worth bar and the bundles. A settlement trades a fixed worth
+// a day, by its size, shared by every player (GP-46): an offer worth more than
+// what is left is cut down to fit, and the rest stays with the player. Nobody
+// takes earth and stone fetches little (GP-46, BL-3); Halflings will not take
+// gems; and an Elf offered lumber is insulted and trades with no one from
+// that player for a day. Taking a bundle swaps the goods at once.
 
 import { floorDiv, length2d, WU_PER_COLUMN } from '../fixed.ts';
-import { RESOURCE_COUNT } from '../economy/resources.ts';
+import { Res, RESOURCE_COUNT } from '../economy/resources.ts';
 import { addAnimal } from '../animals/animals.ts';
 import { addEngine, addFullCrew } from '../siege/engines.ts';
 import { UnitKind, type SimState } from '../state.ts';
-import { BUNDLE_MIN_PCT, BUNDLES, Cat, DAILY_BUY_TENTHS, FactionKind, ENGINE_GOODS, INSULT_STEPS, LINES, LIVE_GOODS, MOOD_DECLINES, People, REFUSE, Status, TRADE_RANGE_WU } from './data.ts';
-import { directions, factionMembers, nearestCity } from './factions.ts';
+import { mobSpec } from '../combat/mobs.ts';
+import { BUNDLE_MIN_PCT, BUNDLES, Cat, FactionKind, ENGINE_GOODS, INSULT_STEPS, LINES, LIVE_GOODS, MOOD_DECLINES, People, REFUSE, Status, TRADE_RANGE_WU } from './data.ts';
+import { directions, factionMembers, nearestCity, structuresOf } from './factions.ts';
 import { sayForeign } from './speech.ts';
-import { catOf, inStock, isEngineGood, isLive, payPct, priceTenths, valueTenths } from './stock.ts';
+import { catOf, dailyTradeTenths, inStock, isEngineGood, isLive, payPct, priceTenths, tradeRoomTenths, valueTenths } from './stock.ts';
 import { factionById, warFaction, type Faction, type Offer } from './types.ts';
 
 /** Closed until the next dawn (cleared when the day begins). */
@@ -26,20 +28,30 @@ export const UNTIL_DAWN = 0x7fffffff;
 /** The most different goods in one offer (the offer box's slots) (s). */
 export const OFFER_SLOTS = 8;
 
-/** The faction member a player's unit is nearest, and how near: the trade range is measured to any of its people or buildings. */
-function nearestMember(state: SimState, f: Faction, player: number): { unit: number; member: number; d: number } {
+/**
+ * The faction member a player's unit is nearest within `range`, and how near.
+ * With `buildings`, only its buildings count, measured to their edge: the
+ * trade range (Patch 5, GP-46: "within 10m of any given village building").
+ */
+function nearestMember(state: SimState, f: Faction, player: number, range = TRADE_RANGE_WU, buildings = false): { unit: number; member: number; d: number } {
   const e = state.entities;
-  const list = factionMembers(state, f.id);
+  const list = buildings ? structuresOf(state, f.id) : factionMembers(state, f.id);
   let best = { unit: -1, member: -1, d: 0 };
   for (const m of list) {
-    for (const j of state.grid.near(e.x[m]!, e.z[m]!, TRADE_RANGE_WU)) {
+    const half = buildings ? mobSpec(e.mob[m]!).halfWidth : 0;
+    for (const j of state.grid.near(e.x[m]!, e.z[m]!, range + half)) {
       if (e.owner[j] !== player || e.hp[j]! <= 0 || e.kind[j] === UnitKind.Animal) continue;
-      const d = length2d(e.x[j]! - e.x[m]!, e.z[j]! - e.z[m]!);
-      if (d > TRADE_RANGE_WU) continue;
+      const d = Math.max(0, length2d(e.x[j]! - e.x[m]!, e.z[j]! - e.z[m]!) - half);
+      if (d > range) continue;
       if (best.unit < 0 || d < best.d) best = { unit: j, member: m, d };
     }
   }
   return best;
+}
+
+/** The player's unit nearest one of a faction's buildings within the trade range, or -1. */
+export function traderOf(state: SimState, f: Faction, player: number): number {
+  return nearestMember(state, f, player, TRADE_RANGE_WU, true).unit;
 }
 
 /** The faction's speaker for the trade menu: its leader, else whoever of it is nearest the player. */
@@ -52,10 +64,13 @@ export function speakerOf(state: SimState, f: Faction, player: number): number {
   return factionMembers(state, f.id)[0] ?? -1;
 }
 
-/** Whether a player has a unit within trade range of a faction's people or buildings. */
+/** Whether a player has a unit within trade range of one of a faction's buildings. */
 export function inReach(state: SimState, f: Faction, player: number): boolean {
-  return nearestMember(state, f, player).unit >= 0;
+  return traderOf(state, f, player) >= 0;
 }
+
+/** Why the range is not met, for the menus and the order's alert. */
+export const OUT_OF_REACH = 'Bring one of your units within 10 m of one of their buildings.';
 
 /** Why a player cannot trade with a faction now, or '' (for the greyed Trade button and its tooltip). */
 export function tradeProblem(state: SimState, f: Faction, player: number): string {
@@ -64,7 +79,7 @@ export function tradeProblem(state: SimState, f: Faction, player: number): strin
   if (warFaction(state.peoples, f).war & (1 << player)) return 'You are at war with them.';
   const closed = f.closedUntil[player] ?? 0;
   if (closed > state.step) return closed === UNTIL_DAWN ? 'They will not trade with you again until dawn.' : 'They will not trade with you today.';
-  if (nearestMember(state, f, player).unit < 0) return 'Bring one of your units within 15 m of them.';
+  if (!inReach(state, f, player)) return OUT_OF_REACH;
   return '';
 }
 
@@ -91,27 +106,55 @@ function dropOffer(state: SimState, faction: number, player: number): void {
   state.peoples.offers = state.peoples.offers.filter((o) => o.faction !== faction || o.player !== player);
 }
 
+/** What `n` of a good is worth to a faction, tenths (0 for a good it refuses). */
+export function lineWorth(f: Faction, good: number, n: number): number {
+  const pct = payPct(f, good);
+  return pct === REFUSE ? 0 : floorDiv(valueTenths(good) * n * pct, 100);
+}
+
 /**
  * What an offer is worth to a faction, tenths, and the first good it will
- * not take (or -1): each good at its pay percent, each category no more
- * than what is left of the day's 300 vp.
+ * not take (or -1): each good at its pay percent, all of it no more than
+ * what is left of the settlement's day of trade (GP-46).
  */
 export function offerWorth(f: Faction, goods: readonly number[]): { worth: number; refused: number } {
-  const byCat = new Array<number>(f.bought.length).fill(0);
   let refused = -1;
+  let sum = 0;
   for (let k = 0; k < goods.length; k += 2) {
     const good = goods[k]!;
-    const pct = payPct(f, good);
-    if (pct === REFUSE) {
+    if (payPct(f, good) === REFUSE) {
       if (refused < 0) refused = good;
       continue;
     }
-    const c = catOf(good);
-    byCat[c] = byCat[c]! + floorDiv(valueTenths(good) * goods[k + 1]! * pct, 100);
+    sum += lineWorth(f, good, goods[k + 1]!);
   }
-  let worth = 0;
-  for (let c = 0; c < byCat.length; c++) worth += Math.min(byCat[c]!, Math.max(0, DAILY_BUY_TENTHS - f.bought[c]!));
-  return { worth, refused };
+  return { worth: Math.min(sum, tradeRoomTenths(f)), refused };
+}
+
+/**
+ * An offer cut down to what the settlement can still trade today (GP-46):
+ * each good in the order offered, as many as still fit, the rest left with
+ * the player. Goods it refuses stay in (it says so). Returns the goods kept and
+ * whether any were cut.
+ */
+export function fitOffer(f: Faction, goods: readonly number[]): { goods: number[]; cut: boolean } {
+  let room = tradeRoomTenths(f);
+  const out: number[] = [];
+  let cut = false;
+  for (let k = 0; k < goods.length; k += 2) {
+    const good = goods[k]!;
+    let n = goods[k + 1]!;
+    const pct = payPct(f, good);
+    if (pct !== REFUSE) {
+      // The most of it whose worth (rounded down, as lineWorth does) still fits.
+      n = Math.min(n, floorDiv(100 * (room + 1) - 1, valueTenths(good) * pct));
+      if (n < goods[k + 1]!) cut = true;
+      if (n <= 0) continue;
+      room -= lineWorth(f, good, n);
+    }
+    out.push(good, n);
+  }
+  return { goods: out, cut };
 }
 
 /** The faction's stock as (good, count, price) rows it can sell from, dearest first then by good. */
@@ -246,15 +289,28 @@ export function makeOffer(state: SimState, player: number, faction: number, good
     answer(state, f, player, lines.close);
     return;
   }
-  const { worth, refused } = offerWorth(f, clean);
+  const { refused } = offerWorth(f, clean);
   if (refused >= 0 && f.people === People.Elf && catOf(refused) === Cat.Lumber) {
     // An insult: no trade with this player for a day.
     f.closedUntil[player] = state.step + INSULT_STEPS;
     answer(state, f, player, lines.lumber);
     return;
   }
+  // The settlement's day of trade, shared by every player, is used up (GP-46).
+  if (tradeRoomTenths(f) <= 0) {
+    answer(state, f, player, lines.full);
+    return;
+  }
+  // More than it can still trade today is cut down to fit; the rest stays with the player.
+  const fit = fitOffer(f, clean);
+  const { worth } = offerWorth(f, fit.goods);
+  if (worth === 0 && fit.cut) {
+    answer(state, f, player, lines.full);
+    return;
+  }
+  const no = refused === Res.Earth ? lines.dirt : lines.refuse;
   if (refused >= 0 && worth === 0) {
-    answer(state, f, player, lines.refuse);
+    answer(state, f, player, no);
     return;
   }
   const bundles = makeBundles(f, worth);
@@ -262,8 +318,9 @@ export function makeOffer(state: SimState, player: number, faction: number, good
     answer(state, f, player, lines.nothing);
     return;
   }
-  state.peoples.offers.push({ faction, player, goods: clean, worth, bundles });
-  if (refused >= 0) answer(state, f, player, lines.refuse);
+  state.peoples.offers.push({ faction, player, goods: fit.goods, worth, bundles });
+  if (refused >= 0) answer(state, f, player, no);
+  else if (fit.cut) answer(state, f, player, lines.trimmed);
 }
 
 /** The player turns the answer down: it counts towards the faction's mood if the same goods come again. */
@@ -312,10 +369,9 @@ export function takeBundle(state: SimState, player: number, faction: number, bun
     const good = o.goods[k]!;
     if (payPct(f, good) === REFUSE) continue;
     take(state, player, good, o.goods[k + 1]!);
-    const c = catOf(good);
-    f.bought[c] = Math.min(DAILY_BUY_TENTHS, f.bought[c]! + floorDiv(valueTenths(good) * o.goods[k + 1]! * payPct(f, good), 100));
+    f.bought = Math.min(dailyTradeTenths(f), f.bought + lineWorth(f, good, o.goods[k + 1]!));
   }
-  const near = nearestMember(state, f, player);
+  const near = nearestMember(state, f, player, TRADE_RANGE_WU, true);
   const e = state.entities;
   const x = near.unit >= 0 ? e.x[near.unit]! : f.x;
   const z = near.unit >= 0 ? e.z[near.unit]! : f.z;
