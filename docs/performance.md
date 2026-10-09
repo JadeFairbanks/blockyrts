@@ -108,3 +108,17 @@ All of the caches above are "not state": they live beside the sim in WeakMaps ke
   - Water moves in the sim only near columns that changed (the world's active set), not over the whole map. A chunk whose water moved is re-meshed.
   - In the client, water is one transparent mesh per chunk, drawn after the land, with depth writes off.
   - Neither showed in any profile this milestone.
+
+## Indev 1.1: the client frame and the step stalls
+
+- **Measuring the frame:** `node packages/client/test-e2e/frame-profile.mjs <dev server url> <out dir> [label] [--gpu] [--profile] [--no-draw]` builds a busy town (48 units, Citadel, Barn, siege kit) at 1920 by 1080, by day and at night with 80 monsters. It reads the main thread's script time per frame, GL calls, uploads and program switches. `--no-draw` skips the GPU work, which SwiftShader makes meaningless.
+- **What the frame stopped doing** (script time per frame 7.95 to 6.51 ms by day, 8.69 to 6.63 ms at night; uploads 3.9 to 0.2 MB a frame):
+  - Instanced meshes upload only the rows in use (world/instances.ts `showInstances`); an empty one leaves the camera layer, so three.js skips it.
+  - Props are culled against the camera each frame, with spheres swept down the fixed sun so a shadow falling on screen keeps its caster.
+  - The point-light loop skips unlit lights and pixels out of a light's reach (world/point-lights.ts); both add exactly zero.
+  - The shadow pass and the hidden-outline pass stop rebuilding shader programs (a depth material of the scenery's own; posed models draw in their flat mark material for the coverage count).
+  - Bone textures grow by doubling from 64 instances instead of starting at 2,048.
+- **Step stalls.** The sim runs in the game worker on each machine, so a slow step freezes the units on screen.
+  - The worker now builds the sim's pure caches between steps (sim/warm.ts `warmCaches`): the land, walk maps and coarse crossings of the monsters' fields round the towns, and the land the next animal stocking checks will read. The first march on a town at night took 300 to 500 ms in one step; it now takes under 70 ms. The stocking stalls (40 to 100 ms every 22 s or so) mostly go.
+  - The enclosure flood at dusk (buildings/lights.ts) uses typed column tables instead of a Set and Map of keys: 2 to 4 times faster, with the same answers on 144 checked worlds.
+  - packages/sim/test/warm.test.ts checks that warmed caches match ones built afresh and that a game warmed between every step hashes the same as one that is not.

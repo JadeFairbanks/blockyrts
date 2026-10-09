@@ -87,7 +87,8 @@ export function breakCost(kind: number, cls: MobClass): number {
   return hp * 12;
 }
 
-function windowOf(state: SimState, player: number): { x0: number; z0: number; w: number; h: number } | null {
+/** The tiles a player's field covers: the town and PAD_TILES round it, at most MAX_TILES a side; null with no building to come for. */
+export function fieldWindow(state: SimState, player: number): { x0: number; z0: number; w: number; h: number } | null {
   let x0 = Infinity;
   let z0 = Infinity;
   let x1 = -Infinity;
@@ -134,7 +135,7 @@ export function fieldFor(state: SimState, player: number, cls: MobClass): Field 
   const rev = state.buildings.rev;
   const last = seen.get(key);
   if (last && last[0] === epoch && last[1] === rev) return last[2];
-  const win = windowOf(state, player);
+  const win = fieldWindow(state, player);
   if (!win) {
     seen.delete(key);
     return null;

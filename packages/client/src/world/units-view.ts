@@ -35,6 +35,7 @@ import { fowPatch, type FowUniforms } from './fog-material.ts';
 import type { OwnDraw } from './hidden-outlines.ts';
 import { aimAlong, flightClip, ModelPools, SpellFx, wandTip } from './spell-fx.ts';
 import { Hearts } from './hearts.ts';
+import { showInstances } from './instances.ts';
 
 const STEP_MS = 50;
 const MAX_UNITS = 2048;
@@ -608,9 +609,7 @@ class AttachPool {
 
   commit(): void {
     for (const e of this.meshes.values()) {
-      e.mesh.count = e.n;
-      e.mesh.instanceMatrix.needsUpdate = true;
-      e.team.needsUpdate = true;
+      showInstances(e.mesh, e.n, e.team);
       e.n = 0;
     }
   }
@@ -658,9 +657,7 @@ class Halos {
   }
 
   commit(): void {
-    this.mesh.count = this.n;
-    this.mesh.instanceMatrix.needsUpdate = true;
-    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    showInstances(this.mesh, this.n);
     this.n = 0;
   }
 }
@@ -747,9 +744,7 @@ class Particles {
       w++;
     }
     this.n = w;
-    this.mesh.count = w;
-    this.mesh.instanceMatrix.needsUpdate = true;
-    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    showInstances(this.mesh, w);
   }
 }
 
@@ -815,9 +810,7 @@ class Smoke {
       w++;
     }
     this.n = w;
-    this.mesh.count = w;
-    this.mesh.instanceMatrix.needsUpdate = true;
-    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    showInstances(this.mesh, w);
   }
 
   private puff(x: number, y: number, z: number, size: number): void {
@@ -920,9 +913,7 @@ export class Flashes {
       w++;
     }
     this.n = w;
-    this.balls.count = w;
-    this.balls.instanceMatrix.needsUpdate = true;
-    if (this.balls.instanceColor) this.balls.instanceColor.needsUpdate = true;
+    showInstances(this.balls, w);
     for (const s of this.lights) {
       s.age += dt;
       const t = s.life > 0 ? s.age / s.life : 1;
@@ -1700,12 +1691,8 @@ export class UnitsView {
     for (const b of this.bodies.values()) b.commit();
     this.attach.commit();
     this.halos.commit();
-    this.blocks.count = blocks;
-    this.blocks.instanceMatrix.needsUpdate = true;
-    if (this.blocks.instanceColor) this.blocks.instanceColor.needsUpdate = true;
-    this.loads.count = loads;
-    this.loads.instanceMatrix.needsUpdate = true;
-    if (this.loads.instanceColor) this.loads.instanceColor.needsUpdate = true;
+    showInstances(this.blocks, blocks);
+    showInstances(this.loads, loads);
     this.drawShots(f, prev ? alpha : 1, dt);
     this.flying.commit();
     this.drawBeams(f);
@@ -1953,12 +1940,8 @@ export class UnitsView {
       this.shots.setColorAt(k, new THREE.Color(look.colour));
       k++;
     }
-    this.shots.count = k;
-    this.shots.instanceMatrix.needsUpdate = true;
-    if (this.shots.instanceColor) this.shots.instanceColor.needsUpdate = true;
-    this.streaks.count = hot;
-    this.streaks.instanceMatrix.needsUpdate = true;
-    if (this.streaks.instanceColor) this.streaks.instanceColor.needsUpdate = true;
+    showInstances(this.shots, k);
+    showInstances(this.streaks, hot);
   }
 }
 

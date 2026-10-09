@@ -24,6 +24,7 @@ import { atWork, BuildingGlow } from './building-glow.ts';
 import { makeLook, type Look } from './building-looks.ts';
 import { fowPatch, patchMaterial, type FowUniforms } from './fog-material.ts';
 import { COLUMN_M, UNIT_M } from './mesher.ts';
+import { showInstances } from './instances.ts';
 import { FOG_HALO, lightSource } from './sky-light.ts';
 
 /** Point lights for the flames and lit windows nearest the camera (a fixed number, so shaders never recompile). */
@@ -684,9 +685,7 @@ export class BuildingsView {
         }
       }
     }
-    this.tiles.count = n;
-    this.tiles.instanceMatrix.needsUpdate = true;
-    if (this.tiles.instanceColor) this.tiles.instanceColor.needsUpdate = true;
+    showInstances(this.tiles, n);
     this.drawGhosts('g', this.ghostModels, GHOST_OPACITY, owner);
   }
 
