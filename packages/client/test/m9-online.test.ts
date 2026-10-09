@@ -23,6 +23,7 @@ function room(players: Array<Partial<RoomStateMessage['players'][number]> & { sl
     phase: RoomPhase.Lobby,
     seed: 7,
     fromSave: false,
+    private: false,
     hostSlot: 0,
     yourSlot: 0,
     rejoinToken: 't',
