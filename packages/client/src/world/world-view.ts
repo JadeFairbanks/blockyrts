@@ -64,7 +64,8 @@ import { glitterOfResource, Muzzle, WorldFx, type GlitterSpot } from './sparkle.
 import { shotSound } from '../audio/sound-map.ts';
 import { Overlay } from './overlay.ts';
 import { patchMaterial, type FowUniforms } from './fog-material.ts';
-import { HiddenOutlines, type OutlineStats } from './hidden-outlines.ts';
+import { HiddenOutlines, type OutlineStats, type OwnDraw } from './hidden-outlines.ts';
+import { HoverOutline, type HoverParts } from './hover-outline.ts';
 import { aimSun, keepShadowFlags, setUpSun } from './sun-shadows.ts';
 
 /** Chunk rings around the camera focus at each level of detail (Chebyshev distance in chunks). */
@@ -182,6 +183,9 @@ interface ChunkView {
   /** Its gold and silver, to glitter (Patch 5, VX-6). */
   glitter: GlitterSpot[];
   meshedAt: number;
+  /** The scenery cubes, and each prop's cubes in them by its key (first, count), for the hover outline. */
+  cubes: THREE.InstancedMesh | null;
+  ranges: Map<string, readonly [number, number]>;
 }
 
 export interface WorldViewOptions {
@@ -242,6 +246,12 @@ export class WorldView {
   private readonly unitsView: UnitsView;
   /** Outlines round the player's own units hidden from the camera (Jade's Patch 3), drawn by match.ts after the world. */
   private readonly outlines: HiddenOutlines;
+  /** Patch 5 (UI-5): the white silhouette round what the cursor is over, and its keys and unit and building ids. */
+  private readonly hoverOutline = new HoverOutline();
+  private hoverList: readonly Selectable[] = [];
+  private readonly hoverKeys = new Set<string>();
+  private readonly hoverUnits = new Set<number>();
+  private readonly hoverBuildings = new Set<number>();
   /** The selection's portrait, drawn by match.ts into the HUD's portrait window after the world. */
   readonly portrait: PortraitView;
   private readonly lootView: LootView;
@@ -324,6 +334,46 @@ export class WorldView {
       selectables,
       minimap,
       limits: () => ({ minX: -WORLD_EDGE_M, maxX: WORLD_EDGE_M, minZ: -WORLD_EDGE_M, maxZ: WORLD_EDGE_M }),
+      hover: (list) => this.setHover(list),
+    };
+  }
+
+  /** What the cursor is over this frame (Patch 5, UI-5): drawn with a white silhouette from the next frame. */
+  private setHover(list: readonly Selectable[]): void {
+    this.hoverList = list;
+    this.hoverKeys.clear();
+    this.hoverUnits.clear();
+    this.hoverBuildings.clear();
+    for (const t of list) {
+      this.hoverKeys.add(t.key);
+      if (t.key.startsWith('e:')) this.hoverUnits.add(Number(t.key.slice(2)));
+      else if (t.key.startsWith('b:')) this.hoverBuildings.add(Number(t.key.slice(2)));
+    }
+    this.buildings.hovered = this.hoverBuildings;
+  }
+
+  /** What the hover outline draws: the hovered units, buildings, loot and props, and where they stand. */
+  private hoverParts(): HoverParts {
+    const { models, meshes } = this.buildings.hoverParts();
+    const cubes: Array<{ mesh: THREE.InstancedMesh; first: number; count: number }> = [];
+    const boxes: OwnDraw[] = [];
+    for (const t of this.hoverList) {
+      // Trees are picked by their trunk; their crowns reach further out.
+      const wide = t.key.startsWith('p:') ? 2.5 : 0.3;
+      boxes.push({ id: 0, x: t.centre.x, y: t.centre.y - t.halfSize.y - 0.2, z: t.centre.z, h: t.halfSize.y * 2 + 0.6, r: Math.max(t.halfSize.x, t.halfSize.z) + wide, outlined: false });
+      if (!t.key.startsWith('p:')) continue;
+      const at = /^p:(-?\d+),(-?\d+):/.exec(t.key);
+      const c = at ? this.chunks.get(ck(Number(at[1]), Number(at[2]))) : undefined;
+      const range = c?.ranges.get(t.key);
+      if (c?.cubes && range && range[1] > 0) cubes.push({ mesh: c.cubes, first: range[0], count: range[1] });
+    }
+    return {
+      units: this.hoverUnits.size > 0 ? { group: this.unitsView.bodyGroup, pass: (m) => this.unitsView.passPools(m) } : null,
+      models,
+      meshes,
+      sprites: this.lootView.hoverSprites(this.hoverKeys),
+      cubes,
+      boxes,
     };
   }
 
@@ -387,6 +437,8 @@ export class WorldView {
         const troop = d[o + S.troop]!;
         // The artillery crewman (Patch 2) is its own type: its own card and subgroup, never upgraded or sent hunting.
         u.typeKey = troop === Troop.Crew ? 'warrior:crew' : 'warrior';
+        // A double click's types (Jade's Patch 5, CT-5): cavalry (anyone mounted), close melee, long melee, and every other kind its own.
+        u.clickType = d[o + S.mount] !== Mount.None || troop === Troop.Cavalry ? 'warrior:cavalry' : `warrior:${troop}`;
         u.label = this.title(d, o, kind);
         // Rangers fight close with their fists, which go unsaid; the brawler's pistol comes first.
         const weapon = troop === Troop.Ranger ? '' : gearName(d[o + S.weapon]!);
@@ -682,7 +734,7 @@ export class WorldView {
     for (const [key, w] of want) {
       if (this.chunks.has(key)) continue;
       const [cx, cz] = key.split(',').map(Number) as [number, number];
-      this.chunks.set(key, { cx, cz, lod: 0, want: w, pending: 0, version: 0, meshedVersion: -1, requested: 0, group: null, heights: null, size: 0, props: [], glitter: [], meshedAt: 0 });
+      this.chunks.set(key, { cx, cz, lod: 0, want: w, pending: 0, version: 0, meshedVersion: -1, requested: 0, group: null, heights: null, size: 0, props: [], glitter: [], meshedAt: 0, cubes: null, ranges: new Map() });
     }
   }
 
@@ -740,7 +792,9 @@ export class WorldView {
       water.renderOrder = 1;
       group.add(water);
     }
-    if (m.cubes && m.cubes.length > 0) group.add(this.cubesMesh(m.cubes));
+    c.cubes = null;
+    c.ranges.clear();
+    if (m.cubes && m.cubes.length > 0) group.add((c.cubes = this.cubesMesh(m.cubes)));
     this.scene.add(group);
     group.updateMatrixWorld(true);
     c.group = group;
@@ -750,6 +804,7 @@ export class WorldView {
     c.props = m.props.map((p) => this.propSelectable(c, p));
     c.glitter = this.glitterOf(c, m.props);
     this.glitterDirty = true;
+    for (const p of m.props) c.ranges.set(`p:${c.cx},${c.cz}:${p.index}`, [p.first, p.cubes]);
     c.meshedAt = performance.now();
   }
 
@@ -831,6 +886,8 @@ export class WorldView {
     });
     c.group = null;
     c.lod = 0;
+    c.cubes = null;
+    c.ranges.clear();
   }
 
   // ---- Fog of war ----
@@ -952,6 +1009,7 @@ export class WorldView {
       seen: (x, z) => this.seenNow(x, z),
       known: (x, z) => this.exploredNow(x, z),
       outlined: this.outlines.outlined,
+      hovered: this.hoverUnits,
       ruins: this.game?.info?.ruins ?? [],
       groundAt: (x, z) => this.groundAt(x, z),
       place: (i, x, y, z) => {
@@ -964,6 +1022,7 @@ export class WorldView {
   /** After the scene is drawn to the screen: the outlines round the player's own units hidden behind things. */
   renderOutlines(renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, now: number): void {
     this.outlines.render(renderer, camera, now);
+    if (this.hoverList.length > 0) this.hoverOutline.render(renderer, camera, this.hoverParts());
   }
 
   /** What the outlines have cost so far, for the debug tools and the browser checks. */

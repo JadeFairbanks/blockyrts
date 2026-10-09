@@ -179,6 +179,7 @@ function postState(s: SimState): void {
     if (e.lowUntil[i]! > s.step) flags |= UnitFlag.Swooping;
     if (e.shared[i] !== 0) flags |= UnitFlag.Shared;
     if (onTop(s, i)) flags |= UnitFlag.OnTop;
+    if (e.autoRepair[i] !== 0) flags |= UnitFlag.AutoRepair;
     data[o + S.flags] = flags;
     data[o + S.lock] = e.lock[i]!;
     data[o + S.target] = e.target[i]!;

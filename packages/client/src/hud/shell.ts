@@ -20,6 +20,8 @@ import {
   troopOf,
   mageLock,
   mageOf,
+  OrderKind,
+  type HitEvent,
   type Order,
   type SimEvent,
 } from '@blockyrts/sim';
@@ -31,6 +33,7 @@ import { godGhostRow } from '../game/god-ghost.ts';
 import { keyFor } from '../input/bindings.ts';
 import { keyLabel } from '../input/keys.ts';
 import { Btn, InputManager, type Mods, type MouseTarget, type TouchHooks } from '../input/input-manager.ts';
+import type { ToolCursor } from '../input/cursor.ts';
 import { CTRL_NAME } from '../input/platform.ts';
 import { KeyCode } from '../input/tester-code.ts';
 import { UnitFlag, type InfoMessage } from '../messages.ts';
@@ -62,7 +65,8 @@ import { ControlGroups } from './groups.ts';
 import { applyGeometry, buildLayout, fitDebug, type Folds, type HudLayout } from './layout.ts';
 import { buttonRoom, cardInner, fitButtons, hudLayout, type ButtonFit, type HudGeometry } from './hud-layout.ts';
 import { SpeechBubbles, type Speaker } from './bubbles.ts';
-import { TinkerBars } from './tinker-bars.ts';
+import { markEntry, WorldMarks, type MarkEntry, type MarkSource, type StackBar } from './world-marks.ts';
+import { ATTACK_COLOUR, orderColour, OrderFlags, orderLines, RALLY_COLOUR, type Mover } from './order-lines.ts';
 import { YesNoButtons } from './yes-no.ts';
 import { MessagePanel, type MessageKind } from './message-panel.ts';
 import { GameMenu } from './menu.ts';
@@ -91,6 +95,8 @@ export interface WorldHooks {
   ground: GroundPicker;
   selectables: SelectableSource;
   minimap: MinimapSource;
+  /** What the cursor is over, or a drag box would pick, for its silhouette outline (Patch 5, UI-5). */
+  hover?(list: readonly Selectable[]): void;
   limits(): CameraLimits;
 }
 
@@ -175,7 +181,8 @@ export interface PerfInfo {
   heapMb: number;
 }
 
-const CAMERA_SLOTS = 4;
+/** Saved camera spots, F5 up: the fourth gave its place (F8) to Repair all in Jade's Patch 5 (GP-25). */
+const CAMERA_SLOTS = 3;
 /** Urgent messages F4 steps back through. */
 const URGENT_KEEP = 8;
 /** Meal bubbles at most this often, ms (patch 1, s): a hundred units eat about once a second between them. */
@@ -205,7 +212,13 @@ export class GameShell {
   private readonly minimap: Minimap;
   private readonly messages: MessagePanel;
   private readonly bubbles: SpeechBubbles;
-  private readonly tinkerBars: TinkerBars;
+  private readonly marks: WorldMarks;
+  private readonly markSource: MarkSource;
+  /**
+   * Other parts' progress bars in a thing's stack over the world (Patch 5, UI-18): each gives the bars for a
+   * key ('e:<id>' or 'b:<id>'), in the order they stack, and the bar stack draws them with the rest.
+   */
+  readonly stackBars: Array<(key: string) => readonly StackBar[]> = [];
   readonly peoples: PeoplesUi;
   readonly allies: AlliesUi;
   readonly inventory: InventoryUi;
@@ -213,11 +226,15 @@ export class GameShell {
   /** Waiting for a spot to ping (the Ping button). */
   private pinging = false;
   private readonly visuals: SelectionVisuals;
+  /** Patch 5 (GP-23): the flags at the ends of the selected units' orders and rally points, and the dots on attack targets. */
+  private readonly flags: OrderFlags;
   private readonly selector: SelectionController;
   private readonly panel: SelectionPanel;
   private readonly cardButtons: HudButton[] = [];
   /** What each card button stands for, to mark what the selection is doing now (its action, or the product or troop a building makes). */
   private cardDoing: string[] = [];
+  /** Selected units seen outside any building at the last info (CT-2, CT-3: leaveForBuildings). */
+  private seenOut = new Set<string>();
   /** What the portrait shows (a unit or building key), and its window on screen (null until measured again). */
   private portraitKey: string | null = null;
   private portraitRect: DOMRect | null = null;
@@ -305,9 +322,24 @@ export class GameShell {
     this.tooltip = new Tooltip(parent);
     this.cam = new RtsCamera(() => this.world.limits(), this.world.ground);
     this.visuals = new SelectionVisuals(opts.scene);
+    this.flags = new OrderFlags(opts.scene);
+    // GP-23: a unit on an attack-move or an attack has a red ring.
+    this.visuals.ringColour = (t) => {
+      const id = t.owner === this.player ? entityIdOf(t.key) : null;
+      const k = id === null ? undefined : this.game.queues.get(id)?.[0]?.t;
+      return k === 'attackMove' || k === 'attack' ? ATTACK_COLOUR : null;
+    };
     this.minimap = new Minimap(this.layout.minimapEl, this.world.minimap);
-    // The tinkering bars go in first, so speech bubbles draw over them.
-    this.tinkerBars = new TinkerBars(this.layout.root);
+    // The bars, stars and damage numbers over the world go in first, so speech bubbles draw over them (Patch 5).
+    this.marks = new WorldMarks(this.layout.root);
+    this.markSource = {
+      player: opts.player,
+      players: opts.players,
+      colour: (p) => opts.session.colour(p),
+      row: (id) => this.game.unitRow(id),
+      building: (id) => this.game.buildings.get(id),
+      extra: (key) => (this.stackBars.length === 0 ? [] : this.stackBars.flatMap((f) => f(key))),
+    };
     this.bubbles = new SpeechBubbles(this.layout.root);
     this.messages = new MessagePanel(this.layout.messagePanel, this.layout.messageList, this.layout.root, this.panels, this.buttons, {
       jumpTo: (x, z) => this.jumpTo(x, z),
@@ -428,7 +460,9 @@ export class GameShell {
         return id !== null && this.game.buildings.get(id)?.shared === true;
       }
       if (t.kind !== 'unit' || t.owner >= info.players.length) return false;
-      if (((info.players[t.owner]?.share ?? 0) & (1 << player)) !== 0) return true;
+      // Share control covers combat units only (Jade's Patch 5, UI-14): troops, mages and engines.
+      const combat = t.typeKey.startsWith('warrior') || t.typeKey.startsWith('mage:') || t.typeKey.startsWith('engine:');
+      if (combat && ((info.players[t.owner]?.share ?? 0) & (1 << player)) !== 0) return true;
       const id = entityIdOf(t.key);
       const u = id === null ? null : this.game.unit(id);
       return u !== null && (u.flags & UnitFlag.Shared) !== 0;
@@ -694,6 +728,7 @@ export class GameShell {
     if ((info.over > 0 || info.out) && !this.overShown) this.showGameOver(info);
     this.groups.refresh((k) => this.exists(k));
     this.selection.retain((k) => this.exists(k) || k.startsWith('p:'));
+    this.leaveForBuildings();
     // Planned buildings move only when the order lists change.
     let sig = '';
     for (const q of this.game.queues.values()) for (const ord of q) if (ord.t === 'build') sig += `${ord.kind},${ord.x},${ord.z};`;
@@ -813,6 +848,40 @@ export class GameShell {
       this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);
       this.urgentAt = -1;
     }
+  }
+
+  /** The bar stacks, stars and damage numbers over the world this frame (Patch 5: UI-9, 10, 12, 18). */
+  private drawMarks(now: number): void {
+    const entries: MarkEntry[] = [];
+    for (const t of this.fresh.values()) {
+      if (t.kind === 'node' || !this.extras.seen(t.centre.x, t.centre.z)) continue;
+      const e = markEntry(t, this.markSource);
+      if (e) entries.push(e);
+    }
+    this.marks.draw(entries, this.projectMark, this.width, this.height, window.devicePixelRatio || 1, now);
+  }
+
+  private readonly markTmp = new THREE.Vector3();
+  private readonly projectMark = (x: number, y: number, z: number, out: { x: number; y: number }): boolean => this.cam.project(this.markTmp.set(x, y, z), out);
+
+  /** A bubble's anchor lifted over the thing's bar stack, when it has one this frame. */
+  private overMarks(key: string, at: { x: number; y: number } | null): { x: number; y: number } | null {
+    const top = at ? this.marks.top(key) : null;
+    return at && top !== null ? { x: at.x, y: Math.min(at.y, top - 2) } : at;
+  }
+
+  /** A state message's hits: the damage numbers over what they hit (Patch 5, UI-10). */
+  onHits(hits: readonly HitEvent[]): void {
+    this.marks.hits(hits, (x, z) => this.extras.seen(x, z), (h, x, y, z) => this.hitAnchor(h, x, y, z), WU_PER_METRE, performance.now());
+  }
+
+  /** Where a hit's number starts: halfway up the unit it hit, or halfway up the building where the blow landed (UI-10). */
+  private hitAnchor(h: HitEvent, x: number, y: number, z: number): { x: number; y: number; z: number } {
+    const u = this.fresh.get(`e:${h.id}`);
+    if (u && Math.abs(u.centre.x - x) < 1.5 && Math.abs(u.centre.z - z) < 1.5) return { x: u.centre.x, y: u.centre.y, z: u.centre.z };
+    const b = this.fresh.get(`b:${h.id}`);
+    if (b && Math.abs(b.centre.x - x) <= b.halfSize.x + 1 && Math.abs(b.centre.z - z) <= b.halfSize.z + 1) return { x, y: b.centre.y, z };
+    return { x, y, z };
   }
 
   /** The top of a unit's head on screen, px, or null when it is off screen or out of sight. */
@@ -985,6 +1054,19 @@ export class GameShell {
         onRightClick: () => this.saveCamera(i),
       });
     }
+    util({
+      id: 'repairall',
+      face: '⚒',
+      name: 'Repair All',
+      keys: ['F8'],
+      description: 'Every worker within 20 m of one of your damaged buildings goes to repair it, idle workers first, the worst damaged building first. Farm and barn workers stay at their jobs. Once it is whole they go back to what they were doing, and those that were idle start gathering. A repair uses up the building\'s own materials for the health it gives back.',
+      className: 'repairall',
+      icon: actionIcon('repair', '⚒'),
+      onPress: () => {
+        this.opts.issueOrder({ kind: 'repairNearby', player: this.player });
+        this.message('Repair all: workers near damaged buildings are heading to repair them.');
+      },
+    });
     util({ id: 'menu', face: '☰', name: 'Menu', keys: ['F10'], description: 'Settings, hotkeys, full screen and quitting. Releases the cursor.', onPress: () => this.openMenu() });
 
     // Top right: Peoples, Allies and Send resources (multiplayer), Ping and Pause.
@@ -1264,9 +1346,34 @@ export class GameShell {
 
   private selectArmy(): void {
     const army: Selectable[] = [];
-    for (const t of this.world.selectables.candidates()) if (t.kind === 'unit' && t.owner === this.player && (t.typeKey === 'warrior' || t.typeKey.startsWith('mage:'))) army.push(t);
-    if (army.length === 0) this.message('You have no warriors or mages yet.');
+    let posted = 0;
+    for (const t of this.world.selectables.candidates()) {
+      if (t.kind !== 'unit' || t.owner !== this.player || (t.typeKey !== 'warrior' && !t.typeKey.startsWith('mage:'))) continue;
+      // Not the men on towers and tops (Jade's Patch 5, CT-4), so F2 never pulls them off their posts.
+      const id = entityIdOf(t.key);
+      if (id !== null && (this.game.unit(id)?.inside ?? 0) !== 0) posted++;
+      else army.push(t);
+    }
+    if (army.length === 0) this.message(posted > 0 ? 'Every warrior and mage you have is in a tower or a building.' : 'You have no warriors or mages yet.');
     else this.selection.set(army);
+  }
+
+  /**
+   * Jade's Patch 5 (CT-2, CT-3): a selected unit of the player's that goes
+   * into a building, up on its top or out to work its farm's field leaves the
+   * selection; one picked while already in stays. Run on each info.
+   */
+  private leaveForBuildings(): void {
+    const out = new Set<string>();
+    this.selection.retain((k) => {
+      const id = entityIdOf(k);
+      const u = id === null ? null : this.game.unit(id);
+      if (!u || u.owner !== this.player) return true;
+      const inside = u.inside !== 0 || (u.order === OrderKind.Farm && this.game.queues.get(id!)?.[0]?.t === 'job');
+      if (!inside) out.add(k);
+      return !inside || !this.seenOut.has(k);
+    });
+    this.seenOut = out;
   }
 
   /** F1: the next idle worker, centred; Shift or a double click: all of them. */
@@ -1412,15 +1519,15 @@ export class GameShell {
 
   // ---- Players ----
 
-  /** Another player's chat line (only the panel, never a bubble). */
-  chatLine(name: string, text: string): void {
-    this.messages.addPlayer(name, text);
+  /** A player's chat line (only the panel, never a bubble); another player's counts as unread while the panel is collapsed. */
+  chatLine(name: string, text: string, other = true): void {
+    this.messages.addPlayer(name, text, other);
   }
 
   /** A player pinged a spot (metres): it flashes on the minimap and in the view, and the panel says who. */
-  pinged(name: string, x: number, z: number): void {
+  pinged(name: string, x: number, z: number, other = false): void {
     cue('ping');
-    this.messages.add({ text: 'Look here!', kind: 'player', name, urgent: true, at: { x, z } });
+    this.messages.add({ text: 'Look here!', kind: 'player', name, urgent: true, at: { x, z }, other });
     this.visuals.orderMarker(new THREE.Vector3(x, this.extras.heightAt(x, z), z), 'target');
     this.urgent.unshift({ x, z, text: `${name} pinged the map.` });
     this.urgent.length = Math.min(this.urgent.length, URGENT_KEEP);
@@ -1672,14 +1779,17 @@ export class GameShell {
     const inGameView = playing && this.input.inWindow && this.panels.at(pos) === null;
     this.selector.hover(pos);
     this.selector.frame(inGameView && !this.commands.placing && !this.commands.area);
-    this.visuals.update(this.selection.list(), this.selector.highlighted, this.player, now);
+    this.world.hover?.(this.selector.highlighted);
+    this.visuals.update(this.selection.list(), this.player, now);
     this.minimap.draw(this.cam.footprint());
-    // The units at a timed action: their bars, and the bubbles that stay while the bars run (Jade's Patch 3).
-    const tinkering = this.game.tinkering();
-    const sitting = new Set(tinkering.map(([id]) => id));
-    // No random remarks while the game is paused (Jade's patch notes 1).
-    this.bubbles.update(now, { head: (id) => this.headOnScreen(id), roof: (id) => this.roofOnScreen(id) }, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting);
-    this.tinkerBars.update(tinkering, (id) => this.headOnScreen(id));
+    // Patch 5: each unit's and building's bar stack, the stars over other players' things and the damage numbers
+    // (world-marks.ts); the units at a timed action have their bar there.
+    this.drawMarks(now);
+    // The bubbles that stay while a timed action's bar runs (Jade's Patch 3).
+    const sitting = new Set(this.game.tinkering().map(([id]) => id));
+    // No random remarks while the game is paused (Jade's patch notes 1). Bubbles sit over the bar stacks.
+    const anchor = { head: (id: number) => this.overMarks(`e:${id}`, this.headOnScreen(id)), roof: (id: number) => this.overMarks(`b:${id}`, this.roofOnScreen(id)) };
+    this.bubbles.update(now, anchor, () => this.remarkers(), this.opts.session.stopped(), this.game.step, sitting);
 
     // The placement ghost follows the cursor over the game view.
     const ghost = this.commands.updatePlacing(inGameView ? this.cam.pick(pos) : null, now);
@@ -1707,7 +1817,9 @@ export class GameShell {
     // Cursor shape.
     const overMinimap = playing && this.input.inWindow && this.overMinimapCanvas(pos);
     const t = this.commands.targeting;
-    if (t && (inGameView || overMinimap)) this.input.cursor.setShape({ kind: 'target', colour: t.command === 'rally' ? TARGET_YELLOW : t.command === 'attack' || (t.command === 'cast' && SPELLS[t.spell ?? 0]?.target !== 'ally') ? TARGET_RED : TARGET_GREEN });
+    const tool = t ? TOOL_CURSORS[t.command] : undefined;
+    if (tool && inGameView) this.input.cursor.setShape({ kind: 'tool', tool });
+    else if (t && (inGameView || overMinimap)) this.input.cursor.setShape({ kind: 'target', colour: t.command === 'rally' ? TARGET_YELLOW : t.command === 'attack' || (t.command === 'cast' && SPELLS[t.spell ?? 0]?.target !== 'ally') ? TARGET_RED : TARGET_GREEN });
     else if (this.commands.area && inGameView) this.input.cursor.setShape({ kind: 'target', colour: TARGET_YELLOW });
     else if (this.godPick >= 0 && inGameView) this.input.cursor.setShape({ kind: 'target', colour: TARGET_GREEN });
     else if (this.edgeDir) this.input.cursor.setShape({ kind: 'pan', dx: this.edgeDir.dx, dy: this.edgeDir.dy });
@@ -1739,19 +1851,23 @@ export class GameShell {
     o.begin();
     const lift = 0.15;
     const pt = (x: number, z: number): THREE.Vector3 => new THREE.Vector3(x, h(x, z) + lift, z);
+    this.flags.begin();
     for (const t of this.selection.list()) {
       const b = this.buildingOf(t);
       if (b && b.owner === this.player && b.rally.length > 0) {
         let from = pt(t.centre.x, t.centre.z);
-        for (const r of b.rally) {
-          const to = this.rallyPoint(r);
+        for (let k = 0; k < b.rally.length; k++) {
+          const to = this.rallyPoint(b.rally[k]!);
           if (!to) continue;
           o.dashed(from, to, RALLY);
-          o.ring(to.x, to.z, 0.5, RALLY, h);
+          // Patch 5 (GP-23): the route ends in a little yellow flag.
+          if (k === b.rally.length - 1) this.flags.flag(to.x, to.y - lift, to.z, RALLY_COLOUR);
+          else o.ring(to.x, to.z, 0.5, RALLY, h);
           from = to;
         }
       }
     }
+    this.drawOrderLines(o, h, lift);
     if (this.queued()) {
       for (const t of this.selection.list()) {
         const id = entityIdOf(t.key);
@@ -1767,6 +1883,7 @@ export class GameShell {
         }
       }
     }
+    this.flags.end();
     this.drawSites(o, h);
     if (ghost) {
       // Only the footprint decides whether a building can go there, and its green and red tiles show it;
@@ -1778,6 +1895,62 @@ export class GameShell {
       }
     }
     o.end();
+  }
+
+  /** Patch 5 (GP-23): a dotted line from each moving group of the selection to where its order ends, and the flag or dot there. */
+  private drawOrderLines(o: Overlay, h: (x: number, z: number) => number, lift: number): void {
+    const movers: Mover[] = [];
+    for (const t of this.selection.list()) {
+      const id = t.owner === this.player ? entityIdOf(t.key) : null;
+      const ord = id === null ? undefined : this.game.queues.get(id)?.[0];
+      const m = ord ? this.mover(t, ord) : null;
+      if (m) movers.push(m);
+    }
+    if (movers.length === 0) return;
+    const flagged = new Set<string>();
+    const flag = (x: number, z: number, kind: string, c: THREE.Color): void => {
+      const key = `${kind}:${x.toFixed(1)}:${z.toFixed(1)}`;
+      if (flagged.has(key)) return;
+      flagged.add(key);
+      this.flags.flag(x, h(x, z), z, c);
+    };
+    for (const l of orderLines(movers)) {
+      const c = orderColour(l.kind);
+      o.dotted(l.x, l.z, l.endX, l.endZ, (x, z) => h(x, z) + lift, c);
+      if (l.kind === 'attack') {
+        const tg = this.fresh.get(`e:${l.target}`);
+        if (tg && !flagged.has(tg.key)) {
+          flagged.add(tg.key);
+          this.flags.dot(tg.centre.x, tg.centre.y, tg.centre.z);
+        }
+        continue;
+      }
+      flag(l.endX, l.endZ, l.kind, c);
+      if (l.kind === 'patrol' && l.backX !== undefined && l.backZ !== undefined) flag(l.backX, l.backZ, l.kind, c);
+    }
+  }
+
+  /** A selected unit on a move, an attack-move, a patrol or an attack: where it stands and where its order ends (GP-23). */
+  private mover(t: Selectable, ord: import('@blockyrts/sim').UnitOrder): Mover | null {
+    const at = { x: t.centre.x, z: t.centre.z };
+    switch (ord.t) {
+      case 'move':
+      case 'attackMove':
+        return { ...at, kind: ord.t, endX: ord.x / WU_PER_METRE, endZ: ord.z / WU_PER_METRE };
+      case 'patrol': {
+        const there = ord.leg === 0 ? [ord.x, ord.z] : [ord.x2, ord.z2];
+        const back = ord.leg === 0 ? [ord.x2, ord.z2] : [ord.x, ord.z];
+        return { ...at, kind: 'patrol', endX: there[0]! / WU_PER_METRE, endZ: there[1]! / WU_PER_METRE, backX: back[0]! / WU_PER_METRE, backZ: back[1]! / WU_PER_METRE };
+      }
+      case 'attack': {
+        const tg = this.fresh.get(`e:${ord.id}`);
+        if (tg) return { ...at, kind: 'attack', endX: tg.centre.x, endZ: tg.centre.z, target: ord.id };
+        const u = this.game.unit(ord.id);
+        return u ? { ...at, kind: 'attack', endX: u.x / WU_PER_METRE, endZ: u.z / WU_PER_METRE, target: ord.id } : null;
+      }
+      default:
+        return null;
+    }
   }
 
   /**
@@ -1975,9 +2148,10 @@ export class GameShell {
         keys: [e.key],
         description: e.description,
         icon: e.icon ?? actionIcon(e.action, e.face),
-        className: `cmd${e.menu ? ' menu-item' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}`,
+        className: `cmd${e.menu ? ' menu-item' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.auto ? ' auto-on' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
+        ...(e.right ? { onRightClick: (p: ButtonPress) => e.right!(p) } : {}),
         ...(e.grey ? { onGreyPress: () => e.grey!() } : {}),
       });
       this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
@@ -1988,6 +2162,9 @@ export class GameShell {
     this.input.refreshHover();
   }
 }
+
+/** Commands whose cursor is the tool for the job (Jade's Patch 5, CT-1: "something basic and visually clear that fits it"). */
+const TOOL_CURSORS: Partial<Record<string, ToolCursor>> = { gather: 'axe', hunt: 'spear', repair: 'hammer' };
 
 /** The portrait's window is a button: its tooltip names what is shown, a click centres the camera on it. */
 const PORTRAIT_VIEW = { id: 'portrait-view', face: '', name: 'Portrait', keys: [], description: '', className: 'portrait-view' };

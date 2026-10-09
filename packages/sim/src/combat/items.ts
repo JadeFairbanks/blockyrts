@@ -141,7 +141,7 @@ export const RESEARCH: readonly ResearchSpec[] = [
   {
     // Retired: the halberd is the long-melee tier 7 weapon, opened at the Forge's steel step and by Steel (Troops and gear).
     id: Research.Halberds, name: 'Halberds', key: '', cost: [], steps: 0, retired: true,
-    opens: 'Nothing: the steel halberd is long melee tier 7.',
+    opens: 'Nothing: the steel halberd is the halberdier\'s weapon, tier 7.',
   },
   {
     // One crossbow research (Jade), after Steel (s): the tier 7 steel-prod crossbow for rangers.

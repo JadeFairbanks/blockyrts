@@ -17,8 +17,8 @@ import { REMARKS, type BubbleHold } from '@blockyrts/sim';
 import { oneIsSingular } from './wording.ts';
 import type { YesNoButtons } from './yes-no.ts';
 
-/** How long a bubble stays, ms: a base and a little more per character (s). */
-const BUBBLE_MS = 3500;
+/** How long a bubble stays, ms: a base and a little more per character (s). Jade's Patch 5 (UI-19): a second longer than before (3.5 s). */
+const BUBBLE_MS = 4500;
 const BUBBLE_MS_PER_CHAR = 40;
 /** A long bubble (hold 'long') stays this many times as long (Jade's Patch 3: twice). */
 const LONG_BUBBLE_TIMES = 2;
