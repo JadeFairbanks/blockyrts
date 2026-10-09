@@ -16,7 +16,7 @@ import { atWar } from '../peoples/types.ts';
 import { Role } from '../threats/types.ts';
 import { speciesSpec } from '../animals/species.ts';
 import { Hit, type MeleeStats } from './items.ts';
-import { aTroop, CRIT, gearSpec, SECOND_BLOW, Slot, Troop } from '../units/kits.ts';
+import { aTroop, CRIT, DREADNOUGHT_GEAR, dreadnoughtBlow, gearSpec, SECOND_BLOW, Slot, Troop } from '../units/kits.ts';
 import { workerMelee } from '../units/tools.ts';
 import { isWoodsman, WOODSMAN } from '../units/woodsman.ts';
 import { BLAST, BURST, CLIMBING_DAMAGE_BP, flies, Mob, mobSpec, Moves, SWOOP_HEIGHT } from './mobs.ts';
@@ -245,9 +245,15 @@ function handMelee(state: SimState, i: number, second = false): MeleeStats {
     const m = (second ? g.melee2 : undefined) ?? g.melee;
     // A woodsman deals 2 less than a warrior with the same weapon (Jade's WD-3).
     if (m && isWoodsman(e, i)) return { ...m, damage: Math.max(1, m.damage - WOODSMAN.damageLess) };
+    // The Dreadnought with anything but his own mace (Patch 7): a smash at 1.5 times, then a sweep, in turn.
+    if (m && isDreadnought(e, i) && id !== DREADNOUGHT_GEAR.mace) return dreadnoughtBlow(m, second);
     if (m) return m;
   }
   return workerMelee(e, i);
+}
+
+function isDreadnought(e: SimState['entities'], i: number): boolean {
+  return e.kind[i] === UnitKind.Warrior && e.troop[i] === Troop.Dreadnought;
 }
 
 /**
@@ -258,7 +264,8 @@ function handMelee(state: SimState, i: number, second = false): MeleeStats {
 export function nextBlow(state: SimState, i: number): number {
   const e = state.entities;
   const id = e.weapon[i]!;
-  if (!id || !gearSpec(id).melee2) return Slot.Weapon;
+  // The Dreadnought's blows go back and forth with any weapon, as with his mace (Patch 7, Jade).
+  if (!id || (!gearSpec(id).melee2 && !isDreadnought(e, i))) return Slot.Weapon;
   return e.atkWith[i] === Slot.Weapon ? SECOND_BLOW : Slot.Weapon;
 }
 

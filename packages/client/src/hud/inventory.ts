@@ -22,7 +22,8 @@ TRINKET_METALS.forEach((_, m) => TRINKET_TIERS.forEach((_t, t) => trinkets.push(
  * have no slot.
  */
 export const INVENTORY_GROUPS: ReadonlyArray<{ name: string; items: readonly Res[] }> = [
-  { name: 'Woods', items: [Res.SoftwoodLumber, Res.HardwoodLumber, Res.Sticks, Res.Planks, Res.Resin] },
+  // Patch 7: witchwood, from casters' staffs.
+  { name: 'Woods', items: [Res.SoftwoodLumber, Res.HardwoodLumber, Res.Sticks, Res.Planks, Res.Resin, Res.Witchwood] },
   { name: 'Stone and flint', items: [Res.Stone, Res.Flint, Res.Obsidian, Res.Marble, Res.Bluestone, Res.Earth, Res.Clay, Res.Sand] },
   {
     name: 'Ores',

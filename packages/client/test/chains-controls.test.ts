@@ -6,7 +6,7 @@
 // digs a level tunnel the same way; right click, Esc or Done ends a chain.
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, Res, RESOURCE_COUNT, SiteKind, TUNNEL_HEIGHT_UNITS, type Order, type UnitOrder } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, Res, NO_CARRY, RESOURCE_COUNT, SiteKind, TUNNEL_HEIGHT_UNITS, type Order, type UnitOrder } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { Commands, stretchBoxes, type CommandDeps } from '../src/hud/commands.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
@@ -36,7 +36,7 @@ function game(w: World = {}): GameInfo {
     data[o + S.rank] = 1;
     data[o + S.hp] = 60;
     data[o + S.maxHp] = 60;
-    data[o + S.carryRes] = 255;
+    data[o + S.carryRes] = NO_CARRY;
   }
   g.onState({ type: 'state', step: 10, hash: 0, hashStep: 0, count: 2, data, shots: new Int32Array(0), hits: [] });
   const pool = new Int32Array(RESOURCE_COUNT);

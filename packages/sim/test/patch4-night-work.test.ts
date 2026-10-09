@@ -496,9 +496,9 @@ describe('out again at dawn (Jade\'s Patch 4)', () => {
     const e = s.entities;
     const b = bigHouse(s);
     b.level = 3;
-    // Its 8 places up top taken: the three warriors and five crewmen.
+    // Its 8 places up top taken: the three warriors, the spearman (Patch 7) and four crewmen.
     const [bx, bz] = [(b.x + 2) * WU_PER_COLUMN, (b.z + 2) * WU_PER_COLUMN];
-    const crew = [0, 1, 2, 3, 4].map((k) => addCrewman(s, 0, bx + (8 + k) * M, bz));
+    const crew = [0, 1, 2, 3].map((k) => addCrewman(s, 0, bx + (8 + k) * M, bz));
     const men = [...units(s, UnitKind.Warrior)];
     expect(men.length).toBe(8);
     expect(men).toEqual(expect.arrayContaining(crew));

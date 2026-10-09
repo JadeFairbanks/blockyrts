@@ -1,7 +1,10 @@
 // The Dreadnought (Patch 5, Jade, GP-21): a player's unit hired at the
 // Tavern. He is a troop of his own type (units/kits.ts Troop.Dreadnought)
-// with the mace and plate of his model for good (DREADNOUGHT_KIT): no kit
-// to upgrade, no shield, no ranks. He is paid for with 100 food and 15 gold
+// with the mace and plate of his model (DREADNOUGHT_KIT): no kit to
+// upgrade, no shield, no ranks. Patch 7 (plan 2.3): the mace is an item he
+// can take off and swap for any two-handed area weapon, and his plate is the
+// Fluted Gothic harness in his look; offered any other weapon he says
+// "I need something for smashing." (sayNeedSmashing). He is paid for with 100 food and 15 gold
 // ingots' worth of gold and silver, mixed as the player likes (one gold
 // ingot is worth 7 silver), never under and at most a little over; he eats
 // 3 food a meal and takes 8 supply; a player has at most 1 alive at a tier 3
@@ -15,7 +18,7 @@ import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { hash32 } from '../rng.ts';
 import { addWarrior, OrderKind, UnitKind, type EntityStore, type SimState } from '../state.ts';
 import { say } from '../peoples/speech.ts';
-import { Troop } from './kits.ts';
+import { DREADNOUGHT_GEAR, SMASHING_LINE, Troop } from './kits.ts';
 
 /** The Dreadnought's row (Jade, GP-21; s where she gave no number). */
 export const DREADNOUGHT = {
@@ -112,6 +115,9 @@ export function addDreadnought(state: SimState, owner: number, x: number, z: num
   const e = state.entities;
   e.hp[i] = DREADNOUGHT.hp;
   e.maxHp[i] = DREADNOUGHT.hp;
+  // He comes with his mace and the harness in his look; from then on they are his to swap (Patch 7).
+  e.weapon[i] = DREADNOUGHT_GEAR.mace;
+  e.armour[i] = DREADNOUGHT_GEAR.plate;
   // His slower walk is his gait's (units/moves.ts), on the standard walk addWarrior gives him.
   return i;
 }
@@ -121,6 +127,11 @@ export function dreadnoughtSays(state: SimState, i: number, text: string): void 
   const e = state.entities;
   say(state, i, text, false, true);
   state.hits.push({ look: 'warcry', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
+}
+
+/** He says he needs something for smashing (plan 2.3), with his war cry: offered a weapon he cannot use, by a greyed click or a drag. */
+export function sayNeedSmashing(state: SimState, i: number): void {
+  dreadnoughtSays(state, i, SMASHING_LINE);
 }
 
 /** His line on being hired. */

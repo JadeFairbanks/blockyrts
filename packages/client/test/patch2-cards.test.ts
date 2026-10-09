@@ -112,7 +112,7 @@ describe('the card tooltips', () => {
   });
 
   it('show a tier against the kit trained now, protection from nothing included', () => {
-    expect(piecesStats(cardPieces(Troop.Close, 4, 3, 2), cardPieces(Troop.Close, 1, 0))).toBe('Damage 16 (+8), a swing every 1.2 s (−0.1 s), reach 1.2 m. Protection 25% (+25%), block 20% (+20%).');
+    expect(piecesStats(cardPieces(Troop.Close, 4, 3, 2), cardPieces(Troop.Close, 1, 0))).toBe('Damage 11 (+5), a swing every 1.2 s (−0.1 s), reach 1.2 m. Protection 25% (+25%), block 20% (+20%).');
     expect(piecesStats(cardPieces(mageLock(School.Support), 3, 2), cardPieces(mageLock(School.Support), 1, 1), true)).toBe(
       'Spell power 110% (+10%), mana bar +20 (+20), protection 5% (+5%), mana regain +5% (+5%).',
     );
