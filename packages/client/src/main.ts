@@ -11,10 +11,13 @@ import { loadSettings } from './settings/settings.ts';
 import { startFromUrl } from './start/seed.ts';
 import { resetPasswordPage } from './ui/account.ts';
 import { Screen } from './ui/dom.ts';
+import { startInstall } from './ui/install.ts';
 import { mainMenu, menuStartFromHash, newSoloPlan, type MenuStart } from './ui/main-menu.ts';
 import { askTouch, hasTouchScreen, touchQuestionDue } from './ui/touch-ask.ts';
 
 async function main(): Promise<void> {
+  // The install offer can come at any time; the service worker registers once the page is in.
+  startInstall();
   const app = document.getElementById('app')!;
   const settings = loadSettings();
   const api = new Api();

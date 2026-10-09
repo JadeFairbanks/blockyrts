@@ -1,7 +1,8 @@
 // The main menu (Outside the match): New game, Load game, Join game, How to
 // play, Patch notes (with the newest update's name), Settings, Account and
-// Quit, with the F11 reminder and a Full screen button. Each choice is a
-// page in the same box, except How to Play and the patch notes, which open
+// Quit, with the F11 reminder and the Full screen and Install app buttons
+// (Install app only where the browser can install the game: install.ts).
+// Each choice is a page in the same box, except How to Play and the patch notes, which open
 // full-window over it; the menu ends with a match to play.
 import { ApiErrorCode, readSaveHeader, SAVE_FORMAT_VERSION, type OpenRoom, type RoomStateMessage, type SaveSummary } from '@blockyrts/protocol';
 import type { MatchPlan } from '../game/match.ts';
@@ -18,6 +19,7 @@ import { accountPage } from './account.ts';
 import lobbyMap from './art/lobby-map.webp';
 import { bookFromHash } from './book-links.ts';
 import { button, el, field, input, Screen, status, whenText } from './dom.ts';
+import { INSTALL_STEPS, installButton } from './install.ts';
 import { lobby } from './lobby.ts';
 import { LATEST_PATCH, latestSeen } from './patch-notes/notes.ts';
 import { supportFacts, supportProblems } from './support.ts';
@@ -120,7 +122,16 @@ export function mainMenu(app: HTMLElement, ctx: MenuContext, start: MenuStart = 
       const fs = el('div', 'row fullscreen-row', undefined, box);
       el('span', `note f11${IS_MAC ? ' mac' : ''}`, `Press ${IS_MAC ? 'Ctrl + Cmd + F' : 'F11'} for full screen: some controls, such as Ctrl + number groups, only work in full screen.`, fs);
       button(fs, 'Full screen', () => void document.documentElement.requestFullscreen?.().catch(() => undefined));
+      installButton(fs, installSteps);
       el('p', 'note version', GAME_VERSION, box);
+    };
+
+    // ---- Install app, where the browser has no install box of its own ----
+    const installSteps = (way: keyof typeof INSTALL_STEPS): void => {
+      const box = screen.page('Install the game');
+      const list = el('ol', 'install-steps', undefined, box);
+      for (const step of INSTALL_STEPS[way]) el('li', '', step, list);
+      backRow(box);
     };
 
     // ---- New game ----

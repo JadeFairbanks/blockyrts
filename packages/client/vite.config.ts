@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import { readSimDocs } from '@blockyrts/balance/node';
 import type { SimDocs } from '@blockyrts/balance';
+import { pwaPlugin } from './pwa.ts';
 import { sitePlugin, siteUrl } from './site.ts';
 
 // `pnpm dev` passes the game server's routes to a local server (pnpm --filter
@@ -44,7 +45,7 @@ function simExports(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [sitePlugin(site), simExports()],
+  plugins: [sitePlugin(site), pwaPlugin(), simExports()],
   define: { 'import.meta.env.VITE_BUILD_DAY': JSON.stringify(buildDay) },
   // How to Play's worker reads the sim's export list too.
   worker: { format: 'es', plugins: () => [simExports()] },

@@ -4653,6 +4653,35 @@ blueprint/site-gate-labeling-picks.md; how it works in deploy/README.md,
    SITE_LOGIN_HASH=<a bcrypt hash>` (after copying `static/_routes.json`
    into the dist folder) and sign in at http://localhost:8788.
 
+## How a tester checks the installable app
+
+*The game installs as an app from the main menu's **Install app** button,
+beside **Full screen**. Picks in blueprint/pwa-install-picks.md; how it works
+in deploy/README.md, "Installable app".*
+
+1. **The tests.** `pnpm test` runs packages/client/test/pwa-install.test.ts:
+   the manifest and its icon sizes; the service worker run against
+   stand-ins (only the build's files under `/assets/` are kept, never a page,
+   an error or a page sent in a file's place; older builds' stores are
+   emptied); and which browsers get the install box, the steps, or no button.
+   After a client build, `node packages/client/test-e2e/pwa-look.mjs` checks
+   the same in Chromium with a stand-in for the sign-in page, and compares a
+   match's frame times with and without the worker.
+2. **Chrome or Edge on a computer, after the next deploy.** Sign in; the
+   main menu shows **Install app** beside **Full screen** (it can take a few
+   seconds to appear). Pressing it opens the browser's install box. The
+   installed game opens in its own window with the castle and torch icon,
+   and the button is not shown there.
+3. **Chrome on Android.** **Install app** puts the icon on the home screen;
+   the game opens from it full screen and landscape.
+4. **iPhone or iPad.** **Install app** shows the steps: Share, then Add to
+   Home Screen. The home-screen app asks to sign in once more, then opens
+   without Safari's bars, and shows no button.
+5. **Other browsers.** Safari on a Mac shows File, then Add to Dock; Firefox
+   on Windows shows its web apps button in the address bar; Firefox on
+   Android shows its menu, then Add app to Home screen. Firefox on a Mac or
+   Linux shows no button, since it cannot install web apps.
+
 ## License
 
 Copyright 2026 Jade Fairbanks. All rights reserved; see [LICENSE](LICENSE).
