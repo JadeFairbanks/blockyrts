@@ -255,14 +255,12 @@ function enemiesNear(state: SimState, i: number, x: number, z: number, radius: n
   return out.sort((a, b) => a - b);
 }
 
-/** Every unit within a radius of a spot that is not a player's (Area blast, MB-25), in index order: monsters, wild animals and the peoples, hostile or not. */
+/** Every unit within a radius of a spot that is not a player's (Area blast, MB-25: "every non player unit"), in index order: monsters, wild animals and the peoples, hostile or not, and what nobody owns. */
 function othersNear(state: SimState, i: number, x: number, z: number, radius: number): number[] {
   const e = state.entities;
   const out: number[] = [];
   for (const j of state.grid.near(x, z, radius)) {
     if (j === i || e.hp[j]! <= 0 || e.inside[j] !== 0 || e.owner[j]! < state.players.length) continue;
-    const side = sideOf(state, j);
-    if (side !== Side.Monsters && side !== Side.Wild && side !== Side.Peoples) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > radius + halfWidth(state, j)) continue;
     out.push(j);
   }

@@ -16,6 +16,7 @@ import {
   DUSK_STEPS,
   hashState,
   MANA_SCALE,
+  NEUTRAL,
   mageTrainingProgress,
   Mob,
   payRankCrystals,
@@ -31,6 +32,7 @@ import {
   SPELLS,
   step,
   UnitKind,
+  WALK_SPEED_WU,
   WU_PER_METRE,
   type Order,
   type SimState,
@@ -194,16 +196,20 @@ describe('Area blast (MB-25)', () => {
     const e = s.entities;
     const z = spawn(s, Mob.Zombie, e.x[m]! + 12 * M, e.z[m]!);
     const deer = addAnimal(s, Species.Deer, WILD, e.x[z]! + 1 * M, e.z[z]! + 1 * M, 0, 0);
+    // A wanderer nobody owns is "non player" too (MB-25).
+    const stray = e.add(s.nextEntityId++, NEUTRAL, e.x[z]!, e.y[z]!, e.z[z]! - 1 * M, WALK_SPEED_WU, UnitKind.Wanderer);
     // The warrior stands in the blast too: a player's own unit is spared.
     e.x[w] = e.x[z]! - 1 * M;
     e.z[w] = e.z[z]!;
     e.hp[z] = 1000;
     e.hp[deer] = 1000;
-    const hp = { z: e.hp[z]!, deer: e.hp[deer]!, w: e.hp[w]! };
+    e.hp[stray] = 1000;
+    const hp = { z: e.hp[z]!, deer: e.hp[deer]!, stray: e.hp[stray]!, w: e.hp[w]! };
     run(s, 1, [{ kind: 'cast', player: 0, units: [e.id[m]!], spell: Spell.AreaBlast, target: e.id[z]!, x: 0, z: 0, auto: 0 }]);
     run(s, 3 * SEC);
     expect(e.hp[z]!).toBeLessThan(hp.z);
     expect(e.hp[deer]!).toBeLessThan(hp.deer);
+    expect(e.hp[stray]!).toBeLessThan(hp.stray);
     expect(e.hp[w]).toBe(hp.w);
   });
 });

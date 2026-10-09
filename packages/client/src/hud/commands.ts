@@ -629,9 +629,8 @@ export class Commands {
       const ids = this.unitIds((u) => u.typeKey === active);
       const school = active === 'mage:battle' ? 2 : 1;
       // F is Fortify and Fireball on this card, so Eat has no key here; it is a click.
-      // Patch 5: every spell of her school, and Run/Walk. A support mage's six spells with Energy dart leave no room for Patrol on the card's twelve (s).
-      const spells = cardSpells(school).map((spell) => this.spellEntry(ids, spell));
-      return [attack, ...(spells.length > 5 ? [] : [patrol]), move, ...spells, { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids), pace];
+      // Patch 5: every spell of her school, and Run/Walk; a support mage's six spells with Energy dart make her card thirteen, the card growing a row.
+      return [attack, patrol, move, ...cardSpells(school).map((spell) => this.spellEntry(ids, spell)), { ...this.eatEntry(), key: '' }, this.equipEntry(ids), this.mageRankEntry(ids), pace];
     }
     if (active === 'warrior:crew') {
       // The artillery crewman (Patch 2): siege, so no Hunt and no Upgrade equipment (it has no kit); Crew sends it to an engine, and Retrain makes it a worker (Patch 3).

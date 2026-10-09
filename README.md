@@ -4268,7 +4268,7 @@ effects are `packages/client/src/world/spell-fx.ts`.*
    cooldown.
 2. **The card.** `pnpm dev`, open http://localhost:5173/?seed=1, and make
    mages with the tester tools (**Mage kit**, then the Sanctum). Select a
-   support mage: twelve buttons, Energy dart (D) next to Heal. Heal and
+   support mage: thirteen buttons, Energy dart (D) next to Heal. Heal and
    Energy dart have a ring of violet and white light running round them:
    they are on autocast. Right click Quicken: it gets the ring too; right
    click it again: off. On a phone, hold the button and let go. Select a

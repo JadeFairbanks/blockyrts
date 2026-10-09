@@ -243,7 +243,7 @@ export const SPELLS: readonly SpellSpec[] = [
   {
     id: Spell.EnergyDart, name: 'Energy dart', key: 'D', school: School.Support, rank: 1, hexcraft: false,
     mana: 6, cooldown: 30, range: 16 * M, projectile: true, shot: Shot.EnergyDart, target: 'enemy', effect: 'bolt',
-    amount: 12, radius: 0, steps: 0, bp: 0, vsWalls: 1, clip: 'cast_bolt', model: 'energy_dart', icon: 'icon_spell_arcane_bolt', auto: true, role: 'attack',
+    amount: 12, radius: 0, steps: 0, bp: 0, vsWalls: 1, clip: 'cast_bolt', model: 'energy_dart', icon: 'icon_energy_dart', auto: true, role: 'attack',
     text: 'An arrow made of light flies at one enemy for 12 damage (more at higher ranks). It arcs over a low wall in its way, but never steeply; trees stop it.',
   },
 ];
