@@ -20,7 +20,7 @@
 // units carry their ids for the hidden-unit outlines (Jade's Patch 3,
 // hidden-outlines.ts).
 import * as THREE from 'three';
-import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { engineSpec, gearSpec, HOP_STEPS, MAGE_TOP_RANK, MEATS, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, MarkMode, useTeamKey, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { fowPatch, type FowUniforms } from './fog-material.ts';
@@ -136,8 +136,8 @@ function wear(look: Look, piece: string, parts: readonly string[], stow: number 
   look.attach.push([piece, slot || (stow === Stow.Back ? 'slot_back' : stow === Stow.Hip ? 'slot_hip_r' : slotOf(piece)), stow]);
 }
 
-/** Long pieces stowed point up (polearms, bows and guns); the rest hilt up, blade down. */
-const POINT_UP = /^(spear|pike|halberd|bow|crossbow|musket)/;
+/** Long pieces stowed point up (polearms, bows and guns, and the woodsman's rod); the rest hilt up, blade down. */
+const POINT_UP = /^(spear|pike|halberd|bow|crossbow|musket|fishing_rod)/;
 /** A stowed piece's turn from how it is held, by Stow and whether it points up: slanted across the back, straight down at the hip. */
 const STOW_TURN: Readonly<Record<string, THREE.Matrix4>> = {
   [`${Stow.Back}up`]: new THREE.Matrix4().makeRotationZ(0.45).multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2)),
@@ -802,6 +802,10 @@ export class UnitsView {
   private readonly swingStart = new Map<number, number>();
   /** When each unit's last swing or shot ended (ms), by entity id: a crossbow or gun is reloaded from then. */
   private readonly shotAt = new Map<number, number>();
+  /** When each woodsman last landed a fish (ms), by entity id: he casts again from then (Patch 5). */
+  private readonly caughtAt = new Map<number, number>();
+  /** The woodsmen drawn last frame, by entity id: one who dies lies on his own body. */
+  private readonly woodsmen = new Set<number>();
   /** Each entity's record offset in this frame's state, by id: a hauling animal finds its worker's cart and load. */
   private readonly byId = new Map<number, number>();
   /** When each unit sat down at a timed action (Jade's Patch 2 tinkering), ms, so it sits once and then tinkers. */
@@ -983,10 +987,11 @@ export class UnitsView {
       if (!seen(x, z)) continue;
       // An animal leaves a carcass where it fell, drawn with the props.
       if (h.look === 'death' && h.kind !== undefined && h.kind !== UnitKind.Animal) {
-        const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : h.kind === UnitKind.Warrior ? 'warrior' : h.kind === UnitKind.Mage ? 'mage' : 'worker';
+        const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : h.kind === UnitKind.Warrior ? (this.woodsmen.has(h.id) ? 'woodsman' : 'warrior') : h.kind === UnitKind.Mage ? 'mage' : 'worker';
         this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob: h.kind === UnitKind.Mob ? (h.mob ?? 0) : -1 });
       }
       // Two animals breeding (Patch 5, Jade's BL-10): a heart over each.
+      if (h.look === 'catch') this.caughtAt.set(h.id, now);
       if (h.look === 'heart') this.hearts.spawn(x, y + speciesSpec(h.mob ?? 0).height / WU_PER_METRE + 0.3, z, now);
       const look = HIT_LOOKS[h.look];
       if (look) this.particles.spawn(x, y + (h.look === 'death' ? 0.2 : 0), z, look.colour, look.n, look.speed, look.up);
@@ -1179,14 +1184,18 @@ export class UnitsView {
         ry = seat.y - tall * HIP_SHARE;
       }
       const kin = people ? this.body(peopleUnitSpec(d[o + S.mob]!).model) : null;
-      const pool = kin ?? this.body(kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker');
+      // The woodsman (Patch 5) on his own body.
+      const woodsman = kind === UnitKind.Warrior && d[o + S.troop] === Troop.Woodsman && !people;
+      if (woodsman) this.woodsmen.add(id);
+      const pool = kin ?? this.body(woodsman ? 'woodsman' : kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker');
       const body = pool?.model ?? null;
       // A cart carries the load in its bed; otherwise it is in the arms, the hand or on the shoulder.
       const cart = d[o + S.kit]!;
       const load = this.carried(d, o);
       const inCart = cart === Res.HandCart || cart === Res.OxCart;
-      const c: LookContext = { time: clipT, moving, sinceShot: shot === undefined ? -1 : (now - shot) / 1000, hold: inCart ? '' : load.hold };
-      const look = kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
+      const caught = this.caughtAt.get(id);
+      const c: LookContext = { time: clipT, moving, sinceShot: shot === undefined ? -1 : (now - shot) / 1000, hold: inCart ? '' : load.hold, sinceCatch: caught === undefined ? -1 : (now - caught) / 1000 };
+      const look = woodsman ? woodsmanLook(d, o, body, c) : kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
       const crewman = kind === UnitKind.Warrior && d[o + S.troop] === Troop.Crew && colour !== null;
       const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : crewman ? sooty(colour) : colour;
       let drawn = false;
@@ -1261,6 +1270,8 @@ export class UnitsView {
     this.hoverNow.on = false;
     for (const id of this.swingStart.keys()) if (!live.has(id)) this.swingStart.delete(id);
     for (const id of this.shotAt.keys()) if (!live.has(id)) this.shotAt.delete(id);
+    for (const id of this.caughtAt.keys()) if (!live.has(id)) this.caughtAt.delete(id);
+    for (const id of this.woodsmen) if (!live.has(id)) this.woodsmen.delete(id);
     for (const id of this.tinkerStart.keys()) if (!live.has(id)) this.tinkerStart.delete(id);
     for (const id of this.fired.keys()) if (!live.has(id)) this.fired.delete(id);
     blocks = this.drawCorpses(t, blocks);
@@ -1663,12 +1674,13 @@ function tinkerPose(clips: ReadonlyMap<string, unknown>, sat: number, id: number
   return { clip: 'tinker', t: sat - SIT_DOWN_S + (id % 5) * 0.29 };
 }
 
-/** What a unit's look needs besides its state: seconds into its clip, whether it moved since the last state, seconds since its last shot (-1: none lately), and how it holds what it carries ('' for nothing it holds). */
+/** What a unit's look needs besides its state: seconds into its clip, whether it moved since the last state, seconds since its last shot (-1: none lately), how it holds what it carries ('' for nothing it holds), and seconds since a woodsman landed his last fish (-1: none yet). */
 interface LookContext {
   time: number;
   moving: boolean;
   sinceShot: number;
   hold: Hold | '';
+  sinceCatch: number;
 }
 
 /** The clip a body has, else walking or standing (a warrior carrying meat home has no carry clip). */
@@ -1851,6 +1863,41 @@ function warriorClip(d: Int32Array, o: number, inHand: number, c: LookContext): 
   if (c.sinceShot >= 0 && /^(crossbow|musket|pistol)/.test(model)) return { clip: /^crossbow/.test(model) ? 'crossbow_reload' : 'musket_reload', t: c.sinceShot };
   if (d[o + S.target] !== 0) return { clip: polearm(inHand) ? 'guard_polearm' : 'guard_1h' };
   return { clip: 'idle' };
+}
+
+/**
+ * The woodsman's look (Patch 5, Jade's WD-1 to WD-6): his long weapon in
+ * hand, and his fishing rod on his back; while he fishes the rod (his body's
+ * own part) is in his hand and the weapon on his back, while he forages both
+ * are on his back. His clip: the blow of the weapon, hurt, swimming,
+ * climbing, running away or walking, then casting his line and waiting for
+ * the bite (cast again each time a fish comes up), picking low or high, on
+ * guard with a target, else standing.
+ */
+function woodsmanLook(d: Int32Array, o: number, body: ModelData | null, c: LookContext): Look {
+  const parts = body?.partNames ?? [];
+  const look: Look = { parts: [], attach: [], worn: [], clip: 'idle' };
+  const weapon = d[o + S.weapon]!;
+  const order = d[o + S.order]!;
+  const fishing = order === OrderKind.Fish;
+  const working = fishing || order === OrderKind.ForageLow || order === OrderKind.ForageHigh;
+  for (const p of piecesOf(weapon)) wear(look, p, parts, working ? Stow.Back : Stow.None);
+  if (fishing) wear(look, 'fishing_rod', parts);
+  else wear(look, 'fishing_rod', parts, Stow.Back, 'slot_quiver');
+  const clip = warriorClip(d, o, weapon, c);
+  const busy = d[o + S.swing] !== 0 || (d[o + S.flags]! & UnitFlag.Hurt) !== 0 || c.moving;
+  if (fishing && !busy && body) {
+    const cast = body.clips.get('fish_cast')?.length ?? 0;
+    const since = c.sinceCatch >= 0 ? c.sinceCatch : c.time;
+    const at = ((since % WOODS.fishS) + WOODS.fishS) % WOODS.fishS;
+    look.clip = at < cast ? 'fish_cast' : 'fish_wait';
+    look.t = at < cast ? at : at - cast;
+    return look;
+  }
+  if (working && !busy) clip.clip = order === OrderKind.ForageLow ? 'forage_low' : 'forage_high';
+  look.clip = clipOr(body, clip.clip, c.moving);
+  if (clip.t !== undefined) look.t = clip.t;
+  return look;
 }
 
 /** Colour of a carried load by resource (a few families; the rest sandy). */
