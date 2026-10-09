@@ -19,7 +19,7 @@
 // so the frames a second say little about a real graphics card, and the
 // software drawing holds up the main thread too; --no-draw counts the draws
 // without making them, so the main thread's own time a frame stands alone.
-/* global window, document, performance, requestAnimationFrame, WebGL2RenderingContext -- used inside page callbacks */
+/* global window, document, requestAnimationFrame, WebGL2RenderingContext -- used inside page callbacks */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from '../../tools/node_modules/playwright/index.mjs';
@@ -262,7 +262,7 @@ const fall = await page.evaluate(
     }),
 );
 const slow = fall.filter(([, g]) => g > 60);
-rows.push(`${label} nightfall: ${fall.length} frames over 14 s, mean ${mean(fall.map((x) => x[1])).toFixed(1)} ms, ${slow.length} over 60 ms: ${slow.map(([t, g, s]) => `${g} ms at step ${s}`).join(', ')}`);
+rows.push(`${label} nightfall: ${fall.length} frames over 14 s, mean ${mean(fall.map((x) => x[1])).toFixed(1)} ms, ${slow.length} over 60 ms: ${slow.map(([, g, s]) => `${g} ms at step ${s}`).join(', ')}`);
 results.nightfall = { frames: fall.length, slow };
 console.log(`night at step ${await step()}`);
 
