@@ -93,6 +93,10 @@ export interface Database {
   listMatchSaves(matchId: string, kind: SaveRow['kind']): Promise<SaveRow[]>;
   deleteSave(id: string): Promise<void>;
   totalSaveBytes(accountId: string): Promise<number>;
+  /** Saves of an older format than `formatVersion` whose files are still stored (Patch 5), oldest first, at most `limit`. */
+  outdatedSaves(formatVersion: number, limit: number): Promise<SaveRow[]>;
+  /** A save's file was removed: no file and no size against the quota; the row stays until its owner acknowledges it (Patch 5). */
+  expireSave(id: string): Promise<void>;
 
   close(): Promise<void>;
 }

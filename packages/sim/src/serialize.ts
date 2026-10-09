@@ -172,13 +172,14 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * bump for the whole patch (its stone outcrops change the land a seed makes, so
  * an older snapshot's land no longer matches its seed). 22: Patch 5's foundations
  * (four main base tiers, no blood nights, no earthworks, ramps or gravel). 23:
- * Patch 5's gear (close melee's shield and a ranger's poison tips on every
- * unit, the shield in a troop's product and a Barracks padlock). Every
+ * Patch 5's debugger (godmode keeps each player's own stock aside). 24: Patch
+ * 5's gear (close melee's shield and a ranger's poison tips on every unit,
+ * the shield in a troop's product and a Barracks padlock). Every
  * patch raises it, and a snapshot
  * from any other version is refused, never carried over (Jade, Patch 2: a
  * standing rule).
  */
-export const SNAPSHOT_VERSION = 23;
+export const SNAPSHOT_VERSION = 24;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
@@ -239,6 +240,7 @@ export function serializeState(state: SimState): Uint8Array {
     for (const f of PLAYER_FIELDS) w.i32(p[f]);
     for (const v of p.open) w.i32(v);
     for (const v of p.kept) w.u8(v);
+    for (const v of p.godPool) w.i32(v);
   }
   writeBuildings(w, state.buildings);
   w.u32(state.enclosed.length);
@@ -330,6 +332,10 @@ export function deserializeState(bytes: Uint8Array): SimState {
     for (let j = 0; j < len; j++) {
       const v = r.u8();
       if (j < RESOURCE_COUNT) p.kept[j] = v;
+    }
+    for (let j = 0; j < len; j++) {
+      const v = r.i32();
+      if (j < RESOURCE_COUNT) p.godPool[j] = v;
     }
     players.push(p);
   }
@@ -446,7 +452,7 @@ export function diffStates(a: SimState, b: SimState): string | null {
       if (d) return d;
     }
     for (let k = 0; k < pa.open.length; k++) {
-      const d = scalar(`players[${p}].open[${k}]`, pa.open[k]!, pb.open[k]!) ?? scalar(`players[${p}].kept[${k}]`, pa.kept[k]!, pb.kept[k]!);
+      const d = scalar(`players[${p}].open[${k}]`, pa.open[k]!, pb.open[k]!) ?? scalar(`players[${p}].kept[${k}]`, pa.kept[k]!, pb.kept[k]!) ?? scalar(`players[${p}].godPool[${k}]`, pa.godPool[k]!, pb.godPool[k]!);
       if (d) return d;
     }
   }
