@@ -277,9 +277,9 @@ export class BuildingsView {
   private hasModels(b: BuildingInfo, look: string, own: CatalogueModel[]): CatalogueModel[] {
     const lib = this.models;
     if (!lib || own.length === 0) return [];
-    // A wall's other shapes and damage looks load with it, so it swaps at once (Patch 5).
+    // A wall's other shapes, damage looks and ruins load with it, so it swaps at once (Patch 5).
     if (buildingSpec(b.kind).defence === 'wall') {
-      this.loaded(catalogueIds(b).flatMap((m) => [m.id, m.id.replace(/^wall_/, 'wall_corner_')]).flatMap((id) => [id, `${id}_cracked`, `${id}_broken`]));
+      this.loaded(catalogueIds(b).flatMap((m) => [m.id, m.id.replace(/^wall_/, 'wall_corner_')]).flatMap((id) => [id, `${id}_cracked`, `${id}_broken`, `${id}@ruined`]));
     }
     // Each model in the look where it has one.
     const want = look ? own.map((m) => (lib.listed(`${m.id}@${look}`) ? { ...m, id: `${m.id}@${look}` } : m)) : own;
@@ -349,7 +349,7 @@ export class BuildingsView {
         this.drop(e);
         this.entries.delete(id);
         // Only a fallen building leaves a finished one's place (cancelling takes back an unfinished one).
-        if (e.last.complete) this.fall(e.last, info.step);
+        if (e.last.complete) this.fall(e.last, info.step, e.models);
       }
     }
     this.drawModels(info, now);
@@ -410,9 +410,11 @@ export class BuildingsView {
   }
 
   /** A finished building fell: its ruins stand a while where it stood, when each of its models has them. */
-  private fall(b: BuildingInfo, step: number): void {
+  private fall(b: BuildingInfo, step: number, drawn: readonly CatalogueModel[]): void {
     const lib = this.models;
-    const models = dressed(catalogueIds(b), 'ruined');
+    // A wall's ruins keep its shape and turn (a corner's are the corner's), whatever its damage look.
+    const own = buildingSpec(b.kind).defence === 'wall' && drawn.length > 0 ? drawn.map((m) => ({ ...m, id: m.id.replace(/_(cracked|broken)$/, '') })) : catalogueIds(b);
+    const models = dressed(own, 'ruined');
     if (!lib || models.length === 0 || !models.every((m) => lib.listed(m.id))) return;
     this.loaded(models.map((m) => m.id));
     this.ruins.push({ b, models, fell: step });
