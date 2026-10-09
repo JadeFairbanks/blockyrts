@@ -11,6 +11,7 @@ import { MemoryDatabase } from './db/memory.ts';
 import { PostgresDatabase } from './db/postgres.ts';
 import type { Database } from './db/types.ts';
 import { addressReader, createHttpHandler, tokenOf, type HttpLimits } from './http.ts';
+import { MailInbox } from './mail-jobs.ts';
 import { HttpMailer, type Mailer } from './mailer.ts';
 import { Relay } from './relay/relay.ts';
 import type { RoomTimings } from './relay/room.ts';
@@ -60,6 +61,9 @@ export async function startApp(config: Config, deps: AppDeps = {}): Promise<App>
       if (n > 0) log(`server: removed ${n} save files from older versions of the game`);
     })
     .catch((e: unknown) => log(`server: could not remove outdated saves: ${String(e)}`));
+  // An email to every account, asked for through the save store (Patch 5; deploy/README.md, "Emailing players").
+  const mailInbox = new MailInbox({ db, mailer, blobs, log });
+  mailInbox.start();
   const handler = createHttpHandler({
     accounts,
     saves,
@@ -88,6 +92,7 @@ export async function startApp(config: Config, deps: AppDeps = {}): Promise<App>
     db,
     port,
     async close() {
+      mailInbox.stop();
       await relay.close();
       server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));

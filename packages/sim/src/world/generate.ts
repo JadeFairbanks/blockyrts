@@ -74,7 +74,7 @@ interface Stream {
   width: number;
   depth: number;
 }
-interface Bog {
+export interface Bog {
   x: number;
   z: number;
   r: number;
@@ -89,6 +89,8 @@ interface CellFeatures {
   ponds: Pond[];
   streams: Stream[];
   bogs: Bog[];
+  /** Jade's Patch 5 (MF-2): where the cell's large mana crystal lies, or null (placeLargeCrystal). */
+  crystal: { x: number; z: number } | null;
 }
 /** WL-6's mini mountain: its peak, columns, its foot's radius, columns, and its height, terrain units. */
 export interface Landmark {
@@ -384,6 +386,28 @@ const SPRING_LEVEL_SPREAD = 8;
 export const BOULDER_HALF = 3;
 /** A mountain's pass blends into its flanks over this, columns (s; a ridge's over 10). */
 const MOUNTAIN_GAP_BLEND = 24;
+/** A guarded bog's bog iron (MB-11: "doubled amounts of bog iron"): Table 9's 40, twice over. Every bog has a guardian. */
+const GUARDED_BOG_IRON = 80;
+/** A pocket bog's radius, columns: its 7 m before the noise on its edge (bogsNear). */
+const POCKET_BOG_R = metresToColumns(7);
+/** How many silver nuggets lie on a guarded bog's ground (MB-11, s). */
+const BOG_NUGGETS_MIN = 3;
+const BOG_NUGGETS_MAX = 6;
+/** How far a cell's large mana crystal may lie from its site, columns: a quarter of at most 120 m (cellFeatures), and a step. */
+const CRYSTAL_SPREAD = metresToColumns(30) + 2;
+/** Where a large mana crystal tries to stand, columns from its spot, nearest first (placeLargeCrystal). */
+const CRYSTAL_TRIES: ReadonlyArray<readonly [number, number]> = [
+  [0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2],
+  [2, 2], [-2, 2], [2, -2], [-2, -2], [4, 0], [-4, 0], [0, 4], [0, -4],
+];
+/** A large mana crystal's yield (MF-4: "large mana crystal nodes with 40 mana crystals each"). */
+const LARGE_CRYSTAL_AMOUNT = 40;
+/** How far a large mana crystal keeps off its cell's ponds and bog and off the pockets, columns (s: 3.6 m). */
+const CRYSTAL_CLEAR = 8;
+/** MF-2: "In deadlands they appear at a 5% chance in every cell", per 100,000. */
+const DEADLANDS_CRYSTAL_ODDS = 5000;
+/** MF-2: "about 3 per band in all bands except Deadlands". */
+const FAE_PER_BAND = 3;
 
 /** The three sites nearest a point, nearest first (ties to the lowest id). */
 function nearest3(x: number, z: number, cands: readonly Site[]): [Site, number, Site, number, Site, number] {
@@ -427,6 +451,9 @@ export class WorldGen {
   /** WL-6's mini mountain within 100 to 125 m of the first player's start. */
   readonly landmark: Landmark;
   private readonly springs = new Map<number, Spring | null>();
+  /** How many cells each band from the Heartland to the Barrens has (crystalOdds), and how far a bog strays from its cell's site (bogSpread). */
+  private readonly bandCells: number[] = [];
+  private spread = 0;
   private readonly p = new Profile();
   private readonly s: number[];
 
@@ -682,7 +709,7 @@ export class WorldGen {
   cellFeatures(cell: Cell): CellFeatures {
     let f = this.features.get(cell.id);
     if (f) return f;
-    f = { ponds: [], streams: [], bogs: [] };
+    f = { ponds: [], streams: [], bogs: [], crystal: null };
     const h = (k: number): number => hash2(this.seed, 0x66656174 + cell.id, k);
     const at = (k: number, frac: number): { x: number; z: number } =>
       polar(cell.x, cell.z, h(k) & 0xffff, floorDiv(cell.size * ((h(k) >>> 16) % frac), 1000));
@@ -738,8 +765,30 @@ export class WorldGen {
       const r = metresToColumns(6 + (h(51) % 4));
       if (clearOfPockets(c.x, c.z, r)) f.bogs.push({ x: c.x, z: c.z, r });
     }
+    // Jade's Patch 5 (MF-2): a large mana crystal, about 3 to a band but the Deadlands, where one cell in 20 has one; within 30 m of
+    // the cell's site (s), clear of its water and bog and of the pockets and villages.
+    if (h(5) % 100000 < this.crystalOdds(band)) {
+      const c = polar(cell.x, cell.z, h(60) & 0xffff, floorDiv(Math.min(cell.size, metresToColumns(120)) * ((h(60) >>> 16) % 250), 1000));
+      const clear = (x: number, z: number, r: number): boolean => length2d(x - c.x, z - c.z) > r + CRYSTAL_CLEAR;
+      if (clearOfPockets(c.x, c.z, CRYSTAL_CLEAR) && f.ponds.every((o) => clear(o.x, o.z, o.r)) && f.bogs.every((o) => clear(o.x, o.z, o.r))) f.crystal = c;
+    }
     this.features.set(cell.id, f);
     return f;
+  }
+
+  /**
+   * A cell's chance of a large mana crystal, per 100,000 (MF-2): 3 over
+   * the band's cells for the Heartland to the Barrens, 5% in the Deadlands.
+   */
+  private crystalOdds(band: Band): number {
+    if (band === Band.Deadlands) return DEADLANDS_CRYSTAL_ODDS;
+    if (this.bandCells.length === 0) {
+      const count = [0, 0, 0, 0, 0];
+      count[0] = this.layout.basinIds().length;
+      for (let r = 1; r < this.layout.ringCount; r++) count[this.layout.bandOfRing(r)]! += this.layout.ringCellCount(r);
+      for (let b = 0; b < 4; b++) this.bandCells.push(count[b]!);
+    }
+    return floorDiv(FAE_PER_BAND * 100000, Math.max(FAE_PER_BAND, this.bandCells[band]!));
   }
 
   /**
@@ -796,8 +845,8 @@ export class WorldGen {
     place(2, PropKind.FlintScatter, [20], 32768, 6000, 12, 24, 4);
     place(2, PropKind.Herbs, [10], 32768, 6000, 12, 24, 4);
     place(2, PropKind.WildFlax, [10], 32768, 6000, 12, 24, 4);
-    // Iron: a bog with 40 bog iron, or an iron rock of 60.
-    out.push({ x: pocket.iron.x, z: pocket.iron.z, kind: pocket.bog ? PropKind.BogIron : PropKind.IronRock, amount: pocket.bog ? 40 : 60 });
+    // Iron: a bog with 80 bog iron (40 before Jade's Patch 5, MB-11: doubled in every bog with a guardian), or an iron rock of 60.
+    out.push({ x: pocket.iron.x, z: pocket.iron.z, kind: pocket.bog ? PropKind.BogIron : PropKind.IronRock, amount: pocket.bog ? GUARDED_BOG_IRON : 60 });
     this.pocketPropCache.set(pocket.player, out);
     return out;
   }
@@ -878,7 +927,7 @@ export class WorldGen {
       place(2, PropKind.CopperOutcrop, [60], 820, 200, 26, 40, 6);
       place(1, PropKind.TinOutcrop, [30], 820, 200, 26, 40, 6);
       place(2, PropKind.LooseStone, [40, 20], -820, 200, 24, 38, 5);
-      out.push({ x: pocket.iron.x, z: pocket.iron.z, kind: pocket.bog ? PropKind.BogIron : PropKind.IronRock, amount: pocket.bog ? 40 : 60 });
+      out.push({ x: pocket.iron.x, z: pocket.iron.z, kind: pocket.bog ? PropKind.BogIron : PropKind.IronRock, amount: pocket.bog ? GUARDED_BOG_IRON : 60 });
       this.pocketPropCache.set(pocket.player, out);
     }
   }
@@ -1617,7 +1666,7 @@ export class WorldGen {
     }
     this.placeFlax(cx, cz, c, trees.length, add);
     this.placeMushrooms(cx, cz, c, trees, add);
-    // A hot spring's sulphur on its rim (WL-11), and bog iron at the Heartland's bogs.
+    // A hot spring's sulphur on its rim (WL-11), and bog iron at the Heartland's bogs, doubled (MB-11).
     const spring = this.chunkSpring(cx, cz);
     if (spring) add(PropKind.HotSpringSulphur, spring.x + 7 - x0, spring.z - z0, 20, 0, hash2(this.seed, spring.x + 7 - x0, spring.z - z0));
     const seen = new Set<number>();
@@ -1630,11 +1679,101 @@ export class WorldGen {
         for (const bog of feat.bogs) {
           const bx = bog.x - x0;
           const bz = bog.z - z0;
-          if (bx >= 0 && bz >= 0 && bx < N && bz < N) add(PropKind.BogIron, bx, bz, 40, 0, hash2(this.seed, bog.x, bog.z));
+          if (bx >= 0 && bz >= 0 && bx < N && bz < N) add(PropKind.BogIron, bx, bz, GUARDED_BOG_IRON, 0, hash2(this.seed, bog.x, bog.z));
         }
       }
     }
+    // Jade's Patch 5: silver nuggets on the ground of every bog with a guardian (MB-11), and the large mana crystals the Fae Guardians keep (MF-2).
+    for (const bog of this.bogsNear(x0 + (N >> 1), z0 + (N >> 1), N)) this.placeNuggets(bog, x0, z0, c, add);
+    this.placeLargeCrystal(cx, cz, c, add);
     return props;
+  }
+
+  /**
+   * Every bog whose middle lies within `radius` columns of (x, z): the
+   * cells' (the Heartland's and the Fringe's) and the pockets' (Table 9's
+   * iron). Since Jade's Patch 5 (MB-11) each has a Bog guardian: every bog
+   * the land makes is some 110 to 250 m2, well over her "approximately 18m
+   * squared".
+   */
+  bogsNear(x: number, z: number, radius: number): Bog[] {
+    const out: Bog[] = [];
+    for (const p of this.start.pockets) {
+      if (p.bog && length2d(p.iron.x - x, p.iron.z - z) <= radius) out.push({ x: p.iron.x, z: p.iron.z, r: POCKET_BOG_R });
+    }
+    for (const site of this.layout.sitesNear(x, z, radius + this.bogSpread())) {
+      const cell = this.layout.cell(site.id);
+      if (cell.band > Band.Fringe) continue;
+      for (const bog of this.cellFeatures(cell).bogs) if (length2d(bog.x - x, bog.z - z) <= radius) out.push(bog);
+    }
+    return out;
+  }
+
+  /**
+   * The spots of every large mana crystal (MF-2) within `radius` columns of
+   * (x, z): where each cell's stands, or a few columns round it
+   * (placeLargeCrystal); a spot whose columns were all taken has none.
+   */
+  crystalsNear(x: number, z: number, radius: number): Array<{ x: number; z: number }> {
+    const out: Array<{ x: number; z: number }> = [];
+    for (const site of this.layout.sitesNear(x, z, radius + CRYSTAL_SPREAD)) {
+      const spot = this.cellFeatures(this.layout.cell(site.id)).crystal;
+      if (spot && length2d(spot.x - x, spot.z - z) <= radius) out.push(spot);
+    }
+    return out;
+  }
+
+  /** How far a cell's bog may lie from the cell's site, columns: a quarter of the largest cell of the bands with bogs (cellFeatures). */
+  private bogSpread(): number {
+    if (this.spread === 0) {
+      let most = 0;
+      for (let r = 0; r < this.layout.ringCount; r++) if (this.layout.bandOfRing(r) <= Band.Deepwoods) most = Math.max(most, this.layout.ringSize(r));
+      this.spread = floorDiv(most, 4) + 8;
+    }
+    return this.spread;
+  }
+
+  /**
+   * A bog's silver nuggets (MB-11) that lie in this chunk: 3 to 6 of them
+   * (s), 1 silver each, on the bog's ground within half its reach of its
+   * middle, never on another prop. They do not grow back.
+   */
+  private placeNuggets(bog: Bog, x0: number, z0: number, c: ChunkLand, add: AddProp): void {
+    const h = hash2(this.seed ^ 0x6e756767, bog.x, bog.z);
+    const n = BOG_NUGGETS_MIN + (h % (BOG_NUGGETS_MAX - BOG_NUGGETS_MIN + 1));
+    for (let k = 0; k < n; k++) {
+      const hk = hash2(h, 0x6e756767, k);
+      const at = polar(bog.x, bog.z, hk & 0xffff, 3 + ((hk >>> 16) % Math.max(1, (bog.r >> 1) - 2)));
+      const lx = at.x - x0;
+      const lz = at.z - z0;
+      if (lx < 0 || lz < 0 || lx >= N || lz >= N || c.taken[lz * N + lx]) continue;
+      add(PropKind.SilverNugget, lx, lz, 1, 0, hk);
+    }
+  }
+
+  /**
+   * The large mana crystal a chunk holds (MF-2, MF-4: "about 3 per band in
+   * all bands except Deadlands. In deadlands they appear at a 5% chance in
+   * every cell"): its cell's (cellFeatures), when that falls in this chunk,
+   * on the first dry, level and free column at or round its spot.
+   */
+  private placeLargeCrystal(cx: number, cz: number, c: ChunkLand, add: AddProp): void {
+    const x0 = cx * N;
+    const z0 = cz * N;
+    for (const site of this.layout.sitesNear(x0 + (N >> 1), z0 + (N >> 1), N + CRYSTAL_SPREAD)) {
+      const spot = this.cellFeatures(this.layout.cell(site.id)).crystal;
+      // Only the chunk its spot lies in places it, so no two chunks each find a column for it.
+      if (!spot || spot.x >> CHUNK_SHIFT !== cx || spot.z >> CHUNK_SHIFT !== cz) continue;
+      for (const [ox, oz] of CRYSTAL_TRIES) {
+        const lx = spot.x + ox - x0;
+        const lz = spot.z + oz - z0;
+        if (lx < 0 || lz < 0 || lx >= N || lz >= N) continue;
+        const i = lz * N + lx;
+        if (c.taken[i] || c.flags[i]! & (F_WATER | F_BARRIER | F_MARSH | F_BANK)) continue;
+        add(PropKind.LargeManaCrystal, lx, lz, LARGE_CRYSTAL_AMOUNT, 0, hash2(this.seed, spot.x, spot.z));
+        break;
+      }
+    }
   }
 
   /**

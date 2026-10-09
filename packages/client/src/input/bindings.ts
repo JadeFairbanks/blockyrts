@@ -80,6 +80,8 @@ export const ACTIONS: readonly Action[] = [
   ...defenseMenuActions(),
   { id: 'idle', name: 'Idle Gatherer', key: 'F1', group: 'Camera and selection' },
   { id: 'army', name: 'Select Army', key: 'F2', group: 'Camera and selection' },
+  // Jade's Patch 5 (WD-4): on F7, the key of the camera spot it replaced (s).
+  { id: 'woodsmen', name: 'Select All Woodsmen', key: 'F7', group: 'Camera and selection' },
   { id: 'clear', name: 'Clear selection', key: 'F3', group: 'Camera and selection' },
   { id: 'townhall', name: 'Town Hall', key: 'Backspace', group: 'Camera and selection' },
   // Jade's patch notes 1: Space centres the camera on the selection, so the latest urgent message moves to F4 (s).

@@ -109,6 +109,12 @@ export const Mob = {
   MorvathAloft: 80,
   /** Jade's Patch 5 (MB-5): comes with the waves on his nights, on top of their threat (threats/necromancer.ts). */
   Necromancer: 81,
+  /** Jade's Patch 5 (MB-11, MB-12): a large ogre with a club who keeps a bog (threats/keepers.ts). */
+  BogGuardian: 82,
+  /** Jade's Patch 5 (MF-1 to MF-12): the mana fairy keeping a large mana crystal node, low over it while calm (threats/keepers.ts)... */
+  FaeGuardian: 83,
+  /** ...and high and fast once she has been attacked, for good. */
+  FaeGuardianAloft: 84,
 } as const;
 export type Mob = (typeof Mob)[keyof typeof Mob];
 
@@ -250,6 +256,17 @@ const MORVATH: MobRow = {
   ...base, id: Mob.Morvath, name: 'Morvath, the Hollow Crown', model: 'morvath', firstNight: 110, hp: 25000, armourBp: 5000, damageTenths: 2000, attackSteps: ds(20), reach: cm(400), speed: v10(25), vsWalls: 400,
   moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 5000, halfWidth: cm(80), height: cm(450), demon: Demon.Purple,
   drops: [{ res: Res.ManaCrystal, min: 20, max: 20, chancePm: 1000 }, { res: Res.Gold, min: 10, max: 10, chancePm: 1000 }, { res: Res.Diamonds, min: 3, max: 3, chancePm: 1000 }],
+};
+
+/**
+ * The Fae Guardian (Jade's Patch 5, MF-3, MF-7, MF-8): 300 health, a bolt every 5 s for 30 with 30 to all else within 2 m (Shot.FairyBolt);
+ * low enough for a polearm while calm. Range and speed (s); XP by the header rule, health / 50. Drops are threats/keeper-loot.ts.
+ */
+const FAE: MobRow = {
+  ...base, id: Mob.FaeGuardian, name: 'Fae Guardian', model: 'fairy', firstNight: 0, hp: 300, damageTenths: 300, attackSteps: ds(50),
+  reach: cm(120), range: cm(1600), shot: Shot.FairyBolt, spreadBp: 200, speed: v10(20), vsWalls: 0,
+  moves: Moves.LowFlyer, sun: Sun.Proof, comes: Comes.Never, xpTenths: 60, halfWidth: cm(45), height: cm(210),
+  drops: [],
 };
 
 /** Every mob as written; MOBS adds each one's threat. */
@@ -564,6 +581,17 @@ const MOB_ROWS: readonly MobRow[] = [
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Never, xpTenths: 60, halfWidth: cm(35), height: cm(200),
     drops: [],
   },
+  {
+    // Jade's Patch 5 (MB-11): 400 health, 70 a blow every 5 s; his walk slower than a walking worker (1.6 m/s, s), his run faster than a running
+    // one (threats/keepers.ts). Never burns. Drops are threats/keeper-loot.ts. Armour, reach and vs walls (s); XP by the header rule, health / 50.
+    ...base, id: Mob.BogGuardian, name: 'Bog guardian', model: 'bog_guardian', firstNight: 0, hp: 400, armourBp: 1000, damageTenths: 700, attackSteps: ds(50),
+    reach: cm(220), speed: v10(16), vsWalls: 40,
+    moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 80, halfWidth: cm(75), height: cm(340),
+    drops: [],
+  },
+  FAE,
+  // MF-3: "When aggroed, it flies higher, only able to be hit by ranged (including spells with enough range) ... and it starts moving faster" (s: 4.5 m/s).
+  { ...FAE, id: Mob.FaeGuardianAloft, moves: Moves.HighFlyer, speed: v10(45) },
 ];
 
 /**

@@ -332,10 +332,14 @@ export class StartBasin {
     mx = floorDiv(mx, basin.length);
     mz = floorDiv(mz, basin.length);
     this.stands = stands(layout, mx, mz, rot, h(1));
+    // Jade's Patch 5 (MB-11): "at least one bog with bog guardian within 70m of one of the players main base". A
+    // pocket's bog lies 34 to 56 m from its main base, so when no pocket rolls one the first pocket takes a bog (s).
+    const bogs: boolean[] = [];
+    for (let p = 0; p < n; p++) bogs.push((h(10 + p) >>> 21) % 10 < 8);
+    if (!bogs.includes(true)) bogs[0] = true;
     for (let p = 0; p < n; p++) {
       const st = this.stands[p]!;
-      const hp = h(10 + p);
-      const bog = (hp >>> 21) % 10 < 8;
+      const bog = bogs[p]!;
       // Water and iron are their first tries until settle() finds them fit land.
       const water = this.waterTry(p, 0).value;
       this.pockets.push({ player: p, x: st.x, z: st.z, outward: st.outward, yard: st.yard, water, bog, iron: { x: st.x, z: st.z } });

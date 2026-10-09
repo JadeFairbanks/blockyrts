@@ -87,6 +87,41 @@ export interface DuskReading {
   building: number;
 }
 
+/**
+ * Jade's Patch 5 (MB-11, MF-1 to MF-12): a Bog guardian keeping a bog, or a
+ * Fae Guardian keeping a large mana crystal (threats/keepers.ts). It goes
+ * when its keeper dies; what it kept stays marked in `guarded`.
+ */
+export interface Keeper {
+  /** The keeper's entity id. */
+  id: number;
+  /** KeeperKind: 0 the Bog guardian, 1 the Fae Guardian. */
+  kind: number;
+  /** What it keeps: the bog's middle or the crystal's column middle, wu; the bog's reach, wu (0 for a crystal). */
+  x: number;
+  z: number;
+  r: number;
+  /** KeeperMode. */
+  mode: number;
+  /** The unit it is about (an entity id, 0 for none): the gatherer it asked about, or the one it is after. */
+  unit: number;
+  /** The gather order it stopped, to give back on Yes: the prop's chunk and index. */
+  cx: number;
+  cz: number;
+  pi: number;
+  /** The step it next says a line or looks alarmed; the step it next picks a spot to wander to. */
+  next: number;
+  roam: number;
+  /** The step it last greeted or warned the players' units, and whether any were in its ground at its last look (1 or 0). */
+  greeted: number;
+  seen: number;
+  /** The step its mode last changed (a blow struck before it does not count); it stands roaring until `still`. */
+  since: number;
+  still: number;
+  /** 1 once the Fae Guardian has gone for anyone (MF-12: her tooltip stops showing). */
+  riled: number;
+}
+
 export interface ThreatState {
   ruins: Ruin[];
   villages: Village[];
@@ -107,13 +142,15 @@ export interface ThreatState {
   wild: WildPatch[];
   /** Jade's Patch 5 (MB-13): the Deadlands' mana crystals whose guardians have come (world.ts colKey of each crystal's column); never again. */
   guarded: Set<number>;
+  /** Jade's Patch 5 (MB-11, MF-1): the Bog guardians and Fae Guardians alive, in the order they came (their bog's or crystal's column is in `guarded`). */
+  keepers: Keeper[];
 }
 
 /** Morvath's first night (roster 5.25). */
 export const BOSS_FIRST_NIGHT = 110;
 
 export function newThreats(): ThreatState {
-  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], fog: 0, checked: new Set(), tunnels: [], bossNext: BOSS_FIRST_NIGHT, bossHp: 0, bossId: 0, wild: [], guarded: new Set() };
+  return { ruins: [], villages: [], bands: [], burns: [], dusk: [], fog: 0, checked: new Set(), tunnels: [], bossNext: BOSS_FIRST_NIGHT, bossHp: 0, bossId: 0, wild: [], guarded: new Set(), keepers: [] };
 }
 
 /** What a mob is doing in the world besides the night attack (its role field). */
@@ -138,5 +175,7 @@ export const Role = {
   Wild: 8,
   /** Jade's Patch 5 (MB-13): a guardian of the Deadlands' mana crystal at (homeX, homeZ) (threats/guardians.ts): keeps within 5 m of it, chases 8 m. */
   Guardian: 9,
+  /** Jade's Patch 5 (MB-11, MF-1): the Bog guardian of a bog or the Fae Guardian of a large mana crystal, its Keeper record in state.threats.keepers (threats/keepers.ts). */
+  Keeper: 10,
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];

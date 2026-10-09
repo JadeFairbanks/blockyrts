@@ -189,9 +189,9 @@ describe('night 0', () => {
     // fighting them; the zombies chew through the corner late in the night. On this seed none of the three comes
     // through, but every worker does.
     expect(alive(s, UnitKind.Worker)).toBe(4);
-    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs): a zombie and
-    // the slime, last, are in the yard when the sun comes up.
-    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.owner[i] === MONSTERS) expect([Mob.Zombie, Mob.Slime, Mob.SmallSlime]).toContain(e.mob[i]);
+    // Every mob that came was killed or is burning in the dawn (the peoples found nearby are not mobs, nor is the Bog
+    // guardian in his bog, Patch 5 MB-11): a zombie and the slime, last, are in the yard when the sun comes up.
+    for (let i = 0; i < e.count; i++) if (e.kind[i] === UnitKind.Mob && e.owner[i] === MONSTERS && e.mob[i] !== Mob.BogGuardian) expect([Mob.Zombie, Mob.Slime, Mob.SmallSlime]).toContain(e.mob[i]);
   });
 
   it('never ends the game while the Big House stands', () => {

@@ -1,0 +1,44 @@
+name: Email players
+
+# Sends one email to every account on the live server, through the server
+# itself (deploy/README.md, "Emailing players"). Run by hand only. The
+# message is a file in deploy/mail/. Each account gets a message at most
+# once however often this runs, so running it again after a failure sends
+# only to the accounts that did not get it. Leave "Send" unticked for a dry
+# run: it counts the players and shows the message, and sends nothing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: Message file in deploy/mail/, without .txt
+        required: true
+        default: patch-5-live
+      send:
+        description: Send it (unticked is a dry run that only counts)
+        type: boolean
+        default: false
+
+concurrency:
+  group: email-players
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  email:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+      - name: Email players
+        run: deploy/scripts/email-players.sh
+        env:
+          DOMAIN: ${{ vars.DOMAIN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || vars.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          MESSAGE: ${{ inputs.message }}
+          SEND: ${{ inputs.send }}

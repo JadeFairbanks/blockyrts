@@ -3503,9 +3503,11 @@ blueprint/patch5-mobs-picks.md.*
    in crimson round him, then again every 60 s, saying so in a bubble that
    stays 20 s. Every 10 s he casts his crimson bolt: 35 to whoever it hits
    and 35 to anyone within 0.5 m of it. He burns at dawn with his wave.
-   Killed, he drops metal and leather from 2 to 4 weapons or armours (tier 3
-   to 5, higher once you can make higher), 1 to 5 ingots of one kind, 2 to 8
-   bones and now and then a mana crystal.
+   Killed, he drops 2 to 4 weapons or armours, the pieces themselves for the
+   Gear row of the stock (tier 3 to 5, higher once you can make higher), 1 to
+   5 ingots of one kind (carbon steel among them), 2 to 8 bones and now and
+   then a mana crystal. Morvath's drain streams one white mote for every 2
+   health it takes.
 7. **Crystal guardians.** Go out to the Deadlands (Reveal shows the far
    bands). Each mana crystal there gets 2 or 3 ash golems and mana wraiths
    when one of your units first comes within 60 m. They glow with thin
@@ -3518,6 +3520,66 @@ blueprint/patch5-mobs-picks.md.*
    or animal near, the building beside it, what it carries or does, a crowd,
    being alone, the time of day) once every 1 to 4.5 minutes, now and then a
    complaint when hurt or hungry. Nobody remarks while the game is paused.
+
+## How a tester checks the Bog guardian and the Fae Guardian (Patch 5)
+
+*Jade's Patch 5, section 16: a Bog guardian in every bog, with its doubled
+bog iron and silver nuggets (MB-11, MB-12), and a Fae Guardian over every
+large mana crystal (MF-1 to MF-12). Picks in blueprint/patch5-mobs-picks.md.*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-keepers.test.ts:
+   a bog within 70 m of the main base in every game (one seed that would
+   have rolled an iron rock takes a bog), its 80 bog iron and 3 to 6 silver
+   nuggets, its keeper of 400 health coming once a unit is within 60 m (none
+   in a peaceful game); the Bog guardian's greeting, the gatherer's question
+   that never runs out and asks again after a load, No and his thanks, Yes
+   and his roar and run, the promise put to both players once the worker
+   falls, peace on one player's Yes, war and its lines on a No; his healing
+   of 2 a second on his bog and 1 off it; the fairy's 40-crystal node, her
+   question, the thief killed, her settling, her wrath once struck (high and
+   fast) and her healing after 10 s unhurt; how many crystals each band has;
+   and both drop lists.
+2. **The bog.** Start a game and look round the main base: a bog lies within
+   70 m with bog iron (80 now) and a few small silver nuggets on the ground
+   (1 silver each, picked up by hand; they never grow back). A big ogre with
+   a club wanders it. Walk a unit in and he greets it in a bubble, asking
+   it politely not to disturb the bog. Hover him: **Guards this bog -
+   vagabonds beware!** shows for 10 s, then never again for that guardian.
+3. **His question.** Send a worker to pick up a nugget or dig the bog iron.
+   It stops at the bog, he plays his alarmed clip and his outraged bubble
+   stays up, and the worker asks whether to carry on and risk angering the
+   Bog guardian. Neither the bubble nor the question runs out. Other units
+   sent to gather there meanwhile stop and say they will wait. **No:** he
+   thanks you and calms down. **Yes:** the worker carries on; he roars "I
+   didn't want to have to resort to violence, but this bog is my home!",
+   then runs it down (a running worker cannot outrun him; walking, he is
+   slower than a worker). Striking him does the same.
+4. **His promise.** Once the one he chased is dead or out of reach, every
+   player gets his promise question, which never runs out, while he runs
+   about his bog, alarmed every 5 to 20 s. **Yes** from any player: "Peace in
+   the bog is all I ever wanted.", he walks again and every player's
+   question closes. **No:** he goes to war on every player, units first,
+   then buildings, with a new bubble every 10 to 15 s from 30 lines. Taking
+   from his bog while the promise is up angers him again at once.
+5. **The fairy.** Reveal the map and find a large mana crystal (about 3 in
+   each band, and in about 1 cell in 20 in the Deadlands): a big crystal
+   cluster with a small pink fairy hovering low over it. Hover her: **Guards
+   a mana crystal - thieves beware!** Units that come near get a warning
+   bubble. A worker with a bronze pick or better sent to mine it stops and
+   asks whether to risk angering the fairy while she says "Don't you dare
+   even touch my crystal, worm!", until answered. **Yes:** she shoots the
+   worker with her pink-magenta bolts (30 to everyone within 2 m, every 5 s,
+   in a big burst) until it is dead, then settles; her tooltip is gone for
+   good. A spear or halberd reaches her while she is low.
+6. **Her wrath.** Hit her: she rises high, runs, sways up and down
+   erratically and goes for every player's unit near her crystal for good.
+   Only bows, guns and spells reach her now. She heals 1 a second once
+   nothing has hurt her for 10 s.
+7. **Drops.** The Bog guardian: 4 to 10 armours of bronze to iron, 10 to 15
+   silver, up to 2 gold, 3 to 10 weapons of tier 3 to 5 and a gemstone half
+   the time. The Fae Guardian: 1 or 2 trinkets, 1 or 2 weapons or armours of
+   tier 3 to 5, 3 to 6 berries, 2 to 5 mana crystals and one mage wand or
+   robe of any tier. Neither comes back once killed.
 
 ## How a tester checks the defences and siege (Patch 5)
 
@@ -3725,6 +3787,12 @@ Picks in blueprint/patch5-client-ui-picks.md.*
     Both keys can be rebound in Settings, under Camera and selection.
     packages/client/test/patch5-camera-turn.test.ts checks the angle, the
     middle of the view, panning and the turn back.
+11. **Select All Woodsmen.** Above the minimap, the button beside Select
+    Army (F7, where camera spot 3 was) selects every woodsman you own, but
+    not those sheltering in a building; with none it says so. Two camera
+    spots are left, F5 and F6. In a game with a second player who shares
+    control, their woodsmen and workers do not take your orders; their
+    troops do (patch5-controls.test.ts).
 
 ## How a tester checks unit and building looks (Patch 5)
 
@@ -4338,7 +4406,7 @@ effects are `packages/client/src/world/spell-fx.ts`.*
    cooldown.
 2. **The card.** `pnpm dev`, open http://localhost:5173/?seed=1, and make
    mages with the tester tools (**Mage kit**, then the Sanctum). Select a
-   support mage: twelve buttons, Energy dart (D) next to Heal. Heal and
+   support mage: thirteen buttons, Energy dart (D) next to Heal. Heal and
    Energy dart have a ring of violet and white light running round them:
    they are on autocast. Right click Quicken: it gets the ring too; right
    click it again: off. On a phone, hold the button and let go. Select a
