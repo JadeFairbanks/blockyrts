@@ -91,7 +91,7 @@ describe('the build menu on letters (Patch 4)', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     button(c.card(), 'Build').run(PRESS);
     expect(read(c.card())).toEqual([
-      'Big House=H', 'Farm=F', 'Barn=R', 'Storehouse=S', 'Fishing dock=I', 'Workshop=W', 'Forge=G',
+      'Big House=H', 'Farm=F', 'Barn=R', 'Storehouse=S', 'Workshop=W', 'Forge=G',
       'Artillery workshop=A', 'Barracks=B', 'Magi Sanctum=M', "Scholar's Lodge=C", 'Mineshaft=N', 'Defences=D', 'Lights=T', 'Back=Esc',
     ]);
     button(c.card(), 'Defences').run(PRESS);

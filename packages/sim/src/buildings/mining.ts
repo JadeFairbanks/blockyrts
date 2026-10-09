@@ -1,6 +1,6 @@
 // Mineshafts and prospecting (Mineshafts and prospecting; Table 5 prospect
-// and mineshaft rows) and the fishing dock's catch (Semi-automation:
-// fishing). Minerals lie hidden by the seed: every patch of ground has a
+// and mineshaft rows). Patch 5 took the fishing dock out: only woodsmen
+// fish (units/woods.ts). Minerals lie hidden by the seed: every patch of ground has a
 // rating that Prospect (T) reveals and that sets a mineshaft's output there.
 // Miners inside a shaft bring up stone, ore, coal, gold and gems. Patch 2
 // (Jade): the shaft is a collection point like a node. A miner stays down

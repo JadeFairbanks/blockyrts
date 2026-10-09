@@ -1078,7 +1078,7 @@ export function shelteredIn(state: SimState, id: number): number[] {
   return unitsInside(state, id).filter((j) => !onTop(state, j));
 }
 
-/** Buildings that take assigned workers: the Farm, the Mineshaft and the Fishing dock (Patch 2: crafting buildings take none). */
+/** Buildings that take assigned workers: the Farm, the Barn and the Mineshaft (Patch 2: crafting buildings take none; Patch 5: no fishing dock). */
 export function takesWorkers(b: Building): boolean {
   return b.complete && levelSpec(b.kind, b.level).workers > 0;
 }

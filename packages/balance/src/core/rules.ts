@@ -91,6 +91,9 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   // Working through the night (Patch 4): the question's kind, and the shelter and Gather orders' flags.
   'units/night-work.ts:NIGHT_WORK_ASK', 'units/unit-orders.ts:ENTER_NIGHT', 'units/unit-orders.ts:FORAGE_HOME', 'units/unit-orders.ts:FORAGE_NIGHT',
   'units/unit-orders.ts:FORAGE_OWN',
+  // The woodsman (Patch 5): his woods order's flags, his line's colours and his key, and his kit (made of the kit rows).
+  'units/unit-orders.ts:WOODS_HOME', 'units/unit-orders.ts:WOODS_SEARCH', 'units/unit-orders.ts:WOODS_TURNED', 'units/unit-orders.ts:WOODS_PICKED',
+  'units/woodsman.ts:Keep', 'units/woodsman.ts:WOODSMAN_KEY', 'units/woodsman.ts:WOODSMAN_KIT',
 ]);
 
 /** Where each module's exports go; `exports` overrides a module's group for single exports. */
@@ -123,6 +126,8 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/field.ts': 'animals',
   'units/loot.ts': 'loot',
   'units/forage.ts': 'loot',
+  'units/woods.ts': 'loot',
+  'units/woodsman.ts': 'training',
   'units/night-work.ts': 'nightwork',
   'units/dig.ts': 'world',
   'units/repairs.ts': 'units',
@@ -440,7 +445,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'threats/boss.ts': 'Morvath',
   'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
   'buildings/placement.ts': 'Placement', 'buildings/chains.ts': 'Wall chains', 'world:buildings/chains.ts': 'Tunnel chains', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
-  'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
+  'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'units/woods.ts': 'The woodsman fishing and foraging', 'units/woodsman.ts': 'The woodsman', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
   'units/spacing.ts': 'Making room (bodies standing on one another)',

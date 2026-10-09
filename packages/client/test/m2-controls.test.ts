@@ -123,7 +123,7 @@ describe('the worker card', () => {
     for (const gone of ['attack', 'stop', 'hold', 'enter', 'patrol', 'buildBasic', 'buildAdvanced']) expect(card.some((e) => e.action === gone)).toBe(false);
   });
 
-  it('opens the one build menu on B: the fourteen buildings on their letters, Defences and Lights as submenus', () => {
+  it('opens the one build menu on B: the thirteen buildings on their letters (Patch 5: no fishing dock), Defences and Lights as submenus', () => {
     const { c } = harness(game([building(9, BuildingKind.MainBase)]), workers, 'worker');
     // A desktop card shows 40 buttons at the smallest size before it pages.
     (c as unknown as { d: CommandDeps }).d.slots = () => ({ most: 40 });
@@ -134,14 +134,14 @@ describe('the worker card', () => {
     expect(card[0]!.key).toBe('KeyH');
     expect(card[1]!.face).toBe('Farm');
     expect(card[1]!.key).toBe('KeyF');
-    expect(card[12]!.face).toBe('Defences');
-    expect(card[13]!.face).toBe('Lights');
-    // The fourteen and Back fit one page; Back is Esc (Patch 4; before, B on the grid).
-    expect(card).toHaveLength(15);
-    expect(card.slice(0, 14).every((e) => e.menu && /^Key[A-Z]$/.test(e.key))).toBe(true);
-    expect(card[14]!.face).toBe('Back');
-    expect(card[14]!.key).toBe('Escape');
-    card[12]!.run({ shift: false, ctrl: false });
+    expect(card[11]!.face).toBe('Defences');
+    expect(card[12]!.face).toBe('Lights');
+    // The thirteen and Back fit one page; Back is Esc (Patch 4; before, B on the grid).
+    expect(card).toHaveLength(14);
+    expect(card.slice(0, 13).every((e) => e.menu && /^Key[A-Z]$/.test(e.key))).toBe(true);
+    expect(card[13]!.face).toBe('Back');
+    expect(card[13]!.key).toBe('Escape');
+    card[11]!.run({ shift: false, ctrl: false });
     card = c.card();
     // Defences' 12 choices fit a desktop card, every one on a letter of its own (Patch 5: earthworks and ramps are gone).
     expect(card.map((e) => e.face)).toEqual([
@@ -154,8 +154,8 @@ describe('the worker card', () => {
     expect(new Set(card.map((e) => e.key)).size).toBe(card.length);
     expect(card.at(-1)!.key).toBe('Escape');
     expect(c.back()).toBe(true);
-    expect(c.card()[12]!.face).toBe('Defences');
-    c.card()[13]!.run({ shift: false, ctrl: false });
+    expect(c.card()[11]!.face).toBe('Defences');
+    c.card()[12]!.run({ shift: false, ctrl: false });
     expect(c.card().map((e) => e.face)).toEqual(['Torch post', 'Bonfire', 'Back']);
     expect(c.back()).toBe(true);
     expect(c.back()).toBe(true);
