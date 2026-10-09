@@ -1,7 +1,7 @@
 // In-memory Database for tests and for running the server with no PostgreSQL.
 // Everything is lost when the process stops.
 
-import { DuplicateError, type AccountRow, type Database, type MatchRow, type ResetRow, type SaveRow, type SessionRow } from './types.ts';
+import { DuplicateError, type AccountRow, type Database, type MailRecord, type MatchRow, type ResetRow, type SaveRow, type SessionRow } from './types.ts';
 
 interface ResetEntry extends ResetRow {
   used: boolean;
@@ -15,6 +15,8 @@ export class MemoryDatabase implements Database {
   private readonly resets = new Map<string, ResetEntry>();
   private readonly matches = new Map<string, MatchRow>();
   private readonly saves = new Map<string, SaveRow>();
+  /** Keyed by message name and account id. */
+  private readonly mail = new Map<string, MailRecord & { name: string }>();
 
   async createAccount(row: AccountRow): Promise<void> {
     for (const a of this.accounts.values()) {
@@ -40,6 +42,31 @@ export class MemoryDatabase implements Database {
   async setPasswordHash(accountId: string, hash: string): Promise<void> {
     const a = this.accounts.get(accountId);
     if (a) a.passwordHash = hash;
+  }
+
+  async listAccounts(): Promise<AccountRow[]> {
+    return [...this.accounts.values()]
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : 1))
+      .map(copy);
+  }
+
+  async mailRecords(name: string): Promise<MailRecord[]> {
+    return [...this.mail.values()].filter((m) => m.name === name).map((m) => ({ accountId: m.accountId, state: m.state }));
+  }
+
+  async claimMail(name: string, accountId: string, _now: Date): Promise<boolean> {
+    const key = `${name}\n${accountId}`;
+    if (this.mail.has(key)) return false;
+    this.mail.set(key, { name, accountId, state: 'sending' });
+    return true;
+  }
+
+  async settleMail(name: string, accountId: string, sent: boolean, _now: Date): Promise<void> {
+    const key = `${name}\n${accountId}`;
+    const m = this.mail.get(key);
+    if (!m) return;
+    if (sent) m.state = 'sent';
+    else this.mail.delete(key);
   }
 
   async createSession(row: SessionRow): Promise<void> {

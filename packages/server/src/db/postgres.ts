@@ -3,7 +3,7 @@
 // on start, and `pnpm --filter @blockyrts/server migrate` runs them alone.
 
 import pg from 'pg';
-import { DuplicateError, type AccountRow, type Database, type MatchRow, type ResetRow, type SaveRow, type SessionRow } from './types.ts';
+import { DuplicateError, type AccountRow, type Database, type MailRecord, type MatchRow, type ResetRow, type SaveRow, type SessionRow } from './types.ts';
 
 const MIGRATIONS: string[] = [
   // 1: accounts, sessions, password resets, matches and save metadata.
@@ -58,6 +58,16 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX saves_account_created ON saves (account_id, created_at DESC);
   CREATE INDEX saves_match_kind ON saves (match_id, kind, created_at DESC);
+  `,
+  // 2: emails to every account (Patch 5): which account has had which named message, so each goes once.
+  `
+  CREATE TABLE mail_sent (
+    name text NOT NULL,
+    account_id uuid NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+    state text NOT NULL CHECK (state IN ('sending', 'sent')),
+    at timestamptz NOT NULL,
+    PRIMARY KEY (name, account_id)
+  );
   `,
 ];
 
@@ -180,6 +190,32 @@ export class PostgresDatabase implements Database {
 
   async setPasswordHash(accountId: string, hash: string): Promise<void> {
     await this.pool.query('UPDATE accounts SET password_hash = $2 WHERE id = $1', [accountId, hash]);
+  }
+
+  async listAccounts(): Promise<AccountRow[]> {
+    const { rows } = await this.pool.query<AccountDb>('SELECT * FROM accounts ORDER BY created_at, id');
+    return rows.map(toAccount);
+  }
+
+  async mailRecords(name: string): Promise<MailRecord[]> {
+    const { rows } = await this.pool.query<{ account_id: string; state: MailRecord['state'] }>(
+      'SELECT account_id, state FROM mail_sent WHERE name = $1',
+      [name],
+    );
+    return rows.map((r) => ({ accountId: r.account_id, state: r.state }));
+  }
+
+  async claimMail(name: string, accountId: string, now: Date): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      "INSERT INTO mail_sent (name, account_id, state, at) VALUES ($1, $2, 'sending', $3) ON CONFLICT DO NOTHING",
+      [name, accountId, now],
+    );
+    return rowCount === 1;
+  }
+
+  async settleMail(name: string, accountId: string, sent: boolean, now: Date): Promise<void> {
+    if (sent) await this.pool.query("UPDATE mail_sent SET state = 'sent', at = $3 WHERE name = $1 AND account_id = $2", [name, accountId, now]);
+    else await this.pool.query('DELETE FROM mail_sent WHERE name = $1 AND account_id = $2', [name, accountId]);
   }
 
   async createSession(row: SessionRow): Promise<void> {
