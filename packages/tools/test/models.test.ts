@@ -165,7 +165,7 @@ describe('the model converter on the base bodies', () => {
       // Patch 5: the robe looks, a kit tier's metal look and a building's stages, ruins and damaged look, the last three loaded only when drawn.
       const lazy = new Map(index.models.map((m) => [m.id, m.lazy === true]));
       expect(lazy.get('mage_battle_6')).toBe(false);
-      for (const id of ['sword@iron_wrought', 'workshop_t1@construction_33', 'workshop_t1@ruined', 'workshop_t1@damaged']) expect(lazy.get(id), id).toBe(true);
+      for (const id of ['sword@iron_wrought', 'main_base_l2@construction_33', 'main_base_l2@ruined', 'main_base_l2@damaged']) expect(lazy.get(id), id).toBe(true);
       expect(lazy.get('bush_hazel@cut')).toBe(false);
       const sidecar = JSON.parse(readFileSync(join(out, 'mage.json'), 'utf8')) as { id: string };
       expect(sidecar.id).toBe('mage');
