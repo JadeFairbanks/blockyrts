@@ -182,6 +182,8 @@ const IRON = Res.IronIngot;
 const STEEL = Res.SteelIngot;
 const CS = Res.CarbonSteel;
 const GP = Res.Gunpowder;
+/** Lead ore (Jade, Patch 5 decisions 2.5): in every gunpowder weapon, more in the bigger ones; the musket 2, the brawler's pistol 1. */
+const PB = Res.LeadOre;
 const MC = Res.ManaCrystal;
 
 /** Every way of paying `base` plus one resource from each choice ("1 sinew or flax"). */
@@ -257,11 +259,11 @@ export const RANGER_KITS: readonly RangedKit[] = [
   recurve(5, 'wrought-iron', 15, WI),
   recurve(6, 'iron', 16, IRON),
   ranged(7, 'Steel-prod crossbow', 'crossbow_steel@steel', 40, 45, 34, 3, Shot.Bolt, false, only([[STEEL, 3], [WI, 1], [PL, 2], [FX, 1], [LU, 1], [FE, 1]]), 75, [Research.Crossbows]),
-  ranged(8, 'Flintlock musket', 'musket', 60, 80, 40, 4, Shot.MusketBall, false, only([[CS, 1], [PL, 2], [FL, 1], [GP, 1]]), 90, [Research.Gunpowder, Research.Muskets]),
+  ranged(8, 'Flintlock musket', 'musket', 60, 80, 40, 4, Shot.MusketBall, false, only([[CS, 1], [PL, 2], [FL, 1], [GP, 1], [PB, 2]]), 90, [Research.Gunpowder, Research.Muskets]),
 ];
 
 /** The brawler, tier 8 only: a flintlock pistol and a cutlass (the tier 8 close-melee row), one kit (Table 2e). */
-export const BRAWLER_KIT: RangedKit = ranged(8, 'Flintlock pistol and cutlass', 'pistol', 40, 60, 15, 6, Shot.MusketBall, false, only([[CS, 4], [PL, 1], [FL, 1], [LU, 1], [LE, 1], [GP, 1]]), 120, [
+export const BRAWLER_KIT: RangedKit = ranged(8, 'Flintlock pistol and cutlass', 'pistol', 40, 60, 15, 6, Shot.MusketBall, false, only([[CS, 4], [PL, 1], [FL, 1], [LU, 1], [LE, 1], [GP, 1], [PB, 1]]), 120, [
   Research.Gunpowder,
   Research.Muskets,
 ]);

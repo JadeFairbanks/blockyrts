@@ -44,6 +44,15 @@ export interface LevelFootprint {
   fitted?: string;
   /** Where the men who man its top stand, one per place (towers 4, a main base from tier 2 8). */
   posts?: readonly Post[];
+  /** The Citadel's engine platform (Patch 5, Jade's CT-3), from its model's slots: where its fixed engine stands, that engine's crew, and the places of the regular units who stand there while no engine does. */
+  platform?: Platform;
+}
+
+/** The engine platform on a Citadel's top (Patch 5): Blockbench units from the level's corner, as posts are. */
+export interface Platform {
+  engine: Post;
+  crew: readonly Post[];
+  posts: readonly Post[];
 }
 
 /** A footprint w x d, solid in full. */
@@ -52,7 +61,20 @@ function block(w: number, d: number): LevelFootprint {
 }
 
 /** A tower's deck, 4.1 m up (the 5 m tower less its parapet): a man at each corner. */
-const TOWER: readonly LevelFootprint[] = [{ ...block(3, 3), posts: [[12, 12, 146], [36, 12, 146], [12, 36, 146], [36, 36, 146]] }];
+/** A wall column (Patch 5): its model centred on the column; the client turns it along its stretch, puts a corner piece where it turns, and swaps in its damage states (UI-9). */
+function wallAt(id: string): LevelFootprint[] {
+  return [{ models: [{ id, x: 8, z: 8 }], rows: ['#'] }];
+}
+
+/** A gate (Patch 5, Jade's GP-42: 6 columns wide, as its model is). */
+function gateAt(id: string): LevelFootprint[] {
+  return [{ models: [{ id, x: 48, z: 8 }], rows: ['######'] }];
+}
+
+/** A tower (Patch 5: 4 columns square, as its model is), its 4 places at the model's slot_tower_1 to 4, on its fighting deck `y` units up. */
+function towerAt(id: string, y: number, drawn = true): LevelFootprint[] {
+  return [{ ...(drawn ? { models: [{ id, x: 32, z: 32 }] } : {}), rows: ['####', '####', '####', '####'], posts: [[20, 20, y], [44, 20, y], [20, 44, y], [44, 44, y]] }];
+}
 
 /** The Farm (Patch 2): the tier 1 crop field and its farmhouse in the north-west corner. */
 const FARM: readonly LevelFootprint[] = [
@@ -160,7 +182,15 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
         '##############',
         '##############',
       ],
-      posts: [[56, 6, 112], [168, 6, 112], [6, 100, 112], [218, 100, 112], [6, 148, 112], [218, 148, 112], [80, 217, 112], [144, 217, 112]],
+      // Patch 5: main_base_citadel's slot_parapet_1 to 8 on the keep's narrow wall walk 253 units up, each moved
+      // the 2 or 3 units it takes to clear the keep's wall and the crenels for a man.
+      posts: [[89, 76, 253], [135, 76, 253], [160, 98, 253], [160, 150, 253], [135, 172, 253], [89, 172, 253], [64, 150, 253], [64, 98, 253]],
+      // Its slot_engine, slot_crew_1 and 2, and slot_platform_1 to 4, on the deck 339 units up.
+      platform: {
+        engine: [112, 124, 339],
+        crew: [[92, 152, 339], [132, 152, 339]],
+        posts: [[76, 88, 339], [148, 88, 339], [76, 160, 339], [148, 160, 339]],
+      },
     },
   ],
   [BuildingKind.Farm]: FARM,
@@ -240,15 +270,19 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
     },
   ],
   [BuildingKind.FishingDock]: [block(6, 4)],
-  [BuildingKind.Wall]: [block(1, 1)],
-  [BuildingKind.WallHardwood]: [block(1, 1)],
-  [BuildingKind.WallStone]: [block(1, 1)],
-  [BuildingKind.Gate]: [block(3, 1)],
-  [BuildingKind.GateHardwood]: [block(3, 1)],
-  [BuildingKind.GateStone]: [block(3, 1)],
-  [BuildingKind.Tower]: TOWER,
-  [BuildingKind.TowerHardwood]: TOWER,
-  [BuildingKind.TowerStone]: TOWER,
+  [BuildingKind.Wall]: wallAt('wall_softwood'),
+  [BuildingKind.WallHardwood]: wallAt('wall_hardwood'),
+  [BuildingKind.WallStone]: wallAt('wall_stone'),
+  [BuildingKind.Gate]: gateAt('gate_softwood'),
+  [BuildingKind.GateHardwood]: gateAt('gate_hardwood'),
+  [BuildingKind.GateStone]: gateAt('gate_stone'),
+  // The wooden towers' roofs sit 52 units over their deck, too low for the men up there (60): drawn as blocks until their models
+  // have the roof raised (asked of the models session, Patch 5).
+  [BuildingKind.Tower]: towerAt('tower_softwood', 124, false),
+  [BuildingKind.TowerHardwood]: towerAt('tower_hardwood', 124, false),
+  [BuildingKind.TowerStone]: towerAt('tower_stone', 171),
+  // Patch 5 (Jade, GP-43): 2 columns square, as its model is.
+  [BuildingKind.EarthRampart]: [{ models: [{ id: 'rampart_earth', x: 16, z: 16 }], rows: ['##', '##'] }],
   // Patch 5: every building its own model, centred in its footprint.
   [BuildingKind.Workshop]: [
     {
@@ -363,6 +397,8 @@ export interface Dims {
   cells: ReadonlyArray<readonly [number, number]>;
   /** Where men stand on its top (Post), from this level's corner. */
   posts: readonly Post[];
+  /** The Citadel's engine platform, from this level's corner (never turned: only the main base has one). */
+  platform?: Platform;
 }
 
 /** Not state: dims by kind, variant and level, worked out once. */
@@ -398,7 +434,7 @@ export function footprintDims(kind: number, variant: number, level = 1): Dims {
   const posts = (f.posts ?? []).map((p): Post => (turn ? [p[1], p[0], p[2]] : p));
   dims = turn
     ? { ox: f.oz ?? 0, oz: f.ox ?? 0, w: d, d: w, solid, cells, posts }
-    : { ox: f.ox ?? 0, oz: f.oz ?? 0, w, d, solid, cells, posts };
+    : { ox: f.ox ?? 0, oz: f.oz ?? 0, w, d, solid, cells, posts, ...(f.platform ? { platform: f.platform } : {}) };
   dimsCache.set(key, dims);
   return dims;
 }

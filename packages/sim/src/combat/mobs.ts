@@ -650,8 +650,14 @@ export const WEB = { slowBp: 5000, steps: ds(30), cooldown: ds(100) };
 export const ENGULF_STEPS = ds(20);
 /** Bloated corpse burst: 40 to the players' units within 3 m. */
 export const BURST = { damage: 40, radius: cm(300) };
-/** Bomber blast: 300 to walls and buildings where it goes off, half that at 2.5 m (s: the roster had 220, which cannot break a 300 HP softwood column), 60 to units within 3 m; a loose bomb goes off 2 s after it falls. */
-export const BLAST = { building: 300, buildingRadius: cm(250), unit: 60, unitRadius: cm(300), fuse: ds(20) };
+/**
+ * Bomber blast: 300 to walls and buildings where it goes off, half that at
+ * 2.5 m (s: the roster had 220, which cannot break a 300 HP softwood column),
+ * 30 to units within 3 m (Patch 5, Jade's BL-7: half the 60 it did). A loose
+ * bomb goes off 2 s after it falls; since Patch 5 (BL-7) a wall breaker
+ * killed before it goes off drops none.
+ */
+export const BLAST = { building: 300, buildingRadius: cm(250), unit: 30, unitRadius: cm(300), fuse: ds(20) };
 /** A bomber goes for 5 or more of the players' units within 8 m of it on its way. */
 export const CLUSTER = { units: 5, radius: cm(800) };
 /** Goblins within 10 m of a chief run 20% faster. */
