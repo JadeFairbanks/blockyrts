@@ -311,6 +311,6 @@ describe('tunnel chains', () => {
     run(s, 1, [{ kind: 'tunnelStretch', ...base, units: ids(s).slice(0, 2), x: x + 6, z: z + 4, dir: 0, length: 5 }]);
     run(s, 1, [{ kind: 'tunnelStretch', ...base, units: ids(s).slice(2), x: x + 6, z: z + 4, dir: 0, length: 5 }]);
     expect(s.sites.length).toBe(1);
-    expect(s.entities.queue[3]![0]).toEqual({ t: 'dig', site: s.sites[0]!.id });
+    expect(s.entities.queue[3]![0]).toMatchObject({ t: 'dig', site: s.sites[0]!.id });
   });
 });

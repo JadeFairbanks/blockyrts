@@ -77,8 +77,10 @@ interface Look {
 
 /** The first catalogue model of a gear id ('' for none). */
 const gearModel = (id: number): string => piecesOf(id)[0] ?? '';
-/** Whether a gear id is held like a polearm: spears, pikes and halberds. */
-const polearm = (id: number): boolean => /^(spear|pike|halberd)/.test(gearModel(id));
+/** Whether a gear id is held like a polearm, in both hands: spears, pikes, halberds and the Zweihänder (the tier 8 two-handed weapon). */
+const polearm = (id: number): boolean => /^(spear|pike|halberd|zweihander)/.test(gearModel(id));
+/** Two-handed weapons that swing rather than thrust: the halberds and the Zweihänder. */
+const SWUNG = /^(halberd|zweihander)/;
 
 const PIECES = new Map<number, readonly string[]>();
 /** A gear id's catalogue models: its model ids joined by '+' in units/kits.ts (armour with its helmet and boots), each `<id>` or `<id>@<metal>`. */
@@ -107,7 +109,7 @@ const BODY_PROPS: Readonly<Record<string, string>> = {
   linstock: 'linstock',
   axe_hardwood: 'hardwood_axe',
   'hoe@hardwood': 'hoe',
-  hammer: 'hammer',
+  hammer_iron: 'hammer',
   fishing_rod: 'fishing_rod',
   spade: 'spade',
 };
@@ -1860,18 +1862,22 @@ function workerLook(d: Int32Array, o: number, body: ModelData | null, c: LookCon
     held = (pieces.length > ToolJob.Cut ? pieces[job] : job === ToolJob.Cut ? pieces[pieces.length - 1] : pieces[0]) ?? '';
   }
   if (held) wear(look, held, parts);
-  // The rest of the kit: every piece of every tool it has, each once, on the hips and back.
+  // The rest of the kit: every piece of every tool it has, each once, on the hips and back; a hammer hangs at the hip.
   const stows: ReadonlyArray<readonly [string, number]> = [['slot_hip_r', Stow.Hip], ['slot_hip_l', Stow.Hip], ['slot_back', Stow.Back], ['slot_quiver', Stow.Back]];
   const shown = new Set([held]);
-  let k = 0;
+  const rest: string[] = [];
   for (const tool of [hand, d[o + S.toolChop]!, d[o + S.toolBreak]!, d[o + S.toolBuild]!, d[o + S.toolCut]!]) {
     for (const p of tool ? piecesOf(tool) : []) {
       if (shown.has(p)) continue;
       shown.add(p);
-      const at = stows[k++];
-      if (at) wear(look, p, parts, at[1], at[0]);
+      rest.push(p);
     }
   }
+  rest.sort((a, b) => Number(/^hammer/.test(b)) - Number(/^hammer/.test(a)));
+  rest.forEach((p, k) => {
+    const at = stows[k];
+    if (at) wear(look, p, parts, at[1], at[0]);
+  });
   rankBands(look, d[o + S.rank]!);
   const cart = d[o + S.kit]!;
   let clip = 'idle';
@@ -1962,8 +1968,10 @@ function warriorLook(d: Int32Array, o: number, body: ModelData | null, c: LookCo
   const ranged = d[o + S.ranged]!;
   // A ranger's close weapon is its fists: its bow, sling or gun stays in hand.
   const inHand = swing === Slot.Ranged + 1 || (ranged && piecesOf(weapon).length === 0) ? ranged : weapon;
-  for (const p of piecesOf(inHand)) wear(look, p, parts);
-  for (const p of piecesOf(inHand === ranged ? weapon : ranged)) wear(look, p, parts, Stow.Back);
+  // The brawler's close weapon, the tier 8 close-melee row, is drawn as the brawler's cutlass (Table 2e).
+  const pieces = (gear: number): readonly string[] => (gear === weapon && d[o + S.troop] === Troop.Brawler ? ['cutlass'] : piecesOf(gear));
+  for (const p of pieces(inHand)) wear(look, p, parts);
+  for (const p of pieces(inHand === ranged ? weapon : ranged)) wear(look, p, parts, Stow.Back);
   const shot = gearModel(ranged);
   if (/^bow/.test(shot)) wear(look, 'quiver', parts);
   else if (/^crossbow/.test(shot)) wear(look, 'bolt_case', parts);
@@ -2006,7 +2014,7 @@ function warriorClip(d: Int32Array, o: number, inHand: number, c: LookContext): 
   if (swing === Slot.Ranged + 1) {
     return { clip: /^bow/.test(model) ? 'bow_shoot' : model === 'sling' ? 'sling_throw' : /^crossbow/.test(model) ? 'crossbow_shoot' : /^(musket|pistol)/.test(model) ? 'musket_fire' : 'throw_spear' };
   }
-  if (swing !== 0) return { clip: /^halberd/.test(model) ? 'attack_polearm_swing' : polearm(inHand) ? 'attack_polearm_thrust' : /^sword_short/.test(model) ? 'attack_1h_stab' : 'attack_1h_slash' };
+  if (swing !== 0) return { clip: SWUNG.test(model) ? 'attack_polearm_swing' : polearm(inHand) ? 'attack_polearm_thrust' : /^sword_short/.test(model) ? 'attack_1h_stab' : 'attack_1h_slash' };
   if (flags & UnitFlag.Hurt) return { clip: d[o + S.shield] !== 0 ? 'shield_block' : 'injured' };
   if (order === OrderKind.Swim) return { clip: 'swim' };
   if (order === OrderKind.Climb || flags & UnitFlag.Climbing) return { clip: 'climb' };

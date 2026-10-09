@@ -32,7 +32,7 @@ import { canGarrison, fightStep } from '../combat/fight.ts';
 import { freePost, menOnTop, onTop, platformCrew, spreadTop, topRoom as roomUpTop } from './top.ts';
 import { refundKit, runCart, runKitUp } from './gear.ts';
 import { runDig } from './dig.ts';
-import { addRun, climbOn, gaitMover, gaitOf, gaitSpec, payForRunning, RUN_BONUS_BP, runsNow, selfLed, startClimb } from './moves.ts';
+import { addRun, climbOn, gaitMover, gaitOf, gaitSpec, payForRunning, RUN_BONUS_BP, runsNow, startClimb } from './moves.ts';
 import { toolNeeded, toolTier } from './tools.ts';
 import { aTroop } from './kits.ts';
 import { runEat, runHitch, runHunt, runProspect, runTame } from './field.ts';
@@ -254,7 +254,7 @@ export function moverOf(state: SimState, i: number): Mover {
   }
   if (onWheels(state, i)) return WHEELS;
   if (e.owner[i]! >= state.players.length) return PERSON;
-  return gaitMover(gaitOf(state, i), selfLed(state, i));
+  return gaitMover(gaitOf(state, i));
 }
 
 /** A unit's speed this step, wu: 40% faster running (Patch 5 GP-16), slowed by starving, by a grasp or a web, hastened by a howl or a shout (gear and loads weigh nothing, Jade). */

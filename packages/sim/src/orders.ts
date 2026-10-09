@@ -3,7 +3,7 @@
 // index, then the order each player gave them in). Every order is plain
 // integers (and booleans), so it checks, copies and travels easily.
 
-import { TUNNEL_MAX_UNITS, TUNNEL_MIN_UNITS, TUNNEL_STRETCH_MAX_COLUMNS, WALL_STRETCH_MAX_COLUMNS } from './buildings/chains.ts';
+import { DIG_UP_MAX_UNITS, TUNNEL_MAX_UNITS, TUNNEL_MIN_UNITS, TUNNEL_STRETCH_MAX_COLUMNS, WALL_STRETCH_MAX_COLUMNS } from './buildings/chains.ts';
 
 /** Orders given to some of a player's units; `queued` is Shift (added to the end of each unit's list). */
 interface UnitsOrder {
@@ -301,7 +301,11 @@ export interface LockOrder {
   lock: number;
 }
 
-/** D Dig: a box of columns down to a floor (terrain units), or a tunnel between a floor and a roof. */
+/**
+ * D Dig: a box of columns down to a floor (terrain units; `tunnel` 0), a
+ * tunnel between a floor and a roof (1), or a dig drawn upwards from a floor
+ * to a roof (2; Jade's Patch 5, GP-4: levelling a hill or a mountain).
+ */
 export interface DigOrder extends UnitsOrder {
   kind: 'dig';
   x0: number;
@@ -877,6 +881,8 @@ export function validateOrder(o: Order): void {
       return;
     case 'dig':
       if (Math.abs(o.x1 - o.x0) > 63 || Math.abs(o.z1 - o.z0) > 63) throw new Error('a dig covers at most 64 x 64 columns');
+      if (o.tunnel !== 0 && o.tunnel !== 1 && o.tunnel !== 2) throw new Error('a dig goes down (0), into a tunnel (1) or up (2)');
+      if (o.tunnel === 2 && (o.level2 <= o.level || o.level2 - o.level > DIG_UP_MAX_UNITS)) throw new Error(`a dig drawn upwards is 1 to ${DIG_UP_MAX_UNITS} terrain units tall`);
       return;
     case 'wallStretch':
       if (o.dir < 0 || o.dir > 7 || o.length < 0 || o.length > WALL_STRETCH_MAX_COLUMNS || (o.skip !== 0 && o.skip !== 1)) throw new Error(`a wall stretch runs 0 to ${WALL_STRETCH_MAX_COLUMNS} columns in one of 8 directions`);

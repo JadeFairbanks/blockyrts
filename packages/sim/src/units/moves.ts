@@ -13,7 +13,6 @@
 // ARTILLERY_PACE_BP.)
 
 import { payFood } from '../economy/food.ts';
-import { isDark } from '../clock.ts';
 import { floorDiv, headingTowards, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { Mount } from '../mounts/data.ts';
 import { PERSON, type Mover } from '../nav/grid.ts';
@@ -89,29 +88,15 @@ export function gaitOf(state: SimState, i: number): Gait {
 /**
  * The walk-map mover of each gait: the players' units pass gates and swim;
  * ids from 16 so they never share a pathfinder cache with nav/grid.ts's.
- * GROUND_MOVERS never climb, nor jump down more than they jump up, ids
- * from 32.
+ * Every unit climbs where its way needs it, out on the Hunt button's hunt
+ * or on Gather too (Patch 5 section 7: the day-time ban of section 4 is
+ * gone).
  */
 const MOVERS: readonly Mover[] = GAITS.map((g) => (g.id === Gait.Engine ? PERSON : { id: 16 + g.id, canSwim: true, passGates: true, clamber: g.jump, drop: g.drop, climb: g.climb }));
-const GROUND_MOVERS: readonly Mover[] = GAITS.map((g) => (g.id === Gait.Engine ? PERSON : { id: 32 + g.id, canSwim: true, passGates: true, clamber: g.jump, drop: g.jump }));
 
-/** A gait's mover, or with `ground` one that never climbs and never jumps down what it could not jump back up. */
-export function gaitMover(g: number, ground = false): Mover {
-  const list = ground ? GROUND_MOVERS : MOVERS;
-  return list[g] ?? list[Gait.Fighter]!;
-}
-
-/**
- * Whether a unit is out by itself by day, on the Hunt button's hunt or on
- * Gather: it never climbs then, nor jumps down what it could not jump back
- * up (s), because its reach from home is how far it walks in dusk's 40 s,
- * and a climb back is five times slower. Sent by the player, or coming home
- * at dusk, it climbs where the way needs it.
- */
-export function selfLed(state: SimState, i: number): boolean {
-  const o = state.entities.queue[i]![0];
-  if (!o || (o.t !== 'forage' && !(o.t === 'hunt' && o.auto !== 0))) return false;
-  return !isDark(state.step);
+/** A gait's mover. */
+export function gaitMover(g: number): Mover {
+  return MOVERS[g] ?? MOVERS[Gait.Fighter]!;
 }
 
 // ----- running (GP-16) -----

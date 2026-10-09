@@ -537,7 +537,7 @@ function applyTunnelStretch(state: SimState, o: Extract<Order, { kind: 'tunnelSt
     alert(state, o.player, site);
     return;
   }
-  for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id }, o.queued === true);
+  for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id, band: 0, miss: 0 }, o.queued === true);
 }
 
 /**
@@ -802,12 +802,12 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'dig': {
         const workers = ownUnits(state, o.player, o.units).filter((i) => e.kind[i] === UnitKind.Worker);
         if (workers.length === 0) break;
-        const site = markSite(state, o.player, o.tunnel ? SiteKind.Tunnel : SiteKind.Dig, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, 0);
+        const site = markSite(state, o.player, o.tunnel === 1 ? SiteKind.Tunnel : o.tunnel === 2 ? SiteKind.Up : SiteKind.Dig, o.x0, o.z0, o.x1, o.z1, o.level, o.level2, 0);
         if (typeof site === 'string') {
           alert(state, o.player, site);
           break;
         }
-        for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id }, o.queued === true);
+        for (const i of workers) giveOrder(state, i, { t: 'dig', site: site.id, band: 0, miss: 0 }, o.queued === true);
         break;
       }
       case 'wallStretch':
