@@ -78,6 +78,9 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'magic/spells.ts:MANA_SCALE', 'magic/spells.ts:MAGE_TOP_RANK', 'magic/mages.ts:MAGE_XP_TENTHS', 'magic/mages.ts:MAGE_RANK_NAMES',
   // The engines' shot ids and the list of engines a player can make.
   'siege/data.ts:ENGINE_SHOT', 'siege/data.ts:PLAYER_ENGINES',
+  // Patch 5: the engines' ids (the fixed ones are built from the mobile rows by id), the fixed ladder, the upgrade
+  // products' offset and the Citadel's tier are identity, not numbers to tune.
+  'siege/data.ts:Engine', 'siege/data.ts:FIXED_ENGINES', 'siege/data.ts:ENGINE_UPGRADE', 'siege/data.ts:CITADEL_LEVEL',
   // Troops and gear: the troop types' names and keys, the top tiers (the tables' lengths), and the gear catalogue, which
   // is worked out from the kit tables (change the kit rows instead) or holds the peoples' fixed gear.
   'units/kits.ts:TROOP_TYPES', 'units/kits.ts:TROOP_NAMES', 'units/kits.ts:TROOP_TIER_NAMES', 'units/kits.ts:TROOP_KEYS', 'units/kits.ts:TOP_TIER', 'units/kits.ts:TOP_MAGE_TIER',
@@ -304,6 +307,8 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   // Patch 3: a night monster's threat is worked out from its numbers and traits (combat/threat.ts), never set by hand;
   // the reach that strikes over walls mirrors the combat rule (combat.ts OVER_WALL_REACH), set there.
   'MOBS:threatTenths', 'THREAT:overWallReachCm',
+  // Patch 5: which mobile engine a fixed one is built from; its numbers are that engine's, tuned there.
+  'ENGINES:mobile',
 ]);
 
 /** Keys whose text is the record's own words for the tooltip; other strings show as notes. */

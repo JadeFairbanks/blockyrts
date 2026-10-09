@@ -9,7 +9,7 @@ import { computeEnclosed, buildingCentre, dist2, isSnuffed, relight } from '../b
 import { payFood, STARVING_SLOW_BP, starvingSince } from '../economy/food.ts';
 import { canAffordAny, fishOf, meatOf, payAny, shortOfAny } from '../economy/food-kinds.ts';
 import { BLOCKED_TEXT, Blocked, buildCost, buildRequirement, clearingOn, costMultiplier, mainBaseLevel, placementBlocked } from '../buildings/placement.ts';
-import { constructionHealth, footprintRect, garrisonRoom, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
+import { constructionHealth, footprintRect, maxHealth, placedDims, solidRect, type Building } from '../buildings/store.ts';
 import { buildingWorth, repairCost } from '../buildings/repair.ts';
 import { autoRepairStep, repairShort } from './repairs.ts';
 import { isDark } from '../clock.ts';

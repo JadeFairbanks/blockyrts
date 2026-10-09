@@ -30,7 +30,7 @@ import { bagEmpty, canLoot, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
 import { callRepairs } from './units/repairs.ts';
 import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
-import { menOnTop, onTop, platformCrew, topRoom } from './units/top.ts';
+import { menOnTop, platformCrew, topRoom } from './units/top.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
 import { clearFoes, godPlace, healAll, killUnits, maxRanks, setGod, showElves } from './debug/god.ts';
