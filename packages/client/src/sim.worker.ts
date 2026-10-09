@@ -28,6 +28,8 @@ import {
   animalsAt,
   assigned,
   bagItems,
+  canLoot,
+  carryView,
   FOG_TILE_COLUMNS,
   BuildingKind,
   forgeStepOf,
@@ -420,7 +422,14 @@ function postInfo(s: SimState): void {
   const mageRanks: Array<[number, string]> = [];
   const bags: Array<[number, Array<[number, number]>]> = [];
   const woodsmen: Array<[number, number, number, number, number]> = [];
+  const carry: Array<[number, number, number]> = [];
+  const effects: Array<[number, Array<[number, number]>]> = [];
+  const untils = [[SpellOn.Quicken, e.quickUntil], [SpellOn.Fortify, e.fortUntil], [SpellOn.Rally, e.rallyUntil], [SpellOn.Warding, e.wardUntil], [SpellOn.Healing, e.healUntil], [SpellOn.Hexed, e.hexUntil]] as const;
   for (let i = 0; i < e.count; i++) {
+    // The spells on any unit, with the steps they have left (Patch 5, GP-34: a bar on each picture).
+    let on: Array<[number, number]> | null = null;
+    for (const [bit, until] of untils) if (until[i]! > s.step) (on ??= []).push([bit, until[i]! - s.step]);
+    if (on) effects.push([e.id[i]!, on]);
     if (e.owner[i] !== PLAYER) continue;
     if (isWoodsman(e, i)) {
       const l = woodsmanLedger(s, i);
@@ -428,6 +437,7 @@ function postInfo(s: SimState): void {
     }
     queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
     if (e.bag[i]!.length > 0) bags.push([e.id[i]!, bagItems(s, i)]);
+    if (canLoot(s, i)) carry.push([e.id[i]!, ...carryView(s, i)]);
     if (e.kind[i] === UnitKind.Mage) mageRanks.push([e.id[i]!, mageTrainingProblem(s, i)]);
     if (e.kind[i] === UnitKind.Mage) spells.push([e.id[i]!, schoolSpells(e.school[i]!).map((sp): [number, string, number] => [sp, spellProblem(s, i, sp), Math.max(0, spellReadyAt(s, i, sp) - s.step)])]);
   }
@@ -473,6 +483,8 @@ function postInfo(s: SimState): void {
         .map((l) => ({ id: l.id, res: l.res, amt: l.amt, x: l.x, y: l.y, z: l.z, own: l.owner < 0 || l.owner === PLAYER })),
       bags,
       woodsmen,
+      carry,
+      effects,
     },
     [pool.buffer, open.buffer],
   );

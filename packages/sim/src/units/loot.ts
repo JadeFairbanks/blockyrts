@@ -7,26 +7,31 @@
 // made a kill from afar goes back for its own. Units hand their bags in at a
 // drop-off that takes everything (a main base, a storehouse) when they are
 // idle in the dawn or day, and gatherers with every load they drop off.
+// Patch 5 (Jade, GP-6 and GP-7): any unit within 5 m of a drop-off hands in
+// by itself; the unit inventory unloads one good or drops it on the ground,
+// where nobody picks it up by themselves.
 // Engines and animals carry nothing: they do not eat.
 
+import { buildingSpec } from '../buildings/data.ts';
 import { dist2 } from '../buildings/lights.ts';
+import { solidRect } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
 import { hostile } from '../combat/combat.ts';
 import type { Drop, MobSpec } from '../combat/mobs.ts';
 import { mobSpec } from '../combat/mobs.ts';
 import { Res, RESOURCES } from '../economy/resources.ts';
-import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { pointGoal } from '../nav/path.ts';
+import { ceilDiv, floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { pointGoal, rectDistance } from '../nav/path.ts';
 import { RES_VALUE_TENTHS } from '../peoples/data.ts';
 import { say } from '../peoples/speech.ts';
 import { hash32 } from '../rng.ts';
 import { CYCLE_STEPS } from '../rules.ts';
-import { standY, UnitKind, type Loot, type SimState } from '../state.ts';
+import { NO_CARRY, standY, UnitKind, type Loot, type SimState } from '../state.ts';
 import type { Rolled } from '../threats/loot.ts';
 import { speciesSpec } from '../animals/species.ts';
-import { Act, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk, walkTo } from './behaviour.ts';
+import { accepts, Act, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk, unload, walkTo } from './behaviour.ts';
 import type { UnitOrder } from './unit-orders.ts';
-import { rawTenthsLb } from './weight.ts';
+import { rawLimitTenthsLb, rawTenthsLb } from './weight.ts';
 import { foodIn, ledgerAdd } from './woodsman.ts';
 
 /** A unit's loot bag holds 25 lb, the Table 12 carrying limit, a worker's gathered load counting against it (s). */
@@ -55,6 +60,12 @@ export const LOOT_BRAG_PCT = 200;
 export const LOOT_RARE_PM = 50;
 /** Monsters with this much health or more, and those that come only a few a night, count as rare and powerful: whatever they drop is remarked on (s). */
 export const LOOT_BOSS_HP = 500;
+/** A loot order's `hand` that hands in only one good (Patch 5, GP-7: the unit inventory's Unload): HAND_ONE plus the good; 1 hands in the whole bag. */
+export const HAND_ONE = 2;
+/** The `owner` of loot a player's unit put down on purpose (GP-7: Drop): nobody picks it up by themselves, only when sent to it. */
+export const DROPPED = -2;
+/** A unit this close to one of its player's drop-offs hands in what it carries by itself (Patch 5, GP-6) (s): 5 m from the building's walls. */
+export const AUTO_DROP_M = 5;
 /** Idle units look about for loot once a second. */
 const THINK_STEPS = STEPS_PER_SECOND;
 
@@ -87,6 +98,16 @@ export function bagTenthsLb(state: SimState, i: number): number {
   let w = 0;
   for (let k = 0; k < g.length; k += 2) w += weightOf(g[k]!) * g[k + 1]!;
   return w;
+}
+
+/**
+ * What a unit carries and the most it can, tenths of a pound, for the unit
+ * inventory's weight (Patch 5, GP-7): its gathered load and its bag together,
+ * out of 25 lb, or a cart's or pack's load (loot always shares the first
+ * 25 lb with what it gathers).
+ */
+export function carryView(state: SimState, i: number): [number, number] {
+  return [rawTenthsLb(state, i) + bagTenthsLb(state, i), Math.max(LOOT_BAG_TENTHS_LB, rawLimitTenthsLb(state, i))];
 }
 
 /** What a unit's bag still takes, tenths of a pound: 25 lb less what it holds, a gathered load counting too. */
@@ -134,6 +155,90 @@ export function handIn(state: SimState, i: number): void {
   // A woodsman's food line counts the food he brings in (Jade's WD-7).
   if (ps) ledgerAdd(state, i, foodIn(g), 0);
   e.bag[i] = [];
+}
+
+/** How many of a good a unit carries, in its gathered load and its bag. */
+export function carriedOf(state: SimState, i: number, res: number): number {
+  const e = state.entities;
+  let n = e.carryRes[i] === res ? e.carryAmt[i]! : 0;
+  const g = e.bag[i]!;
+  for (let k = 0; k < g.length; k += 2) if (g[k] === res) n += g[k + 1]!;
+  return n;
+}
+
+/** Takes all of a good out of a unit's load and bag; returns how many. */
+function takeOut(state: SimState, i: number, res: number): number {
+  const e = state.entities;
+  let n = 0;
+  if (e.carryRes[i] === res && e.carryAmt[i]! > 0) {
+    n += e.carryAmt[i]!;
+    e.carryAmt[i] = 0;
+    e.carryRes[i] = NO_CARRY;
+  }
+  const g = e.bag[i]!;
+  for (let k = 0; k < g.length; k += 2) {
+    if (g[k] !== res) continue;
+    n += g[k + 1]!;
+    g.splice(k, 2);
+    break;
+  }
+  return n;
+}
+
+/** Hands in one good a unit carries, load and bag, into its owner's pool (GP-7: Unload). */
+export function handInOne(state: SimState, i: number, res: number): void {
+  const n = takeOut(state, i, res);
+  const ps = state.players[state.entities.owner[i]!];
+  if (ps && n > 0) ps.pool[res] = ps.pool[res]! + n;
+}
+
+/**
+ * Puts all of a good a unit carries down on the ground at its feet (Patch
+ * 5, GP-7: the unit inventory's Drop). Nobody picks it up by themselves; a
+ * right click on it sends units for it as for any loot.
+ */
+export function dropItem(state: SimState, i: number, res: number): number {
+  const e = state.entities;
+  const n = takeOut(state, i, res);
+  if (n <= 0) return 0;
+  const x = e.x[i]!;
+  const z = e.z[i]!;
+  state.loot.push({ id: state.nextEntityId++, res, amt: n, x, y: standY(state, x, z), z, at: state.step, by: 0, owner: DROPPED, brag: 0, src: 0 });
+  return n;
+}
+
+/**
+ * Units near one of their player's drop-offs hand in what they carry by
+ * themselves (Jade's Patch 5, GP-6: "make all units near enough to a
+ * storepoint to drop off automatically"): within 5 m of its walls, once a
+ * second, a gathered load where the drop-off takes it and the loot bag at
+ * one that takes everything, with no walk and no stop to what they do.
+ */
+export function autoDropoff(state: SimState): void {
+  const e = state.entities;
+  const reach = ceilDiv(AUTO_DROP_M * M, WU_PER_COLUMN);
+  for (let i = 0; i < e.count; i++) {
+    if ((state.step + e.id[i]!) % THINK_STEPS !== 0 || e.inside[i] !== 0 || !canLoot(state, i)) continue;
+    const load = e.carryAmt[i]! > 0 && e.carryRes[i] !== NO_CARRY;
+    if (!load && bagEmpty(state, i)) continue;
+    const cx = col(e.x[i]!);
+    const cz = col(e.z[i]!);
+    for (const b of state.buildings.list) {
+      if (b.owner !== e.owner[i] || !b.complete) continue;
+      const spec = buildingSpec(b.kind);
+      const all = spec.dropoff === 'all';
+      if (!(load ? accepts(spec, e.carryRes[i]!) : all)) continue;
+      const [x0, z0, x1, z1] = solidRect(b);
+      if (rectDistance({ x0, z0, x1, z1, min: 0, max: 0 }, cx, cz) > reach) continue;
+      if (load) {
+        const res = e.carryRes[i]!;
+        unload(state, i, b);
+        // A gatherer keeps in mind what it was gathering, to find more of it if its node is gone, as on reaching the drop-off.
+        if (e.queue[i]![0]?.t === 'gather') e.carryRes[i] = res;
+      } else handIn(state, i);
+      break;
+    }
+  }
 }
 
 // ----- words -----
@@ -360,9 +465,9 @@ export function updateLoot(state: SimState): void {
   if (n > 0) list.splice(0, n);
 }
 
-/** Whether loot is a unit's own side's to pick up by itself: its player's, or anyone's. */
+/** Whether loot is a unit's own side's to pick up by itself: its player's, or anyone's (never what a unit dropped on purpose). */
 function ownLoot(state: SimState, i: number, l: Loot): boolean {
-  return l.owner < 0 || l.owner === state.entities.owner[i];
+  return l.owner === -1 || l.owner === state.entities.owner[i];
 }
 
 /**
@@ -445,10 +550,15 @@ export function runLoot(state: SimState, i: number, o: Extract<UnitOrder, { t: '
     return CONTINUE;
   }
   if (o.hand !== 0) {
-    const b = bagEmpty(state, i) ? null : nearestDropoff(state, i, -1);
+    // One good only (the unit inventory's Unload), at the nearest drop-off that takes it; else the whole bag.
+    const one = o.hand >= HAND_ONE ? o.hand - HAND_ONE : -1;
+    const has = one >= 0 ? carriedOf(state, i, one) > 0 : !bagEmpty(state, i);
+    const b = has ? nearestDropoff(state, i, one) : null;
     if (!b) {
-      if (!bagEmpty(state, i) && !o.back) say(state, i, 'There is nowhere to hand this in. Build a storehouse.', true);
+      if (has && !o.back) say(state, i, 'There is nowhere to hand this in. Build a storehouse.', true);
+      // Nothing left to hand in (it went in by itself near a drop-off on the way, Patch 5's GP-6): on to the walk back.
       o.hand = 0;
+      resetWalk(state, i);
       return CONTINUE;
     }
     const r = walkTo(state, i, besideBuilding(b));
@@ -457,7 +567,8 @@ export function runLoot(state: SimState, i: number, o: Extract<UnitOrder, { t: '
       // A drop-off it cannot reach is not tried again for a while.
       if (o.back) e.waitUntil[i] = state.step + 30 * STEPS_PER_SECOND;
       else say(state, i, 'I cannot reach a drop-off.', true);
-    } else handIn(state, i);
+    } else if (one >= 0) handInOne(state, i, one);
+    else handIn(state, i);
     o.hand = 0;
     resetWalk(state, i);
     return CONTINUE;

@@ -3301,6 +3301,56 @@ for players.
 6. `node packages/client/test-e2e/how-to-play-look.mjs <dev server URL>
    <folder>` drives all of this in a browser and saves pictures of it.
 
+## How a tester checks Patch 5's world
+
+The land is measured from the main bases now, cliffs before the Barrens have
+become mountains, and there are new things to find and gather. Start a game
+(`?seed=1` gives the same world each time).
+
+1. Bands: the Heartland reaches 155 to 175 m from the nearest main base in
+   every direction, then the Fringe, the Deepwoods and the Barrens are each
+   155 to 175 m wide, and the Deadlands go on from there. Each border
+   wanders about 5 m. Farms, mines and the threat count the band where they
+   stand.
+2. Before the Barrens there are no small cliffs or ledges: the old cliff
+   lines are broad mountains, rock on top and grass lower down, with open
+   passes. Parts of the Heartland, Barrens and Deadlands roll in gentle
+   hills, never within 50 m of a start. Villages stand on flat ground, and
+   bogs lie in hollows.
+3. One peak of 11 to 14 m stands 100 to 125 m from the first player's main
+   base.
+4. Nothing natural lies deeper than 6 m below sea level, ravines are 3 to
+   5 m deep, and digging stops at the same 6 m.
+5. Woods are thinner and walkable, the Heartland's most of all, and a felled
+   tree's seeds only take root 4 m or more from any other tree.
+6. Boulders, 3 m tall, about one every 4 or 5 chunks and none within 40 m
+   of a main base: 400 stone, 3 workers at once, a digging stick or better.
+7. Coal rocks, grey rocks with black chunks set in them: copper picks or
+   better, 20 to 30 coal, then 40 to 60 stone left behind as an outcrop.
+8. Mountains before the Barrens very rarely hold a silver node (1 to 4
+   silver, then 10 to 20 loose stone) and more rarely a gold node (1 to 2
+   gold, then 6 to 12 loose stone), both with copper picks.
+9. Flax grows in fields of 8 to 16 plants in about a third of the
+   Heartland's, Fringe's and Deepwoods' chunks, the ones with few trees,
+   never in bogs: three looks that gather alike, and a tall one twice the
+   height that gives 20 flax. Picked bare, it grows back in 3 minutes.
+10. Edible mushrooms at the feet of trees (one for every 3 trees in a chunk,
+    10 at most) and black berry, raspberry and blueberry bushes: 1 food a
+    mushroom or a bunch of berries, each in its own inventory slot. A berry
+    bush picked bare keeps its leaves and its berries come back in 2
+    minutes.
+11. Iron rock: the Fringe's half the size and half as many as before, the
+    Deepwoods' a fifth smaller again and 80% as many as the Fringe's, the
+    Barrens' and Deadlands' as the Fringe's were. Marble rock turns up in
+    the Fringe and the Deepwoods.
+12. Hot springs, a pool with a stone rim and sulphur on it, in about 1 in 5
+    Barrens and Deadlands chunks. The first time your units come near one,
+    an ash golem stands on its rim: it grumbles at units within 25 m, wakes
+    with a roar when they come within 12 m, and growls as it fights. Killed,
+    it never comes back. None in a peaceful game.
+13. Dead trees give 10 softwood lumber and thorn bushes 10 sticks; neither
+    grows back.
+
 ## How a tester checks the open site, open games and the debugger (Patch 5)
 
 The site is public, games can be found in a list, and the debugger is new and
@@ -3795,6 +3845,82 @@ tips. Picks in blueprint/patch5-gear-picks.md.*
 7. **Gear in the waves.** Late enough (or with many nights of **Wave**), a
    killed monster now and then drops a weapon, armour or shield of the
    night's tier, which units carry home like other loot.
+
+## How a tester checks the unit inventory, the item menu and the main base shelter (Patch 5)
+
+*Patch 5's GP-2, GP-5 to GP-10, GP-13, GP-27, GP-33 and GP-34, with
+decisions 3.6 and 3.8: one unit's inventory in the middle of the HUD, one
+right-click menu for every item, Equip from the stock, drop-offs by
+themselves, troops sheltering in the main base, and eating to heal. Picks in
+blueprint/patch5-gear-picks.md (section 12).*
+
+1. **The tests.** `pnpm test` runs packages/sim/test/patch5-inventory.test.ts
+   (units near a drop-off hand in by themselves; Drop puts a good on the
+   ground that nobody picks up by themselves; Unload takes one good; Equip
+   pays the item and sends the unit to put it on, or says why it cannot;
+   who goes inside a main base and who goes up; the panel's switch; one "I
+   feel safe in here." for a run of workers; the food a wound needs) and
+   packages/client/test/patch5-inventory.test.ts (the item menu's choices in
+   order, greyed with their reasons; an item's own use; the inventory's
+   slots and weight; the bars on spells).
+2. **One unit's inventory.** `pnpm dev`, open http://localhost:5173/?seed=1,
+   type M N B V C X Z and select one worker. The divider after the name runs
+   down the panel: on the left the kit slots with the meal right after them
+   (no gap), on the right, under the HP, MP and XP bars, an inventory box of
+   8 slots holding what it carries, its load and its loot together. Under
+   them **x/y lb** (what it carries of what it can, each number explained in
+   its tooltip) and **Unload all** (C), greyed when it carries nothing.
+   Tooltips there open above the box. Select two units, or someone else's:
+   no box. The worker card has no Unload any more.
+3. **The item menu.** Right click a slot of the unit's inventory: **Use**
+   (greyed: "It has no use of its own."), **Unload** (that good to the
+   nearest drop-off that takes it, then back to work) and **Drop** (on the
+   ground there; nobody picks it up by themselves). Right click a slot of
+   the stockpile: a weapon, armour, shield, tool, wand or robe offers Use,
+   **Equip** and **Scrap** (greyed with why: no Workshop, none in the
+   stock); a food offers Use and **Don't eat** (then **Eat again**).
+4. **Equip.** Press **Troop kit** on the debug bar, train a swordsman at
+   the Big House and another at the Barracks with a better sword, and raise
+   the second one's weapon with **Upgrade equipment**: its old sword goes to
+   the stock. Right click that sword in the stockpile, pick **Equip** and
+   left click the first swordsman: it says it is off to the nearest
+   Barracks, Forge or main base for it, walks there and puts it on in a
+   fifth of the time, and its old sword goes to the stock in turn. Left
+   click a spearman instead: "I cannot use a …"; the second swordsman: "I
+   already have better." Right click or Esc cancels the pick.
+5. **Drop-offs by themselves.** Send a worker gathering beside the main
+   base or a stockpile, or walk a troop with loot within 5 m of the main
+   base: what it carries goes into the stock by itself about once a
+   second, with no walk and no stop to what it does.
+6. **The main base.** Select some workers carrying nothing and right click
+   the main base: they go inside, and the main base says "I feel safe in
+   here." once for the lot. Workers carrying goods turn them in first (loot
+   too); the rest of a mixed selection goes in. Select swordsmen, archers
+   and a mage and right click a tier 2 or higher main base: the swordsmen
+   go deeper inside, the archers and the mage up on the ramparts (the Big
+   House takes everyone inside). Riders and engines do not go in. In the
+   main base's panel, the inside row starts with **Eject n** (everyone
+   sheltering inside comes out, the ramparts stay), and each portrait has a
+   small arrow: ▼ moves one from the ramparts deeper inside, ▲ back up.
+7. **Eating.** Let a unit get hurt in a night's fight, select it and
+   press **Eat**: it walks to the main base or a storehouse and says "I need
+   n food to heal. I'm eating …": 1 food for each quarter of its health it
+   lacks, 4 for one near death, and it heals all of it over 10 s. With too
+   little food it eats what there is and heals a quarter for each, and a
+   remedy or bandage in the stock heals more. At full health Eat is greyed
+   ("It is at full health."), and a unit healed on its way does not sit
+   down to eat.
+8. **The bars.** Select a mage: the bars read HP, MP, then XP.
+   Cast Quicken, Fortify or Heal on a unit and select it: each spell's
+   picture has a bar that runs down over the spell's time, its tooltip
+   saying how many seconds are left.
+9. **The obsidian hand-axe.** With one in the stock (the satyrs drop it),
+   Equip it on a swordsman of tier 3 or lower: it says "Upgrading to
+   obsidian hand-axe.", its weapon slot shows the axe, and it holds the
+   obsidian hand-axe's own model with a bronze shortsword's numbers. New armour leaves the axe in hand; a better sword
+   sends it back to the stock as an obsidian hand-axe. A swordsman trained
+   at tier 4 while one is in the stock comes out holding it. The test is in
+   packages/sim/test/patch5-gear.test.ts.
 
 ## How a tester checks running, climbing and jumping (Patch 5)
 

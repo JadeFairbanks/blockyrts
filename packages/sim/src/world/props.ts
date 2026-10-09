@@ -1,6 +1,8 @@
 // Resource nodes and other generated props (Table 5: Resource nodes per band;
 // Generated rocks and trees). The numbers began as typed copies of the old
 // blueprint's Table 5; since Patch 5 retired it, these rows are the source.
+// Jade's Patch 5 props and changes have no row (''): their numbers are hers,
+// or picks where she gave none.
 
 import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
@@ -45,7 +47,8 @@ export const PropKind = {
   StoneOutcrop: 14,
   CopperOutcrop: 15,
   TinOutcrop: 16,
-  CoalSeam: 17,
+  /** A coal rock (Jade's Patch 5, WL-7; a coal seam before): mostly stone, some coal. */
+  CoalRock: 17,
   BogIron: 18,
   IronRock: 19,
   ClayBank: 20,
@@ -64,6 +67,18 @@ export const PropKind = {
   FishTrout: 31,
   FishSalmon: 32,
   FishCatfish: 33,
+  /** Jade's Patch 5: edible mushrooms (GP-30) and three berry bushes (GP-32), the woodsman's forage. */
+  Mushroom: 34,
+  BlackBerryBush: 35,
+  RaspberryBush: 36,
+  BlueberryBush: 37,
+  /** Tall flax, twice the height and twice the flax (WL-10). */
+  FlaxTall: 38,
+  /** A 3 m boulder (WL-5). */
+  Boulder: 39,
+  /** Small silver and gold nodes on the mountains (WL-4). */
+  SilverNode: 40,
+  GoldNode: 41,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
@@ -91,6 +106,12 @@ export interface PropInfo {
   regrowSteps: number;
   /** Seeds dropped when felled (trees). */
   seeds: number;
+  /** The most it holds, where its yield (the least) varies from node to node (world generation); its yield where it does not. */
+  yieldMax: number;
+  /** A wild edible the Forage button gathers (Jade's Patch 5: WD-1, GP-30 to GP-32). */
+  forage: boolean;
+  /** What stands where it was, once it is used up: a coal rock's stone (WL-7), a silver or gold node's (WL-4); null for nothing. */
+  leaves: { kind: PropKind; min: number; max: number } | null;
   /** The Table 5 row this comes from (its first cell), for the test that checks it. */
   row: string;
   /** Extra text the test expects in that row, if the record differs from the row's first numbers. */
@@ -99,9 +120,17 @@ export interface PropInfo {
 
 const tree = (kind: PropKind, name: string, y: number, load: number, gatherers: number, tool: Tool, regrow: number, row: string, resource: string): PropInfo => ({
   kind, name, shape: PropShape.Tree, resource, yield: y, perLoad: 5, loadSteps: load * STEPS_PER_SECOND, gatherers, tool, regrowSteps: regrow, seeds: 2, row, check: [],
+  yieldMax: y, forage: false, leaves: null,
 });
 const node = (kind: PropKind, name: string, shape: PropShape, resource: string, y: number, perLoad: number, load: number, gatherers: number, tool: Tool, row: string, check: readonly string[] = [], regrow = 0): PropInfo => ({
   kind, name, shape, resource, yield: y, perLoad, loadSteps: load * STEPS_PER_SECOND, gatherers, tool, regrowSteps: regrow, seeds: 0, row, check,
+  yieldMax: y, forage: false, leaves: null,
+});
+/** Jade's Patch 5 props: no Table 5 row (row ''), so the records test leaves them out; their numbers are hers or picks (s). */
+const P5 = '';
+/** A berry bush (GP-31, GP-32): 1 or 2 bunches of berries, picked whole without harm to the bush, back in about 2 minutes (s: 2). */
+const berries = (kind: PropKind, name: string, resource: string): PropInfo => ({
+  ...node(kind, name, PropShape.Bush, resource, 1, 2, 4, 1, Tool.None, P5, [], 2 * MINUTE), yieldMax: 2, forage: true,
 });
 
 const SOFTWOOD_ROW = 'Softwood tree (pine, spruce, small softwood)';
@@ -119,17 +148,21 @@ export const PROPS: readonly PropInfo[] = [
   tree(PropKind.Hornbeam, 'Hornbeam', 15, 20, 1, Tool.Flint, 180 * MINUTE, SMALL_HW_ROW, 'hardwood lumber'),
   tree(PropKind.Oak, 'Great oak', 40, 20, 2, Tool.Copper, 360 * MINUTE, LARGE_HW_ROW, 'hardwood lumber'),
   tree(PropKind.Beech, 'Great beech', 40, 20, 2, Tool.Copper, 360 * MINUTE, LARGE_HW_ROW, 'hardwood lumber'),
-  // Dead and twisted, no lumber (Jade): cover and lair sites only.
-  { ...tree(PropKind.DeadTree, 'Dead tree', 0, 0, 0, Tool.None, 0, 'Dead trees, thornwood', ''), seeds: 0, check: ['no lumber'] },
-  { ...tree(PropKind.Thornwood, 'Thornwood', 0, 0, 0, Tool.None, 0, 'Dead trees, thornwood', ''), seeds: 0, check: ['no lumber'] },
+  // Jade's Patch 5 (WL-11): "Dead wood does yield lumber, and thorn bushes yield sticks, but they do not reproduce":
+  // no seeds and no regrowth (s: 10 softwood lumber a dead tree, 10 sticks a thorn bush).
+  { ...tree(PropKind.DeadTree, 'Dead tree', 10, 15, 1, Tool.Hardwood, 0, P5, 'softwood lumber'), seeds: 0 },
+  { ...tree(PropKind.Thornwood, 'Thorn bush', 10, 10, 1, Tool.Hardwood, 0, P5, 'sticks'), perLoad: 10, seeds: 0 },
   node(PropKind.Herbs, 'Herbs', PropShape.Plant, 'medicinal herbs', 10, 10, 10, 1, Tool.Hardwood, 'Herbs / wild flax', ['10 / 10', '5 days'], 5 * CYCLE_STEPS),
-  node(PropKind.WildFlax, 'Wild flax', PropShape.Plant, 'flax', 10, 10, 10, 1, Tool.Hardwood, 'Herbs / wild flax', ['10 / 10', '5 days'], 5 * CYCLE_STEPS),
+  // Grows back quickly since Patch 5 (WL-10: "Regrows quickly"; s: 3 minutes, Table 5 had 5 days), only in its fields.
+  node(PropKind.WildFlax, 'Wild flax', PropShape.Plant, 'flax', 10, 10, 10, 1, Tool.Hardwood, P5, [], 3 * MINUTE),
   node(PropKind.LooseStone, 'Loose stone', PropShape.Rocks, 'stone', 40, 5, 10, 2, Tool.Hardwood, 'Loose stone / flint scatter', ['40 stone', '5 / 10']),
   node(PropKind.FlintScatter, 'Flint scatter', PropShape.Rocks, 'flint', 20, 10, 10, 2, Tool.Hardwood, 'Loose stone / flint scatter', ['20 flint', '5 / 10']),
   node(PropKind.StoneOutcrop, 'Stone outcrop', PropShape.Rocks, 'stone', 200, 5, 15, 2, Tool.Hardwood, 'Stone outcrop'),
   node(PropKind.CopperOutcrop, 'Copper outcrop', PropShape.Rocks, 'copper ore', 60, 5, 20, 2, Tool.Stone, 'Copper outcrop / tin outcrop', ['60 / 30']),
   node(PropKind.TinOutcrop, 'Tin outcrop', PropShape.Rocks, 'tin ore', 30, 5, 20, 2, Tool.Stone, 'Copper outcrop / tin outcrop', ['60 / 30']),
-  node(PropKind.CoalSeam, 'Coal seam', PropShape.Rocks, 'coal', 60, 5, 15, 2, Tool.Copper, 'Coal, surface seam'),
+  // Jade's Patch 5 (WL-7): "mostly rock by weight with some coal", copper picks, at least three times the fuel of wood
+  // for the time (s: 20 to 30 coal, 10 a load in 10 s, then a stone outcrop of 40 to 60 where it stood).
+  { ...node(PropKind.CoalRock, 'Coal rock', PropShape.Rocks, 'coal', 20, 10, 10, 2, Tool.Copper, P5), yieldMax: 30, leaves: { kind: PropKind.StoneOutcrop, min: 40, max: 60 } },
   node(PropKind.BogIron, 'Bog iron', PropShape.Patch, 'bog iron', 40, 5, 20, 2, Tool.Bronze, 'Bog iron patch'),
   node(PropKind.IronRock, 'Iron rock', PropShape.Rocks, 'iron rock', 80, 5, 25, 2, Tool.Bronze, 'Iron rock'),
   node(PropKind.ClayBank, 'Clay bank', PropShape.Patch, 'clay', 100, 5, 15, 2, Tool.Hardwood, 'Clay bank'),
@@ -148,6 +181,17 @@ export const PROPS: readonly PropInfo[] = [
   node(PropKind.FishTrout, 'Trout stretch', PropShape.Fish, 'fish', 0, 1, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 3 * CYCLE_STEPS),
   node(PropKind.FishSalmon, 'Salmon stretch', PropShape.Fish, 'fish', 0, 1, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 6 * CYCLE_STEPS),
   node(PropKind.FishCatfish, 'Giant catfish stretch', PropShape.Fish, 'fish', 0, 1, 15, 1, Tool.None, FISH_ROW, FISH_CHECK, 9 * CYCLE_STEPS),
+  // GP-30: 1 food a mushroom. Picked, it is gone, and a new one grows within 3 m (GP-30's regrowth, with foraging).
+  { ...node(PropKind.Mushroom, 'Edible mushrooms', PropShape.Plant, 'mushrooms', 1, 1, 3, 1, Tool.None, P5), forage: true },
+  berries(PropKind.BlackBerryBush, 'Black berry bush', 'black berries'),
+  berries(PropKind.RaspberryBush, 'Raspberry bush', 'raspberries'),
+  berries(PropKind.BlueberryBush, 'Blueberry bush', 'blueberries'),
+  node(PropKind.FlaxTall, 'Tall flax', PropShape.Plant, 'flax', 20, 10, 10, 1, Tool.Hardwood, P5, [], 3 * MINUTE),
+  node(PropKind.Boulder, 'Boulder', PropShape.Rocks, 'stone', 400, 5, 15, 3, Tool.Hardwood, P5),
+  // WL-4: "never more than 2 gold ingots worth of ore from a single gold node, and never more than 4 silver ingots
+  // worth from single silver ore node ... the nodes also give more stone than the ore", copper picks or better.
+  { ...node(PropKind.SilverNode, 'Silver ore node', PropShape.Rocks, 'silver', 1, 2, 20, 1, Tool.Copper, P5), yieldMax: 4, leaves: { kind: PropKind.LooseStone, min: 10, max: 20 } },
+  { ...node(PropKind.GoldNode, 'Gold ore node', PropShape.Rocks, 'gold', 1, 1, 20, 1, Tool.Copper, P5), yieldMax: 2, leaves: { kind: PropKind.LooseStone, min: 6, max: 12 } },
 ];
 
 /** Whether a prop is a fish stretch. */
@@ -219,7 +263,13 @@ export const HAZEL_GROWTH: readonly GrowthStage[] = [
   stage(Stage.Grown, 'Hazel bush', 1000, 1000, 1000),
 ];
 
-/** Herbs and wild flax, from the roots once picked bare (Table 5: 5 days) (s). */
+/** A berry bush picked bare: the bush stays and its berries grow back (GP-31), no buildings over it (s). */
+export const BERRY_GROWTH: readonly GrowthStage[] = [
+  stage(Stage.Young, '{Name}, picked', 0, 1000, 0),
+  stage(Stage.Grown, '{Name}', 1000, 1000, 1000),
+];
+
+/** Herbs and wild flax, from the roots once picked bare (Table 5: 5 days; flax 3 minutes since Patch 5) (s). */
 export const PLANT_GROWTH: readonly GrowthStage[] = [
   stage(Stage.Sapling, 'Sprouting {name}', 0, 300, 0, true, 1),
   stage(Stage.HalfGrown, 'Half-grown {name}', 500, 650, 500),
@@ -232,6 +282,7 @@ export function growthStages(kind: number): readonly GrowthStage[] | null {
   if (info.regrowSteps === 0) return null;
   if (info.shape === PropShape.Tree) return TREE_GROWTH;
   if (kind === PropKind.Hazel) return HAZEL_GROWTH;
+  if (info.forage && info.shape === PropShape.Bush) return BERRY_GROWTH;
   if (info.shape === PropShape.Plant) return PLANT_GROWTH;
   return null;
 }
@@ -289,9 +340,12 @@ export function fishAt(breedSteps: number, most: number, amount: number, since: 
   return n;
 }
 
-/** The tool job a node is worked with: trees and bushes are chopped, plants and carcasses cut, rocks, patches and crystals broken. */
+/** The tool job a node is worked with: trees and bushes are chopped, plants, forage and carcasses cut, rocks, patches and crystals broken. */
 export function propJob(kind: number): ToolJob {
-  const shape = propInfo(kind).shape;
+  const info = propInfo(kind);
+  const shape = info.shape;
+  // Berries and mushrooms are picked, not chopped.
+  if (info.forage) return ToolJob.Cut;
   if (shape === PropShape.Tree || shape === PropShape.Bush) return ToolJob.Chop;
   if (shape === PropShape.Plant || shape === PropShape.Carcass || shape === PropShape.Fish) return ToolJob.Cut;
   return ToolJob.Break;

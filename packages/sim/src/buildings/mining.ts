@@ -87,8 +87,7 @@ export function shaftOutput(state: SimState, b: Building): Output[] {
 /** Gold, silver and gems come x1.5 in the Barrens and x2 in the Deadlands (Table 5). */
 function preciousPerMille(state: SimState, b: Building): number {
   const [x, z] = buildingCentre(b);
-  const layout = state.world.layout;
-  const band = layout.cell(layout.nearest(floorDiv(x, WU_PER_COLUMN), floorDiv(z, WU_PER_COLUMN))).band;
+  const band = state.world.gen.columnBand(floorDiv(x, WU_PER_COLUMN), floorDiv(z, WU_PER_COLUMN));
   return band === Band.Deadlands ? 2000 : band === Band.Barrens ? 1500 : 1000;
 }
 

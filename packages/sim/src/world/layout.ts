@@ -65,6 +65,12 @@ export interface Edge {
   upper: number;
   /** Cliff lines: how far the high ground slopes back down behind the cliff, in columns. */
   fade: number;
+  /**
+   * Ridges: a mountain, broad and peaked rather than a steep wall (Jade's
+   * Patch 5, WL-4: every ridge before the Barrens, and most cliff lines,
+   * become mountains of stone and earth).
+   */
+  mountain: boolean;
   /** Ridges: a cave at the foot of the ridge, or null. */
   cave: Cave | null;
   /** A hash for anything else that should vary per edge. */
@@ -92,12 +98,13 @@ export interface Cell {
   z: number;
   /** The ring's mean cell size across, in columns. */
   size: number;
+  /** The band at the cell's site (WL-8: measured from the nearest main base); its land takes the band of each column (WorldLayout.bandAt). */
   band: Band;
   look: Look;
-  /** Deadlands cells with volcanic ground and sulphur. */
+  /** The roll its look came from, for its land in another band than its site's (lookOf). */
+  lookRoll: number;
+  /** Its land in the Deadlands is volcanic, with sulphur. */
   volcanic: boolean;
-  /** Barrens cells with a rare hot spring and a little sulphur (Table 5: about 1 in 10). */
-  hotSpring: boolean;
   /** Neighbouring cell ids (sorted) and the edge shared with each. */
   neighbours: number[];
   edges: Edge[];
@@ -136,7 +143,32 @@ function scaledSize(m: number): number {
   return floorDiv(metresToColumns(m) * RING_SCALE_PER_MILLE, 1000);
 }
 
-/** The start of each band, as ring indexes (ring 0 is the start basin). */
+/**
+ * Jade's Patch 5 (WL-8, her answer 2.5): every band is 150 to 180 m wide,
+ * measured as the raven flies from the nearest main base, so the Heartland
+ * ends 150 to 180 m out, the Fringe 300 to 360 m, and so on; the Deadlands
+ * beyond stay endless. Each band's width is seeded in this range (s: 155 to
+ * 175 m, so the border's wander of up to BAND_WANDER_M either way keeps each
+ * band's end inside her range).
+ */
+export const BAND_WIDTH_MIN_M = 155;
+export const BAND_WIDTH_MAX_M = 175;
+/** How far a band's border wanders either side of its distance, metres (s), so it does not run in circles. */
+export const BAND_WANDER_M = 5;
+/**
+ * Cliff lines before the Barrens that become mountains, per mille (Jade's
+ * Patch 5, WL-4: "the majority of sharp cliffs"; every ridge there does too).
+ * The rest stay cliffs, all of them tall: there are no mini cliffs before
+ * the Barrens (WL-3).
+ */
+export const CLIFF_MOUNTAIN_PM = 750;
+
+/**
+ * The first ring of each band, as ring indexes (ring 0 is the start basin).
+ * Since Patch 5 the bands follow the distance from the main bases rather
+ * than the rings (WL-8), so these are the rings whose middle radius lies in
+ * each band: a ring's cells take the band at their own sites.
+ */
 export interface BandRings {
   fringe: number;
   deepwoods: number;
@@ -173,6 +205,11 @@ const LOOK_ODDS: readonly (readonly number[])[] = [
 /** Ridge caves per band, per mille (caves form at the foot of barrier edges and in the deeper bands). */
 const CAVE_ODDS = [0, 250, 400, 600, 600];
 
+/** How far from a ridge's line its cave mouth opens, columns: three quarters of its half width, half on a mountain's broader flank. */
+export function caveFoot(e: Edge): number {
+  return e.mountain ? e.half >> 1 : floorDiv(e.half * 3, 4);
+}
+
 function pick(table: readonly number[], roll: number): number {
   let acc = 0;
   for (let i = 0; i < table.length; i++) {
@@ -202,7 +239,11 @@ export class WorldLayout {
   /** The mean size of a starting cell, columns. */
   readonly startSize: number;
   private readonly rings: Ring[] = [];
-  readonly bands: BandRings;
+  bands: BandRings;
+  /** Where the Fringe, the Deepwoods, the Barrens and the Deadlands begin: distances from the nearest main base, columns (WL-8). */
+  readonly bandStarts: readonly number[];
+  /** The main bases the bands are measured from, columns: the start pockets once StartBasin has placed them, until then the basin's middle. */
+  private anchors: ReadonlyArray<{ x: number; z: number }>;
   private readonly cells = new Map<number, Cell>();
   private readonly rawEdges = new Map<number, Edge>();
   private readonly neighbourCache = new Map<number, number[]>();
@@ -233,21 +274,20 @@ export class WorldLayout {
     // Cell sizes: rings 1 and 2 are 150 to 200 m; each later ring 10 to 30% larger up to 2.5 times the start size,
     // then about that size (The world, Cell sizes); all at the mini patch's 70% (RING_SCALE_PER_MILLE).
     const cap = floorDiv(s0 * 5, 2);
-    let deepwoods = -1;
-    let barrens = -1;
+    // The ring the cells reach their full size at.
+    let full = -1;
     let radius = this.basinRadius;
     let prevSize = 0;
     for (let r = 1; ; r++) {
       let size: number;
       if (r <= 2) size = scaledSize(150 + (h(10 + r) % 51));
-      else if (barrens < 0) {
+      else if (full < 0) {
         size = floorDiv(prevSize * (110 + (h(10 + r) % 21)), 100);
         if (size >= cap) {
           size = cap;
-          barrens = r;
+          full = r;
         }
       } else size = floorDiv(cap * (95 + (h(10 + r) % 11)), 100);
-      if (deepwoods < 0 && size * 2 > s0 * 3) deepwoods = r;
       radius += r === 1 ? floorDiv(size, 2) : floorDiv(prevSize + size, 2);
       // 2 pi r / size cells round the ring.
       const count = Math.max(6, floorDiv(radius * 62832 + size * 5000, size * 10000));
@@ -255,7 +295,87 @@ export class WorldLayout {
       prevSize = size;
       if (radius > WORLD_EDGE_COLUMNS + 2 * size) break;
     }
-    this.bands = { fringe: 1, deepwoods, barrens, deadlands: barrens + 3 };
+    const starts: number[] = [];
+    let at = 0;
+    for (let k = 0; k < 4; k++) {
+      at += BAND_WIDTH_MIN_M + (hash2(this.seed, 0x62616e64, k) % (BAND_WIDTH_MAX_M - BAND_WIDTH_MIN_M + 1));
+      starts.push(metresToColumns(at));
+    }
+    this.bandStarts = starts;
+    let mx = 0;
+    let mz = 0;
+    for (const s of this.basin) {
+      mx += s.x;
+      mz += s.z;
+    }
+    this.anchors = [{ x: floorDiv(mx, this.basin.length), z: floorDiv(mz, this.basin.length) }];
+    this.bands = this.ringBands();
+  }
+
+  /**
+   * Measures the bands from these main bases (StartBasin: the start
+   * pockets), columns, forgetting every cell and edge worked out before.
+   */
+  setBandAnchors(points: ReadonlyArray<{ x: number; z: number }>): void {
+    if (points.length === 0) return;
+    this.anchors = points.map((p) => ({ x: p.x, z: p.z }));
+    this.cells.clear();
+    this.rawEdges.clear();
+    this.bands = this.ringBands();
+  }
+
+  /** The first ring whose middle radius lies in each band, each at least one ring past the one before. */
+  private ringBands(): BandRings {
+    const first = (band: Band, after: number): number => {
+      let r = after + 1;
+      while (r < this.rings.length - 1 && this.bandAtDistance(this.rings[r]!.radius) < band) r++;
+      return r;
+    };
+    const fringe = first(Band.Fringe, 0);
+    const deepwoods = first(Band.Deepwoods, fringe);
+    const barrens = first(Band.Barrens, deepwoods);
+    return { fringe, deepwoods, barrens, deadlands: first(Band.Deadlands, barrens) };
+  }
+
+  /** Distance from the nearest main base, columns. */
+  startDistance(x: number, z: number): number {
+    let best = Infinity;
+    let bx = 0;
+    let bz = 0;
+    for (const a of this.anchors) {
+      const dx = x - a.x;
+      const dz = z - a.z;
+      const d = dx * dx + dz * dz;
+      if (d < best) {
+        best = d;
+        bx = dx;
+        bz = dz;
+      }
+    }
+    return length2d(bx, bz);
+  }
+
+  /** The band at a distance from the nearest main base, columns (WL-8). */
+  bandAtDistance(d: number): Band {
+    let b = 0;
+    while (b < 4 && d >= this.bandStarts[b]!) b++;
+    return b as Band;
+  }
+
+  /** The band at a column: by its distance from the nearest main base (WL-8). */
+  bandAt(x: number, z: number): Band {
+    return this.bandAtDistance(this.startDistance(x, z));
+  }
+
+  /** A cell's band: the band at its site. */
+  bandOf(id: number): Band {
+    const s = this.site(id);
+    return this.bandAt(s.x, s.z);
+  }
+
+  /** A cell's look where its land lies in another band than its site (WL-8): the same roll, on that band's odds. */
+  lookOf(cell: Cell, band: Band): Look {
+    return band === cell.band ? cell.look : (pick(LOOK_ODDS[band]!, cell.lookRoll) as Look);
   }
 
   get ringCount(): number {
@@ -274,8 +394,9 @@ export class WorldLayout {
     return this.rings[r]!.count;
   }
 
+  /** The band a ring mostly lies in (BandRings); a cell's own band is the band at its site (bandOf). */
   bandOfRing(r: number): Band {
-    if (r === 0) return Band.Heartland;
+    if (r < this.bands.fringe) return Band.Heartland;
     if (r < this.bands.deepwoods) return Band.Fringe;
     if (r < this.bands.barrens) return Band.Deepwoods;
     if (r < this.bands.deadlands) return Band.Barrens;
@@ -388,12 +509,23 @@ export class WorldLayout {
     const hi = Math.max(a, b);
     const ra = floorDiv(lo, RING_SHIFT);
     const rb = floorDiv(hi, RING_SHIFT);
-    const band = Math.max(this.bandOfRing(ra), this.bandOfRing(rb));
+    const band = Math.max(this.bandOf(lo), this.bandOf(hi));
     const interior = ra === 0 && rb === 0;
     const h = hash2(this.seed, lo, hi);
     const h2 = hash2(h, 0x65646765, 1);
     const h3 = hash2(h, 0x65646765, 2);
-    const type = pick(EDGE_ODDS[interior ? 0 : band]!, h % 1000) as EdgeType;
+    // The Heartland's own edges outside the basin take the Fringe's odds, as the basin's outer edges always did.
+    let type = pick(EDGE_ODDS[interior ? 0 : Math.max(1, band)]!, h % 1000) as EdgeType;
+    // Jade's Patch 5 (WL-3, WL-4): no mini cliffs or ridges before the Barrens. Every ridge there, and most cliff lines,
+    // become mountains; the other cliff lines stay, all of them tall.
+    let mountain = false;
+    if (!interior && band < Band.Barrens) {
+      if (type === EdgeType.Ridge) mountain = true;
+      else if (type === EdgeType.Cliff && (h3 >>> 4) % 1000 < CLIFF_MOUNTAIN_PM) {
+        type = EdgeType.Ridge;
+        mountain = true;
+      }
+    }
     let nGaps = 0;
     if (blocksWalking(type) || type === EdgeType.Marsh) nGaps = pick(GAP_ODDS[interior ? 0 : band]!, (h >>> 10) % 1000);
     const r = (n: number, lo2: number, hi2: number): number => lo2 + (hash2(h3, n, 0) % (hi2 - lo2 + 1));
@@ -406,16 +538,24 @@ export class WorldLayout {
         height = floorDiv(metresToUnits(r(2, 15, 35)), 10); // 1.5 to 3.5 m: r() gives tenths
         break;
       case EdgeType.Ridge:
-        half = metresToColumns(r(1, 12, 22) + band * 2);
-        height = metresToUnits(r(2, 9, 16) + band * 2);
+        if (mountain) {
+          // Mountains (s): 50 to 80 m across their foot, peaks 12 to 20 m high and a metre more a band deeper.
+          half = metresToColumns(r(1, 25, 40));
+          height = metresToUnits(r(2, 12, 20) + band);
+        } else {
+          half = metresToColumns(r(1, 12, 22) + band * 2);
+          height = metresToUnits(r(2, 9, 16) + band * 2);
+        }
         break;
       case EdgeType.Cliff:
-        height = metresToUnits(r(2, 5, 10) + band);
+        // Before the Barrens only large cliffs (WL-3): 9 to 14 m (s).
+        height = band < Band.Barrens ? metresToUnits(r(2, 9, 14)) : metresToUnits(r(2, 5, 10) + band);
         fade = metresToColumns(r(3, 50, 80));
         break;
       case EdgeType.Ravine:
+        // At most 5 m deep (Jade's Patch 5, WL-2): 3 to 5 m (s).
         half = metresToColumns(r(1, 6, 10));
-        height = metresToUnits(r(2, 6, 12));
+        height = metresToUnits(r(2, 3, 5));
         break;
       case EdgeType.River:
         half = metresToColumns(r(1, 6, 10));
@@ -462,6 +602,7 @@ export class WorldLayout {
       height,
       upper: (h2 & 2) === 0 ? lo : hi,
       fade,
+      mountain,
       cave,
       hash: h,
     };
@@ -516,7 +657,7 @@ export class WorldLayout {
     if (cached) return cached;
     const s = this.site(id);
     const ring = floorDiv(id, RING_SHIFT);
-    const band = this.bandOfRing(ring);
+    const band = this.bandAt(s.x, s.z);
     const h = hash2(this.seed, 0x63656c6c, id);
     const look = pick(LOOK_ODDS[band]!, h % 1000) as Look;
     const neighbours = this.neighboursOf(id);
@@ -528,8 +669,8 @@ export class WorldLayout {
       size: this.rings[ring]!.size,
       band,
       look,
-      volcanic: band === Band.Deadlands && (h >>> 10) % 2 === 0,
-      hotSpring: band === Band.Barrens && (h >>> 12) % 10 === 0,
+      lookRoll: h % 1000,
+      volcanic: (h >>> 10) % 2 === 0,
       neighbours,
       edges: neighbours.map((n) => this.edge(id, n)),
     };

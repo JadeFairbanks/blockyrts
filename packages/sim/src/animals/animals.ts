@@ -42,8 +42,8 @@ import { BEAR_CAP, breeds, inPairs, Nature, PLANT_FOODS, Species, speciesSpec, S
 const COLUMN = WU_PER_COLUMN;
 const M = WU_PER_METRE;
 
-/** What else a cell holds the first time the players come near it (threats/villages.ts: a goblin village). */
-export const stockHooks: { cell: (state: SimState, cellId: number) => void } = { cell: () => {} };
+/** What else a cell or a chunk holds the first time the players come near it (threats/villages.ts: a goblin village; threats/springs.ts: a hot spring's guardian). */
+export const stockHooks: { cell: (state: SimState, cellId: number) => void; chunk: (state: SimState, cx: number, cz: number) => void } = { cell: () => {}, chunk: () => {} };
 
 /** Cells are stocked when a player's unit is in one or next to it, looked at every second (s). */
 export const STOCK_CHECK_STEPS = STEPS_PER_SECOND;
@@ -312,11 +312,11 @@ const COLUMN_AREA_MM2 = 2025;
 export function stockChunk(state: SimState, cx: number, cz: number, key: number): void {
   if (state.stockedChunks.has(key)) return;
   state.stockedChunks.add(key);
+  stockHooks.chunk(state, cx, cz);
   const N = 1 << CHUNK_SHIFT;
   const x0 = cx * N;
   const z0 = cz * N;
-  const layout = state.world.layout;
-  let band = layout.cell(layout.nearest(x0 + (N >> 1), z0 + (N >> 1))).band;
+  let band = state.world.gen.columnBand(x0 + (N >> 1), z0 + (N >> 1));
   // A start pocket's water holds trout (Table 9) wherever its chunk falls: since Jade's mini patch made the
   // basin 30% smaller, a yard's stream or pond can reach a chunk whose middle lies in a Fringe cell. A chunk
   // it reaches lies within the chunk's half diagonal (46 columns, rounded up to 48) of its middle.

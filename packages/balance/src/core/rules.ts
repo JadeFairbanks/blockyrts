@@ -56,7 +56,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
   'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/tools.ts:TOOL_FIELDS', 'buildings/chains.ts:STRETCH_DIRS',
   // Building shapes (one per level) and an enter order's flag: layout and plumbing, not balance.
-  'buildings/footprints.ts:FOOTPRINTS', 'units/unit-orders.ts:ENTER_TOP',
+  'buildings/footprints.ts:FOOTPRINTS', 'units/unit-orders.ts:ENTER_TOP', 'units/unit-orders.ts:ENTER_IN', 'units/loot.ts:HAND_ONE', 'units/loot.ts:DROPPED',
   // The peoples' names, lines and id offsets: words and plumbing, not balance. The special trinket multiplier is a copy of rules.ts's.
   'peoples/data.ts:PEOPLE_NAMES', 'peoples/data.ts:PERSON_NAMES', 'peoples/data.ts:FACTION_KIND_NAMES', 'peoples/data.ts:KIND_PEOPLE',
   'peoples/data.ts:CAT_COUNT', 'peoples/data.ts:CAT_NAMES', 'peoples/data.ts:REFUSE', 'peoples/data.ts:LIVE_GOODS', 'peoples/data.ts:ENGINE_GOODS',
@@ -90,7 +90,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'units/kits.ts:TROOP_TYPES', 'units/kits.ts:TROOP_NAMES', 'units/kits.ts:TROOP_TIER_NAMES', 'units/kits.ts:TROOP_KEYS', 'units/kits.ts:TOP_TIER', 'units/kits.ts:TOP_MAGE_TIER',
   'units/kits.ts:GEAR', 'units/kits.ts:PeopleGear', 'units/kits.ts:CLOSE_GEAR', 'units/kits.ts:LONG_GEAR', 'units/kits.ts:RANGER_GEAR',
   'units/kits.ts:PISTOL_GEAR', 'units/kits.ts:ARMOUR_GEAR', 'units/kits.ts:SHIELD_GEAR', 'units/kits.ts:TOOL_GEAR', 'units/kits.ts:WAND_GEAR',
-  'units/kits.ts:ROBE_GEAR',
+  'units/kits.ts:ROBE_GEAR', 'units/kits.ts:OBSIDIAN_AXE_GEAR',
   // Worker ranks (Patch 3): the rank names are words, and Work names what a worker is doing (building or gathering).
   'units/ranks.ts:WORKER_RANK_NAMES', 'units/ranks.ts:Work',
   // Working through the night (Patch 4): the question's kind, and the shelter and Gather orders' flags.
@@ -128,6 +128,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'combat/fight.ts': 'units',
   'combat/deaths.ts': 'units',
   'units/behaviour.ts': 'units',
+  'units/shelter.ts': 'units',
   'units/spacing.ts': 'units',
   'units/ranks.ts': 'units',
   'units/gear.ts': 'training',
@@ -190,6 +191,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'threats/bright.ts': 'mobs',
   'threats/necromancer.ts': 'mobs',
   'threats/guardians.ts': 'mobs',
+  'threats/springs.ts': 'lairs',
 };
 
 export const EXPORT_GROUPS: Readonly<Record<string, string>> = {
@@ -469,7 +471,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'resources:buildings/recipes.ts': 'Trinkets', 'mobs:combat/spawn.ts': 'Spawning',
   'state.ts': 'Workers and warriors', 'units/behaviour.ts': 'Work and ranks', 'units/ranks.ts': 'Worker ranks', 'buildings/production.ts': 'Training',
   'buildings/data.ts': 'Buildings', 'combat/combat.ts': 'Combat and experience', 'combat/fight.ts': 'Fighting ranges', 'rules.ts': 'General rules',
-  'units/weight.ts': 'Carrying', 'units/moves.ts': 'Running and climbing', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
+  'units/weight.ts': 'Carrying', 'units/shelter.ts': 'Sheltering in the main base', 'units/moves.ts': 'Running and climbing', 'economy/food.ts': 'Eating and healing', 'economy/food-kinds.ts': 'Meat and fish kinds', 'buildings/recipes.ts': 'Crafting and trinkets',
   'combat/mobs.ts': 'Mob abilities', 'combat/spawn.ts': 'Spawning', 'threats/data.ts': 'Lairs, tribes and villages', 'threats/lair-alert.ts': 'Lair alerts', 'world/props.ts': 'Props',
   'buildings/mining.ts': 'Mining, prospecting and fishing', 'units/dig.ts': 'Digging', 'nav/grid.ts': 'Moving over terrain', 'world/world.ts': 'Terrain',
   'world/start.ts': 'Start basins', 'world/generate.ts': 'World generation', 'clock.ts': 'Clock', 'animals/species.ts': 'Animals', 'units/field.ts': 'Hunting', 'threats/abilities.ts': 'Goblin mage spells',

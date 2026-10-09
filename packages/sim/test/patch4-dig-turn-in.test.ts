@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   Act,
+  AUTO_DROP_M,
   Blocked,
   BuildingKind,
   buildingCentre,
@@ -22,10 +23,12 @@ import {
   placementBlocked,
   Res,
   serializeState,
+  solidRect,
   step,
   TOOL_GEAR,
   ToolJob,
   WU_PER_COLUMN,
+  WU_PER_METRE,
   type Building,
   type Order,
   type SimState,
@@ -42,14 +45,27 @@ function bigHouse(s: SimState): Building {
   return s.buildings.list.find((b) => b.owner === 0 && b.kind === BuildingKind.MainBase)!;
 }
 
-/** A flat, open, explored patch w by h columns (with a 3-column margin) at least `from` columns from the first worker. */
+/** Columns beyond which a digger no longer hands its load in by itself (Patch 5, GP-6: within 5 m of a drop-off), with room to stand. */
+const AUTO_DROP_COLUMNS = Math.ceil((AUTO_DROP_M * WU_PER_METRE) / WU_PER_COLUMN) + 3;
+
+/**
+ * A flat, open, explored patch w by h columns (with a 3-column margin) at
+ * least `from` columns from the first worker, and far enough from every
+ * building that the digger walks its loads home (Patch 5: near one it hands
+ * them in by itself).
+ */
 function flatSpot(s: SimState, w: number, h: number, from = 6): { x: number; z: number; y: number } {
   const x0 = col(s.entities.x[0]!);
   const z0 = col(s.entities.z[0]!);
+  const far = (x: number, z: number): boolean =>
+    s.buildings.list.every((b) => {
+      const [bx0, bz0, bx1, bz1] = solidRect(b);
+      return Math.max(bx0 - (x + w), x - bx1, bz0 - (z + h), z - bz1) > AUTO_DROP_COLUMNS;
+    });
   for (let r = from; r < 120; r += 2) {
     for (const [x, z] of [[x0 + r, z0], [x0 - r - w, z0], [x0, z0 + r], [x0, z0 - r - h]] as const) {
       const y = s.world.topAt(x, z);
-      let ok = true;
+      let ok = far(x, z);
       for (let dz = -3; dz < h + 3 && ok; dz++) {
         for (let dx = -3; dx < w + 3 && ok; dx++) {
           const cx = x + dx;
@@ -226,6 +242,8 @@ describe('Patch 4: diggers turn in their loads like gatherers', () => {
     expect(e.queue[0]).toMatchObject([{ t: 'return' }, { t: 'dig', site }]);
     for (let k = 0; k < 4000 && e.carryAmt[0]! > 0; k++) step(s);
     expect(e.carryAmt[0]).toBe(0);
+    // Handed in by itself within 5 m of the main base (Jade's Patch 5, GP-6), it turns back at its next step.
+    step(s);
     expect(e.queue[0]).toMatchObject([{ t: 'dig', site }]);
     // Back at the pit, digging again.
     for (let k = 0; k < 4000 && e.carryAmt[0] === 0; k++) step(s);

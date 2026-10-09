@@ -379,6 +379,10 @@ export interface InfoMessage {
   bags: Array<[number, Array<[number, number]>]>;
   /** The local player's woodsmen's food lines (Patch 5, Jade's WD-7): per id, the food brought in and eaten (quarters), over how many steps, and its colour (sim Keep). */
   woodsmen?: Array<[number, number, number, number, number]>;
+  /** The local player's units that carry (workers, troops, mages): per unit id, what they carry and the most they can, tenths of a pound (Patch 5, GP-7: the unit inventory's weight). */
+  carry: Array<[number, number, number]>;
+  /** Spells on units (any side's): per unit id, (SpellOn bit, steps left) for each, for the bars on their pictures (Patch 5, GP-34). */
+  effects: Array<[number, Array<[number, number]>]>;
 }
 
 /** A piece of loot on the ground as the screen sees it. */

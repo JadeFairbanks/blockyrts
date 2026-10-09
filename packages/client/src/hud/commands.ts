@@ -19,7 +19,7 @@ import {
   DREADNOUGHT_TEXT,
   dreadnoughtProduct,
   CREWMAN_RETRAIN_STEPS,
-  EAT_NUTRITION,
+  eatNeed,
   ENGINE_PRODUCT,
   type Engine,
   engineSpec,
@@ -150,10 +150,12 @@ export interface CardEntry {
   troop?: number;
 }
 
-/** One choice of a card button's right-click dropdown. */
+/** One choice of a right-click dropdown: a card button's, or an item's (item-menu.ts). */
 export interface CardChoice {
   name: string;
   description: string;
+  /** Why it cannot be picked now; the choice is greyed out with it. */
+  why?: string;
   run(): void;
 }
 
@@ -166,7 +168,7 @@ type Slots = Array<CardEntry | null>;
 /** The card's commands that work on another player's shared units (the sim's allied orders). */
 const ALLIED_ACTIONS = new Set(['attack', 'patrol', 'move', 'gather', 'hunt', 'returnCargo', 'cancel']);
 
-type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'fish' | 'forage';
+type TargetCommand = 'move' | 'repair' | 'rally' | 'attack' | 'patrol' | 'prospect' | 'cast' | 'hitch' | 'crew' | 'gather' | 'hunt' | 'fish' | 'forage' | 'equip';
 
 /**
  * Pages of the command card: the main card, the build menu (Patch 2: one, in
@@ -277,6 +279,8 @@ export interface Targeting {
   key: string;
   /** For 'cast': the spell waiting for its target. */
   spell?: number;
+  /** For 'equip': the item from the stock (Patch 5, GP-2). */
+  res?: number;
 }
 
 export interface Placing {
@@ -578,11 +582,7 @@ export class Commands {
     const pace = this.paceEntry(active);
     if (active === 'worker') {
       const workers = this.workerIds();
-      const carrying = workers.some((id) => {
-        const u = this.d.game.unit(id);
-        return (u !== null && u.carryAmt > 0) || this.bagOf(id).length > 0;
-      });
-      const unload = 'Take what they carry, and any loot, to the nearest drop-off, then go back to the node or the dig.';
+      // No Unload here from Patch 5 (Jade's GP-8): one unit's inventory in the panel has Unload all, and its goods Unload and Drop.
       return [
         move,
         this.entry(
@@ -592,9 +592,6 @@ export class Commands {
           () => this.target('gather', 'gather'),
           { lit: t === 'gather', right: () => this.forage(), double: () => this.forage() },
         ),
-        carrying
-          ? this.entry('returnCargo', 'Unload', unload, () => this.unitOrder({ kind: 'returnCargo' }))
-          : this.off('returnCargo', 'Unload', unload, 'They are not carrying anything.'),
         this.entry(
           'repair',
           'Repair',
@@ -818,12 +815,24 @@ export class Commands {
     });
   }
 
+  /**
+   * Eat (Jade's Patch 5, GP-13 and GP-27): the hurt walk to the nearest main
+   * base or storehouse and eat 1 food for each quarter of their health they
+   * lack (4 for a full heal), healing it all over 10 s; those at full health
+   * stay where they are.
+   */
   private eatEntry(): CardEntry {
     const units = this.unitIds(geared);
-    const desc = `Walk to the nearest main base or storehouse and sit down there to eat for 10 s, with a bar over their heads: 2 food heals half their health over those 10 s, and a remedy or a bandage from the stock heals what is left. Hit by an enemy, they get up at once and their health still comes back.`;
+    let need = 0;
+    for (const id of units) {
+      const u = this.d.game.unit(id);
+      if (u) need += eatNeed(u.hp, u.maxHp);
+    }
+    const desc = `The hurt walk to the nearest main base or storehouse and sit down there to eat for 10 s, with a bar over their heads: 1 food for each quarter of their health they lack (4 food heals one from nothing), healing all of it over those 10 s. Short of food, a remedy or a bandage from the stock heals more. Those at full health do not eat. Hit by an enemy, they get up at once and their health still comes back.${need > 0 ? `\nThese need ${need} food.` : ''}`;
     const where = [...this.d.game.buildings.values()].some((b) => b.owner === this.d.player && b.complete && (b.kind === BuildingKind.MainBase || b.kind === BuildingKind.Storehouse));
     if (!where) return this.off('eat', 'Eat', desc, 'There is no main base or storehouse to eat at.');
-    if (this.d.game.food() < EAT_NUTRITION) return this.off('eat', 'Eat', desc, this.d.game.food() === 0 ? 'There is no food.' : `Not enough food (needs ${EAT_NUTRITION}).`);
+    if (need === 0) return this.off('eat', 'Eat', desc, units.length === 1 ? 'It is at full health.' : 'They are all at full health.');
+    if (this.d.game.food() === 0) return this.off('eat', 'Eat', desc, 'There is no food.');
     return this.entry('eat', 'Eat', desc, () => this.d.send({ kind: 'eat', player: this.d.player, units, building: 0, queued: this.d.queued() }));
   }
 
@@ -1481,6 +1490,54 @@ export class Commands {
     };
   }
 
+  /**
+   * Equip from the stock (Jade's Patch 5, GP-2: "click the equip and then
+   * click the unit you want to equip it to"): the next left click on one of
+   * the player's units sends it to put the item on.
+   */
+  startEquip(res: number): void {
+    this.placing = null;
+    this.targeting = { command: 'equip', key: '', res };
+    this.d.message(`Left click one of your units to give it the ${RESOURCES[res]?.name.toLowerCase() ?? 'item'}. Right click or Esc cancels.`);
+    this.d.changed();
+  }
+
+  /** The clicked unit walks to the nearest place to upgrade and puts the item on (the sim says why when it cannot). */
+  private equipOn(item: Selectable, res: number): boolean {
+    const id = item.kind === 'unit' && item.owner === this.d.player && geared(item) ? entityIdOf(item.key) : null;
+    if (id === null || res < 0) return false;
+    this.d.send({ kind: 'equip', player: this.d.player, units: [id], res, queued: this.d.queued() });
+    this.d.marker(item.centre, 'move');
+    return true;
+  }
+
+  /** The Workshop product that scraps an item, or -1 when it is not scrapped. */
+  private scrapProduct(res: number): number {
+    return makeList(BuildingKind.Workshop).find((p) => makeSub(p) === SCRAP_SUB && recipeSpec(productSpec(p).recipe!).scrap === res) ?? -1;
+  }
+
+  /** The item menu's Scrap (item-menu.ts): null when the item is not scrapped at all, '' when a Workshop can scrap one now, else why not. */
+  scrapWhy(res: number): string | null {
+    const p = this.scrapProduct(res);
+    if (p < 0) return null;
+    const shops = this.workshops();
+    if (shops.length === 0) return 'There is no Workshop to scrap it at.';
+    const why = shops[0]!.products.find(([x]) => x === p)?.[1];
+    return why ?? 'The Workshop cannot scrap it yet.';
+  }
+
+  /** Scraps one of an item at the player's Workshop with the shortest queue. */
+  scrapItem(res: number): void {
+    const p = this.scrapProduct(res);
+    if (p < 0 || this.scrapWhy(res) !== '') return;
+    this.scrap(this.workshops(), p, 1);
+  }
+
+  /** The player's finished Workshops, wherever they are. */
+  private workshops(): BuildingInfo[] {
+    return [...this.d.game.buildings.values()].filter((b) => b.owner === this.d.player && b.kind === BuildingKind.Workshop && b.complete);
+  }
+
   /** Scraps a stack at the building with the shortest queue: one order, one place in its queue (the sim takes as many as the stock holds). */
   private scrap(all: BuildingInfo[], product: number, count: number): void {
     const ready = all.filter((b) => b.complete).sort((a, b) => a.queue.length - b.queue.length || a.id - b.id);
@@ -1586,7 +1643,7 @@ export class Commands {
 
   // ---- Orders ----
 
-  private unitOrder(o: { kind: 'returnCargo' } | { kind: 'repairAll' }, units = this.workerIds()): void {
+  private unitOrder(o: { kind: 'repairAll' }, units = this.workerIds()): void {
     if (units.length === 0) return;
     this.d.send({ ...o, player: this.d.player, units, queued: this.d.queued() } as Order);
   }
@@ -1693,6 +1750,10 @@ export class Commands {
         break;
       case 'cast':
         ok = this.cast(t.spell ?? 0, item, ground);
+        break;
+      case 'equip':
+        ok = item !== null && this.equipOn(item, t.res ?? -1);
+        if (!ok) this.d.message('Pick one of your workers, troops or mages to equip it.', 'alert');
         break;
     }
     if (ok && !this.d.held(t.key) && !this.d.queued()) {
@@ -1938,13 +1999,17 @@ export class Commands {
     return b !== undefined && b.complete && garrisonRoom(b) > 0;
   }
 
-  private enter(item: Selectable): boolean {
+  private isMainBase(item: Selectable): boolean {
     const b = this.buildingOf(item);
-    const units = this.unitIds();
+    return b !== undefined && b.complete && b.kind === BuildingKind.MainBase;
+  }
+
+  private enter(item: Selectable, units = this.unitIds()): boolean {
+    const b = this.buildingOf(item);
     if (!b || units.length === 0) return false;
     const room = b.complete ? levelSpec(b.kind, b.level).shelters + garrisonRoom(b) : 0;
     if (room === 0) {
-      this.d.message(`${b.name} cannot take anyone in. Men go up on towers and on a main base from tier 2; workers shelter in main bases and farms.`, 'alert');
+      this.d.message(`${b.name} cannot take anyone in. Men go up on towers; everyone on foot shelters in a main base, and workers in farms too.`, 'alert');
       return false;
     }
     this.d.send({ kind: 'enter', player: this.d.player, units, building: b.id, queued: this.d.queued() });
@@ -2018,23 +2083,31 @@ export class Commands {
           this.d.marker(item.centre, 'target');
         };
         if (!b.complete || b.upgrading || b.hp < b.maxHp) return send({ kind: 'work', player, units: workers, building: b.id, queued });
+        // Workers turn in all they carry, the loot in their bags too where everything is taken (Jade's Patch 5, GP-5).
         const carriers = workers.filter((id) => {
           const u = this.d.game.unit(id);
-          if (!u || u.carryAmt === 0) return false;
-          if (spec.dropoff === 'all') return true;
-          return spec.dropoff === 'wood' && (u.carryRes === 0 || u.carryRes === 1);
+          if (!u) return false;
+          if (spec.dropoff === 'all') return u.carryAmt > 0 || this.bagOf(id).length > 0;
+          return u.carryAmt > 0 && spec.dropoff === 'wood' && (u.carryRes === 0 || u.carryRes === 1);
         });
-        if (carriers.length > 0) return send({ kind: 'dropoff', player, units: carriers, building: b.id, queued });
+        if (carriers.length > 0) {
+          send({ kind: 'dropoff', player, units: carriers, building: b.id, queued });
+          // At a main base everyone else in the selection goes in (GP-5 and GP-10).
+          const rest = units.filter((id) => !carriers.includes(id));
+          if (b.kind === BuildingKind.MainBase && rest.length > 0) this.enter(item, rest);
+          return;
+        }
         // Patch 2: nobody hauls from a mineshaft; its miners carry their own bags out, so workers right clicking it go to mine.
         if (levelSpec(b.kind, b.level).workers > 0) return send({ kind: 'assign', player, units: workers, building: b.id, queued });
         if (spec.light && !b.lit) return send({ kind: 'relight', player, units: workers, building: b.id, queued });
       }
     }
-    // One of the player's towers: everyone on foot goes up on its top (Jade's patch notes 1). With Enter cut in Patch 2, a main
-    // base with a top takes men up too; workers alone still walk to it, as their main base is where they work.
+    // One of the player's towers: everyone on foot goes up on its top (Jade's patch notes 1). A main base takes everyone on foot
+    // but riders (Jade's Patch 5, GP-5 and GP-10): workers with nothing to turn in shelter inside, melee deeper inside, rangers and
+    // mages up on its ramparts (decisions 3.8), as the sim sorts them (units/shelter.ts).
     const engines = this.unitIds((u) => u.typeKey.startsWith('engine:'));
     const men = units.length > workers.length + engines.length;
-    if (item && engines.length < units.length && this.ownBuilding(item) && (this.isTower(item) || (men && this.hasTop(item))) && this.enter(item)) return;
+    if (item && engines.length < units.length && this.ownBuilding(item) && (this.isTower(item) || this.isMainBase(item) || (men && this.hasTop(item))) && this.enter(item)) return;
     // Engines and cannons: an own horse or ox hitches (Patch 5: no engine goes into a building).
     if (item && engines.length > 0 && engines.length === units.length && item.typeKey.startsWith('animal:own:') && this.hitchTo(item)) return;
     if (item && this.ownEngine(item)) {

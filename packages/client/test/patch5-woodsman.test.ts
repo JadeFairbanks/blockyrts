@@ -48,7 +48,7 @@ function game(buildings: BuildingInfo[], queue: UnitOrder[] = []): GameInfo {
     claims: { circles: [], rects: [] }, outlying: { halves: 0, limit: 4 }, buildWhy: BUILDINGS.map((b) => (b.live ? '' : b.comesWith)),
     research: 0, forge: 0, sites: [], over: 0, nights: 0, out: false,
     rations: 0, kept: [], open: new Int32Array(0), starveWorkers: false, starveTroops: false, fog: false, ruins: [], marks: [], spells: [], mageRanks: [], peoples: [], players: [{ share: 0, out: false }],
-    loot: [], bags: [],
+    loot: [], bags: [], carry: [], effects: [],
   };
   g.onInfo(info);
   return g;
