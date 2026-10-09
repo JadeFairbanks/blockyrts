@@ -82,7 +82,8 @@ export type UnitOrder =
   /**
    * Loot (units/loot.ts): pick up the loot `id` lying on the ground (and
    * whatever else lies right by it), then with `hand` hand the bag in at the
-   * nearest drop-off, then with `back` walk back to (x, z) wu, where the unit
+   * nearest drop-off (hand 2 + a good: only that good, load and bag, at the
+   * nearest drop-off that takes it; Patch 5's Unload), then with `back` walk back to (x, z) wu, where the unit
    * stood when it went by itself (back is set only on what a unit does by
    * itself, and then it fights back on the way like an idle unit).
    */
@@ -105,6 +106,8 @@ export type UnitOrderType = UnitOrder['t'];
 
 /** An enter order's `auto` for a unit going up on the building's top rather than inside (units/top.ts). */
 export const ENTER_TOP = 2;
+/** An enter order's `auto` for a troop or mage sheltering deeper inside a main base (Jade's Patch 5, GP-10, units/shelter.ts): it stays until let out. */
+export const ENTER_IN = 4;
 /** An enter order's `auto` for a worker that went into a shelter for the night (Jade's Patch 4, units/night-work.ts): it comes out at dawn once no monster is near, or in the day. */
 export const ENTER_NIGHT = 3;
 /** A Gather order's `k` while it is home for the night (units/forage.ts). */
@@ -189,7 +192,7 @@ export function unitOrderText(o: UnitOrder | undefined): string {
     case 'dropoff':
       return 'Returning cargo';
     case 'enter':
-      return o.auto === ENTER_TOP ? 'Manning the top' : 'Sheltering';
+      return o.auto === ENTER_TOP ? 'Manning the top' : o.auto === ENTER_IN ? 'Sheltering deeper inside' : 'Sheltering';
     case 'job':
       return 'Working';
     case 'relight':

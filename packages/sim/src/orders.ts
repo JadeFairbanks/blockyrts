@@ -500,6 +500,35 @@ export interface PickUpOrder extends UnitsOrder {
   target: number;
 }
 
+/**
+ * One good a unit carries (Patch 5, GP-7: the unit inventory's right-click
+ * menu). Unload walks it to the nearest drop-off that takes it and hands in
+ * all of that good (res -1: everything it carries), then the unit carries
+ * on; Drop puts all of it down on the ground at the unit's feet.
+ */
+export interface UnloadItemOrder extends UnitsOrder {
+  kind: 'unloadItem';
+  res: number;
+}
+export interface DropItemOrder extends UnitsOrder {
+  kind: 'dropItem';
+  res: number;
+}
+
+/** Equip (Patch 5, GP-2): a unit walks to the nearest place to upgrade and puts on the stock's item res (a weapon, armour, shield, tools, wand or robe), as Upgrade equipment does. */
+export interface EquipOrder extends UnitsOrder {
+  kind: 'equip';
+  res: number;
+}
+
+/** A unit in a main base moves between the ramparts and deeper inside (Patch 5, GP-10), where there is room. */
+export interface ShelterOrder {
+  kind: 'shelter';
+  player: number;
+  building: number;
+  unit: number;
+}
+
 /** Gather: workers fetch the basic materials the side can use, by themselves, and come home at dusk. */
 export interface ForageOrder extends UnitsOrder {
   kind: 'forage';
@@ -643,6 +672,10 @@ export interface LeaveOrder {
 }
 
 export type Order =
+  | UnloadItemOrder
+  | DropItemOrder
+  | EquipOrder
+  | ShelterOrder
   | AnswerOrder
   | GreyedOrder
   | PickOwnOrder
@@ -806,12 +839,16 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   leave: [],
   pickOwn: ['command'],
   pickUp: ['target'],
+  unloadItem: ['res'],
+  dropItem: ['res'],
+  equip: ['res'],
+  shelter: ['building', 'unit'],
   forage: [],
   answer: ['ask', 'yes', 'q', 'who', 'res'],
   greyed: ['what', 'id', 'building'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'forage', 'answer', 'greyed', 'debugKill']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'forage', 'answer', 'greyed', 'debugKill']);
 
 /** Checks that an order holds only integers in range, so a bad script or a bad message fails loudly. */
 export function validateOrder(o: Order): void {
@@ -883,6 +920,13 @@ export function validateOrder(o: Order): void {
       return;
     case 'dontEat':
       if (o.res < 0 || o.res > 255 || (o.on !== 0 && o.on !== 1)) throw new Error('bad Don\'t eat toggle');
+      return;
+    case 'unloadItem':
+      if (o.res < -1 || o.res > 254) throw new Error('bad unload: a good, or -1 for everything');
+      return;
+    case 'dropItem':
+    case 'equip':
+      if (o.res < 0 || o.res > 254) throw new Error(`bad ${o.kind}: a good`);
       return;
     case 'pickOwn':
       if (o.command < 0 || o.command > 3) throw new Error('bad pick-own command');

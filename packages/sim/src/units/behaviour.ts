@@ -25,7 +25,8 @@ import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool, ToolJob } from '../world/props.ts';
 import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
-import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './unit-orders.ts';
+import { ENTER_IN, ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './unit-orders.ts';
+import { feelSafe, mayShelter } from './shelter.ts';
 import { carryCapacity, cartSpeed, onWheels, rawLimitTenthsLb } from './weight.ts';
 import { canGarrison, fightStep } from '../combat/fight.ts';
 import { freePost, menOnTop, onTop, platformCrew, spreadTop, topRoom as roomUpTop } from './top.ts';
@@ -353,7 +354,7 @@ function nodeColumn(o: { cx: number; cz: number; i: number }, view: PropView): [
 }
 
 /** Whether a drop-off takes a resource; res -1 asks for one that takes everything (loot is handed in only there). */
-function accepts(spec: BuildingSpec, res: number): boolean {
+export function accepts(spec: BuildingSpec, res: number): boolean {
   if (spec.dropoff === 'all') return true;
   return spec.dropoff === 'wood' && (res === Res.SoftwoodLumber || res === Res.HardwoodLumber);
 }
@@ -812,13 +813,12 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
       return CONTINUE;
     }
     case Act.ToDrop: {
-      if (e.carryAmt[i] === 0) {
-        e.act[i] = Act.Walk;
-        return CONTINUE;
+      // Handed in on the way, near a drop-off (Patch 5, GP-6, loot.ts autoDropoff), it carries on as if it had got there.
+      if (e.carryAmt[i] !== 0) {
+        const r = toDropoff(state, i, null);
+        if (r === MOVING) return CONTINUE;
+        if (r === FAILED) return DONE;
       }
-      const r = toDropoff(state, i, null);
-      if (r === MOVING) return CONTINUE;
-      if (r === FAILED) return DONE;
       // Gathering by itself, it weighs what to fetch again after every load (the stock has changed).
       if (after === 'forage') return DONE;
       view = nodeView(state, o.cx, o.cz, o.i);
@@ -1036,7 +1036,10 @@ function runRepairAll(state: SimState, i: number): boolean {
 /**
  * Going into a building: workers shelter inside, everyone else goes up on
  * its top (units/top.ts). A worker sent up top (auto ENTER_TOP) goes up
- * while there is room there and shelters inside once it is full.
+ * while there is room there and shelters inside once it is full. In a main
+ * base troops and mages may shelter deeper inside too (Patch 5, GP-10: auto
+ * ENTER_IN), and take the top when there is no room inside, and the other
+ * way round.
  */
 function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter' }>): boolean {
   const e = state.entities;
@@ -1044,8 +1047,9 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   const worker = e.kind[i] === UnitKind.Worker;
   // A Citadel's engine platform takes men too while no engine stands there (Patch 5).
   const topRoom = b && canGarrison(state, i) ? roomUpTop(state, b) : 0;
-  const shelter = b && worker ? shelterRoom(b) : 0;
-  const up = topRoom > 0 && (!worker || o.auto === ENTER_TOP);
+  // Troops and mages shelter deeper inside a main base too (Patch 5, GP-10, units/shelter.ts).
+  const shelter = b && mayShelter(state, i, b) ? shelterRoom(b) : 0;
+  const up = topRoom > 0 && (worker ? o.auto === ENTER_TOP : o.auto !== ENTER_IN);
   if (!b || b.owner !== e.owner[i] || (!up && shelter === 0)) return DONE;
   if (e.inside[i] === b.id) {
     // Already in: sent up from the shelter below, or up top in a game saved before men stood on its posts.
@@ -1055,9 +1059,10 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   const r = walkTo(state, i, besideBuilding(b));
   if (r === MOVING) return CONTINUE;
   if (r === FAILED) return DONE;
-  // The top's places and the shelter's are counted apart.
-  const top = up && menOnTop(state, b.id).length < topRoom;
-  if (!top && (shelter === 0 || shelteredIn(state, b.id).length >= shelter)) {
+  // The top's places and the shelter's are counted apart; one full, the unit takes the other.
+  const inFree = shelter > 0 && shelteredIn(state, b.id).length < shelter;
+  const top = topRoom > 0 && menOnTop(state, b.id).length < topRoom && (up || !inFree);
+  if (!top && !inFree) {
     alert(state, b.owner, `The ${buildingName(b.kind, b.level, b.variant).toLowerCase()} is full.`, e.x[i]!, e.z[i]!, i);
     return DONE;
   }
@@ -1067,8 +1072,10 @@ function runEnter(state: SimState, i: number, o: Extract<UnitOrder, { t: 'enter'
   goInside(state, i, b);
   e.act[i] = Act.Inside;
   if (top) climbUp(state, i, b, o, topRoom);
-  // A worker whose way up was full shelters inside instead.
-  else if (o.auto === ENTER_TOP) o.auto = shelterFallback(state);
+  // A unit whose way up was full shelters inside instead.
+  else if (o.auto === ENTER_TOP) o.auto = worker ? shelterFallback(state) : ENTER_IN;
+  // Workers going into a main base hear it say it is safe in there (Patch 5, GP-5).
+  if (worker && !top) feelSafe(state, b);
   return CONTINUE;
 }
 

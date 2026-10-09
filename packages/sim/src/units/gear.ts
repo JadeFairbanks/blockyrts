@@ -17,7 +17,7 @@ import { BuildingKind, buildingName } from '../buildings/data.ts';
 import { buildingCentre, dist2 } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
 import { forgeStepOf } from '../buildings/production.ts';
-import { costText, pay, refund, Res } from '../economy/resources.ts';
+import { costText, pay, refund, Res, RESOURCES } from '../economy/resources.ts';
 import { isGod, UnitKind, type SimState } from '../state.ts';
 import { RESEARCH } from '../combat/items.ts';
 import { Act, besideBuilding, resetWalk, walkTo } from './behaviour.ts';
@@ -29,6 +29,7 @@ import { tinker } from './tinker.ts';
 import {
   applyKit,
   equipmentPlans,
+  ITEM_WAY,
   holderKind,
   Line,
   KIT_LINES,
@@ -248,6 +249,75 @@ export function orderUpgradeEquipment(state: SimState, player: number, units: re
     else state.events.push({ player, kind: 'alert', text: why });
   }
   return sent;
+}
+
+/** "a steel halberd", "an iron pike", "poison tips": a good's name with its article. */
+function aGood(res: number): string {
+  const name = (RESOURCES[res]?.name ?? 'that').toLowerCase();
+  if (res === Res.PoisonTips) return name;
+  return `${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name}`;
+}
+
+/**
+ * What a stock item goes on as for a unit (Patch 5, GP-2: Equip): the line,
+ * the tier and the item's place in its piece's list, or why it cannot: a
+ * piece the unit's kind has no slot for (a spear for a swordsman, a robe for
+ * a ranger), or no better than what it has.
+ */
+export function equipTarget(h: KitHolder, res: number): { line: Line; to: number; item: number } | { why: string } {
+  for (const line of KIT_LINES) {
+    const top = lineTop(h, line);
+    for (let to = 1; to <= top; to++) {
+      const item = linePiece(h, line, to)?.items.indexOf(res as Res) ?? -1;
+      if (item < 0) continue;
+      if (to <= lineTier(h, line)) return { why: `I already have ${to === lineTier(h, line) ? 'one' : 'better'}.` };
+      return { line, to, item };
+    }
+  }
+  return { why: `I cannot use ${aGood(res)}.` };
+}
+
+/**
+ * Equip (Jade's Patch 5, GP-2: "click the equip and then click the unit you
+ * want to equip it to, causing them to return to a drop off point to receive
+ * it, and upgrade to that item via the usual process"): the first of the
+ * units that can take the stock's item pays it now and walks to the nearest
+ * place to upgrade, where it puts it on in a fifth of its time, as Upgrade
+ * equipment does with a ready item. Returns how many went (0 or 1); a unit
+ * that cannot says why.
+ */
+export function orderEquip(state: SimState, player: number, units: readonly number[], res: number): number {
+  const e = state.entities;
+  const p = state.players[player];
+  if (!p) return 0;
+  if ((p.pool[res] ?? 0) <= 0) {
+    state.events.push({ player, kind: 'alert', text: `There is no ${(RESOURCES[res]?.name ?? 'such item').toLowerCase()} in the stock.` });
+    return 0;
+  }
+  for (const i of units) {
+    if (e.owner[i] !== player || e.hp[i]! <= 0) continue;
+    const h = kitHolder(state, i);
+    if (!h) continue;
+    const t = equipTarget(h, res);
+    if ('why' in t) {
+      say(state, i, t.why, true);
+      continue;
+    }
+    if (pendingKitUp(state, i, t.line)) {
+      say(state, i, 'I am already on my way to upgrade that.', true);
+      continue;
+    }
+    const place = nearestUpgradePlace(state, i, h);
+    if (!place) {
+      say(state, i, h.kind === 'mage' ? 'There is no Forge, Barracks, main base or Magi Sanctum to upgrade at.' : 'There is no Forge, Barracks or main base to upgrade at.', true);
+      continue;
+    }
+    pay(p.pool, [[res as Res, 1]]);
+    inFront(state, i, { t: 'kitUp', line: t.line, to: t.to, ways: ITEM_WAY + 8 * t.item, paid: 1, b: place.id });
+    say(state, i, `Off to the ${buildingName(place.kind, place.level, place.variant).toLowerCase()} for ${aGood(res)}.`, false, true);
+    return 1;
+  }
+  return 0;
 }
 
 /** The lines a unit already has an upgrade on the way for, a bit per Line. */
