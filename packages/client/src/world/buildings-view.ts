@@ -1,8 +1,13 @@
 // Buildings on screen: each one's look at its level (a catalogue model when
-// the model library has one, else the blocks from building-looks.ts),
-// construction rising with its progress and scaffolding while it is built or
-// upgraded, flames and point lights on lit lights, the placement ghost with
-// its green and red tiles, and the faint ghosts of planned buildings.
+// the model library has one, else the blocks from building-looks.ts). Being
+// built, a modelled building shows its model's stage for the work done
+// (Patch 5), else the blocks rise with it under scaffolding (an upgrade keeps
+// the scaffolding too); at or below half health it wears its damaged look
+// (a wall or rampart its cracked, then broken model, and its piece turns and
+// corners with the defences beside it), an out light its unlit one, and a
+// fallen building leaves its ruins for a while. Flames and point lights
+// burn on lit lights, the placement ghost shows its green and red tiles, and
+// planned buildings are faint ghosts.
 import * as THREE from 'three';
 import { buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, type UnitOrder } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
@@ -21,17 +26,16 @@ const MAX_MODEL_INSTANCES = 64;
 const WALL_MODEL_INSTANCES = 1024;
 const GREEN = new THREE.Color(0x3ee05a);
 const RED = new THREE.Color(0xe0402a);
-
-interface Entry {
-  sig: string;
-  mesh: THREE.Mesh | null;
-  scaffold: THREE.Mesh | null;
-  flames: THREE.Mesh[];
-  look: Look;
-  selectable: Selectable;
-  /** Catalogue model ids drawn for it, with local offsets (metres), size, any tint and its turn about +Y (radians). */
-  models: CatalogueModel[];
-}
+/** A model's being-built stages by thirds of the work (its construction_0, _33 and _66 sets). */
+const STAGES = ['construction_0', 'construction_33', 'construction_66'] as const;
+/** At or below this share of its health (per mille) a finished building wears its damaged look. */
+const DAMAGED_AT = 500;
+/** How long a fallen building's ruins stand (sim steps, 20 a second), sinking into the ground over the last of them. */
+const RUIN_STEPS = 600;
+const RUIN_SINK_STEPS = 100;
+/** The effect anchors in a model where a lit light's flames burn. */
+const FLAME_BONES = ['fx_flame', 'fx_fire'];
+const UP = new THREE.Vector3(0, 1, 0);
 
 /** A catalogue model of a building: its id, where it goes from the anchor (metres), its size, any tint and its turn about +Y (radians). */
 export interface CatalogueModel {
@@ -42,6 +46,39 @@ export interface CatalogueModel {
   tint?: number;
   yaw?: number;
 }
+
+interface Entry {
+  sig: string;
+  mesh: THREE.Mesh | null;
+  scaffold: THREE.Mesh | null;
+  flames: THREE.Mesh[];
+  /** Where each flame burns, metres from the anchor. */
+  flameAt: THREE.Vector3[];
+  look: Look;
+  selectable: Selectable;
+  /** Catalogue models drawn for it (none: the block look). */
+  models: CatalogueModel[];
+  /** The building as last seen, for its ruins. */
+  last: BuildingInfo;
+}
+
+/** A fallen building's ruins: where it stood and the step it fell. */
+interface Ruin {
+  b: BuildingInfo;
+  models: CatalogueModel[];
+  fell: number;
+}
+
+/** Which look of its models a building wears: its stage while being built, unlit for an out light, damaged at or below half health, else its own (''). */
+function lookState(b: BuildingInfo): string {
+  if (!b.complete) return STAGES[Math.min(STAGES.length - 1, Math.floor((b.built * STAGES.length) / 1000))]!;
+  if (buildingSpec(b.kind).light && !b.lit) return 'unlit';
+  // Walls and earth ramparts crack and break instead (damageLook).
+  return buildingSpec(b.kind).defence !== 'wall' && b.hp * 1000 <= b.maxHp * DAMAGED_AT ? 'damaged' : '';
+}
+
+/** A building's models in one of their looks (state sets and texture variants, `<id>@<look>`). */
+const dressed = (ms: readonly CatalogueModel[], look: string): CatalogueModel[] => ms.map((m) => ({ ...m, id: `${m.id}@${look}` }));
 
 export interface GhostSpot {
   x: number;
@@ -76,7 +113,7 @@ export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>
     id: m.id,
     dx: (d.ox + (turned ? m.z : m.x) / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
     dz: (d.oz + (turned ? m.x : m.z) / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
-    scale: m.scale ?? 1,
+    scale: (m.scalePm ?? 1000) / 1000,
     ...(m.tint !== undefined ? { tint: m.tint } : {}),
     ...(turned ? { yaw: Math.PI / 2 } : {}),
   }));
@@ -153,6 +190,7 @@ export class BuildingsView {
   /** Catalogue ids a building on the map has asked for. */
   private readonly wanted = new Set<string>();
   private readonly modelDraws = new Map<string, InstancedModel>();
+  private ruins: Ruin[] = [];
   private readonly teamColours: readonly THREE.Color[];
   /** The fog of war on the catalogue models, as on the blocks (remembered buildings darkened). */
   private readonly modelFog: ModelShaderPatch;
@@ -213,19 +251,35 @@ export class BuildingsView {
     return l;
   }
 
-  private hasModels(b: BuildingInfo, ids: CatalogueModel[]): CatalogueModel[] {
+  /** The models to draw for a building in a look (lookState), or none for the block look; `own` are its catalogue models (a wall's in its shape and damage look). */
+  private hasModels(b: BuildingInfo, look: string, own: CatalogueModel[]): CatalogueModel[] {
     const lib = this.models;
-    if (!lib || !b.complete) return [];
+    if (!lib || own.length === 0) return [];
     // A wall's other shapes and damage looks load with it, so it swaps at once (Patch 5).
-    const wall = buildingSpec(b.kind).defence === 'wall';
-    const all = wall ? catalogueIds(b).flatMap((m) => [m.id, m.id.replace(/^wall_/, 'wall_corner_')]).flatMap((id) => [id, `${id}_cracked`, `${id}_broken`]) : ids.map((m) => m.id);
-    for (const id of new Set(all)) {
-      if (lib.models.has(id) || this.wanted.has(id) || !lib.listed(id)) continue;
-      // Load it next; the building switches over when it arrives.
+    if (buildingSpec(b.kind).defence === 'wall') {
+      this.loaded(catalogueIds(b).flatMap((m) => [m.id, m.id.replace(/^wall_/, 'wall_corner_')]).flatMap((id) => [id, `${id}_cracked`, `${id}_broken`]));
+    }
+    // Each model in the look where it has one.
+    const want = look ? own.map((m) => (lib.listed(`${m.id}@${look}`) ? { ...m, id: `${m.id}@${look}` } : m)) : own;
+    // Being built, every model needs its stage; else the blocks rise under scaffolding.
+    if (!b.complete && want.some((m, k) => m.id === own[k]!.id)) return [];
+    if (this.loaded(want.map((m) => m.id))) return want;
+    // Until its look arrives, a finished building keeps its own.
+    return b.complete && this.loaded(own.map((m) => m.id)) ? own : [];
+  }
+
+  /** Whether these models are loaded; the ones not loaded yet load next, and the building switches over when they arrive. */
+  private loaded(ids: readonly string[]): boolean {
+    const lib = this.models!;
+    let all = true;
+    for (const id of ids) {
+      if (lib.models.has(id)) continue;
+      all = false;
+      if (this.wanted.has(id) || !lib.listed(id)) continue;
       this.wanted.add(id);
       lib.request(id);
     }
-    return ids.length > 0 && ids.every((m) => lib.models.has(m.id)) ? ids : [];
+    return all;
   }
 
   /** Brings the meshes in line with the latest info; call once a frame. */
@@ -236,16 +290,18 @@ export class BuildingsView {
       seen.add(b.id);
       // A field where nothing grows lies bare.
       const fallow = b.farm !== null && !b.farm.grows;
+      const look = lookState(b);
       // A wall's or rampart's piece and damage look change with its neighbours and its health (Patch 5).
       const ids = buildingSpec(b.kind).defence === 'wall' ? shapedIds(b, joins) : null;
       const shape = ids ? `:${ids.map((m) => `${m.id}@${m.yaw ?? 0}`).join(',')}` : '';
-      const sig = `${b.kind}:${b.level}:${b.variant}:${b.owner}:${fallow ? 1 : 0}:${b.complete ? 1 : 0}:${b.upgrading}${shape}`;
+      const sig = `${b.kind}:${b.level}:${b.variant}:${b.owner}:${fallow ? 1 : 0}:${b.complete ? 1 : 0}:${b.upgrading}:${look}${shape}`;
       let e = this.entries.get(b.id);
       if (!e || e.sig !== sig) {
         if (e) this.drop(e);
-        e = this.make(b, sig, fallow, ids ?? catalogueIds(b));
+        e = this.make(b, sig, fallow, look, ids ?? catalogueIds(b));
         this.entries.set(b.id, e);
       }
+      e.last = b;
       // The look is drawn from its level's corner (a footprint that grows grows round the anchor); the scaffold from the anchor.
       const d = footprintDims(b.kind, b.variant, b.level);
       const ox = (b.x + d.ox) * COLUMN_M;
@@ -258,9 +314,9 @@ export class BuildingsView {
       if (e.scaffold) e.scaffold.position.set(b.x * COLUMN_M, oy, b.z * COLUMN_M);
       for (let k = 0; k < e.flames.length; k++) {
         const f = e.flames[k]!;
-        const p = e.look.flames[k]!;
+        const p = e.flameAt[k]!;
         f.visible = b.lit;
-        f.position.set(ox + p.x, oy + p.y, oz + p.z);
+        f.position.set(b.x * COLUMN_M + p.x, oy + p.y, b.z * COLUMN_M + p.z);
         const flicker = 0.85 + 0.25 * Math.sin(now / 90 + b.id * 1.7) * Math.sin(now / 37 + b.id);
         f.scale.set(1, flicker, 1);
       }
@@ -270,15 +326,19 @@ export class BuildingsView {
       if (!seen.has(id)) {
         this.drop(e);
         this.entries.delete(id);
+        // Only a fallen building leaves a finished one's place (cancelling takes back an unfinished one).
+        if (e.last.complete) this.fall(e.last, info.step);
       }
     }
     this.drawModels(info);
     this.placeLights(info, focus);
   }
 
-  private make(b: BuildingInfo, sig: string, fallow: boolean, ids: CatalogueModel[]): Entry {
+  private make(b: BuildingInfo, sig: string, fallow: boolean, state: string, ids: CatalogueModel[]): Entry {
     const look = this.look(b.kind, b.level, b.variant, b.owner, fallow);
-    const models = this.hasModels(b, ids);
+    const models = this.hasModels(b, state, ids);
+    // A damaged building's ruins load now, ready for its fall.
+    if (state === 'damaged' && this.models) this.loaded(dressed(catalogueIds(b), 'ruined').map((m) => m.id));
     let mesh: THREE.Mesh | null = null;
     if (models.length === 0) {
       mesh = new THREE.Mesh(look.geometry, this.material);
@@ -286,11 +346,13 @@ export class BuildingsView {
       this.scene.add(mesh);
     }
     let scaffold: THREE.Mesh | null = null;
-    if (!b.complete || b.upgrading) {
+    // A model's being-built stages carry their own scaffolding.
+    if ((!b.complete && models.length === 0) || b.upgrading) {
       scaffold = new THREE.Mesh(this.scaffoldGeometry(b, Math.max(1.6, look.height + 0.3)), this.scaffoldMaterial);
       this.scene.add(scaffold);
     }
-    const flames = look.flames.map(() => {
+    const flameAt = this.flamesOf(b, models, look);
+    const flames = flameAt.map(() => {
       const f = new THREE.Mesh(this.flameGeo, this.flameMat);
       this.scene.add(f);
       return f;
@@ -307,7 +369,31 @@ export class BuildingsView {
       label: b.name,
       details: [],
     };
-    return { sig, mesh, scaffold, flames, look, selectable, models };
+    return { sig, mesh, scaffold, flames, flameAt, look, selectable, models, last: b };
+  }
+
+  /** Where a light's flames burn, metres from its anchor: at its models' flame anchors when it is drawn as models that have them, else where its block look puts them. */
+  private flamesOf(b: BuildingInfo, models: readonly CatalogueModel[], look: Look): THREE.Vector3[] {
+    if (!buildingSpec(b.kind).light) return [];
+    const out: THREE.Vector3[] = [];
+    for (const m of models) {
+      const data = this.models!.get(m.id);
+      data.boneNames.forEach((name, k) => {
+        if (FLAME_BONES.includes(name)) out.push(new THREE.Vector3().setFromMatrixPosition(data.restWorld[k]!).multiplyScalar(m.scale).applyAxisAngle(UP, m.yaw ?? 0).add(new THREE.Vector3(m.dx, 0, m.dz)));
+      });
+    }
+    if (out.length > 0) return out;
+    const d = footprintDims(b.kind, b.variant, b.level);
+    return look.flames.map((p) => p.clone().add(new THREE.Vector3(d.ox * COLUMN_M, 0, d.oz * COLUMN_M)));
+  }
+
+  /** A finished building fell: its ruins stand a while where it stood, when each of its models has them. */
+  private fall(b: BuildingInfo, step: number): void {
+    const lib = this.models;
+    const models = dressed(catalogueIds(b), 'ruined');
+    if (!lib || models.length === 0 || !models.every((m) => lib.listed(m.id))) return;
+    this.loaded(models.map((m) => m.id));
+    this.ruins.push({ b, models, fell: step });
   }
 
   private readonly scaffoldCache = new Map<string, THREE.BufferGeometry>();
@@ -371,35 +457,44 @@ export class BuildingsView {
     t.details = d;
   }
 
-  /** Catalogue models: one instanced draw per model id and tint (a stand-in model dressed as another building draws apart). */
+  /** Catalogue models: one instanced draw per model id and tint (a stand-in model dressed as another building draws apart), then the ruins. */
   private drawModels(info: GameInfo): void {
     const lib = this.models;
     if (!lib) return;
     const counts = new Map<string, number>();
+    const draw = (m: CatalogueModel, b: BuildingInfo, sink: number, hover: boolean): void => {
+      const key = m.tint === undefined ? m.id : `${m.id}#${m.tint}`;
+      let d = this.modelDraws.get(key);
+      const most = buildingSpec(b.kind).defence === 'wall' ? WALL_MODEL_INSTANCES : MAX_MODEL_INSTANCES;
+      if (!d) {
+        d = new InstancedModel(lib.get(m.id), most, this.modelFog);
+        if (m.tint !== undefined) d.tint(m.tint);
+        d.object.frustumCulled = false;
+        this.scene.add(d.object);
+        this.modelDraws.set(key, d);
+      }
+      const n = counts.get(key) ?? 0;
+      if (n >= most) return;
+      counts.set(key, n + 1);
+      d.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M - sink, b.z * COLUMN_M + m.dz, m.yaw ?? 0, '', 0, this.teamColour(b.owner), m.scale);
+      if (hover) d.setHover(n);
+    };
     for (const b of info.buildings.values()) {
       const e = this.entries.get(b.id);
-      if (!e || e.models.length === 0) continue;
-      for (const m of e.models) {
-        const key = m.tint === undefined ? m.id : `${m.id}#${m.tint}`;
-        let draw = this.modelDraws.get(key);
-        const most = buildingSpec(b.kind).defence === 'wall' ? WALL_MODEL_INSTANCES : MAX_MODEL_INSTANCES;
-        if (!draw) {
-          draw = new InstancedModel(lib.get(m.id), most, this.modelFog);
-          if (m.tint !== undefined) draw.tint(m.tint);
-          draw.object.frustumCulled = false;
-          this.scene.add(draw.object);
-          this.modelDraws.set(key, draw);
-        }
-        const n = counts.get(key) ?? 0;
-        if (n >= most) continue;
-        counts.set(key, n + 1);
-        draw.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M, b.z * COLUMN_M + m.dz, m.yaw ?? 0, '', 0, this.teamColour(b.owner), m.scale);
-        if (this.hovered.has(b.id)) draw.setHover(n);
+      if (e) for (const m of e.models) draw(m, b, 0, this.hovered.has(b.id));
+    }
+    // Ruins stand, then sink out of sight.
+    this.ruins = this.ruins.filter((r) => info.step - r.fell < RUIN_STEPS && info.step >= r.fell);
+    for (const r of this.ruins) {
+      const t = Math.max(0, info.step - r.fell - (RUIN_STEPS - RUIN_SINK_STEPS)) / RUIN_SINK_STEPS;
+      for (const m of r.models) {
+        if (!lib.models.has(m.id)) continue;
+        draw(m, r.b, t * lib.get(m.id).sidecar.boundsWithParts.max[1] * m.scale, false);
       }
     }
-    for (const [id, draw] of this.modelDraws) {
-      draw.setCount(counts.get(id) ?? 0);
-      draw.commit();
+    for (const [id, d] of this.modelDraws) {
+      d.setCount(counts.get(id) ?? 0);
+      d.commit();
     }
   }
 
