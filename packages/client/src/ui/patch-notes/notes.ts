@@ -44,7 +44,179 @@ export interface PatchNote {
 
 export const PATCH_NOTES: readonly PatchNote[] = [
   {
+    name: 'Patch 7',
+    headline: 'Loot worth fighting for: monsters drop the weapons and armour they carry, gear comes in four grades, and every piece can be swapped, given or scrapped with a click or a drag.',
+    intro: [
+      'Patch 7 brings the game to indev 1.2. Saves from Patch 6 and older will not load: they show in the list as no longer valid, and can be cleared from there. If the game was open in your browser when Patch 7 went live, it asks you to reload the page.',
+      'The site now opens straight to the game, with no sign-in box.',
+    ],
+    changes: {
+      bugFixes: [
+        {
+          title: 'Bogs look like bogs again',
+          text: 'The bog near each main base had come out as plain grass, with its resources and guardian still in it. It is dark mud again, sunk a step below the grass, and every bog now has 3 or 4 shallow pools. Units wade through a pool at half speed. The old puddles that could stand above the mud beside them are gone. New worlds only.',
+          picture: 'icon_bog_pear',
+        },
+        {
+          title: 'Run and Walk for mixed groups',
+          text: 'The Run and Walk buttons used to reach only the units of the kind the card showed. Run now sets every selected unit on foot running, and those already running keep running; Walk slows them all.',
+          picture: 'icon_cmd_move',
+        },
+      ],
+      balance: [
+        {
+          title: 'Area weapons hit for less',
+          text: 'Weapons that hit everything in their arc deal 30% less a blow, as they hit more than one enemy. Spears, pikes and ranged weapons are unchanged.',
+          details: [
+            'Wooden cudgel 8 to 6; flint hand-axe 10 to 7; copper short sword 12 to 8',
+            'Bronze shortsword and obsidian hand-axe 16 to 11; wrought iron sword 21 to 15; iron broadsword 24 to 17',
+            'Steel side-sword 30 to 21; basket-hilted broadsword 36 to 25; steel halberd 38 to 27',
+            'Zweihänder and Elf glaive 45 to 32; Halfling shortsword 16 to 11; Dwarf war axe 26 to 18; Dwarf war hammer 34 to 24',
+            'The Dreadnought’s sweep 70 to 49',
+          ],
+        },
+        {
+          title: 'A stronger start',
+          text: 'To make up for the cut, every game starts with one more spearman and 4 more food (29 venison), and every main base gives 2 more supply: Big House 12, Hall 18, Keep 32, Citadel 52.',
+        },
+        {
+          title: 'Flintlock musket',
+          text: 'The flintlock musket hits for 62 and reaches 42 m.',
+          picture: 'icon_musket_steel',
+        },
+        {
+          title: 'Bows, crossbows and guns',
+          text: 'Every bow and crossbow now misses by at most 3% of the distance, a little steadier than the musket. Bows, crossbows, slings and firearms take 1.5 seconds longer to reload. Monster archers and siege engines are unchanged.',
+          details: [
+            'Largest miss: bows and crossbows 3% (bows were 6%); musket 4%, pistol 6%, sling 8% (unchanged)',
+            'Time between shots: slings and bows 2.0 s to 3.5 s; steel-prod crossbow 4.5 s to 6.0 s; musket 8.0 s to 9.5 s; pistol 6.0 s to 7.5 s',
+          ],
+        },
+        {
+          title: 'Magic and poison',
+          text: 'Magic now goes straight through armour, a mount’s armour too. A shield still blocks a magic bolt.',
+          picture: 'icon_spell_arcane_bolt',
+        },
+        {
+          title: 'Damage rolls',
+          text: 'Every blow now lands a little above or below its listed damage: up to 6% either way, and 3% for magic. Poison always hits exactly, and attacks that already rolled in a range are unchanged. Each attack has a roll of its own.',
+        },
+        {
+          title: 'Night waves and gear',
+          text: 'Night monsters no longer bring a random piece of ladder gear. Instead each can drop one of its own pieces, at 1% to 2% a kill, so night waves give far less gear than before. The best pieces come from villages, tribes and the great creatures of the wild.',
+        },
+      ],
+      gameplay: [
+        {
+          title: 'Monster and peoples’ gear',
+          text: 'Every weapon a monster carries, and the armour and robes that fit a person or a Dreadnought, can now drop and be used by your units. The neutral peoples’ weapons and armour drop too. A kill drops at most one piece, on top of its usual drops.',
+          details: [
+            'Goblin villages, hostile tribes and daytime minotaurs: 10% a kill',
+            'A neutral peoples’ fighter: 10% a kill, weapon or armour, at war or at peace',
+            'Night monsters: 1% to 2% a kill; the Archfiend 3%',
+            'Necromancer 5%; Lich 25% (the Deathless Shroud); Bog guardian 50% (its club); Morvath always (his staff)',
+            'The Fae Guardian’s wand or robe is her own a quarter of the time',
+          ],
+          picture: 'icon_cleaver_fiend',
+        },
+        {
+          title: 'Heft and Stature',
+          text: 'Every weapon and shield has a Heft, and every armour and robe a Stature. A piece too heavy, too light, too big or too small for a unit will not go on, and its menu row says why. Armour goes on troops and the Dreadnought, robes and wands on mages; the woodsman still wears no armour.',
+          details: [
+            'Most units: Heft 4 to 125, Stature 16 to 21',
+            'Dreadnought: Heft 10 to 340, Stature 24 to 36',
+          ],
+        },
+        {
+          title: 'Four grades',
+          text: 'Gear is graded by the colour of its name: common blue, rare orange, epic purple and legendary white. Epic pieces glint and legendary pieces sparkle, in menus, in the stock and on the ground. Menus and Upgrade equipment rank pieces by their real numbers, not by tier.',
+        },
+        {
+          title: 'The Dreadnought’s weapons',
+          text: 'His heavy spiked mace is now an item he can put down. He can take up any two-handed weapon that hits an area: the steel halberd, the Zweihänder, the Elf glaive, the Dwarf war hammer, the minotaur’s great axe or the archfiend’s greatsword. Whatever he holds, he goes back and forth between a smash at one enemy for more damage and a full sweep at every enemy in his arc. Offered anything else, he says "I need something for smashing."',
+          picture: 'icon_greatsword_archfiend',
+        },
+        {
+          title: 'Special effects',
+          text: 'Every epic and legendary piece from a monster or the peoples has an effect of its own. The same effect from two copies counts once; different effects add up.',
+          details: [
+            'Fiend’s cleaver, Fury: attacks 20% faster below half health',
+            'Archfiend’s greatsword, Warlord: your troops within 15 m deal 10% more damage',
+            'Elf glaive, Reaper: keeps its critical hits, and its holder moves 10% faster',
+            'Elf longbow, Far sight: its arrows ignore 20% of armour, and its holder sees 5 m farther at dusk and night',
+            'Fae star wand and Fae Guardian’s robe: each restores mana 25% faster; worn together they heal your units within 8 m by 1 health every 3 s',
+            'Deathless Shroud, Grave guard: when its wearer is hurt, a skeleton archer in your colour rises beside them (10 health, 25 s, at most one every 12 s), and the wearer is immune to poison, slows, hexes and other ailments',
+          ],
+          picture: 'icon_deathless_shroud',
+        },
+        {
+          title: 'Trophies',
+          text: 'The Bog guardian’s club and Morvath’s staff cannot be wielded. Plant them instead, from the new Trophies menu (P) in the build menu, anywhere explored, dry and level. Pick one up again whenever you like.',
+          details: [
+            'Bog trophy: night monsters within 15 m move 10% slower',
+            'Victor’s trophy: your units within 15 m gain 5% to damage, protection, attack speed, move speed, work speed and spell power',
+          ],
+          picture: 'icon_staff_morvath',
+        },
+        {
+          title: 'Scrapping and witchwood',
+          text: 'Every piece can be scrapped at the Workshop for its materials. Witchwood, from casters’ staffs, stands in for a mana crystal in wand and robe recipes.',
+          details: ['Scrap time: common 10 s, rare 30 s, epic 90 s, legendary 3 minutes, Morvath’s staff 4 minutes'],
+          picture: 'icon_workshop_t1',
+        },
+        {
+          title: 'Peaceful creatures',
+          text: 'Your units no longer attack, on their own, creatures that leave you alone: the Bog guardian, the Fae Guardian, the Great White Ape and Silenus’ band. Their stray shots fly past them too. An order to attack still works, and once one of them turns on you it is a fair target.',
+          picture: 'icon_club_bog_guardian',
+        },
+        {
+          title: 'Fish and mushrooms',
+          text: 'Only woodsmen fish and pick mushrooms. Workers pick berries only when sent to a bush.',
+          picture: 'icon_fish',
+        },
+      ],
+      qol: [
+        {
+          title: 'Gear menus',
+          text: 'Right click a unit’s weapon, armour or shield slot to Swap for…, Take off, Drop or Scrap. Swap for… lists the pieces in its bag first, then the stock, then the ones that will not fit, greyed with the reason. Right click a piece in a unit’s inventory to Use, Equip, Keep in bag, Give…, Unload, Drop or Scrap. Hovering a piece compares its numbers with what the unit has now.',
+        },
+        {
+          title: 'Drag and drop',
+          text: 'Drag a piece from the stock or a unit’s inventory onto a unit, its portrait or its inventory to equip it; a piece from one unit’s inventory onto another unit to give it; any piece onto a Workshop to scrap it.',
+          picture: 'icon_shield_goblin_plank',
+        },
+        {
+          title: 'Found something better',
+          text: 'When a unit picks up a piece that fits and beats what it has, it asks: "Ooh, can I use this goblin bow I just found?" Yes puts it on; No keeps it in the bag.',
+        },
+        {
+          title: 'Eating from the bag',
+          text: 'A unit carrying food can Eat it from its own inventory to heal, with the usual bar, where it stands. Drag food from the stock onto a unit and it fetches enough for one full heal from the nearest store point: 1 meat, 2 fish or 4 bunches of berries.',
+          picture: 'icon_meat',
+        },
+        {
+          title: 'Damage colours',
+          text: 'Magic damage numbers are purple and poison numbers green. Poison and burning now show their numbers as they tick.',
+        },
+        {
+          title: 'Gunsmoke and muzzle flash',
+          text: 'Smoke from muskets, the brawler’s pistol and cannons now bursts from the muzzle and drifts the way the shot flew, and each shot flashes brightly and lights the ground for a moment, muskets most of all.',
+        },
+        {
+          title: 'Scroll bar',
+          text: 'Long menus stop at a set height and scroll, with the game’s own scroll bar in place of the browser’s everywhere in a match.',
+        },
+        {
+          title: 'How to Play',
+          text: 'Every monster has a sheet of its own, with any second form on the same page. Every picture is now the creature or thing itself, moving, and turns when dragged.',
+        },
+      ],
+    },
+  },
+  {
     name: 'Patch 6',
+    version: 'indev 1.1',
+    date: '2026-10-09',
     headline: 'Smoother and steadier: no more freezes as night falls, mineshafts on any flat ground, and the game as an app on your device.',
     intro: [
       'Saves from Patch 5 still load. If the game was open in your browser when Patch 6 went live, it asks you to reload the page.',
