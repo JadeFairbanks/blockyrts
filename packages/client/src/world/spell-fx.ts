@@ -25,6 +25,8 @@ const SPRITES = import.meta.glob<string>(
   ],
   { eager: true, query: '?no-inline', import: 'default' },
 );
+/** Every effect sprite's URL, for the loading screen (mini patch 7.3). */
+export const SPELL_SPRITE_URLS: readonly string[] = Object.values(SPRITES);
 
 /** A strip of sprite frames, 16 or 8 px each, left to right: animated over a mote's life, or (variants) one picked per mote. */
 interface SheetSpec {

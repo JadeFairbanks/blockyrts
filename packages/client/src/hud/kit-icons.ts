@@ -11,6 +11,9 @@ const URLS = import.meta.glob<string>(['../../../assets/src/ui/icon_*.png', '../
 
 const PREFIX = '../../../assets/src/ui/';
 
+/** Every kit picture's URL, for the loading screen (mini patch 7.3). */
+export const KIT_URLS: readonly string[] = Object.values(URLS);
+
 /** A kit picture's URL in the build (the file name without .png), or '' when the kit has none by that name. */
 export function kitUrl(file: string): string {
   return URLS[`${PREFIX}${file}.png`] ?? '';

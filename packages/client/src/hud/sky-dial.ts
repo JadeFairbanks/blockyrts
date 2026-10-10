@@ -8,6 +8,8 @@ import { clockAt, Period } from '@blockyrts/sim';
 
 const URLS = import.meta.glob<string>('../../../assets/src/sky/*.png', { eager: true, query: '?no-inline', import: 'default' });
 const url = (file: string): string => URLS[`../../../assets/src/sky/${file}.png`] ?? '';
+/** Every sky picture's URL (the fog banks' too), for the loading screen (mini patch 7.3). */
+export const SKY_URLS: readonly string[] = Object.values(URLS);
 
 /** The canvas's own pixels (shown at half size, so the 32 px sun and moon are 16 px on screen). */
 const W = 112;

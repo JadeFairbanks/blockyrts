@@ -142,12 +142,66 @@
 .dialog.menu {
   border-image-source: var(--frame-popup);
 }
-.dialog.loading {
-  width: auto;
-  padding: 6px 22px 8px;
-  font: 30px/1.1 var(--display);
+/* The loading screen before a match (mini patch 7.3): a K11 loading picture
+   at its pixel scale, what is happening on its dark strip along the foot
+   (48 of its 540 rows), and the kit's gold bar in its trough under it. */
+.loading-screen {
+  width: min(960px, calc(100vw - 32px), calc((100vh - 120px) * 16 / 9));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55));
+  animation: box-in 0.25s ease-out;
+}
+.loading-art {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #0c0d16 center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+.loading-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(100% * 48 / 540);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: clamp(16px, 2.6vw, 26px) / 1 var(--display);
   color: var(--parchment);
   text-shadow: 2px 2px 0 var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.loading-bar {
+  height: 12px;
+  background: var(--kit-trough) 0 0 / 100% 100%;
+  image-rendering: pixelated;
+}
+.loading-bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--kit-bar) 0 0 / 100% 100%;
+  transition: width 0.15s linear;
+}
+.loading-count {
+  margin: -4px 0 0;
+  text-align: center;
+  font: 20px/1 var(--display);
+  color: var(--parchment);
+  text-shadow: 2px 2px 0 var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-screen {
+    animation: none;
+  }
+  .loading-bar > span {
+    transition: none;
+  }
 }
 
 /* The front page: no box, just the title, the choices and the small print. */
