@@ -62,8 +62,8 @@ export const MOUNTS: readonly MountSpec[] = [
   { id: Mount.Horse, name: 'Horse', model: 'horse', hp: 160, armourBp: 0, shoulderCm: 160, heightCm: 240, walk: v10(20), trot: v10(50), gallop: v10(80), chargeRun: cm(600), species: HORSE },
   {
     id: Mount.WarOx, name: 'Halfling war ox', model: 'halfling_war_ox', hp: 250, armourBp: 1000, shoulderCm: 150, heightCm: 200, walk: v10(15), trot: v10(35), gallop: v10(50), chargeRun: cm(800), species: -1,
-    // The rear rider's shortbow, fired while the ox moves.
-    attack: { damage: 12, attackSteps: ds(20), reach: cm(2000), arc: false, shot: Shot.Arrow, spreadBp: 600 },
+    // The rear rider's shortbow, fired while the ox moves: 1.5 s slower and missing by at most 3%, as every bow (Patch 7, Jade).
+    attack: { damage: 12, attackSteps: ds(35), reach: cm(2000), arc: false, shot: Shot.Arrow, spreadBp: 300 },
   },
   {
     id: Mount.Wolf, name: 'Goblin wolf', model: 'goblin_wolf', hp: 70, armourBp: 0, shoulderCm: 90, heightCm: 120, walk: v10(20), trot: v10(40), gallop: v10(55), chargeRun: cm(500), species: -1,

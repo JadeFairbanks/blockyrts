@@ -129,8 +129,8 @@ describe('the kit tables', () => {
     expect(recurves.map((k) => k.tier)).toEqual([3, 4, 5, 6]);
     for (const k of recurves) {
       expect(k.name).toMatch(/^Recurve bow, /);
-      // 34 s each (Patch 5, BL-11: 35 s less up to 15% by tier, never below the tier under it).
-      expect([k.shot, k.model, k.attackDs, k.rangeM, k.spreadPct, k.timeS]).toEqual([Shot.Arrow, 'bow_recurve', 20, 25, 6, 34]);
+      // 34 s each (Patch 5, BL-11: 35 s less up to 15% by tier, never below the tier under it); a shot every 3.5 s, missing by at most 3% (Patch 7, Jade).
+      expect([k.shot, k.model, k.attackDs, k.rangeM, k.spreadPct, k.timeS]).toEqual([Shot.Arrow, 'bow_recurve', 35, 25, 3, 34]);
     }
     expect(crossbow!.name).toMatch(/crossbow/i);
     expect(crossbow!.shot).toBe(Shot.Bolt);

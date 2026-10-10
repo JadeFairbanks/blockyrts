@@ -14,7 +14,7 @@ import { buildingCentre, isLit, snuffLight } from '../buildings/lights.ts';
 import { garrisonRoom, type Building } from '../buildings/store.ts';
 import { clockAt } from '../clock.ts';
 import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { MONSTERS, UnitKind, standY, type SimState } from '../state.ts';
+import { DamageKind, MONSTERS, UnitKind, standY, type SimState } from '../state.ts';
 import { WALKER } from '../nav/grid.ts';
 import { bodyHeight, dealtTenths, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, inArc, Side, sideOf, wholeDamage } from '../combat/combat.ts';
 import { Shot } from '../combat/items.ts';
@@ -148,13 +148,13 @@ export function updateLateMobs(state: SimState): void {
   }
 }
 
-/** A plague bearer's miasma or a juggernaut's heat: each of the players' and the peoples' units within takes its due (in tenths), exact. */
+/** A plague bearer's miasma (poison, Patch 7) or a juggernaut's heat: each of the players' and the peoples' units within takes its due (in tenths), exact. */
 function aura(state: SimState, i: number, radius: number, tenths: number, sick: boolean): void {
   const e = state.entities;
   const damage = wholeDamage(state, i, tenths);
   for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, radius)) {
     if (!playerUnit(state, j) || length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!) > radius + halfWidth(state, j)) continue;
-    hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, exact: true });
+    hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, exact: true, poison: sick });
     if (sick) e.sickUntil[j] = state.step + SEC + 1;
   }
 }
@@ -406,6 +406,8 @@ function breathe(state: SimState, i: number, reach: number, width: number, total
     e.dotLeft[j] = (e.dotUntil[j]! > state.step ? e.dotLeft[j]! : 0) + total;
     e.dotUntil[j] = state.step + LATE.breath.steps;
     e.dotFrom[j] = e.id[i]!;
+    // A hellhound's fire burns as any blow does; a drake's void breath is magic (Patch 7).
+    e.dotKind[j] = width > 0 ? DamageKind.Magic : DamageKind.Physical;
   }
   for (const b of state.buildings.list) {
     if (b.hp <= 0 || buildingSpec(b.kind).wooden === false) continue;
@@ -458,6 +460,7 @@ function hit(state: SimState, i: number, spec: MobSpec, t: number, d: number): v
         e.dotLeft[t] = (e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0) + wholeDamage(state, i, LATE.sting.poisonTenths);
         e.dotUntil[t] = state.step + POISON.steps;
         e.dotFrom[t] = e.id[i]!;
+        e.dotKind[t] = DamageKind.Poison;
       }
       break;
     case Mob.RiftHornet:
@@ -556,7 +559,8 @@ function staffSplash(state: SimState, i: number, t: number): void {
     if (j === t || j === i || e.hp[j]! <= 0 || length2d(e.x[j]! - x, e.z[j]! - z) > r + halfWidth(state, j)) continue;
     const own = e.kind[j] === UnitKind.Mob && e.owner[j] === MONSTERS && e.role[j] !== Role.Structure;
     if (!own && !playerUnit(state, j)) continue;
-    const d = hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: true, pierce: false });
+    // Its violet burst is magic (Patch 7).
+    const d = hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: true, pierce: false, magic: true });
     if (own) drainInto(state, i, j, d);
   }
 }

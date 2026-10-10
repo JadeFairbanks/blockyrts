@@ -18,7 +18,8 @@ import { ceilDiv, floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { HORSE_UPKEEP, Mount, mountSpec } from '../mounts/data.ts';
 import { CYCLE_STEPS, NUTRITION_PER_CYCLE } from '../rules.ts';
 import { hash32 } from '../rng.ts';
-import { UnitKind, type BubbleHold, type PlayerState, type SimState } from '../state.ts';
+import { UnitKind, type BubbleHold, type DamageKind, type PlayerState, type SimState } from '../state.ts';
+import { bodyHeight, noteTick } from '../combat/combat.ts';
 import { BuildingKind } from '../buildings/data.ts';
 import { FOODS, RESOURCES, Res } from './resources.ts';
 import { Role } from '../threats/types.ts';
@@ -389,6 +390,8 @@ function health(state: SimState): void {
       const d = Math.max(1, ceilDiv(e.dotLeft[i]!, e.dotUntil[i]! - state.step));
       e.dotLeft[i] = e.dotLeft[i]! - d;
       e.hp[i] = e.hp[i]! - d;
+      // Its number over the unit, added up as a beam's is: green for poison (Patch 7, Jade).
+      noteTick(state, i, e.y[i]! + floorDiv(bodyHeight(state, i) * 2, 3), d, e.dotKind[i]! as DamageKind);
       if (e.hp[i]! <= 0) {
         e.hp[i] = 0;
         state.dying.push(e.id[i]!);
