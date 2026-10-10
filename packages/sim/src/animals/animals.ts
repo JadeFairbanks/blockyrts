@@ -23,7 +23,7 @@ import { Res, type Cost } from '../economy/resources.ts';
 import { animalUpkeep, QUARTERS, takeFood } from '../economy/food.ts';
 import { ceilDiv, cos16, floorDiv, headingTowards, length2d, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS, DAY_STEPS, DUSK_STEPS } from '../rules.ts';
-import { OrderKind, PEOPLES, standY, UnitKind, WILD, type SimState } from '../state.ts';
+import { DamageKind, OrderKind, PEOPLES, standY, UnitKind, WILD, type SimState } from '../state.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { hash32 } from '../rng.ts';
@@ -34,7 +34,7 @@ import { PropKind } from '../world/props.ts';
 import { deathHooks, gap, hurtUnit, sideOf, Side, wholeDamage } from '../combat/combat.ts';
 import { stepToward } from '../combat/fight.ts';
 import { hasWaterAt } from '../buildings/placement.ts';
-import { rollDropList } from '../threats/loot.ts';
+import { rollDropList, rollGear } from '../threats/loot.ts';
 import { dropLoot, lootBrag } from '../units/loot.ts';
 import { meatOf } from '../economy/food-kinds.ts';
 import { BEAR_CAP, breeds, inPairs, Nature, PLANT_FOODS, Species, speciesSpec, SPECIES, YOUNG_STEPS, type SpeciesSpec } from './species.ts';
@@ -489,6 +489,7 @@ export function fight(state: SimState, i: number, t: number): void {
     e.dotLeft[t] = Math.max(e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0, s.venom);
     e.dotUntil[t] = state.step + VENOM_STEPS;
     e.dotFrom[t] = e.id[i]!;
+    e.dotKind[t] = DamageKind.Poison;
   }
   // A hornet's sting slows by 30% for 3 s (roster).
   if (s.id === Species.GiantHornet) {
@@ -1121,9 +1122,10 @@ function onAnimalDeath(state: SimState, i: number): void {
   if (meat > 0) items.push([meatOf(s.id), meat]);
   for (const [r, n] of s.extra) items.push([r, n]);
   let brag = 0;
-  // A creature's other drops, for the side whose unit last hurt it.
-  if (s.loot.length > 0 && killer >= 0) {
+  // A creature's other drops, for the side whose unit last hurt it, and now and then a piece it carries (Patch 7).
+  if ((s.loot.length > 0 || s.gear.length > 0) && killer >= 0) {
     const rolled = rollDropList(state, s.loot);
+    rollGear(state, s.gear, rolled);
     items.push(...rolled.items);
     brag = lootBrag(s.loot, rolled, false);
   }

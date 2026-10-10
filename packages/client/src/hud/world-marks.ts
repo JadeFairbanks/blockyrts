@@ -7,7 +7,7 @@
 //
 // Other parts of the HUD add their own progress bars to a stack through
 // `extra` (the farm's boost, the Tavern, and so on); this draws them in turn.
-import { buildingSpec, type HitEvent } from '@blockyrts/sim';
+import { buildingSpec, DamageKind, type HitEvent } from '@blockyrts/sim';
 import { S, type BuildingInfo } from '../messages.ts';
 import type { Selectable } from '../selection/types.ts';
 
@@ -44,6 +44,17 @@ const MAX_NUMBERS = 80;
 const NUMBER_M = 0.34;
 const NUMBER_MIN_PX = 11;
 const NUMBER_MAX_PX = 22;
+/**
+ * A damage number's colours by its kind (Patch 7, Jade: "make the text of how
+ * much damage a magic attack did purple. Poison damage in green"): fill, edge,
+ * and a heavy hit's fill and glow. Physical damage keeps Patch 5's reds.
+ */
+export const DAMAGE_COLOURS: Readonly<Record<number, { fill: string; edge: string; heavy: string; heavyEdge: string; glow: string }>> = {
+  [DamageKind.Physical]: { fill: '#ff4136', edge: 'rgba(35, 0, 0, 0.85)', heavy: '#ff1f12', heavyEdge: 'rgba(30, 0, 0, 0.95)', glow: 'rgba(255, 150, 20, 0.9)' },
+  [DamageKind.Magic]: { fill: '#c260ff', edge: 'rgba(28, 0, 45, 0.88)', heavy: '#b43cff', heavyEdge: 'rgba(24, 0, 40, 0.95)', glow: 'rgba(225, 160, 255, 0.9)' },
+  [DamageKind.Poison]: { fill: '#4fdc3c', edge: 'rgba(0, 30, 0, 0.88)', heavy: '#36d11f', heavyEdge: 'rgba(0, 26, 0, 0.95)', glow: 'rgba(200, 255, 110, 0.9)' },
+};
+
 /** The crisp font (UI-1), not the blocky one. */
 const CRISP = "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 
@@ -141,10 +152,13 @@ interface DamageNumber {
   z: number;
   text: string;
   heavy: boolean;
+  /** Its kind of damage (DamageKind), for its colour. */
+  kind: number;
   born: number;
 }
 
 interface Ticking {
+  kind: number;
   sum: number;
   x: number;
   y: number;
@@ -188,24 +202,27 @@ export class WorldMarks {
       const z = h.z / wuPerM;
       if (!seen(x, z)) continue;
       const at = anchor(h, x, h.y / wuPerM, z);
+      const kind = h.dmgKind ?? DamageKind.Physical;
       if (h.look === 'tick') {
-        const t = this.ticking.get(h.id);
+        // Each kind adds up apart (a beam and poison on one unit are two numbers, Patch 7).
+        const key = h.id * 4 + kind;
+        const t = this.ticking.get(key);
         if (t) {
           t.sum += h.dmg;
           t.x = at.x;
           t.y = at.y;
           t.z = at.z;
-        } else this.ticking.set(h.id, { sum: h.dmg, ...at, since: now });
+        } else this.ticking.set(key, { kind, sum: h.dmg, ...at, since: now });
         continue;
       }
-      this.number(at.x, at.y, at.z, h.dmg, now);
+      this.number(at.x, at.y, at.z, h.dmg, kind, now);
     }
   }
 
-  private number(x: number, y: number, z: number, dmg: number, now: number): void {
+  private number(x: number, y: number, z: number, dmg: number, kind: number, now: number): void {
     // Blows at once spread a little to the sides, so their numbers do not sit on each other.
     const dx = ((this.spread++ % 3) - 1) * 0.18;
-    this.numbers.push({ x: x + dx, y, z, text: `-${Math.round(dmg)}`, heavy: dmg >= HEAVY_HIT, born: now });
+    this.numbers.push({ x: x + dx, y, z, text: `-${Math.round(dmg)}`, heavy: dmg >= HEAVY_HIT, kind, born: now });
     if (this.numbers.length > MAX_NUMBERS) this.numbers.shift();
   }
 
@@ -227,7 +244,7 @@ export class WorldMarks {
     for (const e of entries) this.stack(ctx, e, project);
     for (const [id, t] of this.ticking) {
       if (now - t.since < TICK_MS) continue;
-      this.number(t.x, t.y, t.z, t.sum, now);
+      this.number(t.x, t.y, t.z, t.sum, t.kind, now);
       this.ticking.delete(id);
     }
     this.drawNumbers(ctx, project, now);
@@ -297,6 +314,7 @@ export class WorldMarks {
       ctx.lineJoin = 'round';
       let x = p.x;
       let y = p.y;
+      const c = DAMAGE_COLOURS[n.kind] ?? DAMAGE_COLOURS[DamageKind.Physical]!;
       if (n.heavy) {
         // Heavy hits (UI-10): bigger, a punch in that settles, a short shake and a hot glow.
         const pop = t < 0.15 ? 1.75 - (t / 0.15) * 0.4 : 1.35;
@@ -308,20 +326,20 @@ export class WorldMarks {
         }
         ctx.font = `italic 900 ${Math.round(size)}px ${CRISP}`;
         ctx.lineWidth = 4;
-        ctx.strokeStyle = 'rgba(30, 0, 0, 0.95)';
+        ctx.strokeStyle = c.heavyEdge;
         ctx.strokeText(n.text, x, y);
-        ctx.shadowColor = 'rgba(255, 150, 20, 0.9)';
+        ctx.shadowColor = c.glow;
         ctx.shadowBlur = 8;
-        ctx.fillStyle = '#ff1f12';
+        ctx.fillStyle = c.heavy;
         ctx.fillText(n.text, x, y);
         ctx.shadowBlur = 0;
         ctx.shadowColor = 'transparent';
       } else {
         ctx.font = `700 ${Math.round(size)}px ${CRISP}`;
         ctx.lineWidth = 2.5;
-        ctx.strokeStyle = 'rgba(35, 0, 0, 0.85)';
+        ctx.strokeStyle = c.edge;
         ctx.strokeText(n.text, x, y);
-        ctx.fillStyle = '#ff4136';
+        ctx.fillStyle = c.fill;
         ctx.fillText(n.text, x, y);
       }
     }

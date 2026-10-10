@@ -217,10 +217,11 @@ export const UNIT_FIELDS = [
   /** Healing over time from eating and medicine (Food): health still to come, until this step. */
   ['mendUntil', 'u32'],
   ['mendLeft', 'i32'],
-  /** Poison from a bite or a sting: damage still to come, until this step, and who dealt it. */
+  /** Poison from a bite or a sting (or a breath that burns on): damage still to come, until this step, and who dealt it; and what kind it is (DamageKind, Patch 7: its numbers' colour). */
   ['dotUntil', 'u32'],
   ['dotLeft', 'i32'],
   ['dotFrom', 'u32'],
+  ['dotKind', 'u8'],
   /** Animals: the building a tamed animal belongs to; the step it grows up (young until then, 0 for grown); its next breeding; 1 for a male. */
   ['home', 'u32'],
   ['born', 'u32'],
@@ -247,7 +248,7 @@ export const UNIT_FIELDS = [
   ['castTarget', 'u32'],
   ['castX', 'i32'],
   ['castZ', 'i32'],
-  /** A Beam held on a unit until this step, and the damage it still has to do (worked out through armour when it starts). */
+  /** A Beam held on a unit until this step, and the damage it still has to do (worked out when it starts: magic goes through armour, Patch 7). */
   ['beamUntil', 'u32'],
   ['beamTarget', 'u32'],
   ['beamLeft', 'i32'],
@@ -420,6 +421,7 @@ export class EntityStore implements Record<FieldName, Column> {
   declare dotUntil: Uint32Array;
   declare dotLeft: Int32Array;
   declare dotFrom: Uint32Array;
+  declare dotKind: Uint8Array;
   declare home: Uint32Array;
   declare born: Uint32Array;
   declare breedAt: Uint32Array;
@@ -491,6 +493,8 @@ export class EntityStore implements Record<FieldName, Column> {
   cools: number[][] = [];
   /** The players' units: loot carried to hand in, as (resource, count) pairs (units/loot.ts). */
   bag: number[][] = [];
+  /** The players' units: goods locked in the bag with Keep in bag (Patch 7), as (resource, count) pairs, never handed in by themselves (units/loot.ts). */
+  kept: number[][] = [];
   /** Woodsmen: food brought in and eaten, minute by minute (units/woodsman.ts); empty for everyone else. */
   ledger: number[][] = [];
 
@@ -540,6 +544,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.hitters[i] = [];
     this.cools[i] = [];
     this.bag[i] = [];
+    this.kept[i] = [];
     this.ledger[i] = [];
     this.power[i] = 1000;
     this.index.set(id, i);
@@ -559,6 +564,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.hitters.splice(i, 1);
     this.cools.splice(i, 1);
     this.bag.splice(i, 1);
+    this.kept.splice(i, 1);
     this.ledger.splice(i, 1);
     this.count--;
     this.reindex();
@@ -840,8 +846,6 @@ export interface PendingSpawn {
   az: number;
   /** The lair it comes out of (an entity id), or 0 for the dark edge. */
   src: number;
-  /** A weapon, armour or shield it carries, dropped when it is killed (Patch 5, GP-1: threats/loot.ts giveWaveGear), or 0. */
-  gear: number;
 }
 
 /**
@@ -907,7 +911,7 @@ export interface Site {
 /**
  * What a hit looks like (Generated rocks and trees: hit particles). Patch 5: 'fell', a tree an engine's shot blew apart (combat/blasts.ts); 'bomb', a wall breaker going off (BL-7: its
  * blast, smoke and crater); 'dirt', a catapult stone's or boulder's splash. 'tick': no look of its own, only the damage
- * of a blow that lands every step (a beam), which the screen adds up for its number (UI-10). Jade's Patch 5 mobs:
+ * of a blow that lands every step (a beam), or of poison or a burn working (Patch 7), which the screen adds up for its number (UI-10). Jade's Patch 5 mobs:
  * 'violet' Morvath's staff splash (MB-4), a ring of vivid purple; 'drain' life drained into a monster, white motes from
  * where it was taken to `to`, `n` of them (one for every 2 health); 'crimson' the necromancer's bolt bursting and his
  * dead rising (MB-5); 'summon' a summoner calling up its kin (the necromancer, Morvath opening the Rift), at the
@@ -922,6 +926,16 @@ export type HitLook = 'blood' | 'spark' | 'stone' | 'wood' | 'slime' | 'bone' | 
   // coming back; Silenus turning into the tiger and back; a lash of thorns and entangling roots (`to` the caster); the Lich's Sacrificial Rite (`to` the Lich,
   // `n` the health he took) and Touch of the Grave; a Reveler drinking.
   | 'leap' | 'thunder' | 'grab' | 'plant' | 'worship' | 'enrage' | 'vanish' | 'ambush' | 'transform' | 'lash' | 'roots' | 'rite' | 'grave' | 'drink';
+
+/**
+ * The kinds of damage (Patch 7, Jade): magic (every spell, the bolts of
+ * magic and their bursts, a curse, a drain, a void breath) goes through all
+ * armour, and its number shows purple; poison (a bite's or a sting's venom,
+ * poison tips, a plague bearer's miasma) shows green; everything else is
+ * physical, through armour as before, its number red.
+ */
+export const DamageKind = { Physical: 0, Magic: 1, Poison: 2 } as const;
+export type DamageKind = (typeof DamageKind)[keyof typeof DamageKind];
 
 export interface HitEvent {
   look: HitLook;
@@ -941,6 +955,8 @@ export interface HitEvent {
   shot?: number;
   /** The health a blow took, for the damage number over what it hit (Patch 5, UI-10); none on a look that only shows. */
   dmg?: number;
+  /** What kind of damage that was (DamageKind, Patch 7): magic's number shows purple, poison's green; none for the rest. */
+  dmgKind?: number;
   /** A drain (look 'drain'): the entity the motes fly into, and how many. */
   to?: number;
   n?: number;

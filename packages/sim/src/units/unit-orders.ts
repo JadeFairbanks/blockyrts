@@ -118,7 +118,13 @@ export type UnitOrder =
    */
   | { t: 'woods'; fish: number; forage: number; cx: number; cz: number; i: number; k: number; x: number; z: number; ex: number; ez: number }
   /** At a stone circle (Patch 5, circles/act.ts): walk to its altar or a chest and do `act` (CircleAct) with `arg`. */
-  | { t: 'circle'; circle: number; act: number; arg: number };
+  | { t: 'circle'; circle: number; act: number; arg: number }
+  /** Give (Patch 7, units/handling.ts): walk to the player's unit `id` and hand it one `res` from the bag. */
+  | { t: 'give'; id: number; res: number }
+  /** Scrap from a unit (Patch 7, units/handling.ts): walk to the Workshop `b` with `res` from the bag, or the piece it wears (`worn` 1), and hand it in there to be scrapped. */
+  | { t: 'scrap'; b: number; res: number; worn: number }
+  /** Equip from the stock (Patch 7, units/handling.ts): walk to the place `b` and put on `res`, paid (`paid` 1) from the stock, the old piece back to the stock; for a piece Upgrade's kitUp cannot put on (the Dreadnought's, or no higher tier than the line has). */
+  | { t: 'putOn'; res: number; b: number; paid: number };
 
 export type UnitOrderType = UnitOrder['t'];
 
@@ -140,7 +146,7 @@ export const FORAGE_HOME = 2;
 /** A Gather order's `k` while it works on through the night (Jade's Patch 4, units/night-work.ts). */
 export const FORAGE_NIGHT = 3;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'loot', 'forage', 'retrain', 'woods', 'circle'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'loot', 'forage', 'retrain', 'woods', 'circle', 'give', 'scrap', 'putOn'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -176,6 +182,9 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   retrain: ['b'],
   woods: ['fish', 'forage', 'cx', 'cz', 'i', 'k', 'x', 'z', 'ex', 'ez'],
   circle: ['circle', 'act', 'arg'],
+  give: ['id', 'res'],
+  scrap: ['b', 'res', 'worn'],
+  putOn: ['res', 'b', 'paid'],
 };
 
 export function writeUnitOrder(w: ByteWriter, o: UnitOrder): void {
@@ -268,5 +277,11 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return (o.k & WOODS_HOME) !== 0 ? 'Home for the night' : o.fish && o.forage ? 'Foraging and fishing' : o.fish ? 'Fishing' : 'Foraging';
     case 'circle':
       return 'Going to the stone circle';
+    case 'give':
+      return 'Handing over an item';
+    case 'scrap':
+      return 'Taking an item to scrap';
+    case 'putOn':
+      return 'Going to equip';
   }
 }

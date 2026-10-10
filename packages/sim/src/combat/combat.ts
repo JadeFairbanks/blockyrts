@@ -11,7 +11,7 @@ import { solidRect, type Building } from '../buildings/store.ts';
 import { cos16, floorDiv, length2d, sin16, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { hash32 } from '../rng.ts';
 import { BP, damageTaken, HEX_SLOW_BP, KILL_SHARE_WINDOW_STEPS, killXpTenths, rankDamageBonusBp, shareXp, totalArmourBp, withBonus, XP_TENTHS } from '../rules.ts';
-import { MONSTERS, OrderKind, PEOPLES, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, type HitLook, type SimState } from '../state.ts';
+import { DamageKind, MONSTERS, OrderKind, PEOPLES, UnitKind, WARRIOR_HEALTH_BY_RANK, WILD, type HitLook, type SimState } from '../state.ts';
 import { atWar } from '../peoples/types.ts';
 import { Role } from '../threats/types.ts';
 import { speciesSpec } from '../animals/species.ts';
@@ -52,15 +52,16 @@ export function sideOf(state: SimState, i: number): number {
  * of the unit it is attacking, so warriors defend against a wolf but leave
  * grazing deer alone unless told (Hunting); monsters ignore it. A people's
  * unit is an enemy of the monsters, and of a player only while its faction
- * is at war with that player; peoples never fight each other.
+ * is at war with that player; peoples never fight each other. A monster
+ * at peace with a player (atPeace) is not that player's enemy.
  */
 export function hostile(state: SimState, a: number, b: number): boolean {
   const sa = sideOf(state, a);
   const sb = sideOf(state, b);
   const e = state.entities;
-  // A stone circle's keeper at peace with a player (Jade's Patch 5: the Great White Ape and Silenus' band, until wronged).
-  if (sa === Side.Monsters && sb === Side.Players && e.role[a] === Role.Encounter) return !peaceHooks.encounter(state, a, e.owner[b]!);
-  if (sb === Side.Monsters && sa === Side.Players && e.role[b] === Role.Encounter) return !peaceHooks.encounter(state, b, e.owner[a]!);
+  // A monster at peace with a player until wronged (atPeace): the keepers of bogs, large crystals and stone circles.
+  if (sa === Side.Monsters && sb === Side.Players) return !atPeace(state, a, e.owner[b]!);
+  if (sb === Side.Monsters && sa === Side.Players) return !atPeace(state, b, e.owner[a]!);
   if (sa === Side.Wild || sb === Side.Wild) {
     const [w, o] = sa === Side.Wild ? [a, b] : [b, a];
     const so = sideOf(state, o);
@@ -77,10 +78,34 @@ export function hostile(state: SimState, a: number, b: number): boolean {
   return sa !== Side.None && sb !== Side.None && sa !== sb;
 }
 
-/** Jade's Patch 5 stone circles: whether a circle's keeper is at peace with a player (threats/encounters.ts sets it). */
-export const peaceHooks: { encounter: (state: SimState, i: number, player: number) => boolean } = { encounter: () => false };
+/**
+ * Whether a monster at peace with a player now (they are set by the threats):
+ * a stone circle's keeper (Jade's Patch 5: the Great White Ape and Silenus'
+ * band, until wronged), and a Bog guardian or Fae Guardian that is after no
+ * one (threats/keepers.ts).
+ */
+export const peaceHooks: { encounter: (state: SimState, i: number, player: number) => boolean; keeper: (state: SimState, i: number) => boolean } = {
+  encounter: () => false,
+  keeper: () => false,
+};
 
-/** Whether a shot from a side (and a people's faction, and a player) may hit a unit: never its own side, a people's only at war. */
+/**
+ * Whether a monster leaves a player alone until wronged and is at peace with
+ * them now (Patch 7, Jade: units should not "auto attack things that wouldn't
+ * attack them first"): a stone circle's keeper at peace with that player, or
+ * a keeper of a bog or a large mana crystal that is after no one. The
+ * players' units never take one on by themselves, their swings and spells
+ * pass it by and their stray shots fly past it, but an attack order on it is
+ * carried out; once it turns on the players it is everyone's foe again.
+ */
+export function atPeace(state: SimState, i: number, player: number): boolean {
+  const role = state.entities.role[i];
+  if (role === Role.Encounter) return peaceHooks.encounter(state, i, player);
+  if (role === Role.Keeper) return peaceHooks.keeper(state, i);
+  return false;
+}
+
+/** Whether a shot from a side (and a people's faction, and a player) may hit a unit: never its own side, a people's only at war, a monster at peace with the player only when aimed at (the shot's mark). */
 export function shotMayHit(state: SimState, side: number, faction: number, owner: number, j: number): boolean {
   const sj = sideOf(state, j);
   if (sj === Side.None) return false;
@@ -94,6 +119,7 @@ export function shotMayHit(state: SimState, side: number, faction: number, owner
     if (side === Side.Players) return atWar(state.peoples, e.group[j]!, owner);
     return side === Side.Monsters;
   }
+  if (side === Side.Players && sj === Side.Monsters) return !atPeace(state, j, owner);
   return sj !== side;
 }
 
@@ -287,6 +313,25 @@ export interface Blow {
   exact?: boolean;
   /** Patch 7: the share of the target's armour it ignores, bp (an Elf longbow's arrow, Far sight: units/effects.ts). */
   armourCutBp?: number;
+  /**
+   * Patch 7 (Jade): magic that is no spell Warding halves (a flamecaller's
+   * hellfire, the burst of a bolt of magic, Morvath's staff splash). A spell
+   * is magic too; magic goes through all armour (blowKind).
+   */
+  magic?: boolean;
+  /** Patch 7 (Jade): poison that lands as a blow (a plague bearer's miasma): its number shows green. */
+  poison?: boolean;
+}
+
+/** What kind of damage a blow does (state.ts DamageKind, Patch 7): poison, magic (a spell or other magic), or physical. */
+export function blowKind(blow: Blow): DamageKind {
+  if (blow.poison) return DamageKind.Poison;
+  return blow.spell || blow.magic ? DamageKind.Magic : DamageKind.Physical;
+}
+
+/** A hit's kind as its event carries it: none for physical damage, so most hits stay as they were. */
+function kindOf(kind: DamageKind): { dmgKind?: number } {
+  return kind === DamageKind.Physical ? {} : { dmgKind: kind };
 }
 
 function hitLook(state: SimState, i: number, blocked: boolean): HitLook {
@@ -303,7 +348,8 @@ function hitLook(state: SimState, i: number, blocked: boolean): HitLook {
 /**
  * A blow lands on a unit: armour, the roster's piercing and blunt
  * modifiers, a shield against projectiles, and +50% on a climber on a wall.
- * Returns the damage done.
+ * Magic goes through all armour, a mount's too (Patch 7, Jade: "make magic
+ * attacks fully ignore armor"). Returns the damage done.
  */
 export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   const e = state.entities;
@@ -321,7 +367,8 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   }
   // A hobgoblin's shield blocks half of what is shot at it (Table 16).
   const block = blow.projectile ? (e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).blockBp : shieldBlock(state, i)) : 0;
-  const armour = armourOf(state, i);
+  const kind = blowKind(blow);
+  const armour = kind === DamageKind.Magic ? 0 : armourOf(state, i);
   const armourBp = blow.armourCutBp ? armour - floorDiv(armour * blow.armourCutBp, BP) : armour;
   let d = blow.exact ? blow.damage : damageTaken({ damage: blow.damage, armourBp, modifierBp, projectile: blow.projectile, shieldBlockBp: block });
   // Warding: half damage from enemy spells (Table 13).
@@ -336,8 +383,8 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   e.hurtAt[i] = state.step;
   if (blow.from) e.attacker[i] = blow.from;
   const hy = e.y[i]! + floorDiv(bodyHeight(state, i) * 2, 3);
-  if (!blow.exact) state.hits.push({ look: hitLook(state, i, block > 0), x: e.x[i]!, y: hy, z: e.z[i]!, id: e.id[i]!, dmg: d });
-  else noteSteadyHit(state, i, hitLook(state, i, block > 0), hy, d);
+  if (!blow.exact) state.hits.push({ look: hitLook(state, i, block > 0), x: e.x[i]!, y: hy, z: e.z[i]!, id: e.id[i]!, dmg: d, ...kindOf(kind) });
+  else noteSteadyHit(state, i, hitLook(state, i, block > 0), hy, d, kind);
   // The players' units that hit a mob or a people's unit in the last 10 s share its experience.
   if ((e.kind[i] === UnitKind.Mob || e.owner[i] === PEOPLES) && blow.from) {
     const j = e.indexOf(blow.from);
@@ -353,13 +400,14 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
 /** A blow its mount takes for a mounted unit (it has the more health, or as much): through the mount's armour; at 0 the rider is on foot. */
 function hurtMount(state: SimState, i: number, blow: Blow): number {
   const e = state.entities;
-  const d = blow.exact ? blow.damage : damageTaken({ damage: blow.damage, armourBp: mountArmourBp(state, i), modifierBp: BP, projectile: blow.projectile, shieldBlockBp: 0 });
+  const kind = blowKind(blow);
+  const d = blow.exact ? blow.damage : damageTaken({ damage: blow.damage, armourBp: kind === DamageKind.Magic ? 0 : mountArmourBp(state, i), modifierBp: BP, projectile: blow.projectile, shieldBlockBp: 0 });
   e.mountHp[i] = e.mountHp[i]! - d;
   e.hurtAt[i] = state.step;
   if (blow.from) e.attacker[i] = blow.from;
   const hy = e.y[i]! + floorDiv(bodyHeight(state, i), 3);
-  if (!blow.exact) state.hits.push({ look: 'blood', x: e.x[i]!, y: hy, z: e.z[i]!, id: e.id[i]!, dmg: d });
-  else noteSteadyHit(state, i, 'blood', hy, d);
+  if (!blow.exact) state.hits.push({ look: 'blood', x: e.x[i]!, y: hy, z: e.z[i]!, id: e.id[i]!, dmg: d, ...kindOf(kind) });
+  else noteSteadyHit(state, i, 'blood', hy, d, kind);
   if ((e.kind[i] === UnitKind.Mob || e.owner[i] === PEOPLES) && blow.from) {
     const j = e.indexOf(blow.from);
     if (j >= 0 && sideOf(state, j) === Side.Players) noteHitter(state, i, blow.from);
@@ -373,10 +421,16 @@ function hurtMount(state: SimState, i: number, blow: Blow): number {
  * A blow that lands every step (a beam, Exact): its look only every 10th step, as before, but its damage every step
  * as a 'tick' the screen adds up into one number (Patch 5, UI-10).
  */
-function noteSteadyHit(state: SimState, i: number, look: HitLook, y: number, d: number): void {
+function noteSteadyHit(state: SimState, i: number, look: HitLook, y: number, d: number, kind: DamageKind): void {
   const e = state.entities;
   if (state.step % 10 === 0) state.hits.push({ look, x: e.x[i]!, y, z: e.z[i]!, id: e.id[i]! });
-  state.hits.push({ look: 'tick', x: e.x[i]!, y, z: e.z[i]!, id: e.id[i]!, dmg: d });
+  noteTick(state, i, y, d, kind);
+}
+
+/** Damage that lands bit by bit (a beam, poison and burning, Patch 5's UI-10): a 'tick' the screen adds up into one number, in its kind's colour (Patch 7). */
+export function noteTick(state: SimState, i: number, y: number, d: number, kind: DamageKind): void {
+  const e = state.entities;
+  state.hits.push({ look: 'tick', x: e.x[i]!, y, z: e.z[i]!, id: e.id[i]!, dmg: d, ...kindOf(kind) });
 }
 
 /** A hurt is fresh when the unit was not hurt in the 2 s before it (workers flee once, not at every blow). */

@@ -33,6 +33,13 @@ pushes two images, `server-live` and `bundle-live`. The bundle carries
 
 ## Sign-in page and search
 
+**Switched off since Patch 7:** `SIGN_IN_ON` in
+`deploy/pages/functions/_middleware.ts` is `false`, so the middleware lets
+every request straight through (it still marks the pages.dev mirror
+`noindex`) and anyone with the address reaches the game. Everything below
+is still in place; set `SIGN_IN_ON` back to `true` and run Deploy to bring
+the box back. Deploy still checks and publishes the password secret.
+
 The browser's own user name and password box stands in front of the whole
 site, the play domain and the `blockyrts.pages.dev` mirror alike, so
 passers-by do not reach the game or its server. It is a deterrent, not
@@ -56,8 +63,10 @@ gate from before Patch 5 came off with Patch 5; this one came back after it.)
   `sitemap.xml` and the installable app's files (below) skip the middleware,
   so loading the game costs no Functions requests (the free plan has 100,000
   a day).
-- The site calls itself a learning project, not a game, everywhere search
-  engines and link previews look. Search engines and previews read the page
+- Everywhere search engines and link previews look, the site presents the
+  game as a co-op survival open world RTS, with one title, description and
+  longer pitch (`SITE_HEADLINE`, `SITE_DESCRIPTION`, `SITE_ABOUT` in
+  `packages/client/site.ts`, repeated in the middleware). Search engines and previews read the page
   behind the box (what a visitor sees after closing it), which carries the
   title, description, preview tags and structured data; since it comes with
   a 401, search engines may also leave the site out altogether. Behind it, `packages/client/index.html` carries the same

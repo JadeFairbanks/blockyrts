@@ -248,6 +248,34 @@ describe('a click on a building\'s greyed-out button (Patch 3)', () => {
     for (const id of hunt.ask!.units) expect(s.entities.queue[s.entities.indexOf(id)]![0]!.t).toBe('hunt');
   });
 
+  it('asks a woodsman, never a worker, to fetch food: fish and mushrooms are his (Jade\'s Patch 6 ruling)', () => {
+    const s = plainWorld();
+    const e = s.entities;
+    const p = s.players[0]!;
+    for (const r of RESOURCES) if (r.nutrition > 0) p.pool[r.id] = 0;
+    p.pool[Res.Sticks] = 50;
+    p.pool[Res.HardwoodLumber] = 50;
+    p.pool[Res.Leather] = 50;
+    const product = troopProduct(Troop.Close, 1, 0);
+    // No woodsman: nobody is asked about food (no worker offers to fish).
+    for (const i of units(s, UnitKind.Warrior)) e.queue[i] = [{ t: 'move', x: e.x[i]! + 200 * M, z: e.z[i]! }];
+    let qs = asked(s, [click(Greyed.Product, product, bigHouse(s).id)]);
+    expect(qs.some((x) => /food/.test(x.text ?? ''))).toBe(false);
+    // One of the warriors a woodsman, the rest busy: he is asked, and Yes sends him fishing and foraging.
+    const w = units(s, UnitKind.Warrior)[0]!;
+    e.troop[w] = Troop.Woodsman;
+    e.queue[w] = [];
+    for (let k = 0; k < 40; k++) step(s, []);
+    qs = asked(s, [click(Greyed.Product, product, bigHouse(s).id)]);
+    const food = qs.find((x) => /food/.test(x.text ?? ''))!;
+    expect(food.ask!.q).toBe(GreyAsk.Gather);
+    expect(food.ask!.units).toEqual([e.id[w]!]);
+    expect(food.text).toBe('We need 30 more food for training. Shall I go fishing and foraging?');
+    step(s, [yes(food)]);
+    const o = e.queue[w]![0]!;
+    expect(o.t === 'woods' && o.fish === 1 && o.forage === 1).toBe(true);
+  });
+
   it('keeps the Patch 2 questions as they were, and these out of their numbers', () => {
     for (const q of Object.values(GreyAsk)) expect(Object.values(Ask)).not.toContain(q);
     expect(Product.Worker).toBe(0);

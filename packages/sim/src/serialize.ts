@@ -10,7 +10,7 @@ import { attachNav, EntityStore, newPlayer, PLAYER_FIELDS, UNIT_FIELDS, type Loo
 
 /** The fields of each record kind, in the order they are written (every one an i32). */
 const PROJECTILE_FIELDS = ['shot', 'side', 'shooter', 'owner', 'faction', 'x0', 'y0', 'z0', 'vx', 'vy', 'vz', 'age', 'damage', 'flags', 'mark'] as const satisfies ReadonlyArray<keyof Projectile>;
-const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src', 'gear'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
+const SPAWN_FIELDS = ['at', 'mob', 'player', 'group', 'x', 'z', 'placed', 'role', 'ax', 'az', 'src'] as const satisfies ReadonlyArray<keyof PendingSpawn>;
 const SITE_FIELDS = ['id', 'owner', 'kind', 'x0', 'z0', 'x1', 'z1', 'level', 'level2', 'axis'] as const satisfies ReadonlyArray<keyof Site>;
 const LOOT_FIELDS = ['id', 'res', 'amt', 'x', 'y', 'z', 'at', 'by', 'owner', 'brag', 'src'] as const satisfies ReadonlyArray<keyof Loot>;
 import { readUnitOrder, writeUnitOrder, type UnitOrder } from './units/unit-orders.ts';
@@ -223,11 +223,12 @@ const MAGIC = 0x53434153; // "SACS" read little-endian
  * nights. 38: who took each Ape's idol. 39: Patch 7's gear catalogue (goods
  * and gear rows in two bytes: a unit's carried good, weapon, ranged weapon,
  * shield, armour and cart, the stock's length, and a building's stock and
- * payments). Every patch raises it, and a
+ * payments; and the kind of the poison or burn on each unit). 40: what each
+ * unit keeps in its bag (Patch 7, Keep in bag). Every patch raises it, and a
  * snapshot from any other version is refused, never carried over (Jade,
  * Patch 2: a standing rule).
  */
-export const SNAPSHOT_VERSION = 39;
+export const SNAPSHOT_VERSION = 40;
 /** What a player reads when a save is from an older version of the game (Jade's standing rule from Patch 2). */
 export const OLD_SAVE_TEXT = 'That save is from an older version of the game. Start a new game.';
 
@@ -283,6 +284,9 @@ export function serializeState(state: SimState): Uint8Array {
     const l = e.ledger[i]!;
     w.u16(l.length);
     for (const v of l) w.i32(v);
+    const kp = e.kept[i]!;
+    w.u16(kp.length);
+    for (const v of kp) w.i32(v);
   }
   w.u8(state.players.length);
   for (const p of state.players) {
@@ -370,6 +374,10 @@ export function deserializeState(bytes: Uint8Array): SimState {
     const nl = r.u16();
     for (let k = 0; k < nl; k++) l.push(r.i32());
     e.ledger[i] = l;
+    const kp: number[] = [];
+    const nk = r.u16();
+    for (let k = 0; k < nk; k++) kp.push(r.i32());
+    e.kept[i] = kp;
   }
   const players: PlayerState[] = [];
   const np = r.u8();
@@ -498,6 +506,9 @@ export function diffStates(a: SimState, b: SimState): string | null {
     const la = JSON.stringify(ea.ledger[i]);
     const lb = JSON.stringify(eb.ledger[i]);
     if (la !== lb) return `entities[${i}].ledger: ${la} vs ${lb}`;
+    const ka = JSON.stringify(ea.kept[i]);
+    const kb = JSON.stringify(eb.kept[i]);
+    if (ka !== kb) return `entities[${i}].kept: ${ka} vs ${kb}`;
   }
   const players = scalar('players.length', a.players.length, b.players.length);
   if (players) return players;

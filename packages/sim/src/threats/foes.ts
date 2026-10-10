@@ -10,7 +10,7 @@ import type { Building } from '../buildings/store.ts';
 import { clockOf, Period } from '../clock.ts';
 import { length2d, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { OrderKind, type SimState } from '../state.ts';
-import { gap } from '../combat/combat.ts';
+import { gap, peaceHooks } from '../combat/combat.ts';
 import { attackBuilding, beginSpell, combatTroop, engageUnit, mobHooks, playerUnit, SpellWith, troopAggro, walkMob } from '../combat/mob-ai.ts';
 import { Mob, type MobSpec } from '../combat/mobs.ts';
 import { Ability, ABILITIES, canUse, spend } from './abilities.ts';
@@ -20,7 +20,7 @@ import { Role, type TribeBand, type Village } from './types.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { runWild } from './wanderers.ts';
 import { runGuardian } from './guardians.ts';
-import { runKeeper } from './keepers.ts';
+import { keeperAtPeace, runKeeper } from './keepers.ts';
 import { runEncounter } from './encounters.ts';
 import { runUnleashed } from './headless.ts';
 
@@ -309,4 +309,5 @@ function runFoe(state: SimState, i: number, spec: MobSpec): void {
 
 export function installFoes(): void {
   mobHooks.foe = runFoe;
+  peaceHooks.keeper = keeperAtPeace;
 }

@@ -27,6 +27,7 @@ import {
   tavernInfo,
   animalsAt,
   assigned,
+  bagBare,
   bagItems,
   canLoot,
   carryView,
@@ -457,7 +458,7 @@ function postInfo(s: SimState): void {
       woodsmen.push([e.id[i]!, l.brought, l.ate, l.steps, l.keep]);
     }
     queues.push([e.id[i]!, e.queue[i]!.map((o) => ({ ...o }))]);
-    if (e.bag[i]!.length > 0) bags.push([e.id[i]!, bagItems(s, i)]);
+    if (!bagBare(s, i)) bags.push([e.id[i]!, bagItems(s, i)]);
     if (canLoot(s, i)) carry.push([e.id[i]!, ...carryView(s, i)]);
     if (e.kind[i] === UnitKind.Mage) mageRanks.push([e.id[i]!, mageTrainingProblem(s, i)]);
     const kept = keptGoods(s, i);

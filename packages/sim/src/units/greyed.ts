@@ -39,13 +39,14 @@ import { RECIPE_PRODUCT, RESEARCH_PRODUCT, type Building, type Product } from '.
 import { hasResearch, RESEARCH, type Research } from '../combat/items.ts';
 import { eatableFood } from '../economy/food.ts';
 import { haveOf, payAny } from '../economy/food-kinds.ts';
-import { costText, FOODS, pay, Res, RESOURCES, type Cost } from '../economy/resources.ts';
+import { costText, pay, Res, RESOURCES, type Cost } from '../economy/resources.ts';
 import { ceilDiv, floorDiv, length2d, WU_PER_METRE } from '../fixed.ts';
 import type { AnswerOrder, GreyedOrder } from '../orders.ts';
 import { say, sayBuilding } from '../peoples/speech.ts';
 import { engineSpec } from '../siege/data.ts';
 import { isCrewman } from '../siege/engines.ts';
 import { isWoodsman } from './woodsman.ts';
+import { setWoods } from './woods.ts';
 import { UnitKind, type SimState } from '../state.ts';
 import { Role } from '../threats/types.ts';
 import { propJob, PROPS } from '../world/props.ts';
@@ -68,7 +69,7 @@ export const Greyed = {
 
 /** The questions a greyed-out click raises (units/questions.ts Ask goes on from 7 for its own). */
 export const GreyAsk = {
-  /** A worker: go and gather a resource (res), or fish for food (res -1). */
+  /** A worker: go and gather a resource (res); or a woodsman: fish and forage for food (res -1). */
   Gather: 10,
   /** Idle warriors: go hunting for food. */
   Hunt: 11,
@@ -98,7 +99,6 @@ const GATHERING = new Set(['gather', 'forage', 'return', 'dropoff']);
 /** Resources a worker can gather from the land (not a carcass: that is the hunters'). */
 const NODE_RES: ReadonlySet<number> = new Set(PROPS.filter((p) => p.name !== 'Carcass').map((p) => nodeResource(p.kind)).filter((r) => r >= 0));
 /** Food on the land: fish. */
-const FOOD_WANT: ReadonlyMap<number, number> = new Map(FOODS.filter((r) => NODE_RES.has(r)).map((r) => [r, 1000]));
 
 /** One cause of a greyed-out button, and what it is wanted for ("for the Forge"). */
 type Need =
@@ -306,6 +306,23 @@ function findNode(state: SimState, i: number, want: ReadonlyMap<number, number>)
   return chooseNode(state, i, x, z, max, new Map(want), fits);
 }
 
+/** The woodsman to fish and forage for food: the nearest the place with nothing to do (no orders, or only holding), or -1. */
+function woodsman(state: SimState, player: number, ax: number, az: number, used: Set<string>): number {
+  const e = state.entities;
+  let best = -1;
+  for (let i = 0; i < e.count; i++) {
+    if (!isWoodsman(e, i) || !askable(state, player, i, used)) continue;
+    const q = e.queue[i]!;
+    if (e.target[i] !== 0 || e.chasing[i] !== 0 || (q.length > 0 && !(q.length === 1 && q[0]!.t === 'hold'))) continue;
+    if (best < 0) best = i;
+    else {
+      const d = dist2(e.x[i]!, e.z[i]!, ax, az) - dist2(e.x[best]!, e.z[best]!, ax, az);
+      if (d < 0 || (d === 0 && e.id[i]! < e.id[best]!)) best = i;
+    }
+  }
+  return best;
+}
+
 /** The worker to gather: those gathering or idle first, then the rest, nearest the place first, the first whose tools work a node of it in reach. */
 function gatherer(state: SimState, player: number, want: ReadonlyMap<number, number>, ax: number, az: number, used: Set<string>): number {
   for (const i of workersInOrder(state, player, ax, az, used)) if (findNode(state, i, want)) return i;
@@ -447,7 +464,8 @@ function resolve(state: SimState, player: number, need: Need, ax: number, az: nu
           deeper: [],
         };
       }
-      const w = gatherer(state, player, FOOD_WANT, ax, az, used);
+      // Fish and wild food are the woodsman's (Jade's Patch 6 ruling): workers are never asked to fetch food.
+      const w = woodsman(state, player, ax, az, used);
       if (w < 0) return none;
       return {
         ask: {
@@ -456,8 +474,8 @@ function resolve(state: SimState, player: number, need: Need, ax: number, az: nu
           q: GreyAsk.Gather,
           units: [e.id[w]!],
           res: -1,
-          text: `We need ${need.n} more food${forText(need.for)}. Shall I go fishing?`,
-          yes: 'It fishes the nearest water with fish in it that it can walk back from before nightfall. Takes nothing from the stock.',
+          text: `We need ${need.n} more food${forText(need.for)}. Shall I go fishing and foraging?`,
+          yes: 'It fishes and forages wild food round the base, as its Fish and Forage buttons do. Takes nothing from the stock.',
           no: 'It carries on with what it was doing.',
         },
         deeper: [],
@@ -726,10 +744,18 @@ function answerGreyed(state: SimState, o: AnswerOrder): void {
   switch (o.q) {
     case GreyAsk.Gather: {
       const i = e.indexOf(o.who);
-      if (i < 0 || e.owner[i] !== player || e.hp[i]! <= 0 || e.kind[i] !== UnitKind.Worker) return;
-      if (o.res >= RESOURCES.length) return;
-      const pick = findNode(state, i, o.res >= 0 ? new Map([[o.res, 1000]]) : FOOD_WANT);
-      const name = o.res >= 0 ? (RESOURCES[o.res]?.short ?? 'it').toLowerCase() : 'fish';
+      if (i < 0 || e.owner[i] !== player || e.hp[i]! <= 0) return;
+      // For food, a woodsman: fishing and foraging both on, as his two buttons.
+      if (o.res < 0) {
+        if (!isWoodsman(e, i)) return;
+        setWoods(state, i, 1, 1, null, false);
+        setWoods(state, i, 2, 1, null, false);
+        say(state, i, "I'll fish and forage.", false, true);
+        return;
+      }
+      if (e.kind[i] !== UnitKind.Worker || o.res >= RESOURCES.length) return;
+      const pick = findNode(state, i, new Map([[o.res, 1000]]));
+      const name = (RESOURCES[o.res]?.short ?? 'it').toLowerCase();
       if (!pick) {
         say(state, i, `I can't find any ${name} within reach.`, true);
         return;

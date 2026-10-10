@@ -77,7 +77,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'combat/mob-ai.ts:MOB_SEARCHES_PER_STEP', 'animals/animals.ts:STOCK_CHECK_STEPS',
   'economy/resources.ts:RESOURCE_COUNT',
   // Patch 5's farms and Barn: the leave question's kind and the barn hand's line, a stacked queue item's storage limit, and the plant foods' list.
-  'units/barn-hand.ts:BARN_LEAVE_ASK', 'units/barn-hand.ts:BARN_HAND_TEXT', 'buildings/production.ts:STACK_MAX', 'animals/species.ts:PLANT_FOODS',
+  'units/barn-hand.ts:BARN_LEAVE_ASK', 'units/pickup-ask.ts:PICKUP_ASK', 'units/barn-hand.ts:BARN_HAND_TEXT', 'buildings/production.ts:STACK_MAX', 'animals/species.ts:PLANT_FOODS',
   // The longest timed action the 16-bit tinker column can count (Patch 2): a storage limit, not balance.
   'units/tinker.ts:TINKER_MAX_STEPS',
   // The food kinds' lists (which goods are meats and fish, in the inventory's order) and the meal accounts' unit.
@@ -159,6 +159,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/moves.ts': 'units',
   'units/field.ts': 'animals',
   'units/loot.ts': 'loot',
+  'units/handling.ts': 'loot',
   // Patch 7: what the epic and legendary looted pieces do, and the two trophies.
   'units/effects.ts': 'loot',
   'threats/loot.ts': 'loot',
@@ -409,8 +410,7 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   // Patch 5: Morvath's staff and wings, the necromancer, the mana crystal guardians.
   'staff:splashTenths': 'Staff splash', 'staff:radius': 'Staff splash within', 'wings:steps': 'Wings drain over', 'wings:total': 'Wings drain at most', 'wings:radius': 'Wings drain within',
   'NECROMANCER:summonSteps': 'Summons every', 'NECROMANCER:summonMin': 'Summons at least', 'NECROMANCER:summonMax': 'Summons at most', 'NECROMANCER:ringM': 'They rise round him within',
-  'NECROMANCER:bubbleS': 'His bubbles stay', 'NECROMANCER:gearMin': 'Drops: weapons or armours, at least', 'NECROMANCER:gearMax': 'Drops: weapons or armours, at most',
-  'NECROMANCER:gearLowTier': 'Drops: lowest tier', 'NECROMANCER:gearHighTier': 'Drops: highest tier (or the highest a player can make)',
+  'NECROMANCER:bubbleS': 'His bubbles stay',
   'NECROMANCER:ingotMin': 'Drops: ingots, at least', 'NECROMANCER:ingotMax': 'Drops: ingots, at most', 'NECROMANCER:boneMin': 'Drops: bones, at least', 'NECROMANCER:boneMax': 'Drops: bones, at most',
   'NECROMANCER:crystalPm': 'Drops: a mana crystal, chance',
   'CRYSTAL_GUARDS:min': 'Guardians a crystal, at least', 'CRYSTAL_GUARDS:max': 'Guardians a crystal, at most', 'CRYSTAL_GUARDS:leashM': 'Keep within', 'CRYSTAL_GUARDS:chaseM': 'Chase no farther than',
@@ -438,6 +438,9 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   bluntBp: 'Damage taken from blunt', spreadBp: 'Spread', blockBp: 'Shield block', firstNight: 'First night', halfWidth: 'Half width', height: 'Height',
   heightCm: 'Height', lightM: 'Light radius', claimM: 'Claimed radius', outlyingHalves: 'Counts against the dusk light limit (2 whole, 1 half)',
   makes: 'Makes', tier: 'Tier', cost: 'Cost', inputs: 'Inputs (any one way)', outputs: 'Outputs', at: 'Made at', madeAt: 'Made at', recipes: 'Recipe (any one way)',
+  // Patch 7: a creature's own weapons and armour as drops, the Fae Guardian's own pieces, and what the peoples' fighters drop.
+  gear: 'Drops one of its own weapons or armour', 'fae:ownPm': 'Her magical item is one of her own, chance',
+  'PEOPLE_GEAR_DROP:chancePm': 'Drops one of the pieces it carries, chance', 'PEOPLE_GEAR_DROP:armourPm': 'That piece is its armour or shield, chance',
   drops: 'Drops', loot: 'Loot', min: 'Least', max: 'Most', meat: 'Meat', extra: 'Also gives', perCell: 'Per cell', groupMin: 'Group of at least',
   groupMax: 'Group of at most', tameFood: 'Bait to tame', tameFoods: 'Tamed with', tameSteps: 'Time to tame', tameAt: 'Kept at', upkeep: 'Upkeep a day',
   barnFeed: 'Farm fare eaten a day in a Barn', cartTenthsLb: 'Cart load', cartSpeed: 'Cart speed', packTenthsLb: 'Pack load', yield: 'Yield', perLoad: 'Per load',
@@ -538,7 +541,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'threats/boss.ts': 'Morvath',
   'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'combat/blasts.ts': 'Blasts and craters', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
   'buildings/placement.ts': 'Placement', 'buildings/chains.ts': 'Wall chains', 'world:buildings/chains.ts': 'Tunnel chains', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
-  'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'units/woods.ts': 'The woodsman fishing and foraging', 'units/woodsman.ts': 'The woodsman', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
+  'units/loot.ts': 'Loot', 'units/handling.ts': 'Handing gear to a unit', 'units/forage.ts': 'Gather, and how far from home', 'units/woods.ts': 'The woodsman fishing and foraging', 'units/woodsman.ts': 'The woodsman', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
   'combat/aims.ts': 'Waves: the bases and parties they go for', 'mobs:combat/aims.ts': 'Waves: the bases and parties they go for',
@@ -552,7 +555,6 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'buildings/farm-boost.ts': 'Fertilizing farms', 'animals/barn.ts': 'The Barn', 'units/barn-hand.ts': 'The barn hand',
   'units/work-asks.ts': 'Work that waits: an empty farm, an unworked building, an idle worker',
   'units/make-asks.ts': 'The Workshop\'s offer to make something',
-  'threats/loot.ts': 'Weapons, armour and shields in the night waves',
   'combat/threat.ts': 'Threat: how each monster\'s threat is worked out', 'mobs:combat/threat.ts': 'Threat: how each monster\'s threat is worked out',
 };
 
@@ -598,7 +600,7 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   // Patch 5: Morvath's staff and wings, the necromancer, the mana crystal guardians.
   'staff:splashTenths': 'damageTenths', 'wings:total': 'health',
   'NECROMANCER:ringM': 'metres', 'NECROMANCER:bubbleS': 'wholeSeconds', 'NECROMANCER:summonMin': 'count', 'NECROMANCER:summonMax': 'count',
-  'NECROMANCER:gearMin': 'count', 'NECROMANCER:gearMax': 'count', 'NECROMANCER:ingotMin': 'count', 'NECROMANCER:ingotMax': 'count', 'NECROMANCER:boneMin': 'count', 'NECROMANCER:boneMax': 'count',
+  'NECROMANCER:ingotMin': 'count', 'NECROMANCER:ingotMax': 'count', 'NECROMANCER:boneMin': 'count', 'NECROMANCER:boneMax': 'count',
   'CRYSTAL_GUARDS:min': 'count', 'CRYSTAL_GUARDS:max': 'count', 'CRYSTAL_GUARDS:leashM': 'metres', 'CRYSTAL_GUARDS:chaseM': 'metres', 'CRYSTAL_GUARDS:wakeM': 'metres', 'CRYSTAL_GUARDS:postM': 'metres',
 };
 

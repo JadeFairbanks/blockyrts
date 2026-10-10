@@ -140,7 +140,8 @@ describe('Equip from the stock (GP-2)', () => {
     pool[Res.SteelSideSword] = 1;
     run(s, 1, [{ kind: 'equip', player: 0, units: [e.id[spear]!], res: Res.SteelSideSword }]);
     expect(pool[Res.SteelSideSword]).toBe(1);
-    expect(s.events.some((ev) => ev.kind === 'speech' && ev.speaker === e.id[spear] && ev.text === 'I cannot use a steel side-sword.')).toBe(true);
+    // The reason is the fit rule's (Patch 7, plan 2.2), as the greyed choice shows it.
+    expect(s.events.some((ev) => ev.kind === 'speech' && ev.speaker === e.id[spear] && ev.text === 'Only swordsmen use one-handed weapons and flails.')).toBe(true);
     run(s, 1, [{ kind: 'equip', player: 0, units: [e.id[sword]!], res: Res.SteelSideSword }]);
     expect(pool[Res.SteelSideSword]).toBe(0);
     expect(e.queue[sword]![0]).toMatchObject({ t: 'kitUp', line: Line.Weapon, to: 7, ways: ITEM_WAY, paid: 1 });
