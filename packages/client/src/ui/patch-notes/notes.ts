@@ -44,7 +44,103 @@ export interface PatchNote {
 
 export const PATCH_NOTES: readonly PatchNote[] = [
   {
+    name: 'Mini patch 7.3',
+    headline: 'Any item can now be fetched from the stock or handed back in, magic and poison go through armour and shields, and a loading screen brings every player into the match together.',
+    intro: [
+      'Mini patch 7.3 is a small update to indev 1.2. Saved games keep working and the game version is unchanged. If the game was open in your browser when the update went live, reload the page to play it.',
+      'The site asks for its sign-in again, as it did before Patch 7.',
+    ],
+    changes: {
+      bugFixes: [
+        {
+          title: 'Greyed out unit buttons',
+          text: 'A unit that needs a kit as well as food (the worker’s tools, the woodsman’s gear, the mages’ wand and robe) could show its training button lit while the stock could not pay for the kit, and the order then did nothing. These buttons are now greyed out until everything is in stock, and the tooltip says what is short, such as "Short: 0 of 1 hardwood lumber."',
+          picture: 'icon_train_worker_labourer',
+        },
+      ],
+      balance: [
+        {
+          title: 'Armour tops out at 50%',
+          text: 'No armour or robe now blocks more than 50% of a blow, and every piece has been scaled down by the same share to fit. Fortify, Barkskin and the Victor’s trophy still add on top, up to the 50% limit. Monsters’ and animals’ own toughness is unchanged.',
+          details: [
+            'Armour: leather jerkin 10% to 7%; boiled leather cuirass 20% to 14%; copper scale jack 25% to 18%; bronze scale armour 37% to 26%',
+            'Wrought iron mail 48% to 34%; iron coat of plates 53% to 38%; steel plate harness 65% to 46%; Fluted Gothic harness and the Dreadnought’s 70% to 50%',
+            'Robes: leather-trimmed 5% to 4%; hardened leather 10% to 7%; warded 15% to 11%; rune-stitched vestments 20% to 14%; archmage’s mantle and the Deathless Shroud 25% to 18%',
+            'Looted armour: gnoll bracer 5% to 4%; hobgoblin armour 40% to 29%; barrow knight mail 50% to 36%; void stalker cloak 38% to 27%; fiend shoulder plate 62% to 44%; minotaur bracers 66% to 47%; Fae Guardian’s robe 30% to 21%',
+            'Peoples’ armour: Halfling iron cap 5% to 4%; Runkin and Elf leather 15% to 11%; Dwarf plate 62% to 44%; Dwarf mail 47% to 34%',
+          ],
+          picture: 'icon_armour_steel_plate_steel',
+        },
+        {
+          title: 'Magic, poison and shields',
+          text: 'Poison now goes straight through armour, a mount’s armour too, as magic does. Shields now stop only physical shots (arrows, bolts, bullets, sling stones, thrown weapons and siege shot), so magic bolts land in full, against the hobgoblin’s shield and the barrow knight’s shield wall as well.',
+          picture: 'icon_spell_arcane_bolt',
+        },
+        {
+          title: 'Your mages’ damage spells',
+          text: 'Every damage spell your own mages cast deals 4 less, after rank and wand, and never less than 1. Heals, monsters’ and the peoples’ spells, and spell damage to buildings are unchanged.',
+          details: [
+            'At rank 1 with the starting wand: Arcane bolt 20 to 16; Energy dart 14 to 10; Beam 36 to 32 over its whole burn',
+            'Fireball 35 to 31 on the unit hit, 15 to 11 on each enemy in the splash; Area blast 45 to 41',
+          ],
+        },
+        {
+          title: 'Fish are harder to find',
+          text: 'Trout and salmon now live only in streams and rivers, and giant catfish only in Deepwoods ponds. Ponds and bog pools in the Heartland and the Fringe hold no fish. Each stretch of stream holds 25% fewer fish and each Deepwoods pond stretch 50% fewer, in whole fish. In saved worlds, fish already placed stay as they are; land your units have not reached yet follows the new rules.',
+          details: ['Heartland streams: trout. Fringe and Deepwoods streams: salmon. Deepwoods ponds: giant catfish. Barrens and Deadlands water: none, as before'],
+          picture: 'icon_fish_salmon',
+        },
+        {
+          title: 'Early nights hit harder',
+          text: 'Night threat is raised by 10% on night 1, and the raise shrinks evenly to nothing by night 50. Threat stays in whole points and never falls from one night to the next. Lairs, necromancers, Morvath and other special arrivals are unchanged.',
+          details: ['Night threat: night 1 15 to 16; night 5 32 to 34; night 10 55 to 59; night 20 107 to 113; night 30 167 to 173; night 40 235 to 239; night 49 and later unchanged'],
+        },
+        {
+          title: 'Starting units',
+          text: 'Every game starts with 4 workers, 2 clubmen (was 3) and a spearman. The start’s kit question now reads "Three of us could use better kit."',
+          picture: 'icon_train_warrior_club',
+        },
+      ],
+      gameplay: [
+        {
+          title: 'Move any item',
+          text: 'Any good, not only food and gear, can now go between your stock and a unit’s inventory. Units still collect and hand in at a store point (the main base or a Storehouse). A plain exchange has no progress bar; equipping, upgrading, scrapping and eating keep theirs. The units say what they got or handed over in a speech bubble.',
+          details: [
+            'Drag a good from the stock onto a unit, its portrait or its inventory: it fetches it from the nearest store point and keeps it in its bag ("Got 25 stone."). Food comes as one full heal, gear one piece, anything else as much as fits the bag',
+            'Right click a good in the stock with units selected and choose Fetch: each fetches it into its bag. This puts gear in the bag without wearing it',
+            'Drag a good from a unit’s inventory onto the stock, or choose Unload: it hands it in at a store point ("Handed in 3 copper ore.")',
+            'Give now hands over all of a good, as much as the other unit can carry: "Here, take 3 copper ore." and "Got 3 copper ore." Gear still goes one piece at a time',
+          ],
+          picture: 'icon_meat',
+        },
+        {
+          title: 'Pine trees',
+          text: 'Pine branches now come down to about 1.7 m above the ground, just above a worker’s head. Young pines are in proportion. Pines in saved worlds change too.',
+        },
+      ],
+      qol: [
+        {
+          title: 'Loading screen',
+          text: 'A loading screen with a progress bar now loads every model and picture before a match begins, so nothing pops in during play. In multiplayer the match waits until every player has finished loading, and the screen names the player it is waiting for. Playing alone, the screen stays until the land around the camera is drawn.',
+        },
+        {
+          title: 'Attack alerts',
+          text: 'When your units are attacked in a fight you did not start, the minimap pings that spot twice over 2 seconds, and if the spot is on screen a red ring goes out on the ground there once. A fight pings only at its start; a new fight elsewhere pings again. Fights you start with Attack, attack-move or Patrol do not ping.',
+          details: ['A blow within 15 m of a fight still going on belongs to it; a fight ends 20 seconds after its last blow on your units'],
+          picture: 'minimap_alert',
+        },
+        {
+          title: 'Auto rings',
+          text: 'Auto Hunt, auto Gather, Forage and Fish now show the spinning autocast ring in yellow while they are on. Spells on autocast keep their violet ring, and every other action keeps its usual marker.',
+          picture: 'icon_cmd_hunt',
+        },
+      ],
+    },
+  },
+  {
     name: 'Patch 7',
+    version: 'indev 1.2',
+    date: '2026-10-10',
     headline: 'Loot worth fighting for: monsters drop the weapons and armour they carry, gear comes in four grades, and every piece can be swapped, given or scrapped with a click or a drag.',
     intro: [
       'Patch 7 brings the game to indev 1.2. Saves from Patch 6 and older will not load: they show in the list as no longer valid, and can be cleared from there. If the game was open in your browser when Patch 7 went live, it asks you to reload the page.',
