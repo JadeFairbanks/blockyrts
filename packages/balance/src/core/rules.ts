@@ -160,6 +160,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/field.ts': 'animals',
   'units/loot.ts': 'loot',
   'units/handling.ts': 'loot',
+  'units/food-bag.ts': 'food',
   // Patch 7: what the epic and legendary looted pieces do, and the two trophies.
   'units/effects.ts': 'loot',
   'threats/loot.ts': 'loot',
@@ -541,7 +542,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'threats/boss.ts': 'Morvath',
   'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'combat/blasts.ts': 'Blasts and craters', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
   'buildings/placement.ts': 'Placement', 'buildings/chains.ts': 'Wall chains', 'world:buildings/chains.ts': 'Tunnel chains', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
-  'units/loot.ts': 'Loot', 'units/handling.ts': 'Handing gear to a unit', 'units/forage.ts': 'Gather, and how far from home', 'units/woods.ts': 'The woodsman fishing and foraging', 'units/woodsman.ts': 'The woodsman', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
+  'units/loot.ts': 'Loot', 'units/handling.ts': 'Handing gear to a unit', 'units/food-bag.ts': 'Eating from the bag and fetching food', 'units/forage.ts': 'Gather, and how far from home', 'units/woods.ts': 'The woodsman fishing and foraging', 'units/woodsman.ts': 'The woodsman', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
   'combat/aims.ts': 'Waves: the bases and parties they go for', 'mobs:combat/aims.ts': 'Waves: the bases and parties they go for',

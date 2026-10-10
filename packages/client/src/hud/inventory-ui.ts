@@ -323,7 +323,7 @@ export class InventoryUi {
       keys: [],
       description: parts.join(' '),
       foot: food
-        ? 'Right click: Don\'t eat, or eat it again.'
+        ? 'Right click: Don\'t eat, or eat it again. Drag it onto one of your units: it fetches enough to heal once from a store point, to eat from its bag.'
         : gear
           ? 'Right click: Equip or Scrap. Drag it onto one of your units to equip it, or onto the Workshop to scrap it.'
           : equippable(res)
@@ -331,7 +331,9 @@ export class InventoryUi {
             : 'Right click: its menu.',
       className: `inv-slot${have === 0 ? ' zero' : ''}${kept ? ' dont-eat' : ''}`,
       onRightClick: () => this.actions.menu(btn.el, res),
-      ...(gear ? { nameClass: rarityClass(res), compare: () => this.actions.compare(res), ...(have > 0 ? { holds: { res, unit: null, line: -1 } } : {}) } : {}),
+      ...(gear ? { nameClass: rarityClass(res), compare: () => this.actions.compare(res) } : {}),
+      // Gear drags onto a unit or the Workshop, food onto a unit to fetch (Patch 7).
+      ...((gear || food) && have > 0 ? { holds: { res, unit: null, line: -1 } } : {}),
     });
     this.setShine(slot, shineOf(res));
     if (slot.pic.getAttribute('src') !== src) slot.pic.src = src;

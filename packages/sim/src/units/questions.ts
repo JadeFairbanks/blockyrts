@@ -723,7 +723,7 @@ export function answerQuestion(state: SimState, o: AnswerOrder): void {
         return;
       }
       // Eat at the nearest table, in front of what each was doing, so it carries on after (as an upgrade does).
-      for (const i of units) inFront(state, i, { t: 'eat', b: 0 });
+      for (const i of units) inFront(state, i, { t: 'eat', b: 0, res: -1 });
       return;
     }
     case Ask.Down: {

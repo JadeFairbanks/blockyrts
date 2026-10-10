@@ -73,8 +73,8 @@ export type UnitOrder =
   | { t: 'hunt'; id: number; auto: number; x: number; z: number; k: number; kx: number; kz: number }
   /** Tame a wild animal: stand by it with its food until it trusts the worker (Animals; Table 14). */
   | { t: 'tame'; id: number }
-  /** Eat (and take medicine) at the nearest building that keeps food (Food and medicine), or at building b. */
-  | { t: 'eat'; b: number }
+  /** Eat (and take medicine) at the nearest building that keeps food (Food and medicine), or at building b; with `res` a food (Patch 7, -1 for none), that food from its own bag where it stands (units/food-bag.ts). */
+  | { t: 'eat'; b: number; res: number }
   /** Hitch a tamed horse or ox to the worker's cart or pack (Table 12); id 0 lets it go. */
   | { t: 'hitch'; id: number }
   /** T Prospect a spot (columns). */
@@ -124,7 +124,9 @@ export type UnitOrder =
   /** Scrap from a unit (Patch 7, units/handling.ts): walk to the Workshop `b` with `res` from the bag, or the piece it wears (`worn` 1), and hand it in there to be scrapped. */
   | { t: 'scrap'; b: number; res: number; worn: number }
   /** Equip from the stock (Patch 7, units/handling.ts): walk to the place `b` and put on `res`, paid (`paid` 1) from the stock, the old piece back to the stock; for a piece Upgrade's kitUp cannot put on (the Dreadnought's, or no higher tier than the line has). */
-  | { t: 'putOn'; res: number; b: number; paid: number };
+  | { t: 'putOn'; res: number; b: number; paid: number }
+  /** Fetch food (Patch 7, units/food-bag.ts): walk to the main base or storehouse `b` and take `n` of the food `res` from the stock into the bag, kept there. */
+  | { t: 'fetch'; res: number; n: number; b: number };
 
 export type UnitOrderType = UnitOrder['t'];
 
@@ -146,7 +148,7 @@ export const FORAGE_HOME = 2;
 /** A Gather order's `k` while it works on through the night (Jade's Patch 4, units/night-work.ts). */
 export const FORAGE_NIGHT = 3;
 
-const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'loot', 'forage', 'retrain', 'woods', 'circle', 'give', 'scrap', 'putOn'];
+const TYPES: readonly UnitOrderType[] = ['move', 'follow', 'gather', 'build', 'work', 'repairAll', 'return', 'dropoff', 'enter', 'job', 'relight', 'train', 'attack', 'attackMove', 'patrol', 'hold', 'kitUp', 'cart', 'dig', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'crew', 'mend', 'loot', 'forage', 'retrain', 'woods', 'circle', 'give', 'scrap', 'putOn', 'fetch'];
 
 /** The integer fields of each order type, in the order they are written. */
 const FIELDS: Record<UnitOrderType, readonly string[]> = {
@@ -171,7 +173,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   dig: ['site', 'band', 'miss'],
   hunt: ['id', 'auto', 'x', 'z', 'k', 'kx', 'kz'],
   tame: ['id'],
-  eat: ['b'],
+  eat: ['b', 'res'],
   hitch: ['id'],
   prospect: ['x', 'z'],
   cast: ['spell', 'id', 'x', 'z', 'auto', 'until'],
@@ -185,6 +187,7 @@ const FIELDS: Record<UnitOrderType, readonly string[]> = {
   give: ['id', 'res'],
   scrap: ['b', 'res', 'worn'],
   putOn: ['res', 'b', 'paid'],
+  fetch: ['res', 'n', 'b'],
 };
 
 export function writeUnitOrder(w: ByteWriter, o: UnitOrder): void {
@@ -254,7 +257,7 @@ export function unitOrderText(o: UnitOrder | undefined): string {
     case 'tame':
       return 'Taming';
     case 'eat':
-      return 'Going to eat';
+      return o.res >= 0 ? 'Eating from its bag' : 'Going to eat';
     case 'hitch':
       return 'Fetching an animal';
     case 'prospect':
@@ -283,5 +286,7 @@ export function unitOrderText(o: UnitOrder | undefined): string {
       return 'Taking an item to scrap';
     case 'putOn':
       return 'Going to equip';
+    case 'fetch':
+      return 'Fetching food';
   }
 }

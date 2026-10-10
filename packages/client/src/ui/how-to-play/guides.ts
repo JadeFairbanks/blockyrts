@@ -291,6 +291,7 @@ export const GUIDES: readonly Guide[] = [
         paragraphs: [
           'Food keeps your people alive and heals them. A [[Farm]] with farmers on it grows farm fare; hunters, woodsmen and a Barn bring in meat, fish, eggs and wild food. Every kind counts as food in your stores.',
           'A unit eats for the health it is missing, healing as it eats, and a unit at full health does not eat. Running costs food too. See [[Eating and healing]].',
+          'A unit can also eat food it carries, where it stands: right click the food in its own inventory and choose Eat. It sits with the bar over its head as it would at a store point. Drag a food from your stock onto a unit, or onto its inventory, and it walks to the nearest main base or storehouse and takes enough to heal fully once into its bag.',
         ],
       },
       {

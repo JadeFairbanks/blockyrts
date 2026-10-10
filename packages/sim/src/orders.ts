@@ -623,6 +623,18 @@ export interface ScrapItemOrder extends UnitsOrder {
   building: number;
 }
 
+/** Eat from the bag (Patch 7, Jade): each unit eats the food `res` it carries where it stands, healing as at a building (units/food-bag.ts). */
+export interface EatBagOrder extends UnitsOrder {
+  kind: 'eatBag';
+  res: number;
+}
+
+/** Fetch food (Patch 7, Jade: food dragged from the stock onto a unit): each unit walks to a main base or storehouse and takes a full heal's worth of the food `res` from the stock into its bag (units/food-bag.ts). */
+export interface FetchFoodOrder extends UnitsOrder {
+  kind: 'fetchFood';
+  res: number;
+}
+
 /** A unit in a main base moves between the ramparts and deeper inside (Patch 5, GP-10), where there is room. */
 export interface ShelterOrder {
   kind: 'shelter';
@@ -822,6 +834,8 @@ export type Order =
   | KeepItemOrder
   | GiveItemOrder
   | ScrapItemOrder
+  | EatBagOrder
+  | FetchFoodOrder
   | ShelterOrder
   | CircleOrder
   | UseItemOrder
@@ -1009,6 +1023,8 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   keepItem: ['res', 'on'],
   giveItem: ['res', 'target'],
   scrapItem: ['res', 'worn', 'building'],
+  eatBag: ['res'],
+  fetchFood: ['res'],
   shelter: ['building', 'unit'],
   forage: [],
   answer: ['ask', 'yes', 'q', 'who', 'res'],
@@ -1017,7 +1033,7 @@ const INT_FIELDS: Record<OrderKindName, readonly string[]> = {
   useItem: ['res', 'unit'],
 };
 
-const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'autocast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'equipBag', 'takeOff', 'keepItem', 'giveItem', 'scrapItem', 'forage', 'answer', 'greyed', 'debugKill', 'woods', 'circle']);
+const WITH_UNITS = new Set<OrderKindName>(['move', 'stop', 'follow', 'gather', 'build', 'work', 'repairAll', 'autoRepair', 'returnCargo', 'dropoff', 'enter', 'assign', 'relight', 'trainRank', 'retrain', 'attack', 'attackMove', 'patrol', 'hold', 'upgradeKit', 'upgradeEquipment', 'cart', 'lock', 'pace', 'dig', 'wallStretch', 'tunnelStretch', 'hunt', 'tame', 'eat', 'hitch', 'prospect', 'cast', 'autocast', 'crew', 'mend', 'pickOwn', 'pickUp', 'unloadItem', 'dropItem', 'equip', 'equipBag', 'takeOff', 'keepItem', 'giveItem', 'scrapItem', 'eatBag', 'fetchFood', 'forage', 'answer', 'greyed', 'debugKill', 'woods', 'circle']);
 
 /** The highest good an order may name (Patch 7: goods are saved in two bytes). */
 const GOOD_MAX = 0xfffe;
@@ -1119,6 +1135,8 @@ export function validateOrder(o: Order): void {
       return;
     case 'equipBag':
     case 'giveItem':
+    case 'eatBag':
+    case 'fetchFood':
       if (o.res < 0 || o.res > GOOD_MAX) throw new Error(`bad ${o.kind}: a good`);
       return;
     case 'keepItem':

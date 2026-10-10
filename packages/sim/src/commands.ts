@@ -52,6 +52,7 @@ import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
 import { actSpot, CircleAct, doAct, onColumn, planter, showCircle, unitAt } from './circles/act.ts';
 import { useItem } from './circles/items.ts';
+import { orderEatBag, orderFetchFood } from './units/food-bag.ts';
 import { orderEquip, orderEquipBag, orderGive, orderKeep, orderScrapItem, orderTakeOff } from './units/handling.ts';
 import { barnHandsIn, keepBarnHands } from './units/barn-hand.ts';
 
@@ -702,6 +703,13 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       case 'scrapItem':
         orderScrapItem(state, o.player, ownUnits(state, o.player, o.units), o.res, o.worn === 1, o.building);
         break;
+      // Patch 7 (Jade): food eaten from a unit's bag where it stands, or fetched from the stock into it (units/food-bag.ts).
+      case 'eatBag':
+        orderEatBag(state, ownUnits(state, o.player, o.units), o.res);
+        break;
+      case 'fetchFood':
+        orderFetchFood(state, o.player, ownUnits(state, o.player, o.units), o.res);
+        break;
       case 'shelter':
         swapShelter(state, o.player, o.building, o.unit);
         break;
@@ -997,7 +1005,7 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'eat':
         // Only the hurt eat (Jade's Patch 5, GP-27).
-        giveAll(state, o, (i) => ((e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage) && eatNeed(e.hp[i]!, e.maxHp[i]!) > 0 ? { t: 'eat', b: o.building } : null));
+        giveAll(state, o, (i) => ((e.kind[i] === UnitKind.Worker || e.kind[i] === UnitKind.Warrior || e.kind[i] === UnitKind.Mage) && eatNeed(e.hp[i]!, e.maxHp[i]!) > 0 ? { t: 'eat', b: o.building, res: -1 } : null));
         break;
       case 'hitch': {
         // An engine takes a horse or an ox to haul it (Table 2f); target 0 lets it go.

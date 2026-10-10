@@ -473,6 +473,39 @@ export function eatAt(state: SimState, i: number): string {
   return '';
 }
 
+/**
+ * A unit eats food it carries in its bag (Patch 7, Jade: "allow them to eat
+ * food they are carrying to heal ... dont need to go to store point if they
+ * have the food in their inventory"), by the rule of eating at a building: 1
+ * food for each quarter of its health it lacks heals all of it over 10 s.
+ * It is paid in whole items of the one food, as many as its wound needs or
+ * it has (`have`), what the last item holds past the wound eaten with it;
+ * short of that, a quarter of its health for each food. Healing already
+ * coming from a meal counts against the wound. Medicine is taken only at a
+ * building. Returns how many items it eats (the caller takes them from its
+ * bag), or 0 and why not.
+ */
+export function eatCarried(state: SimState, i: number, res: number, have: number): [number, string] {
+  const e = state.entities;
+  const max = e.maxHp[i]!;
+  const coming = e.mendUntil[i]! > state.step ? e.mendLeft[i]! : 0;
+  const hp = Math.max(0, e.hp[i]!);
+  const need = eatNeed(hp + coming, max);
+  if (need === 0) return [0, coming > 0 ? 'I am healing already.' : 'I am not hurt.'];
+  const each = RESOURCES[res]?.nutrition ?? 0;
+  const name = (RESOURCES[res]?.name ?? 'food').toLowerCase();
+  if (each <= 0 || have <= 0) return [0, `I have no ${name} to eat.`];
+  const n = Math.min(have, ceilDiv(need, each));
+  const food = n * each;
+  const missing = max - hp - coming;
+  const heal = food >= need ? missing : Math.min(missing, floorDiv(max * food, EAT_FULL_FOOD));
+  // In its bubble for as long as the bar over its head runs, as at a building (Jade's Patch 3).
+  const text = food >= need ? `I need ${need} food to heal. I'm eating ${name} from my bag.` : `I need ${need} food to heal, but I only carry ${food}. I'm eating ${name} from my bag.`;
+  chatter(state, i, text, 'meal', false, 'bar');
+  mend(state, i, heal, EAT_STEPS);
+  return [n, ''];
+}
+
 /** Buildings that hold food, where a unit can eat (s): main bases and storehouses (Patch 2 cut the cooking buildings). */
 export function servesFood(kind: number): boolean {
   return kind === BuildingKind.MainBase || kind === BuildingKind.Storehouse;
