@@ -118,5 +118,6 @@ describe('balance:apply', () => {
     const editable = [...cat.fields.values()].filter((f) => !f.readOnly);
     const found = editable.filter((f) => index.locate(f.module, f.path).ok).length;
     expect(found / editable.length).toBeGreaterThan(0.6);
-  });
+    // Over twelve thousand values since every damage source carries its own roll (Patch 7): a minute is too tight on a busy machine.
+  }, 240_000);
 });
