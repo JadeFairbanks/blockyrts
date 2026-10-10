@@ -440,6 +440,13 @@ const HALF_TURN = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1
 /** A rank wand's model in a Mage's, Master Mage's or Grand Magician's hand, by Item. */
 const SCHOOL_LOOKS = ['support', 'support', 'battle'];
 
+/**
+ * A skeleton archer the Deathless Shroud raised (Patch 7): the skeleton
+ * archer's own model, its bones tinted all over in its player's colour
+ * (Jade: "tinted your color"), in full so the colour reads at a glance.
+ */
+const RISEN_MODEL = mobSpec(Mob.SkeletonArcher).model;
+
 interface Corpse {
   model: string;
   x: number;
@@ -452,6 +459,8 @@ interface Corpse {
   mob: number;
   /** Parts it falls with (the Dreadnought's mace, Patch 5). */
   parts?: readonly string[];
+  /** A risen skeleton archer's player colour (Patch 7): it falls in its tint. */
+  risen?: THREE.Color | null;
 }
 
 /** One instanced model of a body with a set of parts, and how many of its instances this frame are the local player's own units, and outlined. */
@@ -484,6 +493,8 @@ class BodyPool {
     private readonly patch: ModelShaderPatch | undefined,
     /** On while the unit being drawn is under the cursor: what it takes is marked for the hover outline. */
     private readonly hoverNow: { on: boolean },
+    /** A colour the whole body is tinted (0xrrggbb; a risen skeleton archer's, Patch 7), or none. */
+    private readonly tint?: number,
   ) {}
 
   /** The instance to fill for a look; parts the model does not have are skipped. */
@@ -493,6 +504,7 @@ class BodyPool {
     let e = this.byKey.get(key);
     if (!e) {
       const m = new InstancedModel(this.model, MAX_UNITS, this.patch);
+      if (this.tint !== undefined) m.tint(this.tint);
       for (const p of have) m.setPartVisible(p, true);
       this.parent.add(m.object);
       e = { m, n: 0, own: 0, outlined: 0, ownDrawn: 0, outlinedDrawn: 0, hovered: [] };
@@ -996,6 +1008,8 @@ export class UnitsView {
   private readonly matedAt = new Map<number, number>();
   /** The woodsmen drawn last frame, by entity id: one who dies lies on his own body. */
   private readonly woodsmen = new Set<number>();
+  /** The risen skeleton archers drawn (Patch 7), by id: their player's colour, for the tint they fall in. */
+  private readonly risen = new Map<number, THREE.Color | null>();
   /** Each entity's record offset in this frame's state, by id: a hauling animal finds its worker's cart and load. */
   private readonly byId = new Map<number, number>();
   /** When each unit sat down at a timed action (Jade's Patch 2 tinkering), ms, so it sits once and then tinkers. */
@@ -1079,6 +1093,20 @@ export class UnitsView {
     }
     b = new BodyPool(this.bodyGroup, model, this.patch, this.hoverNow);
     this.bodies.set(id, b);
+    return b;
+  }
+
+  /** A risen skeleton archer's pool (Patch 7): the skeleton archer's model tinted in its player's colour, one pool a colour. */
+  private risenBody(colour: THREE.Color | null): BodyPool | null {
+    const plain = this.body(RISEN_MODEL);
+    if (!plain || !colour) return plain;
+    const tint = colour.getHex();
+    const key = `${RISEN_MODEL}#${tint.toString(16)}`;
+    let b = this.bodies.get(key);
+    if (!b) {
+      b = new BodyPool(this.bodyGroup, plain.model, this.patch, this.hoverNow, tint);
+      this.bodies.set(key, b);
+    }
     return b;
   }
 
@@ -1293,8 +1321,12 @@ export class UnitsView {
       if (h.look === 'death' && h.kind !== undefined && h.kind !== UnitKind.Animal) {
         // The Dreadnought falls as himself, with his mace (Patch 5).
         const dread = h.kind === UnitKind.Warrior && h.troop === Troop.Dreadnought;
-        const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : dread ? DREADNOUGHT_MODEL : h.kind === UnitKind.Warrior ? (this.woodsmen.has(h.id) ? 'woodsman' : 'warrior') : h.kind === UnitKind.Mage ? 'mage' : 'worker';
-        this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob: h.kind === UnitKind.Mob ? (h.mob ?? 0) : -1, ...(dread ? { parts: DREADNOUGHT_PARTS } : {}) });
+        // A risen skeleton archer falls as the skeleton it is, in its tint (Patch 7).
+        const risen = this.risen.has(h.id);
+        const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : risen ? RISEN_MODEL : dread ? DREADNOUGHT_MODEL : h.kind === UnitKind.Warrior ? (this.woodsmen.has(h.id) ? 'woodsman' : 'warrior') : h.kind === UnitKind.Mage ? 'mage' : 'worker';
+        const mob = h.kind === UnitKind.Mob ? (h.mob ?? 0) : risen ? Mob.SkeletonArcher : -1;
+        this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob, ...(dread ? { parts: DREADNOUGHT_PARTS } : {}), ...(risen ? { risen: this.risen.get(h.id) ?? null } : {}) });
+        this.risen.delete(h.id);
       }
       if (h.look === 'sweep') this.crescents.spawn(x, y, z, ((h.heading ?? 0) / 65536) * Math.PI * 2, now);
       if (h.look === 'warcry') this.dread.cry(h.id, now);
@@ -1582,11 +1614,15 @@ export class UnitsView {
         blocks = seat.blocks;
         ry = seat.y - tall * HIP_SHARE;
       }
-      const kin = people ? this.body(peopleUnitSpec(d[o + S.mob]!).model) : null;
+      // A skeleton archer the Deathless Shroud raised (Patch 7): the skeleton archer's own body, tinted in its player's colour.
+      const risen = (d[o + S.flags]! & UnitFlag.Risen) !== 0;
+      if (risen) this.risen.set(id, colour);
+      const kin = risen ? this.risenBody(colour) : people ? this.body(peopleUnitSpec(d[o + S.mob]!).model) : null;
       // The woodsman (Patch 5) on his own body.
       const woodsman = kind === UnitKind.Warrior && d[o + S.troop] === Troop.Woodsman && !people;
       if (woodsman) this.woodsmen.add(id);
-      const pool = kin ?? this.body(dread ? DREADNOUGHT_MODEL : woodsman ? 'woodsman' : kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker');
+      // A risen archer whose skeleton is still loading is a block in its colour meanwhile, never a soldier's body.
+      const pool = kin ?? (risen ? null : this.body(dread ? DREADNOUGHT_MODEL : woodsman ? 'woodsman' : kind === UnitKind.Warrior ? 'warrior' : kind === UnitKind.Mage && !people ? mageBody(d, o, this.lib) : 'worker'));
       const body = pool?.model ?? null;
       // A cart carries the load in its bed; otherwise it is in the arms, the hand or on the shoulder.
       const cart = d[o + S.kit]!;
@@ -1600,9 +1636,10 @@ export class UnitsView {
       if (kin) {
         // With the weapons and gear its model is made with.
         const slot = kin.take(kin.model.sidecar.partsShown ?? []);
-        const clip = mount !== 0 ? rideClip(kin.model.clips, d, o) : kin.model.clips.has(look.clip) ? look.clip : mobClip(kin.model, d, o);
+        const clip = mount !== 0 ? rideClip(kin.model.clips, d, o) : !risen && kin.model.clips.has(look.clip) ? look.clip : mobClip(kin.model, d, o);
         if (slot) {
-          slot.m.setInstance(slot.i, x, ry, z, heading, clip, clipT, tint);
+          if (risen) slot.m.setInstance(slot.i, x, ry, z, heading, clip, clipT, null, mobScale(RISEN_MODEL, mobSpec(Mob.SkeletonArcher).height));
+          else slot.m.setInstance(slot.i, x, ry, z, heading, clip, clipT, tint);
           if (own) kin.mark(slot, id, outlined);
           drawn = true;
         }
@@ -1819,7 +1856,7 @@ export class UnitsView {
       if (age > CORPSE_LIE_S + CORPSE_SINK_S) continue;
       keep.push(c);
       const sink = age > CORPSE_LIE_S ? ((age - CORPSE_LIE_S) / CORPSE_SINK_S) * 0.6 : 0;
-      const pool = this.body(c.model);
+      const pool = c.risen !== undefined ? this.risenBody(c.risen) : this.body(c.model);
       if (pool) {
         const slot = pool.take(c.parts ?? []);
         // Morvath aloft falls with his second form's death (Jade's Patch 5).

@@ -30,6 +30,7 @@ import { Work, workXp } from './ranks.ts';
 import { toolTier } from './tools.ts';
 import type { UnitOrder } from './unit-orders.ts';
 import { carryCapacity } from './weight.ts';
+import { effectWorkBp } from './effects.ts';
 
 /** Table 10: dig rates in thousandths of a cubic metre per worker-minute, by the tier of the worker's digging tool (Tool order) and dig class; no flint tool digs. */
 const RATES: Record<number, readonly number[]> = {
@@ -461,7 +462,8 @@ export function runDig(state: SimState, i: number, o: Extract<UnitOrder, { t: 'd
       state.events.push({ player: s.owner, kind: 'alert', text: `These tools cannot dig ${MATERIALS[bite.mat]!.name}. ${what}`, x: tx, z: tz });
       return true;
     }
-    e.waitUntil[i] = biteSteps(rate, 750 + state.rng.ai.nextInt(501));
+    // Victor's trophy: 5% faster (Patch 7, units/effects.ts).
+    e.waitUntil[i] = Math.max(1, floorDiv(biteSteps(rate, 750 + state.rng.ai.nextInt(501)) * 10000, 10000 + effectWorkBp(state, i)));
   }
   e.timer[i] = e.timer[i]! + 1;
   // Digging counts as building work for a worker's rank (Patch 3).

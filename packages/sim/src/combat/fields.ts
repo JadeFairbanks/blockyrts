@@ -70,7 +70,8 @@ function moverOf(cls: MobClass): Mover {
 /** Whether a building is something mobs come for, rather than a barrier on the way (walls, gates, towers) or a light. */
 export function isGoal(kind: number): boolean {
   const s = buildingSpec(kind);
-  return !s.defence && !s.light;
+  // A trophy (Patch 7) is a small item planted anywhere: no wave comes for it.
+  return !s.defence && !s.light && !s.trophy;
 }
 
 /**
@@ -160,6 +161,8 @@ function marks(state: SimState, player: number, cls: MobClass, win: { x0: number
   const goal = new Uint8Array(w * h);
   const inWin = (tx: number, tz: number): boolean => tx >= x0 && tz >= z0 && tx < x0 + w && tz < z0 + h;
   for (const b of state.buildings.list) {
+    // A trophy (Patch 7) stands in no one's way.
+    if (buildingSpec(b.kind).trophy) continue;
     const [sx0, sz0, sx1, sz1] = solidRect(b);
     const isG = b.owner === player && isGoal(b.kind);
     const p = breakCost(b.kind, cls);

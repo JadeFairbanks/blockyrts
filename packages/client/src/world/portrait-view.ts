@@ -267,13 +267,14 @@ export class PortraitView {
       for (const m of ids) {
         const model = new InstancedModel(lib.get(m.id), 1);
         model.object.frustumCulled = false;
-        model.setInstance(0, m.dx - at.ox * COLUMN_M, 0, m.dz - at.oz * COLUMN_M, 0, '', 0, team);
+        model.setInstance(0, m.dx - at.ox * COLUMN_M, 0, m.dz - at.oz * COLUMN_M, 0, '', 0, team, 1, m.pitch ?? 0);
         model.setCount(1);
         model.commit();
         this.scene.add(model.object);
         models.push(model);
         const box = lib.get(m.id).boundingBox;
-        height = Math.max(height, box.max.y);
+        // A trophy stands its -Z length up (Patch 7).
+        height = Math.max(height, m.pitch ? -box.min.z : box.max.y);
       }
     } else {
       mesh = new THREE.Mesh(look.geometry, this.material);

@@ -174,6 +174,8 @@ export function mealQuarters(state: SimState, i: number): number {
   if (k === UnitKind.Worker || k === UnitKind.Warrior || k === UnitKind.Mage) {
     // The peoples' units are never a player's; a hired mercenary is, for good (Patch 5), and eats like any troop.
     if (e.role[i] === Role.People) return 0;
+    // A skeleton archer the Deathless Shroud raised eats nothing (Patch 7, s).
+    if (e.role[i] === Role.Risen) return 0;
     // The Dreadnought eats 3 food a meal (Patch 5, Jade), in quarters.
     perCycle = isDreadnought(e, i) ? DREADNOUGHT.mealFood * QUARTERS : NUTRITION_PER_CYCLE;
     // A ridden horse eats as a working one (Table 6).

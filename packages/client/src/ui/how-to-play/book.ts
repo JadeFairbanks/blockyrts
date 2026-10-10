@@ -6,18 +6,37 @@ import type { Guide } from './guides.ts';
 
 /**
  * How a guide's picture names a model of the game's catalogue instead of a
- * file: "model:trilithon_intact" draws that model once on the page
- * (model-view.ts), as a page with no kit picture draws its own.
+ * file: "model:trilithon_intact" shows that model live on the page
+ * (model-view.ts), as a page about a thing shows its own.
  *
- * Pictures in How to Play: a page about a thing shows its interface-kit icon
- * or portrait, or else its model drawn by the game; nothing gets a picture
- * made for it. Screenshots of the game (shot_*, scripts/make-shots.mjs) are
- * only for the guides (guides.ts) and the patch notes. When a later update changes
- * something so that a screenshot no longer shows the game as it is, the
- * screenshot is removed, not retaken, and the guide names the thing's model
- * (or kit picture) in its place.
+ * Pictures in How to Play (Jade's Patch 7): a thing the game draws shows
+ * its model, live: its idle animation, the whole body, turned round by
+ * dragging. A thing that is 2D in the game too (an icon, a map mark) keeps
+ * that picture. A portrait is a still of a model, so its model shows in its
+ * place. Nothing gets a picture made for it, and How to Play shows no
+ * screenshots of the game: they are kept only for the patch notes
+ * (picture-url.ts). When an update adds a thing, its page shows its model
+ * with no work for the page.
  */
 export const MODEL_PICTURE = 'model:';
+
+/** A portrait's model where it is not named for it (the kit's portraits are stills of the models: hud/unit-icons.ts). */
+const PORTRAIT_MODELS: Readonly<Record<string, string>> = {
+  worker_labourer: 'worker',
+  warrior_sword: 'warrior',
+  warrior_mounted: 'horse',
+  mage_battle: 'mage_battle_1',
+  mage_support: 'mage_support_1',
+};
+
+/** The model a picture stands for: a guide's MODEL_PICTURE, or a portrait's model; '' for an icon or a map mark. */
+export function modelOfPic(p: Pic | null): string {
+  const f = p?.file ?? '';
+  if (f.startsWith(MODEL_PICTURE)) return f.slice(MODEL_PICTURE.length);
+  if (!f.startsWith('portrait_')) return '';
+  const bare = f.slice('portrait_'.length);
+  return PORTRAIT_MODELS[bare] ?? bare;
+}
 
 export interface RelatedItem {
   title: string;
@@ -39,7 +58,7 @@ export interface BookArticle {
   /** Its sub-heading in the sidebar ('' for none). */
   heading: string;
   pic: Pic | null;
-  /** The catalogue model the page draws when it has no picture ('' for none). */
+  /** The catalogue model the page shows live ('' for none: its picture, or a portrait's model). */
   model: string;
   /** Lower-case words a search matches first: the title, sub-heading, section and the page's own words. */
   words: string;

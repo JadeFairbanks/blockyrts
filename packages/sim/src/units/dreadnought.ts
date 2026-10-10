@@ -18,6 +18,7 @@ import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { hash32 } from '../rng.ts';
 import { addWarrior, OrderKind, UnitKind, type EntityStore, type SimState } from '../state.ts';
 import { say } from '../peoples/speech.ts';
+import { Role } from '../threats/types.ts';
 import { DREADNOUGHT_GEAR, SMASHING_LINE, Troop } from './kits.ts';
 
 /** The Dreadnought's row (Jade, GP-21; s where she gave no number). */
@@ -72,6 +73,8 @@ export function isDreadnought(e: EntityStore, i: number): boolean {
 
 /** Supply unit i takes: the Dreadnought's 8, one for any other worker, warrior or mage (Table 4). */
 export function unitSupply(e: EntityStore, i: number): number {
+  // A skeleton archer the Deathless Shroud raised takes none (Patch 7, s: it stands 25 s).
+  if (e.role[i] === Role.Risen) return 0;
   return isDreadnought(e, i) ? DREADNOUGHT.supply : 1;
 }
 

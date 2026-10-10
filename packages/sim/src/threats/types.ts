@@ -262,5 +262,7 @@ export const Role = {
   Encounter: 11,
   /** Jade's Patch 5 (SCB-4): a night monster the Headless God Idol sent against faction `group` (homeX, homeZ its middle) in place of its foe (threats/encounters.ts). */
   Unleashed: 12,
+  /** Patch 7 (Jade): a skeleton archer the Deathless Shroud raised for its wearer's player, for 25 s (units/effects.ts GRAVE_GUARD); its owner orders it like a mercenary but cannot change its gear. */
+  Risen: 13,
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];

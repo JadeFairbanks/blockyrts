@@ -79,7 +79,7 @@ export interface GuidePart {
   paragraphs: readonly string[];
   /** A short list after the paragraphs. */
   bullets?: readonly string[];
-  /** A picture beside the part: a screenshot of the game (shot_*, shown wide), a kit picture without its extension, or a model (MODEL_PICTURE). */
+  /** A picture beside the part: a kit icon without its extension, or a model (MODEL_PICTURE, or a portrait, which shows its model). */
   picture?: string;
 }
 
@@ -88,7 +88,7 @@ export interface Guide {
   title: string;
   /** One line for the list of guides. */
   summary: string;
-  /** The guide's picture: a screenshot of the game (shot_*), shown as its banner, a kit picture, or a model (MODEL_PICTURE). */
+  /** The guide's picture: a model (MODEL_PICTURE, or a portrait, which shows its model), shown as its banner, or a kit icon. */
   picture: string;
   parts: readonly GuidePart[];
 }
@@ -166,7 +166,7 @@ export const GUIDES: readonly Guide[] = [
     id: 'premise',
     title: 'The premise',
     summary: 'What Survive and Conquer is, and what you are trying to do.',
-    picture: 'shot_start',
+    picture: `${MODEL_PICTURE}main_base_l1`,
     parts: [
       {
         paragraphs: [
@@ -254,7 +254,7 @@ export const GUIDES: readonly Guide[] = [
     id: 'main-base',
     title: 'Your main base',
     summary: `The ${list(BASE.levels.map((l) => l.name))}: what each tier costs and opens.`,
-    picture: 'shot_citadel',
+    picture: `${MODEL_PICTURE}main_base_citadel`,
     parts: [
       {
         paragraphs: [
@@ -307,7 +307,7 @@ export const GUIDES: readonly Guide[] = [
     id: 'animals',
     title: 'Animals and the Barn',
     summary: 'Taming, breeding, grazing and hunting.',
-    picture: 'shot_barn',
+    picture: `${MODEL_PICTURE}barn`,
     parts: [
       {
         heading: 'The Barn',
@@ -377,7 +377,7 @@ export const GUIDES: readonly Guide[] = [
     id: 'troops',
     title: 'Training troops',
     summary: 'The Barracks, its troops and their kits.',
-    picture: 'shot_barracks',
+    picture: `${MODEL_PICTURE}barracks`,
     parts: [
       {
         paragraphs: [
@@ -398,7 +398,7 @@ export const GUIDES: readonly Guide[] = [
     id: 'defences',
     title: 'Defences and siege engines',
     summary: 'Walls, gates, towers, the earth rampart and engines.',
-    picture: 'shot_siege',
+    picture: `${MODEL_PICTURE}tower_stone`,
     parts: [
       {
         paragraphs: [
@@ -438,7 +438,7 @@ export const GUIDES: readonly Guide[] = [
       {
         heading: lastName,
         paragraphs: [
-          `On night ${lastMonster.firstNight} ${lastName} himself comes, with ${lastMonster.hp.toLocaleString('en-GB')} health. If he lives to see the dawn he withdraws and comes back the next night as hurt as he left; beaten, he returns ${BOSS_RETURN_NIGHTS} nights later. See [[Morvath]].`,
+          `On night ${lastMonster.firstNight} ${lastName} himself comes, with ${lastMonster.hp.toLocaleString('en-GB')} health. If he lives to see the dawn he withdraws and comes back the next night as hurt as he left; beaten, he returns ${BOSS_RETURN_NIGHTS} nights later. See [[Morvath, the Hollow Crown]].`,
         ],
         picture: 'portrait_morvath',
       },
@@ -521,7 +521,7 @@ export const GUIDES: readonly Guide[] = [
     id: 'quests',
     title: 'Quests',
     summary: 'The tasks the peoples give, and how to take them on and claim their rewards.',
-    picture: 'shot_quest_offer',
+    picture: `${MODEL_PICTURE}halfling_male`,
     parts: [
       {
         paragraphs: [
@@ -537,7 +537,6 @@ export const GUIDES: readonly Guide[] = [
           'The small ! button right above the messages button opens your quests: what each asks, how far along you are, the reward and a Hint. A number on the button counts quests you have taken or finished and not looked at yet.',
           "Under your quests the menu also tracks the stone circles: the Moon Goddess's blessing and the nights to your next Bright Night.",
         ],
-        picture: 'shot_quest_menu',
       },
       {
         heading: 'Halflings: the Bog Pear',
@@ -644,7 +643,7 @@ export const GUIDES: readonly Guide[] = [
       {
         heading: 'Crystal and spring guardians',
         paragraphs: [
-          `Mana crystals in the ${BAND_NAMES[4]} are guarded by ${CRYSTAL_GUARDS.min} or ${CRYSTAL_GUARDS.max} ash golems or mana wraiths, who go for a gathering worker first. Hot springs are guarded by ash golems. See [[Mana crystal guardians]] and [[Hot spring guardians]].`,
+          `Mana crystals in the ${BAND_NAMES[4]} are guarded by ${CRYSTAL_GUARDS.min} or ${CRYSTAL_GUARDS.max} ash golems or mana wraiths, who go for a gathering worker first. Hot springs are guarded by ash golems. See [[Ash golem]] and [[Mana wraith]].`,
         ],
         picture: 'portrait_mana_wraith',
       },
@@ -706,7 +705,7 @@ export const GUIDES: readonly Guide[] = [
     id: 'reading-numbers',
     title: 'Reading the numbers',
     summary: 'What the units on every page mean.',
-    picture: 'shot_unit_card',
+    picture: `${MODEL_PICTURE}worker`,
     parts: [
       {
         paragraphs: [
