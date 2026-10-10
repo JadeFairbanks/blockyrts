@@ -280,7 +280,7 @@ export function slotMenu(u: UnitInfo, line: number, d: GearMenuDeps): PopMenu {
   const none = res === undefined ? 'It has nothing on here.' : '';
   const full = none || bagFull(u, line, d.bag(u.id));
   const takeOff = (): void => d.send({ kind: 'takeOff', player: d.player, units, line, drop: 0 });
-  choices.push({ name: 'Take off', description: 'Into its bag.', note: `Into its bag. ${withoutText(u, line)}`, run: takeOff, ...(full ? { why: full, ...(none ? {} : { greyRun: takeOff }) } : {}) });
+  choices.push({ name: 'Take off', description: 'Into its bag, kept there.', note: `Into its bag, kept there. ${withoutText(u, line)}`, run: takeOff, ...(full ? { why: full, ...(none ? {} : { greyRun: takeOff }) } : {}) });
   const drop = (): void => d.send({ kind: 'takeOff', player: d.player, units, line, drop: 1 });
   choices.push({ name: 'Drop', description: 'Put it on the ground here.', note: 'Put it on the ground here.', run: drop, ...(none ? { why: none } : {}) });
   const scrap = res === undefined ? null : d.scrapWhy(res);
