@@ -9,6 +9,10 @@ const RING_SEGMENTS = 24;
 const OWN = new THREE.Color(0x63e06b);
 const NOBODY_COL = new THREE.Color(0xf2d24b);
 const OTHER = new THREE.Color(0xff5c5c);
+/** Mini patch 7.3: your units attacked, a ring that goes out once on the ground where it began. */
+const ATTACKED = new THREE.Color(0xff6040);
+const ATTACK_PING_S = 1;
+const ATTACK_PING_M = 4;
 
 interface Marker {
   x: number;
@@ -16,6 +20,8 @@ interface Marker {
   z: number;
   colour: THREE.Color;
   born: number;
+  /** An attack ping's ring grows (mini patch 7.3); an order's shrinks. */
+  grows?: boolean;
 }
 const MARKER_S = 0.6;
 
@@ -47,6 +53,11 @@ export class SelectionVisuals {
     this.markers.push({ x: at.x, y: at.y, z: at.z, colour: kind === 'move' ? OWN : NOBODY_COL, born: performance.now() });
   }
 
+  /** Mini patch 7.3: the player's units attacked here, in view: one red ring going out on the ground. */
+  attackPing(at: THREE.Vector3): void {
+    this.markers.push({ x: at.x, y: at.y, z: at.z, colour: ATTACKED, born: performance.now(), grows: true });
+  }
+
   /** Another player's unit this player may command (Allies panel): a ring in that player's colour, else null. */
   sharedColour: (t: Selectable) => THREE.Color | null = () => null;
 
@@ -62,12 +73,16 @@ export class SelectionVisuals {
     }
     for (let i = this.markers.length - 1; i >= 0; i--) {
       const m = this.markers[i]!;
-      const age = (now - m.born) / 1000 / MARKER_S;
+      const age = (now - m.born) / 1000 / (m.grows ? ATTACK_PING_S : MARKER_S);
       if (age >= 1) {
         this.markers.splice(i, 1);
         continue;
       }
-      this.ring(m.x, m.y + 0.05, m.z, 1.2 * (1 - age) + 0.2, m.colour);
+      if (m.grows) {
+        // Three rings side by side, so the thin lines read as one bold ring.
+        const r = 0.4 + age * ATTACK_PING_M;
+        for (const d of [0, 0.08, 0.16]) this.ring(m.x, m.y + 0.05, m.z, r + d, m.colour);
+      } else this.ring(m.x, m.y + 0.05, m.z, 1.2 * (1 - age) + 0.2, m.colour);
     }
     this.geometry.setDrawRange(0, this.n);
     if (this.positions.length > 0) this.markDirty();

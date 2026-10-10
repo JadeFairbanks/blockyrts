@@ -45,6 +45,7 @@ import { CTRL_NAME } from '../input/platform.ts';
 import { KeyCode } from '../input/tester-code.ts';
 import { UnitFlag, type InfoMessage } from '../messages.ts';
 import { Minimap } from '../minimap/minimap.ts';
+import { AttackPings } from './attack-pings.ts';
 import { SelectionController } from '../selection/controller.ts';
 import { projectCandidates } from '../selection/project.ts';
 import { isOwn, pickAt, setSharedControl, type ScreenItem } from '../selection/rules.ts';
@@ -264,6 +265,8 @@ export class GameShell {
   /** Waiting for a spot to ping (the Ping button). */
   private pinging = false;
   private readonly visuals: SelectionVisuals;
+  /** Mini patch 7.3: the fights the player's units are in, one ping at the start of each. */
+  private readonly attackPings = new AttackPings();
   /** Patch 5 (GP-23): the flags at the ends of the selected units' orders and rally points, and the dots on attack targets. */
   private readonly flags: OrderFlags;
   private readonly selector: SelectionController;
@@ -1022,6 +1025,25 @@ export class GameShell {
   /** A state message's hits: the damage numbers over what they hit (Patch 5, UI-10). */
   onHits(hits: readonly HitEvent[]): void {
     this.marks.hits(hits, (x, z) => this.extras.seen(x, z), (h, x, y, z) => this.hitAnchor(h, x, y, z), WU_PER_METRE, performance.now());
+  }
+
+  /**
+   * Mini patch 7.3 (Jade): an enemy hurt the player's units where they were
+   * not sent to fight. The first blow of a fight pings the minimap twice
+   * there, and the ground once if the spot is in view; the fight's later
+   * blows ping nothing (hud/attack-pings.ts).
+   */
+  onStruck(struck: readonly number[]): void {
+    const now = performance.now();
+    for (let k = 0; k + 1 < struck.length; k += 2) {
+      const x = struck[k]! / WU_PER_METRE;
+      const z = struck[k + 1]! / WU_PER_METRE;
+      if (!this.attackPings.struck(x, z, now)) continue;
+      this.minimap.ping(x, z, 'attack');
+      const v = this.headTmp.set(x, this.extras.heightAt(x, z), z);
+      const p = { x: 0, y: 0 };
+      if (this.extras.seen(x, z) && this.cam.project(v, p) && p.x >= 0 && p.y >= 0 && p.x <= this.width && p.y <= this.height) this.visuals.attackPing(v);
+    }
   }
 
   /** Where a hit's number starts: halfway up the unit it hit, or halfway up the building where the blow landed (UI-10). */
@@ -2470,7 +2492,7 @@ export class GameShell {
         keys: [e.key],
         description: e.description,
         icon: e.icon ?? actionIcon(e.action, e.face),
-        className: `cmd${e.menu ? ' menu-item' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.auto ? ' auto-on' : ''}${e.autocast ? ' autocast' : ''}`,
+        className: `cmd${e.menu ? ' menu-item' : ''}${e.action === 'cancel' || e.action === 'cancelBuild' ? ' cancel' : ''}${e.auto ? ' auto-on' : ''}${e.autocast ? ' autocast' : ''}${e.autoLoop ? ' autoloop' : ''}`,
         onPress: (p) => e.run(p),
         ...(e.double ? { onDoubleClick: (p: ButtonPress) => e.double!(p) } : {}),
         // A spell's right click (its autocast) works while it is greyed out too.
@@ -2479,7 +2501,8 @@ export class GameShell {
         ...(e.choices ? { onRightClick: () => this.cardPop.show(b.el, e.action, e.choices!()) } : {}),
       });
       b.setCool(e.cool ?? 0);
-      this.cardDoing[i] = e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
+      // Mini patch 7.3: a button with its yellow auto ring wears no doing-now marker as well.
+      this.cardDoing[i] = e.autoLoop ? '' : e.product !== undefined ? `product:${e.product}` : e.troop !== undefined ? `troop:${e.troop}` : e.action;
       b.setEnabled(e.enabled, e.reason);
       b.setLit(e.lit === true);
       b.el.hidden = false;

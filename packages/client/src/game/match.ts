@@ -405,6 +405,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     world.onState(msg);
     audio.onState(msg);
     shell.onHits(msg.hits);
+    if (msg.struck && msg.struck.length > 0) shell.onStruck(msg.struck);
     lastUnits = msg.count;
     lastStep = msg.step;
     stepsSeen++;

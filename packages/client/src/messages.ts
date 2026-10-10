@@ -174,6 +174,8 @@ export interface StateMessage {
   shots: Int32Array;
   /** Hits, swings and deaths since the last state message, for particles and sounds. */
   hits: HitEvent[];
+  /** Mini patch 7.3: where an enemy hurt the player's own units since the last state message, not on a fight they were sent to (x, z wu pairs; hud/attack-pings.ts). */
+  struck?: number[];
 }
 
 /** Land, water or props changed in these chunks; the mesh workers apply them to their mirror worlds. */
