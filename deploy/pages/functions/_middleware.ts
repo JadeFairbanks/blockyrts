@@ -1,5 +1,5 @@
 // Cloudflare Pages middleware: the browser's own user name and password box in
-// front of the whole site (the play domain and the pages.dev mirror), so
+// front of the whole site (switched off for now, see SIGN_IN_ON below) (the play domain and the pages.dev mirror), so
 // passers-by do not reach the game or its server. It is a deterrent, not
 // security. The game's files (/assets/, /models/, /audio/), the icon, the
 // preview picture, robots.txt, sitemap.xml and the installable app's
@@ -160,9 +160,22 @@ function plain(status: number, text: string): Response {
   return new Response(`${text}\n`, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
 }
 
-export async function onRequest({ request, env, next }: PagesContext): Promise<Response> {
+/**
+ * Whether the sign-in box stands in front of the site. Switched off for
+ * Patch 7, so anyone with the address goes straight to the game; set it back
+ * to true to bring the box back exactly as it was (the password secret, the
+ * check and the cookie are all still in place).
+ */
+export const SIGN_IN_ON = false;
+
+export function onRequest(context: PagesContext): Promise<Response> {
+  return serve(context, SIGN_IN_ON);
+}
+
+/** Answers a request, behind the sign-in box when signIn is true. */
+export async function serve({ request, env, next }: PagesContext, signIn: boolean): Promise<Response> {
   const url = new URL(request.url);
-  const res = await gate(url, request, env, next);
+  const res = signIn ? await gate(url, request, env, next) : await next();
   // _headers does not reach answers from Functions, so the mirror's
   // delisting is repeated here (deploy/pages/static/_headers).
   if (!url.hostname.endsWith('.pages.dev')) return res;

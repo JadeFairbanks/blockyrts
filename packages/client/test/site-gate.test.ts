@@ -3,19 +3,38 @@
 // is made up; the real one lives only in the SITE_PASSWORD secrets.
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { COOKIE, COOKIE_DAYS, cookieOk, loginOk, onRequest, readPassword, signInPage, SITE_USER } from '../../../deploy/pages/functions/_middleware.ts';
+import { COOKIE, COOKIE_DAYS, cookieOk, loginOk, onRequest, readPassword, serve, SIGN_IN_ON, signInPage, SITE_USER } from '../../../deploy/pages/functions/_middleware.ts';
 import { SITE_ABOUT, SITE_DESCRIPTION, SITE_GENRES, SITE_HEADLINE, SITE_IMAGE } from '../site.ts';
 
 // A made-up password that looks like a bcrypt hash: it is still just the password.
 const PASSWORD = '$2y$10$madeUpMadeUpMadeUpMadeUpMadeUpMadeUpMadeUpMadeUp1234';
 
 type Call = { path?: string; init?: RequestInit; env?: { SITE_PASSWORD?: string }; host?: string };
-const call = ({ path = '/', init = {}, env = { SITE_PASSWORD: PASSWORD }, host = 'play.example.com' }: Call = {}): Promise<Response> =>
-  onRequest({
-    request: new Request(`https://${host}${path}`, init),
-    env,
-    next: async () => new Response('the game', { headers: { 'content-type': 'text/html' } }),
+const context = ({ path = '/', init = {}, env = { SITE_PASSWORD: PASSWORD }, host = 'play.example.com' }: Call = {}) => ({
+  request: new Request(`https://${host}${path}`, init),
+  env,
+  next: async () => new Response('the game', { headers: { 'content-type': 'text/html' } }),
+});
+/** A request with the sign-in box switched on, as it would be with SIGN_IN_ON set back to true. */
+const call = (c: Call = {}): Promise<Response> => serve(context(c), true);
+
+describe('the sign-in box is switched off', () => {
+  it('sends everyone straight to the game, with no password asked', async () => {
+    expect(SIGN_IN_ON).toBe(false);
+    for (const env of [{ SITE_PASSWORD: PASSWORD }, {}]) {
+      const res = await onRequest(context({ env }));
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe('the game');
+      expect(res.headers.get('www-authenticate')).toBeNull();
+      expect(res.headers.get('set-cookie')).toBeNull();
+    }
   });
+
+  it('still keeps the pages.dev addresses out of search results', async () => {
+    expect((await onRequest(context({ host: 'blockyrts.pages.dev' }))).headers.get('x-robots-tag')).toBe('noindex');
+    expect((await onRequest(context())).headers.get('x-robots-tag')).toBeNull();
+  });
+});
 
 /** What a browser sends after the box: Basic and the base64 of "user:password" in UTF-8. */
 const basic = (user: string, password: string): string => `Basic ${Buffer.from(`${user}:${password}`, 'utf8').toString('base64')}`;

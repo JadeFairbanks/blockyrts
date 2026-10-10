@@ -33,6 +33,13 @@ pushes two images, `server-live` and `bundle-live`. The bundle carries
 
 ## Sign-in page and search
 
+**Switched off since Patch 7:** `SIGN_IN_ON` in
+`deploy/pages/functions/_middleware.ts` is `false`, so the middleware lets
+every request straight through (it still marks the pages.dev mirror
+`noindex`) and anyone with the address reaches the game. Everything below
+is still in place; set `SIGN_IN_ON` back to `true` and run Deploy to bring
+the box back. Deploy still checks and publishes the password secret.
+
 The browser's own user name and password box stands in front of the whole
 site, the play domain and the `blockyrts.pages.dev` mirror alike, so
 passers-by do not reach the game or its server. It is a deterrent, not
