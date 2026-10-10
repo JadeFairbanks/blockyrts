@@ -340,7 +340,7 @@ export const GUIDES: readonly Guide[] = [
       {
         paragraphs: [
           `The [[Woodsman]] is trained at the [[Scholar's Lodge]] (W) for ${WOODSMAN.food} food, sticks, leather (or hides) and flax. He fishes, forages for berries, mushrooms and other wild food, and fights with a spear, any tier of long weapon, for ${WOODSMAN.damageLess} less damage than a troop. Select one to see the food he brings in against what he eats.`,
-          `Only woodsmen fish. Fish swim in every stretch of water, a woodsman lands one every ${WOODS.fishS} seconds, and a stretch is never fished out. See [[The woodsman fishing and foraging]].`,
+          `Only woodsmen fish and pick mushrooms, since only they can tell an edible mushroom from a bad one. Workers pick berries only when you send them to a bush. Fish swim in every stretch of water, a woodsman lands one every ${WOODS.fishS} seconds, and a stretch is never fished out. See [[The woodsman fishing and foraging]].`,
         ],
       },
       {

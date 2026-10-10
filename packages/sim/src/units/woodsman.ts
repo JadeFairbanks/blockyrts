@@ -14,6 +14,7 @@ import { Res, RESOURCES } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { CYCLE_STEPS } from '../rules.ts';
 import { UnitKind, type EntityStore, type SimState } from '../state.ts';
+import { isFish } from '../world/props.ts';
 import { LONG_KITS, Troop, type Piece } from './kits.ts';
 
 /**
@@ -46,6 +47,11 @@ export const WOODSMAN_KEY = 'W';
 /** Whether a unit is a woodsman. */
 export function isWoodsman(e: EntityStore, i: number): boolean {
   return e.kind[i] === UnitKind.Warrior && e.troop[i] === Troop.Woodsman;
+}
+
+/** What a worker says when sent to fish or to pick mushrooms, which only woodsmen do (world/props.ts woodsmanOnly; Jade's Patch 6 ruling: "only woodsman knows how to tell is a mushroom is edible or not"). */
+export function woodsmanOnlyLine(kind: number): string {
+  return isFish(kind) ? "I don't know how to fish. That's a woodsman's work." : "I can't tell a good mushroom from a bad one. Best leave those to a woodsman.";
 }
 
 // ----- the food line (WD-7) -----
