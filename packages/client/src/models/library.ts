@@ -72,11 +72,26 @@ export interface ModelLibrary {
   onLoad(cb: (model: ModelData) => void): void;
   /** Resolves once every listed model that is not lazy is loaded or has failed. */
   readonly done: Promise<void>;
+  /**
+   * Loads every model the index lists, the lazy ones too, more at once, and
+   * resolves once each is loaded or has failed: the loading screen before a
+   * match (mini patch 7.3), so nothing loads while the game plays.
+   */
+  all(): Promise<void>;
+  /** Models settled (loaded or failed) and models listed, for the loading screen's bar. */
+  progress(): { settled: number; listed: number };
   dispose(): void;
 }
 
-/** Models fetched at once. */
+/** Models fetched at once in the background. */
 const PARALLEL_LOADS = 6;
+/**
+ * Models fetched at once behind the loading screen. The site answers over one
+ * connection that carries many requests together, and on a repeat visit each
+ * model is only a short check that the copy kept from last time is still
+ * current, so the round trips, not the bytes, are what take the time.
+ */
+const PARALLEL_LOADS_ALL = 16;
 /** Background order by category: what a match needs soonest first. */
 const CATEGORY_ORDER = ['peoples', 'buildings', 'items', 'monsters', 'animals', 'projectiles-and-spells', 'mechanical', 'world-props'];
 
@@ -289,8 +304,12 @@ export async function openModelLibrary(baseUrl = '/models/', first: readonly str
   const listeners: Array<(m: ModelData) => void> = [];
   let disposed = false;
   let running = 0;
+  let parallel = PARALLEL_LOADS;
   let finish: () => void = () => {};
   const done = new Promise<void>((resolve) => (finish = resolve));
+  /** all()'s promise, and what resolves it once every listed model has settled. */
+  let everything: Promise<void> | null = null;
+  let allSettled: (() => void) | null = null;
 
   const settle = (id: string): void => {
     settled.add(id);
@@ -298,9 +317,10 @@ export async function openModelLibrary(baseUrl = '/models/', first: readonly str
     waiters.delete(id);
     if (!entries.get(id)?.lazy || firstSet.has(id)) eager--;
     if (eager === 0) finish();
+    if (allSettled && settled.size === entries.size) allSettled();
   };
   const pump = (): void => {
-    while (!disposed && running < PARALLEL_LOADS && queue.length > 0) {
+    while (!disposed && running < parallel && queue.length > 0) {
       const id = queue.pop()!;
       if (settled.has(id)) continue;
       running++;
@@ -364,6 +384,25 @@ export async function openModelLibrary(baseUrl = '/models/', first: readonly str
       listeners.push(cb);
     },
     done,
+    all(): Promise<void> {
+      if (everything) return everything;
+      if (settled.size === entries.size) return (everything = Promise.resolve());
+      everything = new Promise<void>((resolve) => {
+        allSettled = () => {
+          allSettled = null;
+          parallel = PARALLEL_LOADS;
+          resolve();
+        };
+      });
+      // The lazy models nobody has asked for join the queue under the rest (it is taken from the end).
+      const lazy = index.models.filter((e) => !queued.has(e.id)).map((e) => e.id);
+      for (const id of lazy) queued.add(id);
+      queue.unshift(...lazy.reverse());
+      parallel = PARALLEL_LOADS_ALL;
+      pump();
+      return everything;
+    },
+    progress: () => ({ settled: settled.size, listed: entries.size }),
     dispose(): void {
       disposed = true;
       for (const m of models.values()) {

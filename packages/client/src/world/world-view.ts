@@ -249,6 +249,8 @@ export class WorldView {
   /** The trodden paths round the players' buildings and the Farms' tilled fields (Patch 5). */
   private readonly groundMarks = new GroundMarks(this.terrain);
   private readonly water = waterUniforms();
+  /** Resolves once the land's and the water's tiles are in (or failed, leaving flat colours): the loading screen waits for it. */
+  readonly texturesReady: Promise<void>;
   private readonly waterMat: THREE.MeshLambertMaterial;
   private readonly cubeMat: THREE.MeshLambertMaterial;
   private readonly cubeGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
@@ -366,7 +368,7 @@ export class WorldView {
       tiles(shader);
     };
     this.terrainMat.customProgramCacheKey = () => 'fow-terrain';
-    void loadTerrainTextures(this.terrain).catch((err: unknown) => console.warn('terrain textures not loaded; drawing flat colours', err));
+    const landLoad = loadTerrainTextures(this.terrain).catch((err: unknown) => console.warn('terrain textures not loaded; drawing flat colours', err));
     this.waterMat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.72, depthWrite: false });
     // The water's animated tiles (Patch 5) over the fog of war's patch; flat blue until they load.
     const waterTiles = waterPatch(this.water);
@@ -375,7 +377,8 @@ export class WorldView {
       waterTiles(shader);
     };
     this.waterMat.customProgramCacheKey = () => 'fow-water';
-    void loadWaterTextures(this.water).catch((err: unknown) => console.warn('water tiles not loaded; drawing flat blue', err));
+    const waterLoad = loadWaterTextures(this.water).catch((err: unknown) => console.warn('water tiles not loaded; drawing flat blue', err));
+    this.texturesReady = Promise.all([landLoad, waterLoad]).then(() => undefined);
     this.cubeMat = new THREE.MeshLambertMaterial();
     patchMaterial(this.cubeMat, this.fow, true);
 
@@ -894,6 +897,13 @@ export class WorldView {
       const [cx, cz] = key.split(',').map(Number) as [number, number];
       this.chunks.set(key, { cx, cz, lod: 0, want: w, pending: 0, version: 0, meshedVersion: -1, requested: 0, group: null, heights: null, size: 0, props: [], glitter: [], steam: [], meshedAt: 0, cubes: null, ranges: new Map(), models: [], wants: [] });
     }
+  }
+
+  /** Whether every chunk chosen round the camera has been drawn at least once: the loading screen waits for it (mini patch 7.3). */
+  landReady(): boolean {
+    if (this.chunks.size === 0) return false;
+    for (const c of this.chunks.values()) if (c.lod === 0) return false;
+    return true;
   }
 
   private nearExplored(cx: number, cz: number): boolean {

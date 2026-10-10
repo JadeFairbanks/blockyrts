@@ -32,20 +32,21 @@ import { onSettingsChange, VIEW_RINGS, type Settings } from '../settings/setting
 import { accountPage } from '../ui/account.ts';
 import { Screen } from '../ui/dom.ts';
 import { FirstDayHints } from '../ui/hints.ts';
+import { LoadingScreen } from '../ui/loading-screen.ts';
 import { skipUnlitPointLights } from '../world/point-lights.ts';
 import { WorldView } from '../world/world-view.ts';
 import { addDebugger } from './debugger.ts';
 import { GameInfo } from './game-info.ts';
+import { loadEverything } from './preload.ts';
+import { StartGate } from './start-gate.ts';
 
 /**
  * Models on screen when a match starts: the three bodies, the level 1 main
- * base and the hand torch. The match waits for these (at most
- * START_MODELS_WAIT_MS), so nothing swaps from a block to its model in view;
- * everything else loads behind them, and whatever comes into view first jumps
- * the queue.
+ * base and the hand torch. They load first, from the main menu on; the
+ * loading screen then waits for every other model and picture (mini patch
+ * 7.3, preload.ts) before the match starts.
  */
 export const START_MODELS = ['worker', 'warrior', 'mage', 'main_base_l1', 'torch_hand'];
-const START_MODELS_WAIT_MS = 20000;
 
 /** Joining online: what the relay said when the match began (or when this page came back into it). */
 export interface OnlineStart {
@@ -148,6 +149,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   // everyone; the relay passes each press on, and every page then opens or
   // closes its menu and says who did it.
   const holds = new Set<string>();
+  /** Whether the match may begin behind the loading screen (mini patch 7.3). */
+  const gate = new StartGate(online !== null, online?.room.yourSlot ?? -1);
   let netPause: { paused: boolean; reason: number; held: boolean; by: number; waiting: number } = { paused: false, reason: PauseReason.None, held: false, by: 0, waiting: 0 };
   const hold = (why: string, on: boolean): void => {
     if (online) return;
@@ -392,6 +395,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
         relay?.send({ type: 'hash', epoch: msg.epoch, step: msg.step, hash: msg.hash });
         return;
       case 'waiting':
+        gate.waiting(msg.slots);
         net.setWaiting(msg.slots.map(slotName));
         return;
       case 'snapshot':
@@ -401,6 +405,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
       default:
         break;
     }
+    gate.state(msg.step);
     game.onState(msg);
     world.onState(msg);
     audio.onState(msg);
@@ -430,7 +435,6 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
         n++;
       }
       if (n > 0) shell.cam.jumpTo(x / n / WU_PER_METRE, z / n / WU_PER_METRE);
-      greet();
     }
   };
   const onSnapshot = (msg: SnapshotMessage): void => {
@@ -443,7 +447,10 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     snaps.delete(msg.id ?? 0);
     f?.(snap);
   };
+  let greeted = false;
   const greet = (): void => {
+    if (greeted) return;
+    greeted = true;
     shell.message(`World seed ${plan.seed}.${plan.sim ? ' Carrying on from the saved game.' : ''}`);
     if (players > 1) {
       const others = seats.filter((_, p) => p !== PLAYER).map((s) => s.name);
@@ -464,6 +471,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
         send({ type: 'inputDelay', steps: m.steps });
         break;
       case 'pauseState':
+        // A player holding the pause is already playing (a rejoin into a paused game): show it, with its Resume.
+        if (m.paused && m.reason === PauseReason.Player) gate.release();
         netPause = { paused: m.paused, reason: m.reason, held: m.held, by: m.bySlot, waiting: m.waitingFor };
         send({ type: 'pause', paused: m.paused });
         showPause();
@@ -489,6 +498,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
         break;
       }
       case 'hostChoiceNeeded': {
+        gate.release();
         const name = slotName(m.slot);
         net.ask(`${name} has been gone for 30 seconds`, 'The game waits while a player is away. You are the host: choose what happens.', [
           { face: 'Wait', description: `Keep waiting for ${name}.`, primary: true, run: () => relay!.send({ type: 'hostChoice', slot: m.slot, choice: HostChoice.Wait }) },
@@ -541,6 +551,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
         shell.pinged(slotName(m.slot), m.x / WU_PER_METRE, m.z / WU_PER_METRE, m.slot !== room?.yourSlot);
         break;
       case 'roomClosed':
+        gate.release();
         leaving = true;
         net.closed(
           'The game has closed',
@@ -563,22 +574,22 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     relay.onStatus((s) => {
       if (s === 'reconnecting') net.setPaused('Lost the connection to the game server. Reconnecting…');
       else if (s === 'open') showPause();
-      else if (s === 'closed' && !leaving) net.closed('Disconnected', 'The connection to the game server was lost and could not be made again.', toMenu);
+      else if (s === 'closed' && !leaving) {
+        gate.release();
+        net.closed('Disconnected', 'The connection to the game server was lost and could not be made again.', toMenu);
+      }
     });
   }
 
   // ---- Start ----
+  // The loading screen (mini patch 7.3): every model and picture loads first,
+  // then the sim starts, and the screen stays until the land round the camera
+  // is drawn and, online, until every player has loaded (start-gate.ts).
+  const screen = new LoadingScreen(app);
   const lib = await ctx.library;
-  if (lib) {
-    world.setModels(lib);
-    const loading = document.createElement('div');
-    loading.className = 'overlay start-overlay';
-    loading.dataset.page = 'loading';
-    loading.innerHTML = '<div class="dialog loading">Loading models…</div>';
-    app.appendChild(loading);
-    await Promise.race([lib.ready(START_MODELS), new Promise((resolve) => setTimeout(resolve, START_MODELS_WAIT_MS))]);
-    loading.remove();
-  }
+  await loadEverything(lib, world.texturesReady, (p) => screen.progress(p.done, p.total));
+  if (lib) world.setModels(lib);
+  gate.loaded(performance.now());
   const start: ToWorker = {
     type: 'start',
     seed: plan.seed,
@@ -590,9 +601,25 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
       : undefined,
   };
   send(start);
+  // Alone, the sim is held still until the screen goes; online it cannot run before everyone's first frames are in.
+  hold('loading', true);
   // Frames that came in while the models loaded go to the worker now, after the start.
   relay?.release();
-  shell.start();
+  /** The screen goes once the gate opens: the game takes the input, and the clock runs. */
+  let loading: LoadingScreen | null = screen;
+  const checkGate = (now: number): void => {
+    if (!loading) return;
+    const text = gate.view(now, placed && world.landReady(), slotName);
+    if (text !== null) {
+      loading.say(text);
+      return;
+    }
+    loading.remove();
+    loading = null;
+    hold('loading', false);
+    shell.start();
+    greet();
+  };
   // For browser checks in development (test-e2e): the shell and the world are reachable from the console.
   if (import.meta.env.DEV) Object.assign(window as object, { shell, world, relay, renderer });
 
@@ -605,6 +632,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
     const dt = Math.min(0.1, Math.max(0, (now - lastFrame) / 1000));
     lastFrame = now;
     const t0 = performance.now();
+    checkGate(now);
     world.update(now, shell.cam.focus);
     shell.frame(dt, now);
     audio.setPaused(stopped());
