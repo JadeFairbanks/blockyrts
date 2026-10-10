@@ -47,7 +47,7 @@ import { questTimerHooks } from '../peoples/quests.ts';
 import { sayForeign } from '../peoples/speech.ts';
 import { hash32 } from '../rng.ts';
 import { CYCLE_STEPS } from '../rules.ts';
-import { landAt, MONSTERS, OrderKind, standY, UnitKind, type SimState } from '../state.ts';
+import { DamageKind, landAt, MONSTERS, OrderKind, standY, UnitKind, type SimState } from '../state.ts';
 import { answerKinds, askForever, asksOf, closeAsksBy } from '../units/questions.ts';
 import { Troop } from '../units/kits.ts';
 import { CircleProp, CircleType, CLEARING_M } from '../circles/data.ts';
@@ -1045,8 +1045,9 @@ function tickMarks(state: SimState): void {
     m.next = state.step + g.everyS * SEC;
     const d = Math.min(g.damage, e.hp[j]! - g.floor);
     if (d > 0) {
-      state.hits.push({ look: 'grave', x: e.x[j]!, y: e.y[j]! + M, z: e.z[j]!, id: m.id, dmg: d });
-      hurtUnit(state, j, { damage: d, from: 0, projectile: false, blunt: false, pierce: false, exact: true });
+      // A curse: magic (Patch 7).
+      state.hits.push({ look: 'grave', x: e.x[j]!, y: e.y[j]! + M, z: e.z[j]!, id: m.id, dmg: d, dmgKind: DamageKind.Magic });
+      hurtUnit(state, j, { damage: d, from: 0, projectile: false, blunt: false, pierce: false, exact: true, magic: true });
     }
     // To an ally standing within 5 m, now and then.
     for (const k of state.grid.nearOthers(e.x[j]!, e.z[j]!, g.spreadM * M)) {
