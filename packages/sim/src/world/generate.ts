@@ -79,6 +79,18 @@ export interface Bog {
   z: number;
   r: number;
 }
+/** A shallow pool in a bog (Jade's Patch 7): its middle and radius, columns, and its water's level, terrain units. */
+interface BogPool {
+  x: number;
+  z: number;
+  r: number;
+  level: number;
+}
+/** A bog's pools, and the spots its silver nuggets and bog pears stand on, which stay dry: a tuft of mud where a pool reaches one. */
+interface BogPools {
+  pools: BogPool[];
+  dry: Array<{ x: number; z: number }>;
+}
 /** A hot spring: its pool's middle, columns, and its water level, terrain units. */
 export interface Spring {
   x: number;
@@ -404,6 +416,25 @@ const BOG_NUGGETS_MAX = 6;
 /** GP-29: "Max 2 bushes per bog", only at the bogs a Bog guardian keeps; they stand this far out from its middle, a share of its reach, per mille (s). */
 const BOG_PEAR_BUSHES = 2;
 const BOG_PEAR_REACH_PM = 650;
+/**
+ * Jade's Patch 7: a bog should "look like a bog with the different textures,
+ * and also have shallow pools of water". Each bog holds this many pools, and
+ * one more for each 8 columns of its reach (s): 3 in a pocket's 7 m bog, 3 or
+ * 4 in a cell's 6 to 9 m one. They stand evenly round its middle, keeping its
+ * middle (its bog iron, where its guardian stands) dry.
+ */
+const BOG_POOLS = 2;
+/** A pool's radius, columns: 3 to 5 (1.35 to 2.25 m) before the wobble on its edge, less in a small bog or beside a neighbour (s). */
+const BOG_POOL_R_MIN = 3;
+const BOG_POOL_R_SPREAD = 3;
+/** How deep a pool's water is, terrain units: 1 at its edge to 3 (34 cm) in its middle, well within wading depth (s). */
+const BOG_POOL_DEPTH = 3;
+/** The dry rim round a pool, columns: its ground keeps up to the water's level, so no water stands above dry land (s). */
+const BOG_POOL_RIM = 2;
+/** A pool goes only where the bog's floor under it is level to within this, terrain units (s). */
+const BOG_POOL_LEVEL_SPREAD = 3;
+/** The wobble on a pool's edge, columns, trough to crest (s). */
+const BOG_POOL_WOBBLE = 3;
 
 /** A bog's area, m2: its reach before the noise on its edge, as a circle. */
 export function bogAreaM2(bog: { r: number }): number {
@@ -478,10 +509,14 @@ export class WorldGen {
   /** WL-6's mini mountain within 100 to 125 m of the first player's start. */
   readonly landmark: Landmark;
   private readonly springs = new Map<number, Spring | null>();
+  /** Each bog's pools, by its middle (bogPools), and above 0 while they are worked out. */
+  private readonly pools = new Map<number, BogPools>();
+  private poolsOff = 0;
   /** How many cells each band from the Heartland to the Barrens has (crystalOdds), and how far a bog strays from its cell's site (bogSpread). */
   private readonly bandCells: number[] = [];
   private spread = 0;
-  private readonly p = new Profile();
+  /** The column profile() works out; bogPools gives its probes one of their own. */
+  private p = new Profile();
   private readonly s: number[];
 
   constructor(layout: WorldLayout) {
@@ -1099,16 +1134,22 @@ export class WorldGen {
       source = 1;
       surfaceHint = Mat.Sand;
     });
+    // A bog: mud a column below the land, with its shallow pools (Jade's Patch 7; scattered puddles before).
+    const bogWet = (bed: number, level: number): void => {
+      ground = Math.min(ground, bed);
+      waterLevel = Math.max(waterLevel, level);
+    };
+    const bogDry = (level: number): void => {
+      ground = Math.max(ground, level);
+    };
     for (const bog of feat.bogs) {
-      if (this.bogEffect(bog, x, z, smooth)) {
+      const inBog = this.bogEffect(bog, x, z, smooth);
+      if (inBog) {
         ground = Math.min(ground, p.base - 1);
         surfaceHint = Mat.Mud;
         p.flags |= F_MARSH;
-        if (valueNoise(s[16]!, x, z, 2) > 40000) {
-          ground = Math.min(ground, smooth - 3);
-          waterLevel = Math.max(waterLevel, smooth - 1);
-        }
       }
+      if (waterLevel === -32768) this.poolEffect(bog, x, z, inBog, bogWet, bogDry);
     }
     // A hot spring, in its own chunk (WL-11).
     const spring = this.chunkSpring(x >> CHUNK_SHIFT, z >> CHUNK_SHIFT);
@@ -1151,43 +1192,45 @@ export class WorldGen {
     for (let k = 0; k < this.start.settled; k++) {
       const pocket = this.start.pockets[k]!;
       const pw = pocket.water;
-      if (Math.abs(x - pw.x) > pw.halfLength + pw.radius + 8 || Math.abs(z - pw.z) > pw.halfLength + pw.radius + 8) continue;
-      if (pw.kind === 'pond') {
-        const d = length2d(x - pw.x, z - pw.z);
-        if (d <= pw.radius) {
-          const prof = shoulder(floorDiv(d * 1024, pw.radius), 300);
-          ground = -1 - ((9 * prof) >> 10);
-          waterLevel = 0;
-          surfaceHint = Mat.Mud;
+      // Its water, within the water's reach. Its bog lies well away from its water (StartBasin's iron), so it is carved
+      // apart below: before Patch 7 it was carved only inside this reach, and the bog by a base mostly showed as grass.
+      const reach = pw.halfLength + pw.radius + 8;
+      if (Math.abs(x - pw.x) <= reach && Math.abs(z - pw.z) <= reach) {
+        if (pw.kind === 'pond') {
+          const d = length2d(x - pw.x, z - pw.z);
+          if (d <= pw.radius) {
+            const prof = shoulder(floorDiv(d * 1024, pw.radius), 300);
+            ground = -1 - ((9 * prof) >> 10);
+            waterLevel = 0;
+            surfaceHint = Mat.Mud;
+          }
+        } else {
+          const st: Stream = {
+            x: pw.x,
+            z: pw.z,
+            dx: polar(0, 0, pw.angle, pw.halfLength * 2).x,
+            dz: polar(0, 0, pw.angle, pw.halfLength * 2).z,
+            half: pw.halfLength,
+            width: pw.radius,
+            depth: 5,
+          };
+          this.streamEffect(st, x, z, 0, (g, lvl) => {
+            ground = g;
+            waterLevel = lvl;
+            source = 1;
+            surfaceHint = Mat.Sand;
+          });
         }
-      } else {
-        const st: Stream = {
-          x: pw.x,
-          z: pw.z,
-          dx: polar(0, 0, pw.angle, pw.halfLength * 2).x,
-          dz: polar(0, 0, pw.angle, pw.halfLength * 2).z,
-          half: pw.halfLength,
-          width: pw.radius,
-          depth: 5,
-        };
-        this.streamEffect(st, x, z, 0, (g, lvl) => {
-          ground = g;
-          waterLevel = lvl;
-          source = 1;
-          surfaceHint = Mat.Sand;
-        });
       }
       if (pocket.bog) {
-        const iron = pocket.iron;
-        if (this.bogEffect({ x: iron.x, z: iron.z, r: metresToColumns(7) }, x, z, 0)) {
+        const bog: Bog = { x: pocket.iron.x, z: pocket.iron.z, r: POCKET_BOG_R };
+        const inBog = this.bogEffect(bog, x, z, 0);
+        if (inBog) {
           ground = Math.min(ground, -1);
           surfaceHint = Mat.Mud;
           p.flags |= F_MARSH;
-          if (valueNoise(s[16]!, x, z, 2) > 42000 && length2d(x - iron.x, z - iron.z) > 4) {
-            ground = -3;
-            waterLevel = Math.max(waterLevel, -1);
-          }
         }
+        if (waterLevel === -32768) this.poolEffect(bog, x, z, inBog, bogWet, bogDry);
       }
     }
 
@@ -1769,16 +1812,130 @@ export class WorldGen {
    * middle, never on another prop. They do not grow back.
    */
   private placeNuggets(bog: Bog, x0: number, z0: number, c: ChunkLand, add: AddProp): void {
+    for (const at of this.nuggetSpots(bog)) {
+      const lx = at.x - x0;
+      const lz = at.z - z0;
+      if (lx < 0 || lz < 0 || lx >= N || lz >= N || c.taken[lz * N + lx]) continue;
+      add(PropKind.SilverNugget, lx, lz, 1, 0, at.variant);
+    }
+  }
+
+  /** Where a bog's silver nuggets lie (placeNuggets), each with its look. */
+  private nuggetSpots(bog: Bog): Array<{ x: number; z: number; variant: number }> {
+    const out: Array<{ x: number; z: number; variant: number }> = [];
     const h = hash2(this.seed ^ 0x6e756767, bog.x, bog.z);
     const n = BOG_NUGGETS_MIN + (h % (BOG_NUGGETS_MAX - BOG_NUGGETS_MIN + 1));
     for (let k = 0; k < n; k++) {
       const hk = hash2(h, 0x6e756767, k);
       const at = polar(bog.x, bog.z, hk & 0xffff, 3 + ((hk >>> 16) % Math.max(1, (bog.r >> 1) - 2)));
-      const lx = at.x - x0;
-      const lz = at.z - z0;
-      if (lx < 0 || lz < 0 || lx >= N || lz >= N || c.taken[lz * N + lx]) continue;
-      add(PropKind.SilverNugget, lx, lz, 1, 0, hk);
+      out.push({ x: at.x, z: at.z, variant: hk });
     }
+    return out;
+  }
+
+  /** Where a bog's bog pear bushes are meant to stand (placeBogPears), before a taken column moves one. */
+  private pearSpots(bog: Bog): Array<{ x: number; z: number }> {
+    const h = hash2(this.seed ^ 0x70656172, bog.x, bog.z);
+    const reach = floorDiv(bog.r * BOG_PEAR_REACH_PM, 1000);
+    const out: Array<{ x: number; z: number }> = [];
+    for (let k = 0; k < BOG_PEAR_BUSHES; k++) out.push(polar(bog.x, bog.z, (h + k * 32768) & 0xffff, reach));
+    return out;
+  }
+
+  /**
+   * A bog's shallow pools (Jade's Patch 7, BOG_POOLS): evenly round its
+   * middle from an angle of its own, each as far out as keeps four columns of
+   * dry mud between its edge and the bog's middle, with its edge a column
+   * inside the bog's reach. Each goes where the bog's floor under it and its
+   * rim is dry and level to within BOG_POOL_LEVEL_SPREAD, probed as the land
+   * is without any pool, its water at the lowest of it; one that would not
+   * be, or would come near an earlier pool, is drawn smaller, or left out. The
+   * spots of a guarded bog's nuggets and bog pears stay dry. Worked out on a
+   * profile of its own, so a column part way through its own is untouched.
+   */
+  private bogPools(bog: Bog): BogPools {
+    const key = bog.x * 131072 + bog.z;
+    let set = this.pools.get(key);
+    if (set) return set;
+    set = { pools: [], dry: [] };
+    const saved = this.p;
+    this.p = new Profile();
+    this.poolsOff++;
+    const h = hash2(this.seed ^ 0x706f6f6c, bog.x, bog.z);
+    const count = BOG_POOLS + (bog.r >> 3);
+    const sector = floorDiv(65536, count);
+    for (let k = 0; k < count; k++) {
+      const hk = hash2(h, 0x706f6f6c, k);
+      // A little either way of its even place round the bog: up to a sixteenth of the way to the next.
+      const a = (h + k * sector + floorDiv(sector * ((hk >>> 8) % 256), 2048) - (sector >> 4)) & 0xffff;
+      for (let r = Math.min(BOG_POOL_R_MIN + (hk % BOG_POOL_R_SPREAD), (bog.r - 4) >> 1); r >= 3; r--) {
+        const lo = r + 4;
+        const hi = bog.r - 1 - r;
+        if (hi < lo) continue;
+        const c = polar(bog.x, bog.z, a, lo + ((hk >>> 16) % (hi - lo + 1)));
+        if (set.pools.some((o) => length2d(o.x - c.x, o.z - c.z) < o.r + r + 4)) continue;
+        const level = this.poolLevel(c.x, c.z, r);
+        if (level === null) continue;
+        set.pools.push({ x: c.x, z: c.z, r, level });
+        break;
+      }
+    }
+    this.poolsOff--;
+    this.p = saved;
+    if (bogGuarded(bog)) set.dry.push(...this.nuggetSpots(bog), ...this.pearSpots(bog));
+    this.pools.set(key, set);
+    return set;
+  }
+
+  /**
+   * A pool's water level at (x, z) with radius r, terrain units: the lowest
+   * of the land at its middle and round it at half its reach, its reach and
+   * its rim; null where any of that is wet or the highest is more than
+   * BOG_POOL_LEVEL_SPREAD above the lowest within its reach.
+   */
+  private poolLevel(x: number, z: number, r: number): number | null {
+    let lo = this.probeGround(x, z);
+    if (lo === null) return null;
+    let hi = lo;
+    for (const reach of [r >> 1, r, r + BOG_POOL_RIM]) {
+      for (let k = 0; k < 8; k++) {
+        const at = polar(x, z, k * 8192, reach);
+        const g = this.probeGround(at.x, at.z);
+        if (g === null) return null;
+        lo = Math.min(lo, g);
+        if (reach <= r) hi = Math.max(hi, g);
+      }
+    }
+    return hi - lo > BOG_POOL_LEVEL_SPREAD ? null : lo;
+  }
+
+  /**
+   * A column's part in a bog's pools: in one, and inside the bog, `wet` with
+   * its bed (BOG_POOL_DEPTH below the water at the middle, one at the edge)
+   * and the water's level; on a pool's rim, in one but outside the bog's
+   * edge, or on a nugget's or bog pear's spot (a column either way) in one,
+   * `dry` with the level its ground keeps up to. None while the pockets
+   * settle or a bog's pools are worked out.
+   */
+  private poolEffect(bog: Bog, x: number, z: number, inBog: boolean, wet: (bed: number, level: number) => void, dry: (level: number) => void): void {
+    const reach = bog.r + BOG_POOL_RIM + 2;
+    if (Math.abs(x - bog.x) > reach || Math.abs(z - bog.z) > reach) return;
+    if (this.poolsOff > 0 || this.start.settled < this.start.pockets.length) return;
+    const set = this.bogPools(bog);
+    let rim = -32768;
+    for (const pool of set.pools) {
+      const out = pool.r + BOG_POOL_RIM + 2;
+      if (Math.abs(x - pool.x) > out || Math.abs(z - pool.z) > out) continue;
+      const d = Math.max(0, length2d(x - pool.x, z - pool.z) + centred(valueNoise(this.s[16]!, x, z, 2), BOG_POOL_WOBBLE));
+      if (d > pool.r + BOG_POOL_RIM) continue;
+      if (d <= pool.r && inBog && !set.dry.some((o) => Math.abs(o.x - x) <= 1 && Math.abs(o.z - z) <= 1)) {
+        const prof = shoulder(floorDiv(d * 1024, pool.r), 300);
+        wet(pool.level - 1 - (((BOG_POOL_DEPTH - 1) * prof) >> 10), pool.level);
+        return;
+      }
+      rim = Math.max(rim, pool.level);
+    }
+    if (rim > -32768) dry(rim);
   }
 
   /**
@@ -1790,9 +1947,9 @@ export class WorldGen {
    */
   private placeBogPears(bog: Bog, x0: number, z0: number, c: ChunkLand, add: AddProp): void {
     const h = hash2(this.seed ^ 0x70656172, bog.x, bog.z);
-    const reach = floorDiv(bog.r * BOG_PEAR_REACH_PM, 1000);
+    const spots = this.pearSpots(bog);
     for (let k = 0; k < BOG_PEAR_BUSHES; k++) {
-      const at = polar(bog.x, bog.z, (h + k * 32768) & 0xffff, reach);
+      const at = spots[k]!;
       // Only the chunk its spot lies in places it, so no two chunks each find a column for it.
       if (at.x - x0 < 0 || at.z - z0 < 0 || at.x - x0 >= N || at.z - z0 >= N) continue;
       for (const [ox, oz] of CRYSTAL_TRIES) {
