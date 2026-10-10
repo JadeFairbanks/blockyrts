@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Survive and Conquer",
   "short_name": "Survive & Conquer",
-  "description": "Survive and Conquer is a learning project.",
+  "description": "A co-op survival open world RTS in your browser for 1 to 8 players. Gather, craft and build a base with friends, then hold it as every night grows deadlier.",
   "lang": "en",
   "dir": "ltr",
   "start_url": "/",
