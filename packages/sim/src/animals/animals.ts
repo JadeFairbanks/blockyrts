@@ -313,7 +313,10 @@ const COLUMN_AREA_MM2 = 2025;
  * is nerfed by 25%"): what is left is then cut to streamBp in streams and
  * pondBp in ponds (rounded, never below 1). Flowing water (streams and
  * rivers) holds trout in the Heartland and salmon beyond; still water (ponds,
- * a bog's pools, springs) holds giant catfish.
+ * a bog's pools, springs) holds giant catfish in the Deepwoods only (Jade:
+ * "catfish are deepwoods only, ponds still exist in heartlands and fringe,
+ * but there are zero fish in them. Food Is supposed to be a hard part of
+ * this game!").
  */
 export const FISH_WATER = {
   heartlandPerM2Thousandths: 4000,
@@ -327,8 +330,8 @@ export const FISH_WATER = {
 
 /**
  * Stocks a chunk's water with fish (Fish): streams trout in the Heartland
- * and salmon in the Fringe and Deepwoods, ponds giant catfish (mini patch
- * 7.3), at FISH_WATER's density. Each water's fish are shared out over
+ * and salmon in the Fringe and Deepwoods, Deepwoods ponds giant catfish and
+ * other ponds none (mini patch 7.3), at FISH_WATER's density. Each water's fish are shared out over
  * stretches of bank about 4 m apart, up to 4 a chunk for each (s), each
  * starting full; what a stretch starts with is the most it breeds back to.
  */
@@ -366,6 +369,7 @@ export function stockChunk(state: SimState, cx: number, cz: number, key: number)
     }
   }
   for (const flowing of [1, 0]) {
+    if (!flowing && band !== Band.Deepwoods) continue;
     const kind = flowing ? (band === Band.Heartland ? PropKind.FishTrout : PropKind.FishSalmon) : PropKind.FishCatfish;
     const at = banks[flowing]!;
     const fish = floorDiv(water[flowing]! * COLUMN_AREA_MM2, perM2Thousandths);

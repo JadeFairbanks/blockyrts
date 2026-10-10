@@ -231,10 +231,9 @@ describe('the woodsman (Patch 5)', () => {
     }
     expect(catches).toBeGreaterThanOrEqual(3);
     expect(all.some((f) => fishLeft(s, f).amount === keepOf(s, f))).toBe(true);
-    // What he caught is in his bag: it takes 10 fish before he must take it home. Since mini patch 7.3 a pond's stretch
-    // holds giant catfish and a stream's trout, so the kind is whichever the nearest stretch is.
-    expect([Res.Trout, Res.Catfish]).toContain(e.bag[w]![0]);
-    expect(e.bag[w]![1]).toBe(catches);
+    // What he caught is in his bag: it takes 10 trout before he must take it home (mini patch 7.3: a Heartland pond
+    // holds no fish, so it is a stream's).
+    expect(e.bag[w]).toEqual([Res.Trout, catches]);
   });
 
   it('a stretch the player picks is fished down to its last pair, and he goes home at dusk with his catch', () => {
