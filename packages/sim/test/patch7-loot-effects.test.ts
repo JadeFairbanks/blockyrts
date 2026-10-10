@@ -209,7 +209,7 @@ describe('Far sight (the Elf longbow)', () => {
     // The arrow: a cut of the armour it meets, so more gets through.
     const a = addMob(s, Mob.Morvath, 0, x + 40 * M, z, 1);
     const b = addMob(s, Mob.Morvath, 0, x + 40 * M, z + 10 * M, 1);
-    const blow = { damage: 100, from: e.id[r]!, projectile: true, blunt: false, pierce: true };
+    const blow = { damage: 100, from: e.id[r]!, projectile: true, blunt: false, pierce: true, roll: 0 };
     const hpA = e.hp[a]!;
     const hpB = e.hp[b]!;
     hurtUnit(s, a, blow);
@@ -291,7 +291,7 @@ describe('the trophies', () => {
     // Knocked down: back to the stock, with an alert.
     const again = plant(s, BuildingKind.BogTrophy, x, z);
     pool[Res.BogGuardianClub] = 0;
-    hurtBuilding(s, again, 10000, x, 0, z);
+    hurtBuilding(s, again, 10000, x, 0, z, 0);
     settleDeaths(s);
     expect(s.buildings.get(again.id)).toBeUndefined();
     expect(pool[Res.BogGuardianClub]).toBe(1);
@@ -373,7 +373,7 @@ describe('the Deathless Shroud (Jade, 23:05 UTC: the lich\'s robe)', () => {
       for (let i = 0; i < e.count; i++) if (e.role[i] === Role.Risen && e.hp[i]! > 0) out.push(i);
       return out;
     };
-    const hit = (): void => void hurtUnit(s, m, { damage: 3, from: 0, projectile: false, blunt: false, pierce: false });
+    const hit = (): void => void hurtUnit(s, m, { damage: 3, from: 0, projectile: false, blunt: false, pierce: false, roll: 0 });
     s.step = 1000;
     runEffects(s);
     expect(risen()).toEqual([]);

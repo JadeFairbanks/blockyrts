@@ -58,7 +58,7 @@ describe('magic and poison (Patch 7, Jade)', () => {
     const a = addWarrior(s, 0, x, z, Troop.Close, 5, 8);
     const b = addWarrior(s, 0, x + 3 * M, z, Troop.Close, 5, 8);
     expect(armourOf(s, a)).toBeGreaterThan(0);
-    const blow = { damage: 40, from: 0, projectile: false, blunt: false, pierce: false };
+    const blow = { damage: 40, from: 0, projectile: false, blunt: false, pierce: false, roll: 0 };
     const hpA = e.hp[a]!;
     const hpB = e.hp[b]!;
     s.hits = [];
@@ -80,7 +80,7 @@ describe('magic and poison (Patch 7, Jade)', () => {
     const f = addMob(s, Mob.Flamecaller, 0, x + 10 * M, z, 1);
     e.power[f] = 1000;
     const hp = e.hp[w]!;
-    fireAt(s, f, e.x[f]!, e.y[f]! + 2 * M, e.z[f]!, w, Shot.Hellfire, 30, 0, 0);
+    fireAt(s, f, e.x[f]!, e.y[f]! + 2 * M, e.z[f]!, w, Shot.Hellfire, 30, 0, 0, 0);
     e.hp[f] = 0;
     let kinds: Array<number | undefined> = [];
     waitFor(s, () => {

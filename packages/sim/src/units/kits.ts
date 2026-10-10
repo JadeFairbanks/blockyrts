@@ -26,6 +26,7 @@ import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { hasResearch, Hit, Research, Shot, type MeleeStats, type RangedStats } from '../combat/items.ts';
 import { Tool, ToolJob, TOOL_JOBS } from '../world/props.ts';
 import { FORGE_STEP_BASE } from '../buildings/data.ts';
+import { DAMAGE_ROLL } from '../rules.ts';
 import type { EntityStore } from '../state.ts';
 
 /**
@@ -151,6 +152,8 @@ export interface MeleeKit extends Piece {
   reachCm: number;
   hit: Hit;
   blunt: boolean;
+  /** Patch 7 (Jade): how far a blow's damage may land above or below its number, bp (rules.ts DAMAGE_ROLL). */
+  rollBp: number;
 }
 
 /** A ranged weapon (Table 2e): damage, attack time in tenths of a second, range in metres, spread as a percentage of the range. */
@@ -161,6 +164,8 @@ export interface RangedKit extends Piece {
   spreadPct: number;
   shot: Shot;
   blunt: boolean;
+  /** Patch 7 (Jade): how far a blow's damage may land above or below its number, bp (rules.ts DAMAGE_ROLL). */
+  rollBp: number;
 }
 
 /** A tier of armour (Table 3): body, helmet and boots in one. */
@@ -181,6 +186,8 @@ export interface ToolKit extends Piece {
   names: readonly string[];
   models: readonly string[];
   damage: number;
+  /** Patch 7 (Jade): how far a blow's damage may land above or below its number, bp (rules.ts DAMAGE_ROLL). */
+  rollBp: number;
 }
 
 /** A mage's wand (Table 13): spell power (a percentage) and extra mana. */
@@ -240,8 +247,8 @@ const only = (c: Cost): Cost[] => [c];
 
 // ----- Table 2d: melee -----
 
-const close = (tier: number, what: What, model: string, damage: number, swingDs: number, reachCm: number, hit: Hit, blunt: boolean, cost: Cost[], timeS: number, heft = 0): MeleeKit => ({
-  tier, ...named(what), model, damage, swingDs, reachCm, hit, blunt, cost, timeS, need: tier, ...(heft ? { heft } : {}),
+const close = (tier: number, what: What, model: string, damage: number, swingDs: number, reachCm: number, hit: Hit, blunt: boolean, cost: Cost[], timeS: number, heft = 0, rollBp: number = DAMAGE_ROLL.physicalBp): MeleeKit => ({
+  tier, ...named(what), model, damage, swingDs, reachCm, hit, blunt, rollBp, cost, timeS, need: tier, ...(heft ? { heft } : {}),
 });
 
 /*
@@ -298,8 +305,8 @@ export const CRIT = { outerPm: 333, bonusPct: 30 };
 
 // ----- Table 2e: ranged -----
 
-const ranged = (tier: number, what: What, model: string, damage: number, attackDs: number, rangeM: number, spreadPct: number, shot: Shot, blunt: boolean, cost: Cost[], timeS: number, research: Research[] = [], heft = 0): RangedKit => ({
-  tier, ...named(what), model, damage, attackDs, rangeM, spreadPct, shot, blunt, cost, timeS, need: tier, ...(research.length ? { research } : {}), ...(heft ? { heft } : {}),
+const ranged = (tier: number, what: What, model: string, damage: number, attackDs: number, rangeM: number, spreadPct: number, shot: Shot, blunt: boolean, cost: Cost[], timeS: number, research: Research[] = [], heft = 0, rollBp: number = DAMAGE_ROLL.physicalBp): RangedKit => ({
+  tier, ...named(what), model, damage, attackDs, rangeM, spreadPct, shot, blunt, rollBp, cost, timeS, need: tier, ...(research.length ? { research } : {}), ...(heft ? { heft } : {}),
 });
 
 /** A recurve bow with arrowheads of one metal (Table 2e: 3 lumber, 1 sinew or flax, 1 ingot, 1 feather). */
@@ -398,9 +405,9 @@ const TOOL_METAL_LOOK: Readonly<Record<string, string>> = { Copper: 'copper', Br
 /** One kit for all four jobs, drawn as all its pieces (Patch 5: the job's in hand, the rest at the hips and back). */
 const everyJob = (model: string): string[] => [model, model, model, model];
 
-const metalTools = (tier: number, item: Res, metal: string, tool: Tool, damage: number, ingot: Res, timeS: number): ToolKit => ({
+const metalTools = (tier: number, item: Res, metal: string, tool: Tool, damage: number, ingot: Res, timeS: number, rollBp: number = DAMAGE_ROLL.physicalBp): ToolKit => ({
   tier, ...named(item), model: `axe@${TOOL_METAL_LOOK[metal]}`, tools: [tool, tool, tool, tool], names: [`${metal} axe`, `${metal} pickaxe`, `${metal} hammer`, `${metal} sickle`].map((n) => n.toLowerCase()),
-  models: everyJob(`axe@${TOOL_METAL_LOOK[metal]}+pick@${TOOL_METAL_LOOK[metal]}+hammer_iron+sickle@${TOOL_METAL_LOOK[metal]}`), damage, cost: only([[ingot, 2], [LU, 2]]), timeS, need: tier,
+  models: everyJob(`axe@${TOOL_METAL_LOOK[metal]}+pick@${TOOL_METAL_LOOK[metal]}+hammer_iron+sickle@${TOOL_METAL_LOOK[metal]}`), damage, rollBp, cost: only([[ingot, 2], [LU, 2]]), timeS, need: tier,
 });
 
 /**
@@ -412,14 +419,14 @@ const metalTools = (tier: number, item: Res, metal: string, tool: Tool, damage: 
  * without a tool strikes (Table 1: fists 2), not a worker's tier, and stays.
  */
 export const TOOL_KITS: readonly ToolKit[] = [
-  { tier: 0, ...named('No tools'), model: '', tools: [0, 0, 0, 0], names: ['', '', '', ''], models: ['', '', '', ''], damage: 2, cost: [[]], timeS: 0, need: 0 },
+  { tier: 0, ...named('No tools'), model: '', tools: [0, 0, 0, 0], names: ['', '', '', ''], models: ['', '', '', ''], damage: 2, rollBp: DAMAGE_ROLL.physicalBp, cost: [[]], timeS: 0, need: 0 },
   {
     tier: 1, ...named(Res.WoodenTools), model: 'axe_hardwood', tools: [Tool.Hardwood, Tool.Hardwood, Tool.Hardwood, Tool.Hardwood],
-    names: ['wooden axe', 'digging stick', 'wooden mallet', 'wooden hoe'], models: everyJob('axe_hardwood+digging_stick+mallet+hoe@hardwood'), damage: 2, cost: only([[ST, 3]]), timeS: 10, need: 1,
+    names: ['wooden axe', 'digging stick', 'wooden mallet', 'wooden hoe'], models: everyJob('axe_hardwood+digging_stick+mallet+hoe@hardwood'), damage: 2, rollBp: DAMAGE_ROLL.physicalBp, cost: only([[ST, 3]]), timeS: 10, need: 1,
   },
   {
     tier: 2, ...named(Res.StoneAndFlintTools), model: 'axe_flint', tools: [Tool.Flint, Tool.Stone, Tool.Stone, Tool.Flint],
-    names: ['flint axe and knife', 'stone maul', 'stone hammer', 'flint axe and knife'], models: ['axe_flint+knife', 'maul_stone', 'hammer_stone', 'axe_flint+knife'], damage: 3, cost: only([[ST, 6], [FL, 1], [STONE, 5]]), timeS: 30, need: 2,
+    names: ['flint axe and knife', 'stone maul', 'stone hammer', 'flint axe and knife'], models: ['axe_flint+knife', 'maul_stone', 'hammer_stone', 'axe_flint+knife'], damage: 3, rollBp: DAMAGE_ROLL.physicalBp, cost: only([[ST, 6], [FL, 1], [STONE, 5]]), timeS: 30, need: 2,
   },
   metalTools(3, Res.CopperTools, 'Copper', Tool.Copper, 4, CU, 35),
   metalTools(4, Res.BronzeTools, 'Bronze', Tool.Bronze, 5, BZ, 35),
@@ -580,7 +587,7 @@ export interface GearSpec {
   /** Tools: the tool tier it gives (props.ts Tool), the jobs it does (a ToolJob bit each), and a worker's blow with it. */
   tool?: number;
   jobs?: number;
-  toolHit?: { damage: number; attackSteps: number };
+  toolHit?: { damage: number; attackSteps: number; rollBp: number };
   /** Wands: spell power and extra mana, and (Patch 7, the Fae star wand) extra mana regain; robes: extra mana regain (Table 13). */
   wand?: { powerPct: number; mana: number; regainPct?: number };
   robe?: { regainPct: number };
@@ -605,14 +612,14 @@ const ds = (tenths: number): number => floorDiv(tenths * STEPS_PER_SECOND, 10);
 const cm = (c: number): number => floorDiv(c * WU_PER_METRE, 100);
 
 const meleeStats = (k: MeleeKit, oneHanded: boolean, crit: boolean): MeleeStats => ({
-  damage: k.damage, attackSteps: ds(k.swingDs), reach: cm(k.reachCm), hit: k.hit, blunt: k.blunt, oneHanded, crit,
+  damage: k.damage, attackSteps: ds(k.swingDs), reach: cm(k.reachCm), hit: k.hit, blunt: k.blunt, oneHanded, crit, rollBp: k.rollBp,
 });
 const rangedStats = (k: RangedKit): RangedStats => ({
-  damage: k.damage, attackSteps: ds(k.attackDs), range: k.rangeM * WU_PER_METRE, spreadBp: k.spreadPct * 100, shot: k.shot, blunt: k.blunt,
+  damage: k.damage, attackSteps: ds(k.attackDs), range: k.rangeM * WU_PER_METRE, spreadBp: k.spreadPct * 100, shot: k.shot, blunt: k.blunt, rollBp: k.rollBp,
 });
 
-/** A wand's tap (Table 1: 3 damage every 1.5 s, s). */
-const WAND_TAP: MeleeStats = { damage: 3, attackSteps: ds(15), reach: cm(120), hit: Hit.Stab, blunt: true, oneHanded: true, crit: false };
+/** A wand's tap (Table 1: 3 damage every 1.5 s, s): a knock with the wand, no magic. */
+const WAND_TAP: MeleeStats = { damage: 3, attackSteps: ds(15), reach: cm(120), hit: Hit.Stab, blunt: true, oneHanded: true, crit: false, rollBp: DAMAGE_ROLL.physicalBp };
 
 /** A gear row as written: its kind follows from its slot and stats, its rung from its tier, a common grade and no Heft or Stature unless given. */
 type GearRow = Omit<GearSpec, 'id' | 'kind' | 'rarity' | 'rung' | 'heft' | 'stature' | 'item'> & {
@@ -653,22 +660,22 @@ function add(g: GearRow): number {
  * shoot 1.5 s slower and miss by at most 3%, as the players' do (Patch 7, Jade).
  */
 export const PeopleGear = {
-  Shortbow: add({ name: 'Halfling shortbow', slot: Slot.Ranged, tier: 5, model: 'halfling_shortbow', item: Res.HalflingShortbow, ranged: { damage: 14, attackSteps: ds(35), range: cm(2000), spreadBp: 300, shot: Shot.Arrow, blunt: false } }),
-  Shortsword: add({ name: 'Halfling shortsword', slot: Slot.Weapon, tier: 5, model: 'halfling_shortsword', item: Res.HalflingShortsword, melee: { damage: 16, attackSteps: ds(11), reach: cm(110), hit: Hit.Arc, blunt: false, oneHanded: true, crit: false } }),
+  Shortbow: add({ name: 'Halfling shortbow', slot: Slot.Ranged, tier: 5, model: 'halfling_shortbow', item: Res.HalflingShortbow, ranged: { damage: 14, attackSteps: ds(35), range: cm(2000), spreadBp: 300, shot: Shot.Arrow, blunt: false, rollBp: DAMAGE_ROLL.physicalBp } }),
+  Shortsword: add({ name: 'Halfling shortsword', slot: Slot.Weapon, tier: 5, model: 'halfling_shortsword', item: Res.HalflingShortsword, melee: { damage: 16, attackSteps: ds(11), reach: cm(110), hit: Hit.Arc, blunt: false, oneHanded: true, crit: false, rollBp: DAMAGE_ROLL.physicalBp } }),
   Buckler: add({ name: 'Halfling buckler', slot: Slot.Shield, tier: 2, model: 'halfling_buckler', item: Res.HalflingBuckler, blockBp: 1000 }),
   HalflingHelm: add({ name: 'Halfling iron cap', slot: Slot.Armour, tier: 5, model: 'helmet_iron_nasal', item: Res.HalflingIronCap, armourBp: 500 }),
-  Glaive: add({ name: 'Elf glaive', slot: Slot.Weapon, tier: 8, model: 'halberd', item: Res.ElfGlaive, melee: { damage: 45, attackSteps: ds(16), reach: cm(250), hit: Hit.Arc, blunt: false, oneHanded: false, crit: true } }),
-  ElfLongbow: add({ name: 'Elf longbow', slot: Slot.Ranged, tier: 8, model: 'bow', item: Res.ElfLongbow, ranged: { damage: 24, attackSteps: ds(35), range: cm(4000), spreadBp: 300, shot: Shot.Arrow, blunt: false } }),
+  Glaive: add({ name: 'Elf glaive', slot: Slot.Weapon, tier: 8, model: 'halberd', item: Res.ElfGlaive, melee: { damage: 45, attackSteps: ds(16), reach: cm(250), hit: Hit.Arc, blunt: false, oneHanded: false, crit: true, rollBp: DAMAGE_ROLL.physicalBp } }),
+  ElfLongbow: add({ name: 'Elf longbow', slot: Slot.Ranged, tier: 8, model: 'bow', item: Res.ElfLongbow, ranged: { damage: 24, attackSteps: ds(35), range: cm(4000), spreadBp: 300, shot: Shot.Arrow, blunt: false, rollBp: DAMAGE_ROLL.physicalBp } }),
   Leathers: add({ name: 'Leather armour', slot: Slot.Armour, tier: 2, model: 'armour_leather', armourBp: 1500 }),
-  DwarfWarAxe: add({ name: 'Dwarf war axe', slot: Slot.Weapon, tier: 7, model: 'axe_war', item: Res.DwarfWarAxe, melee: { damage: 26, attackSteps: ds(13), reach: cm(120), hit: Hit.Arc, blunt: false, oneHanded: true, crit: false } }),
-  DwarfWarHammer: add({ name: 'Dwarf war hammer', slot: Slot.Weapon, tier: 7, model: 'mace', item: Res.DwarfWarHammer, melee: { damage: 34, attackSteps: ds(18), reach: cm(160), hit: Hit.Arc, blunt: true, oneHanded: false, crit: false } }),
+  DwarfWarAxe: add({ name: 'Dwarf war axe', slot: Slot.Weapon, tier: 7, model: 'axe_war', item: Res.DwarfWarAxe, melee: { damage: 26, attackSteps: ds(13), reach: cm(120), hit: Hit.Arc, blunt: false, oneHanded: true, crit: false, rollBp: DAMAGE_ROLL.physicalBp } }),
+  DwarfWarHammer: add({ name: 'Dwarf war hammer', slot: Slot.Weapon, tier: 7, model: 'mace', item: Res.DwarfWarHammer, melee: { damage: 34, attackSteps: ds(18), reach: cm(160), hit: Hit.Arc, blunt: true, oneHanded: false, crit: false, rollBp: DAMAGE_ROLL.physicalBp } }),
   // The Dwarves' crossbow drops as the players' steel-prod crossbow (plan 4.4).
-  DwarfCrossbow: add({ name: 'Dwarf crossbow', slot: Slot.Ranged, tier: 7, model: 'crossbow', item: Res.SteelProdCrossbow, ranged: { damage: 30, attackSteps: ds(45), range: cm(2800), spreadBp: 300, shot: Shot.Bolt, blunt: false } }),
+  DwarfCrossbow: add({ name: 'Dwarf crossbow', slot: Slot.Ranged, tier: 7, model: 'crossbow', item: Res.SteelProdCrossbow, ranged: { damage: 30, attackSteps: ds(45), range: cm(2800), spreadBp: 300, shot: Shot.Bolt, blunt: false, rollBp: DAMAGE_ROLL.physicalBp } }),
   DwarfPlate: add({ name: 'Dwarf plate and sallet', slot: Slot.Armour, tier: 7, model: 'armour_steel_plate', item: Res.DwarfPlate, armourBp: 6200 }),
   DwarfMail: add({ name: 'Dwarf mail and sallet', slot: Slot.Armour, tier: 5, model: 'armour_iron_mail', item: Res.DwarfMail, armourBp: 4700 }),
   // Patch 7: the Runkin archers' cudgel and the Elves' and Dwarves' steel side-sword, at the ladder's numbers before the 30% cut.
-  Cudgel: add({ name: 'Wooden cudgel', slot: Slot.Weapon, tier: 1, model: 'club', item: Res.WoodenCudgel, melee: { damage: 8, attackSteps: ds(13), reach: cm(120), hit: Hit.Arc, blunt: true, oneHanded: true, crit: false } }),
-  SteelSword: add({ name: 'Steel side-sword', slot: Slot.Weapon, tier: 7, model: 'sword_steel@steel', item: Res.SteelSideSword, melee: { damage: 30, attackSteps: ds(12), reach: cm(130), hit: Hit.Arc, blunt: false, oneHanded: true, crit: false } }),
+  Cudgel: add({ name: 'Wooden cudgel', slot: Slot.Weapon, tier: 1, model: 'club', item: Res.WoodenCudgel, melee: { damage: 8, attackSteps: ds(13), reach: cm(120), hit: Hit.Arc, blunt: true, oneHanded: true, crit: false, rollBp: DAMAGE_ROLL.physicalBp } }),
+  SteelSword: add({ name: 'Steel side-sword', slot: Slot.Weapon, tier: 7, model: 'sword_steel@steel', item: Res.SteelSideSword, melee: { damage: 30, attackSteps: ds(12), reach: cm(130), hit: Hit.Arc, blunt: false, oneHanded: true, crit: false, rollBp: DAMAGE_ROLL.physicalBp } }),
 } as const;
 
 /** Gear ids by tier for each table, each row the good it is, with its Heft or Stature and grade (Patch 7, plan 3). */
@@ -681,7 +688,7 @@ export const PISTOL_GEAR: number = add({ name: 'Flintlock pistol', slot: Slot.Ra
  * monster's numbers (combat/mobs.ts SkeletonArcher: 8.6 damage, made a whole 9 (s), every 2.2 s at up to 18 m, its bone arrows).
  * No good: it is never taken off, and is lost with the archer.
  */
-export const RISEN_BOW_GEAR: number = add({ name: "Skeleton archer's bow", slot: Slot.Ranged, tier: 4, model: 'bow_skeleton_recurve', ranged: { damage: 9, attackSteps: ds(22), range: cm(1800), spreadBp: 700, shot: Shot.BoneArrow, blunt: false } });
+export const RISEN_BOW_GEAR: number = add({ name: "Skeleton archer's bow", slot: Slot.Ranged, tier: 4, model: 'bow_skeleton_recurve', ranged: { damage: 9, attackSteps: ds(22), range: cm(1800), spreadBp: 700, shot: Shot.BoneArrow, blunt: false, rollBp: DAMAGE_ROLL.physicalBp } });
 export const ARMOUR_GEAR: readonly number[] = ARMOUR_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Armour, tier: k.tier, model: k.model, armourBp: k.protectionPct * 100, stature: k.stature, rarity: troopRarity(k.tier), item: k.items[0] })));
 /** Shields: tier 1 and 2 common, 3 and 4 rare, 5 epic (plan 3); a row's tier is the material it needs, its rung the shield tier. */
 export const SHIELD_GEAR: readonly number[] = SHIELD_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Shield, tier: k.need, rung: k.tier, model: k.model, blockBp: k.blockPct * 100, heft: k.heft, rarity: ladderRarity(k.tier, 3, 5), item: k.items[0] })));
@@ -698,7 +705,7 @@ export const TOOL_GEAR: ReadonlyArray<readonly number[]> = TOOL_KITS.map((k) => 
     let jobs = 0;
     for (let o = j; o < TOOL_JOBS; o++) if (k.tools[o] === k.tools[j] && k.models[o] === k.models[j]) jobs |= 1 << o;
     const single = jobs !== (1 << TOOL_JOBS) - 1;
-    out.push(add({ name: single ? capital(k.names[j]!) : k.name, slot: Slot.Tool, tier: k.tier, model: k.models[j]!, tool: k.tools[j]!, jobs, toolHit: { damage: k.damage, attackSteps: ds(15) }, rarity: troopRarity(k.tier), item: k.items[0] }));
+    out.push(add({ name: single ? capital(k.names[j]!) : k.name, slot: Slot.Tool, tier: k.tier, model: k.models[j]!, tool: k.tools[j]!, jobs, toolHit: { damage: k.damage, attackSteps: ds(15), rollBp: k.rollBp }, rarity: troopRarity(k.tier), item: k.items[0] }));
   }
   return out;
 });
@@ -713,6 +720,8 @@ export interface DreadnoughtBlow {
   hit: Hit;
   /** Tenths of a second from the swing's start to the blow. */
   landDs: number;
+  /** Patch 7 (Jade): how far a blow's damage may land above or below its number, bp (rules.ts DAMAGE_ROLL). */
+  rollBp: number;
 }
 
 /**
@@ -735,8 +744,8 @@ export const DREADNOUGHT_KIT = {
   plate: 'Fluted Gothic harness',
   attackDs: 30,
   reachCm: 200,
-  smash: { damage: 140, hit: Hit.Stab, landDs: 9 } as DreadnoughtBlow,
-  swing: { damage: 49, hit: Hit.Sweep, landDs: 9 } as DreadnoughtBlow,
+  smash: { damage: 140, hit: Hit.Stab, landDs: 9, rollBp: DAMAGE_ROLL.physicalBp } as DreadnoughtBlow,
+  swing: { damage: 49, hit: Hit.Sweep, landDs: 9, rollBp: DAMAGE_ROLL.physicalBp } as DreadnoughtBlow,
   armourTier: TOP_TIER,
   /** His smash with any weapon but his own mace, per mille of its damage (plan 2.3: 1.5 times); his sweep with it is its own damage. */
   damagePm: 1500,
@@ -747,7 +756,7 @@ export const DREADNOUGHT_KIT = {
 };
 
 const dreadBlow = (b: DreadnoughtBlow): MeleeStats => ({
-  damage: b.damage, attackSteps: ds(DREADNOUGHT_KIT.attackDs), reach: cm(DREADNOUGHT_KIT.reachCm), hit: b.hit, blunt: true, oneHanded: false, crit: false, landSteps: ds(b.landDs),
+  damage: b.damage, attackSteps: ds(DREADNOUGHT_KIT.attackDs), reach: cm(DREADNOUGHT_KIT.reachCm), hit: b.hit, blunt: true, oneHanded: false, crit: false, landSteps: ds(b.landDs), rollBp: b.rollBp,
 });
 
 /** The armour row his plate matches (DREADNOUGHT_KIT.armourTier, held to the ladder). */
@@ -815,8 +824,9 @@ export interface LootKit {
   tier: number;
   /** The catalogue model it is drawn with on a unit ('' for a piece that fits nobody). */
   model: string;
-  melee?: { damage: number; swingDs: number; reachCm: number; hit: Hit; blunt: boolean };
-  ranged?: { damage: number; attackDs: number; rangeM: number; spreadPct: number; shot: Shot; blunt: boolean };
+  /** Its blow or shot; rollBp: how far its damage may land above or below, bp (Patch 7, rules.ts DAMAGE_ROLL). */
+  melee?: { damage: number; swingDs: number; reachCm: number; hit: Hit; blunt: boolean; rollBp: number };
+  ranged?: { damage: number; attackDs: number; rangeM: number; spreadPct: number; shot: Shot; blunt: boolean; rollBp: number };
   wand?: { powerPct: number; mana: number; regainPct: number };
   robe?: { protectionPct: number; regainPct: number };
   blockPct?: number;
@@ -833,8 +843,8 @@ const loot = (item: Res, rarity: Rarity, kind: GearKind, size: number, tier: num
   // The stats first: the balance editor then writes each number back into its own argument, never into the stats.
   ...stats, item, name: RESOURCES[item]!.name, rarity, kind, size, tier, model, scrap,
 });
-const swings = (damage: number, swingDs: number, reachCm: number, hit: Hit, blunt = false): LootStats => ({ melee: { damage, swingDs, reachCm, hit, blunt } });
-const shoots = (damage: number, attackDs: number, rangeM: number, spreadPct: number, shot: Shot, blunt = false): LootStats => ({ ranged: { damage, attackDs, rangeM, spreadPct, shot, blunt } });
+const swings = (damage: number, swingDs: number, reachCm: number, hit: Hit, blunt = false, rollBp: number = DAMAGE_ROLL.physicalBp): LootStats => ({ melee: { damage, swingDs, reachCm, hit, blunt, rollBp } });
+const shoots = (damage: number, attackDs: number, rangeM: number, spreadPct: number, shot: Shot, blunt = false, rollBp: number = DAMAGE_ROLL.physicalBp): LootStats => ({ ranged: { damage, attackDs, rangeM, spreadPct, shot, blunt, rollBp } });
 /** A wand "as a tier N wand" (plan 4.1): that tier's spell power and mana. */
 const asWand = (tier: number): LootStats => ({ wand: { powerPct: WAND_KITS[tier]!.powerPct, mana: WAND_KITS[tier]!.mana, regainPct: 0 } });
 /** A robe "as a tier N robe" (plan 4.3): that tier's protection and mana regain. */
@@ -1025,11 +1035,11 @@ function lootRow(k: LootKit): GearRow | undefined {
   if (k.melee) {
     const m = k.melee;
     const oneHanded = k.kind === GearKind.OneHanded || k.kind === GearKind.Flail;
-    return { ...base, slot: Slot.Weapon, melee: { damage: m.damage, attackSteps: ds(m.swingDs), reach: cm(m.reachCm), hit: m.hit, blunt: m.blunt, oneHanded, crit: !oneHanded } };
+    return { ...base, slot: Slot.Weapon, melee: { damage: m.damage, attackSteps: ds(m.swingDs), reach: cm(m.reachCm), hit: m.hit, blunt: m.blunt, oneHanded, crit: !oneHanded, rollBp: m.rollBp } };
   }
   if (k.ranged) {
     const r = k.ranged;
-    return { ...base, slot: Slot.Ranged, ranged: { damage: r.damage, attackSteps: ds(r.attackDs), range: r.rangeM * WU_PER_METRE, spreadBp: r.spreadPct * 100, shot: r.shot, blunt: r.blunt } };
+    return { ...base, slot: Slot.Ranged, ranged: { damage: r.damage, attackSteps: ds(r.attackDs), range: r.rangeM * WU_PER_METRE, spreadBp: r.spreadPct * 100, shot: r.shot, blunt: r.blunt, rollBp: r.rollBp } };
   }
   if (k.wand) return { ...base, slot: Slot.Weapon, melee: WAND_TAP, wand: { powerPct: k.wand.powerPct, mana: k.wand.mana, ...(k.wand.regainPct ? { regainPct: k.wand.regainPct } : {}) } };
   if (k.robe) return { ...base, slot: Slot.Armour, armourBp: k.robe.protectionPct * 100, robe: { regainPct: k.robe.regainPct } };
@@ -1088,7 +1098,7 @@ export function gearSpec(id: number): GearSpec {
 /** A worker's or anyone's blow with a tool, or with nothing in hand (Table 1: fists 2; Table 2c worker damage). */
 export function toolMelee(gear: number): MeleeStats {
   const hit = gear ? gearSpec(gear).toolHit : undefined;
-  return { damage: hit?.damage ?? TOOL_KITS[0]!.damage, attackSteps: hit?.attackSteps ?? ds(15), reach: cm(120), hit: Hit.Stab, blunt: true, oneHanded: true, crit: false };
+  return { damage: hit?.damage ?? TOOL_KITS[0]!.damage, attackSteps: hit?.attackSteps ?? ds(15), reach: cm(120), hit: Hit.Stab, blunt: true, oneHanded: true, crit: false, rollBp: hit?.rollBp ?? TOOL_KITS[0]!.rollBp };
 }
 
 /** The tool tier a piece of gear gives a job (props.ts ToolJob), or Tool.None when it does not do that job. */

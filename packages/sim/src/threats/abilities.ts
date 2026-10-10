@@ -113,7 +113,7 @@ export function castSparkAt(state: SimState, i: number, t: number): void {
   const e = state.entities;
   spend(state, i, Ability.SparkToss);
   const spec = mobSpec(e.mob[i]!);
-  fireAt(state, i, e.x[i]!, e.y[i]! + floorDiv(spec.height * 2, 3), e.z[i]!, t, Shot.Spark, floorDiv(SPARK.damage * e.power[i]!, 1000), spec.spreadBp, ProjectileFlag.Fire | ProjectileFlag.Spell);
+  fireAt(state, i, e.x[i]!, e.y[i]! + floorDiv(spec.height * 2, 3), e.z[i]!, t, Shot.Spark, floorDiv(SPARK.damage * e.power[i]!, 1000), SPARK.rollBp, spec.spreadBp, ProjectileFlag.Fire | ProjectileFlag.Spell);
 }
 
 /** Spark toss at a building: dry wood smoulders where it lands. */
@@ -122,5 +122,5 @@ export function castSparkAtBuilding(state: SimState, i: number, b: Building): vo
   spend(state, i, Ability.SparkToss);
   const spec = mobSpec(e.mob[i]!);
   const [x, z] = buildingCentre(b);
-  launch(state, i, e.x[i]!, e.y[i]! + floorDiv(spec.height * 2, 3), e.z[i]!, x, floorDiv(b.y * 900 + buildingTop(b), 2), z, Shot.Spark, floorDiv(SPARK.damage * e.power[i]!, 1000), ProjectileFlag.Fire | ProjectileFlag.Spell);
+  launch(state, i, e.x[i]!, e.y[i]! + floorDiv(spec.height * 2, 3), e.z[i]!, x, floorDiv(b.y * 900 + buildingTop(b), 2), z, Shot.Spark, floorDiv(SPARK.damage * e.power[i]!, 1000), SPARK.rollBp, ProjectileFlag.Fire | ProjectileFlag.Spell);
 }

@@ -378,7 +378,7 @@ describe('animals', () => {
     const w = e.indexOf(workers(s)[0]!);
     const boar = addAnimal(s, Species.Boar, WILD, e.x[w]! + 5 * WU_PER_METRE, e.z[w]!, 0, 0);
     const [bx, bz] = [col(e.x[boar]!), col(e.z[boar]!)];
-    hurtUnit(s, boar, { damage: 10000, from: 0, projectile: false, blunt: false, pierce: false });
+    hurtUnit(s, boar, { damage: 10000, from: 0, projectile: false, blunt: false, pierce: false, roll: 0 });
     settleDeaths(s);
     expect(s.world.props(bx >> CHUNK_SHIFT, bz >> CHUNK_SHIFT, s.step).some((p) => p.kind === PropKind.Carcass)).toBe(false);
     const meat = s.loot.find((l) => l.res === Res.BoarMeat)!;

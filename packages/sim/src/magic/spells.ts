@@ -6,6 +6,7 @@
 
 import { Shot } from '../combat/items.ts';
 import { STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
+import { DAMAGE_ROLL } from '../rules.ts';
 
 const SEC = STEPS_PER_SECOND;
 const M = WU_PER_METRE;
@@ -130,6 +131,8 @@ export interface SpellSpec {
   bp: number;
   /** Damage against walls and buildings, where it differs (Arcane bolt 2, Area blast 40). */
   vsWalls: number;
+  /** Patch 7 (Jade): a damage spell's roll, how far its damage may land above or below its number, bp (rules.ts DAMAGE_ROLL: magic 3%); none on a spell that does no damage. */
+  rollBp?: number;
   /** The mage's clip while casting it (Table 13 "clip"). */
   clip: 'cast_heal' | 'cast_bolt' | 'cast_beam' | 'cast_area';
   /** The catalogue models: what flies or shows where it lands, and the command card icon. */
@@ -175,25 +178,25 @@ export const SPELLS: readonly SpellSpec[] = [
   {
     id: Spell.ArcaneBolt, name: 'Arcane bolt', key: 'R', school: School.Battle, rank: 1, hexcraft: false,
     mana: 10, cooldown: 30, range: 18 * M, projectile: true, shot: Shot.ArcaneBolt, target: 'enemy', effect: 'bolt',
-    amount: 20, radius: 0, steps: 0, bp: 0, vsWalls: 2, clip: 'cast_bolt', model: 'arcane_bolt', icon: 'icon_spell_arcane_bolt', auto: true, role: 'attack',
+    amount: 20, radius: 0, steps: 0, bp: 0, vsWalls: 2, rollBp: DAMAGE_ROLL.magicBp, clip: 'cast_bolt', model: 'arcane_bolt', icon: 'icon_spell_arcane_bolt', auto: true, role: 'attack',
     text: 'A violet star bolt flies at one enemy for 20 damage (more at higher ranks). It arcs over a low wall in its way, but never steeply; trees stop it.',
   },
   {
     id: Spell.Beam, name: 'Beam', key: 'B', school: School.Battle, rank: 2, hexcraft: false,
     mana: 25, cooldown: 6 * SEC, range: 14 * M, projectile: false, shot: -1, target: 'enemy', effect: 'beam',
-    amount: 12, radius: 0, steps: 3 * SEC, bp: 0, vsWalls: 0, clip: 'cast_beam', model: 'spell_beam_segment', icon: 'icon_spell_beam', auto: false, role: 'attack',
+    amount: 12, radius: 0, steps: 3 * SEC, bp: 0, vsWalls: 0, rollBp: DAMAGE_ROLL.magicBp, clip: 'cast_beam', model: 'spell_beam_segment', icon: 'icon_spell_beam', auto: false, role: 'attack',
     text: 'A continuous beam burns one enemy for 12 a second for 3 s while the mage stands and holds it.',
   },
   {
     id: Spell.Fireball, name: 'Fireball', key: 'F', school: School.Battle, rank: 3, hexcraft: false,
     mana: 30, cooldown: 8 * SEC, range: 22 * M, projectile: true, shot: Shot.Fireball, target: 'enemy', effect: 'fireball',
-    amount: 35, radius: 2 * M, steps: 5 * SEC, bp: 0, vsWalls: 30, clip: 'cast_bolt', model: 'spell_fireball', icon: 'icon_spell_fireball', auto: false, role: 'attack',
+    amount: 35, radius: 2 * M, steps: 5 * SEC, bp: 0, vsWalls: 30, rollBp: DAMAGE_ROLL.magicBp, clip: 'cast_bolt', model: 'spell_fireball', icon: 'icon_spell_fireball', auto: false, role: 'attack',
     text: 'A lobbed fireball: 35 to what it hits and 15 to every enemy within 2 m. Three times as hard on wooden walls and buildings, 30 on stone, and wood burns 8 a second for 5 s.',
   },
   {
     id: Spell.AreaBlast, name: 'Area blast', key: 'T', school: School.Battle, rank: 4, hexcraft: false,
     mana: 50, cooldown: 15 * SEC, range: 16 * M, projectile: false, shot: -1, target: 'point', effect: 'blast',
-    amount: 45, radius: 4 * M, steps: 0, bp: 0, vsWalls: 40, clip: 'cast_area', model: 'spell_area_ring', icon: 'icon_spell_area_blast', auto: false, role: 'attack',
+    amount: 45, radius: 4 * M, steps: 0, bp: 0, vsWalls: 40, rollBp: DAMAGE_ROLL.magicBp, clip: 'cast_area', model: 'spell_area_ring', icon: 'icon_spell_area_blast', auto: false, role: 'attack',
     text: 'A ring of force: 45 damage to everything within 4 m that is not a player\'s, hostile or not. Cast on a unit, it lands where that unit is; cast on the ground, on the spot.',
   },
   {
@@ -218,7 +221,7 @@ export const SPELLS: readonly SpellSpec[] = [
   {
     id: Spell.ThornVolley, name: 'Thorn volley', key: 'T', school: School.Grove, rank: 1, hexcraft: false,
     mana: 20, cooldown: 4 * SEC, range: 20 * M, projectile: true, shot: Shot.Thorn, target: 'enemy', effect: 'thorns',
-    amount: 8, radius: 6 * M, steps: 0, bp: 5, vsWalls: 0, clip: 'cast_bolt', model: 'spell_thorn_volley', icon: 'icon_spell_thorn_volley', auto: true, role: 'grove',
+    amount: 8, radius: 6 * M, steps: 0, bp: 5, vsWalls: 0, rollBp: DAMAGE_ROLL.magicBp, clip: 'cast_bolt', model: 'spell_thorn_volley', icon: 'icon_spell_thorn_volley', auto: true, role: 'grove',
     text: 'A spray of 5 thorns of 8 at up to 5 enemies near the target; they fly like arrows and walls stop them.',
   },
   {
@@ -243,7 +246,7 @@ export const SPELLS: readonly SpellSpec[] = [
   {
     id: Spell.EnergyDart, name: 'Energy dart', key: 'D', school: School.Support, rank: 1, hexcraft: false,
     mana: 10, cooldown: 30, range: 16 * M, projectile: true, shot: Shot.EnergyDart, target: 'enemy', effect: 'bolt',
-    amount: 14, radius: 0, steps: 0, bp: 0, vsWalls: 1, clip: 'cast_bolt', model: 'energy_dart', icon: 'icon_energy_dart', auto: true, role: 'attack',
+    amount: 14, radius: 0, steps: 0, bp: 0, vsWalls: 1, rollBp: DAMAGE_ROLL.magicBp, clip: 'cast_bolt', model: 'energy_dart', icon: 'icon_energy_dart', auto: true, role: 'attack',
     text: 'An arrow made of light flies at one enemy for 14 damage (more at higher ranks). It arcs over a low wall in its way, but never steeply; trees stop it.',
   },
 ];

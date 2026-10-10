@@ -51,7 +51,7 @@ function place(s: SimState, what: number): Faction {
 
 /** A blow that kills at once, from unit `by` (or from nothing when -1), as a step would settle it. */
 function kill(s: SimState, i: number, by: number): void {
-  hurtUnit(s, i, { damage: 10_000_000, from: by >= 0 ? s.entities.id[by]! : 0, projectile: false, blunt: false, pierce: false, exact: true });
+  hurtUnit(s, i, { damage: 10_000_000, from: by >= 0 ? s.entities.id[by]! : 0, projectile: false, blunt: false, pierce: false, exact: true, roll: 0 });
   settleDeaths(s);
 }
 

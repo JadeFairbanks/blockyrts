@@ -321,6 +321,13 @@ export interface Blow {
   magic?: boolean;
   /** Patch 7 (Jade): poison that lands as a blow (a plague bearer's miasma): its number shows green. */
   poison?: boolean;
+  /**
+   * Patch 7 (Jade): how far its damage may land above or below its number,
+   * bp, from the row of what dealt it (its rollBp; rollDamage); 0 for poison,
+   * for a blow already rolled in a range, and for a share of something rolled
+   * as a whole (a Beam's step).
+   */
+  roll: number;
 }
 
 /** What kind of damage a blow does (state.ts DamageKind, Patch 7): poison, magic (a spell or other magic), or physical. */
@@ -351,9 +358,11 @@ function hitLook(state: SimState, i: number, blocked: boolean): HitLook {
  * Magic goes through all armour, a mount's too (Patch 7, Jade: "make magic
  * attacks fully ignore armor"). Returns the damage done.
  */
-export function hurtUnit(state: SimState, i: number, blow: Blow): number {
+export function hurtUnit(state: SimState, i: number, hit: Blow): number {
   const e = state.entities;
-  if (e.hp[i]! <= 0 || blow.damage <= 0) return 0;
+  if (e.hp[i]! <= 0 || hit.damage <= 0) return 0;
+  // Patch 7 (Jade): the blow's damage rolled up or down before anything takes from it.
+  const blow = hit.roll > 0 ? { ...hit, damage: rollDamage(state, hit.damage, hit.roll) } : hit;
   if (mountTakes(state, i, blow.damage)) return hurtMount(state, i, blow);
   let modifierBp = BP;
   if (e.kind[i] === UnitKind.Mob) {
@@ -450,9 +459,10 @@ function noteHitter(state: SimState, i: number, id: number): void {
   state.entities.hitters[i] = keep;
 }
 
-/** A blow lands on a building; at 0 it falls at the end of the step. */
-export function hurtBuilding(state: SimState, b: Building, damage: number, x: number, y: number, z: number): void {
-  if (damage <= 0 || b.hp <= 0) return;
+/** A blow lands on a building, rolled by `roll` bp as a blow on a unit is (Patch 7: rollDamage); at 0 it falls at the end of the step. */
+export function hurtBuilding(state: SimState, b: Building, hit: number, x: number, y: number, z: number, roll: number): void {
+  if (hit <= 0 || b.hp <= 0) return;
+  const damage = roll > 0 ? rollDamage(state, hit, roll) : hit;
   b.hp -= damage;
   state.hits.push({ look: buildingSpec(b.kind).wooden === false ? 'stone' : 'wood', x, y, z, id: b.id, dmg: damage });
   if (b.hp <= 0) {
@@ -489,6 +499,26 @@ export function wholeDamage(state: SimState, i: number, tenths: number): number 
   const rest = tenths - whole * 10;
   if (rest === 0) return whole;
   return whole + ((hash32(state.seed ^ 0x646d6774, state.entities.id[i]!, state.step) >>> 0) % 10 < rest ? 1 : 0);
+}
+
+/**
+ * Patch 7 (Jade: "make all damage randomized ... up to ~6% higher and ~6%
+ * lower"): damage rolled by up to `rollBp` either way. The roll is an even
+ * pick of a whole basis point from -rollBp to +rollBp, and the damage times
+ * it keeps whole points, the share of a point left over coming up as one
+ * more that share of the time (as wholeDamage does with tenths), so a blow
+ * of 10 at up to 6% is anywhere from 9.4 to 10.6 and lands as 9, 10 or 11,
+ * 10 on average. Never below 1. Both picks are drawn from the world's own
+ * 'damage' stream (rng.ts), the same on every machine, and no other stream
+ * moves for it.
+ */
+export function rollDamage(state: SimState, damage: number, rollBp: number): number {
+  if (rollBp <= 0 || damage <= 0) return damage;
+  const rng = state.rng.damage;
+  const scaled = damage * (BP + rng.range(-rollBp, rollBp));
+  const whole = floorDiv(scaled, BP);
+  const rest = scaled - whole * BP;
+  return Math.max(1, rest > 0 && rng.nextInt(BP) < rest ? whole + 1 : whole);
 }
 
 /** A mob's or an animal's blow held in tenths, as whole damage: a mob's strength over the nights and a command on the tenths first (dealt). */
@@ -584,7 +614,7 @@ export function landPlayerSwing(state: SimState, i: number, w: MeleeStats): void
   // A charge: double damage on everything the swing hits, and the smaller knocked back (Table 14).
   const charge = takeCharge(state, i);
   const damage = dealt(state, i, w.damage) * (charge ? 2 : 1);
-  const blow = (d: number): Blow => ({ damage: d, from: e.id[i]!, projectile: false, blunt: w.blunt, pierce: w.hit === Hit.Stab });
+  const blow = (d: number): Blow => ({ damage: d, from: e.id[i]!, projectile: false, blunt: w.blunt, pierce: w.hit === Hit.Stab, roll: w.rollBp });
   const tolerance = floorDiv(WU_PER_METRE, 2);
   const reach = { ...w, reach: w.reach + tolerance };
   if (t >= 0 && e.hp[t]! > 0 && canReach(state, i, t, reach)) {
@@ -755,15 +785,15 @@ export function settleDeaths(state: SimState): void {
   }
 }
 
-/** Units of the players and the peoples, and buildings, within a radius of a point take a blast (monster blasts never hurt monsters). */
-export function blast(state: SimState, x: number, y: number, z: number, units: { damage: number; radius: number }, buildings: { damage: number; radius: number } | null, from: number, look: HitLook = buildings ? 'blast' : 'burst'): void {
+/** Units of the players and the peoples, and buildings, within a radius of a point take a blast, each hit rolled by its rollBp (Patch 7) (monster blasts never hurt monsters). */
+export function blast(state: SimState, x: number, y: number, z: number, units: { damage: number; radius: number; rollBp: number }, buildings: { damage: number; radius: number; rollBp: number } | null, from: number, look: HitLook = buildings ? 'blast' : 'burst'): void {
   const e = state.entities;
   state.hits.push({ look, x, y, z, id: from });
   for (const j of state.grid.nearOthers(x, z, units.radius)) {
     const side = sideOf(state, j);
     if (e.hp[j]! <= 0 || (side !== Side.Players && side !== Side.Peoples)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > units.radius + halfWidth(state, j)) continue;
-    hurtUnit(state, j, { damage: units.damage, from, projectile: false, blunt: true, pierce: false });
+    hurtUnit(state, j, { damage: units.damage, from, projectile: false, blunt: true, pierce: false, roll: units.rollBp });
   }
   if (!buildings) return;
   const r = buildings.radius;
@@ -776,13 +806,13 @@ export function blast(state: SimState, x: number, y: number, z: number, units: {
     const d = length2d(dx, dz);
     if (d > r) continue;
     // Full damage where it goes off, half at the edge of the blast (s).
-    hurtBuilding(state, b, buildings.damage - floorDiv(buildings.damage * d, r * 2), x, y, z);
+    hurtBuilding(state, b, buildings.damage - floorDiv(buildings.damage * d, r * 2), x, y, z, buildings.rollBp);
   }
 }
 
-export const BURST_BLAST = { damageTenths: BURST.damageTenths, radius: BURST.radius };
-export const BOMB_UNITS = { damage: BLAST.unit, radius: BLAST.unitRadius };
-export const BOMB_BUILDINGS = { damage: BLAST.building, radius: BLAST.buildingRadius };
+export const BURST_BLAST = { damageTenths: BURST.damageTenths, radius: BURST.radius, rollBp: BURST.rollBp };
+export const BOMB_UNITS = { damage: BLAST.unit, radius: BLAST.unitRadius, rollBp: BLAST.rollBp };
+export const BOMB_BUILDINGS = { damage: BLAST.building, radius: BLAST.buildingRadius, rollBp: BLAST.rollBp };
 
 /** The alert text when a building falls; walls only say so once per few seconds. */
 export function fallText(b: Building): string {

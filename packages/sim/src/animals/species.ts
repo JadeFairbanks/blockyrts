@@ -8,7 +8,7 @@ import type { Drop, GearDrop } from '../combat/mobs.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { Band } from '../world/layout.ts';
 import { BuildingKind } from '../buildings/data.ts';
-import { CYCLE_STEPS } from '../rules.ts';
+import { CYCLE_STEPS, DAMAGE_ROLL } from '../rules.ts';
 
 export const Species = {
   Cattle: 0,
@@ -73,6 +73,8 @@ export interface SpeciesSpec {
   armourBp: number;
   /** Its bite or blow in tenths (the wolf's 15% cut in Patch 5 left a half), whole on each hit (combat/combat.ts wholeDamage). */
   damageTenths: number;
+  /** Patch 7 (Jade): how far its bite or blow may land above or below its number, bp (rules.ts DAMAGE_ROLL); its venom never rolls. */
+  rollBp: number;
   attackSteps: number;
   reach: number;
   /** Walking (grazing) and running speed, wu per step; swimming speed for crocodiles. */
@@ -143,9 +145,9 @@ const OLD_BREED_STEPS = 10 * CYCLE_STEPS;
 const PREY_BREED_STEPS = floorDiv(OLD_BREED_STEPS * 2, 3);
 
 type Base = Omit<SpeciesSpec, 'id'>;
-const defaults: Pick<SpeciesSpec, 'youngVariant' | 'armourBp' | 'swim' | 'extra' | 'groupMin' | 'groupMax' | 'tameFood' | 'tameFoods' | 'tameAt' | 'breedSteps' | 'upkeep' | 'barnFeed' | 'cartTenthsLb' | 'cartSpeed' | 'packTenthsLb' | 'guard' | 'chase' | 'roam' | 'venom' | 'loot' | 'gear'> = {
+const defaults: Pick<SpeciesSpec, 'youngVariant' | 'armourBp' | 'swim' | 'extra' | 'groupMin' | 'groupMax' | 'tameFood' | 'tameFoods' | 'tameAt' | 'breedSteps' | 'upkeep' | 'barnFeed' | 'cartTenthsLb' | 'cartSpeed' | 'packTenthsLb' | 'guard' | 'chase' | 'roam' | 'venom' | 'loot' | 'gear' | 'rollBp'> = {
   youngVariant: '', armourBp: 0, swim: 0, extra: [], groupMin: 2, groupMax: 2, tameFood: 0, tameFoods: [], tameAt: [], breedSteps: 0, upkeep: 0, barnFeed: 0, cartTenthsLb: 0, cartSpeed: 0, packTenthsLb: 0,
-  guard: 0, chase: 0, roam: 0, venom: 0, loot: [], gear: [],
+  guard: 0, chase: 0, roam: 0, venom: 0, loot: [], gear: [], rollBp: DAMAGE_ROLL.physicalBp,
 };
 const sp = (o: Partial<Base> & Pick<Base, 'name' | 'model' | 'nature' | 'hp' | 'damageTenths' | 'attackSteps' | 'reach' | 'walk' | 'run' | 'halfWidth' | 'height' | 'meat' | 'bands' | 'perCell'>): Base => ({ ...defaults, ...o });
 

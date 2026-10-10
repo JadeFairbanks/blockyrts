@@ -17,6 +17,18 @@ export function totalArmourBp(piecesBp: readonly number[]): number {
   return Math.min(ARMOUR_CAP_BP, Math.max(0, sum));
 }
 
+/**
+ * Patch 7 (Jade, 03:33 UTC 2026-10-10: "make all damage randomized, except
+ * from poison ... up to ~6% higher and ~6% lower ... except magic which only
+ * has 3% upper and lower bounds ... don't hard code in the 6 and 3, those are
+ * just starting values"): the starting damage rolls, bp. Every damage source
+ * carries its own (its rollBp) to tune on its own after playtesting; these
+ * only fill the rows that were not set by hand. Poison never rolls, and the
+ * blows that already fell anywhere in a range (a mob's damageMaxTenths, the
+ * Great White Ape's thunder) keep 0.
+ */
+export const DAMAGE_ROLL = { physicalBp: 600, magicBp: 300 } as const;
+
 export interface HitInput {
   /** Raw damage of the attack, an integer. */
   damage: number;

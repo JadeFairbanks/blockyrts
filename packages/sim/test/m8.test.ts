@@ -169,9 +169,15 @@ describe('riding and charges (Table 14)', () => {
     runUntil(s, () => e.hp[e.indexOf(zid)]! < now, 10 * SEC);
     const second = now - e.hp[e.indexOf(zid)]!;
     // Both blows land at the spear's outer third of reach, a critical (+30%, Troops and gear): the charge doubles the blow before it.
+    // Each blow then rolls up or down by at most the spear's damage roll (Patch 7).
     const crit = (d: number): number => Math.floor((d * (100 + CRIT.bonusPct)) / 100);
-    expect(second).toBe(crit(LONG_KITS[1]!.damage));
-    expect(first).toBe(crit(2 * LONG_KITS[1]!.damage));
+    const rolled = (d: number): [number, number] => [Math.floor((d * (10000 - LONG_KITS[1]!.rollBp)) / 10000), Math.ceil((d * (10000 + LONG_KITS[1]!.rollBp)) / 10000)];
+    const [lo2, hi2] = rolled(crit(LONG_KITS[1]!.damage));
+    const [lo1, hi1] = rolled(crit(2 * LONG_KITS[1]!.damage));
+    expect(second).toBeGreaterThanOrEqual(lo2);
+    expect(second).toBeLessThanOrEqual(hi2);
+    expect(first).toBeGreaterThanOrEqual(lo1);
+    expect(first).toBeLessThanOrEqual(hi1);
   });
 
   it('a blow on a rider lands on the horse while the horse has the more health', () => {

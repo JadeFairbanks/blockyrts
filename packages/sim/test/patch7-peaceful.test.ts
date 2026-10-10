@@ -114,7 +114,7 @@ describe('the Great White Ape at peace', () => {
     const zid = e.id[z]!;
     const f = addWarrior(s, 0, e.x[ape()]! - 5 * M, e.z[ape()]!, Troop.Ranger, 3);
     const full = e.hp[ape()]!;
-    fireAt(s, f, e.x[f]!, e.y[f]! + M, e.z[f]!, z, Shot.Arrow, 20, 0, 0);
+    fireAt(s, f, e.x[f]!, e.y[f]! + M, e.z[f]!, z, Shot.Arrow, 20, 0, 0, 0);
     run(s, 2 * SEC, () => s.projectiles.length === 0);
     expect(s.projectiles.length).toBe(0);
     expect(e.hp[ape()]).toBe(full);
@@ -122,7 +122,7 @@ describe('the Great White Ape at peace', () => {
     expect(r.mode).not.toBe(EncounterMode.Fighting);
     expect(e.attacker[e.indexOf(zid)]).toBe(e.id[f]);
     // Shot at him on purpose, the arrow strikes: he rages at that player, and their troops may fight him.
-    fireAt(s, f, e.x[f]!, e.y[f]! + M, e.z[f]!, ape(), Shot.Arrow, 20, 0, 0);
+    fireAt(s, f, e.x[f]!, e.y[f]! + M, e.z[f]!, ape(), Shot.Arrow, 20, 0, 0, 0);
     run(s, 2 * SEC, () => s.projectiles.length === 0);
     expect(e.hp[ape()]).toBeLessThan(full);
     expect(r.foes & 1).toBe(1);

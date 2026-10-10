@@ -176,7 +176,7 @@ export const shotHooks: { hit: (state: SimState, shot: number, shooter: number, 
  * it when the shot gets there), plus a random miss up to the spread share
  * of the distance, less 10% a rank for the players' units.
  */
-export function fireAt(state: SimState, shooter: number, fromX: number, fromY: number, fromZ: number, t: number, shot: number, damage: number, spreadBp: number, flags: number): void {
+export function fireAt(state: SimState, shooter: number, fromX: number, fromY: number, fromZ: number, t: number, shot: number, damage: number, roll: number, spreadBp: number, flags: number): void {
   const e = state.entities;
   let ax = e.x[t]!;
   let az = e.z[t]!;
@@ -225,16 +225,16 @@ export function fireAt(state: SimState, shooter: number, fromX: number, fromY: n
     ax += ox;
     az += oz;
   }
-  launch(state, shooter, fromX, fromY, fromZ, ax, ay, az, shot, damage, flags, clearLob(state, shot, fromX, fromY, fromZ, ax, ay, az, false), e.id[t]!);
+  launch(state, shooter, fromX, fromY, fromZ, ax, ay, az, shot, damage, roll, flags, clearLob(state, shot, fromX, fromY, fromZ, ax, ay, az, false), e.id[t]!);
 }
 
-/** Puts a shot in the air from one point to another; `mark` is the unit it was aimed at, which it may hit whatever its side (0 for none). */
-export function launch(state: SimState, shooter: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, shot: number, damage: number, flags: number, lobPct = 100, mark = 0): void {
+/** Puts a shot in the air from one point to another, its damage rolled by `roll` bp on what it hits (Patch 7); `mark` is the unit it was aimed at, which it may hit whatever its side (0 for none). */
+export function launch(state: SimState, shooter: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, shot: number, damage: number, roll: number, flags: number, lobPct = 100, mark = 0): void {
   const e = state.entities;
   const s = solve(shot, x0, y0, z0, x1, y1, z1, lobPct);
   state.projectiles.push({
     shot, side: sideOf(state, shooter), shooter: e.id[shooter]!, owner: e.owner[shooter]!, faction: e.owner[shooter] === PEOPLES ? e.group[shooter]! : 0,
-    x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage, flags, mark,
+    x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage, roll, flags, mark,
   });
   state.hits.push({ look: 'shot', x: x0, y: y0, z: z0, id: e.id[shooter]!, shot });
 }
@@ -277,7 +277,7 @@ function lobsFor(shot: number, x0: number, z0: number, x1: number, z1: number): 
 
 function clearPath(state: SimState, shot: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, lob: number, ownOnly: boolean): boolean {
   const s = solve(shot, x0, y0, z0, x1, y1, z1, lob);
-  const p: Projectile = { shot, side: 0, shooter: 0, owner: 0, faction: 0, x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage: 0, flags: 0, mark: 0 };
+  const p: Projectile = { shot, side: 0, shooter: 0, owner: 0, faction: 0, x0, y0, z0, vx: s.vx, vy: s.vy, vz: s.vz, age: 0, damage: 0, roll: 0, flags: 0, mark: 0 };
   const startBuilding = state.buildings.solidAt(floorDiv(x0, WU_PER_COLUMN), floorDiv(z0, WU_PER_COLUMN));
   const endBuilding = state.buildings.solidAt(floorDiv(x1, WU_PER_COLUMN), floorDiv(z1, WU_PER_COLUMN));
   for (let k = 0; k < s.t; k++) {
@@ -380,7 +380,7 @@ export function updateProjectiles(state: SimState): void {
         } else {
           const spell = (p.flags & ProjectileFlag.Spell) !== 0;
           const damage = p.flags & ProjectileFlag.Siege && e.kind[hit] === UnitKind.Mob && isStructure(e.mob[hit]!) ? SHOTS[p.shot]!.vsWalls : p.damage;
-          hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell, magic: magicShot(p), ...(p.flags & ProjectileFlag.Sunder ? { armourCutBp: FAR_SIGHT.armourCutBp } : {}) });
+          hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell, magic: magicShot(p), roll: p.roll, ...(p.flags & ProjectileFlag.Sunder ? { armourCutBp: FAR_SIGHT.armourCutBp } : {}) });
           if (p.flags & ProjectileFlag.Pierce) pierceOn(state, p, hit);
           if (p.flags & ProjectileFlag.Venom) envenom(state, hit, p.shooter);
           shotHooks.hit(state, p.shot, p.shooter, hit);
@@ -403,7 +403,7 @@ export function updateProjectiles(state: SimState): void {
           }
           const sp = SHOTS[p.shot]!;
           const wooden = buildingSpec(b.kind).wooden !== false;
-          hurtBuilding(state, b, wooden && sp.vsWoodBp ? floorDiv(sp.vsWalls * sp.vsWoodBp, 10000) : sp.vsWalls, x, y, z);
+          hurtBuilding(state, b, wooden && sp.vsWoodBp ? floorDiv(sp.vsWalls * sp.vsWoodBp, 10000) : sp.vsWalls, x, y, z, p.roll);
           // A fire bolt sets dry wood smouldering (Table 17: Spark toss).
           if (p.flags & ProjectileFlag.Fire && p.side !== Side.Players) smoulder(state, b, SPARK.smoulderPerSecond, SPARK.smoulderSteps);
           splash(state, p, x, y, z, -1);
@@ -457,7 +457,7 @@ function splash(state: SimState, p: Projectile, x: number, y: number, z: number,
   for (const j of state.grid.near(x, z, r + 2 * WU_PER_METRE)) {
     if (j === struck || e.hp[j]! <= 0 || e.inside[j] !== 0 || !shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > r + halfWidth(state, j)) continue;
-    hurtUnit(state, j, { damage: sp.splash, from: p.shooter, projectile: false, blunt: true, pierce: false, magic: magicShot(p) });
+    hurtUnit(state, j, { damage: sp.splash, from: p.shooter, projectile: false, blunt: true, pierce: false, magic: magicShot(p), roll: p.roll });
   }
   if (!sp.ignite || p.side === Side.Players) return;
   for (const b of state.buildings.list) {
@@ -489,5 +489,5 @@ function pierceOn(state: SimState, p: Projectile, hit: number): void {
       bestD = along;
     }
   }
-  if (best >= 0) hurtUnit(state, best, { damage: p.damage, from: p.shooter, projectile: true, blunt: false, pierce: true });
+  if (best >= 0) hurtUnit(state, best, { damage: p.damage, from: p.shooter, projectile: true, blunt: false, pierce: true, roll: p.roll });
 }

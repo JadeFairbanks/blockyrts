@@ -5,6 +5,7 @@
 
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { Shot } from '../combat/items.ts';
+import { DAMAGE_ROLL } from '../rules.ts';
 
 /** What a unit rides (the entity's mount field): nothing, a player's horse, or one of the foes' or peoples' mounts. */
 export const Mount = { None: 0, Horse: 1, WarOx: 2, Wolf: 3, Bear: 4 } as const;
@@ -21,6 +22,8 @@ export interface MountAttack {
   /** A shot (the war ox's rear rider), or -1 for a melee attack. */
   shot: number;
   spreadBp: number;
+  /** Patch 7 (Jade): how far its damage may land above or below its number, bp (rules.ts DAMAGE_ROLL). */
+  rollBp: number;
 }
 
 export interface MountSpec {
@@ -63,16 +66,16 @@ export const MOUNTS: readonly MountSpec[] = [
   {
     id: Mount.WarOx, name: 'Halfling war ox', model: 'halfling_war_ox', hp: 250, armourBp: 1000, shoulderCm: 150, heightCm: 200, walk: v10(15), trot: v10(35), gallop: v10(50), chargeRun: cm(800), species: -1,
     // The rear rider's shortbow, fired while the ox moves: 1.5 s slower and missing by at most 3%, as every bow (Patch 7, Jade).
-    attack: { damage: 12, attackSteps: ds(35), reach: cm(2000), arc: false, shot: Shot.Arrow, spreadBp: 300 },
+    attack: { damage: 12, attackSteps: ds(35), reach: cm(2000), arc: false, shot: Shot.Arrow, spreadBp: 300, rollBp: DAMAGE_ROLL.physicalBp },
   },
   {
     id: Mount.Wolf, name: 'Goblin wolf', model: 'goblin_wolf', hp: 70, armourBp: 0, shoulderCm: 90, heightCm: 120, walk: v10(20), trot: v10(40), gallop: v10(55), chargeRun: cm(500), species: -1,
     // Roster 6.3: wolf bite 10 (s: once a second).
-    attack: { damage: 10, attackSteps: ds(10), reach: cm(150), arc: false, shot: -1, spreadBp: 0 },
+    attack: { damage: 10, attackSteps: ds(10), reach: cm(150), arc: false, shot: -1, spreadBp: 0, rollBp: DAMAGE_ROLL.physicalBp },
   },
   {
     id: Mount.Bear, name: 'Elf war bear', model: 'elf_war_bear', hp: 400, armourBp: 1500, shoulderCm: 150, heightCm: 220, walk: v10(15), trot: v10(40), gallop: v10(60), chargeRun: cm(600), species: -1,
-    attack: { damage: 25, attackSteps: ds(15), reach: cm(200), arc: true, shot: -1, spreadBp: 0 },
+    attack: { damage: 25, attackSteps: ds(15), reach: cm(200), arc: true, shot: -1, spreadBp: 0, rollBp: DAMAGE_ROLL.physicalBp },
   },
 ];
 

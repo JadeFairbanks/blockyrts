@@ -75,11 +75,11 @@ function onMobDeath(state: SimState, i: number, taker: number): void {
   switch (spec.id) {
     case Mob.BloatedCorpse:
       // Bursts, even when the sun killed it.
-      blast(state, x, e.y[i]! + WU_PER_METRE, z, { damage: wholeDamage(state, i, BURST_BLAST.damageTenths), radius: BURST_BLAST.radius }, null, e.id[i]!);
+      blast(state, x, e.y[i]! + WU_PER_METRE, z, { damage: wholeDamage(state, i, BURST_BLAST.damageTenths), radius: BURST_BLAST.radius, rollBp: BURST_BLAST.rollBp }, null, e.id[i]!);
       break;
     case Mob.BombKeg:
       // A loose bomb that is hit goes off at once.
-      if (e.fuseAt[i] !== 1) blast(state, x, e.y[i]! + WU_PER_METRE, z, { damage: BLAST.unit, radius: BLAST.unitRadius }, { damage: BLAST.building, radius: BLAST.buildingRadius }, e.id[i]!);
+      if (e.fuseAt[i] !== 1) blast(state, x, e.y[i]! + WU_PER_METRE, z, { damage: BLAST.unit, radius: BLAST.unitRadius, rollBp: BLAST.rollBp }, { damage: BLAST.building, radius: BLAST.buildingRadius, rollBp: BLAST.rollBp }, e.id[i]!);
       break;
   }
 }

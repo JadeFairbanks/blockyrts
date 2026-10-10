@@ -333,7 +333,7 @@ describe('guards', () => {
     run(s, 1);
     const w = own(s, UnitKind.Worker)[0]!;
     const z = addMob(s, Mob.Zombie, 0, e.x[w]! + 2 * M, e.z[w]!, 0);
-    hurtUnit(s, w, { damage: 1, from: e.id[z]!, projectile: false, blunt: false, pierce: false });
+    hurtUnit(s, w, { damage: 1, from: e.id[z]!, projectile: false, blunt: false, pierce: false, roll: 0 });
     const lines = speech(s.events).filter((ev) => GUARD_LINES.includes(ev.text));
     expect(lines.length).toBe(1);
     const guards = own(s, UnitKind.Warrior).filter((i) => e.target[i] === e.id[z]);

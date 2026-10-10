@@ -75,7 +75,7 @@ function fresh(s: SimState): void {
 }
 
 function hit(s: SimState, mob: number, by: number): void {
-  hurtUnit(s, mob, { damage: 1, from: s.entities.id[by]!, projectile: true, blunt: false, pierce: true });
+  hurtUnit(s, mob, { damage: 1, from: s.entities.id[by]!, projectile: true, blunt: false, pierce: true, roll: 0 });
 }
 
 function targetOf(s: SimState, i: number): number {

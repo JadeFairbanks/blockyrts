@@ -110,7 +110,7 @@ function bring(s: SimState, i: number, f: Faction, dx = 6): void {
 
 /** A player's unit kills some of the peoples, as a blow in a step would (the events stay to be read). */
 function kill(s: SimState, list: readonly number[], by: number): void {
-  for (const i of list) hurtUnit(s, i, { damage: 100000, from: s.entities.id[by]!, projectile: false, blunt: false, pierce: false, exact: true });
+  for (const i of list) hurtUnit(s, i, { damage: 100000, from: s.entities.id[by]!, projectile: false, blunt: false, pierce: false, exact: true, roll: 0 });
   settleDeaths(s);
 }
 

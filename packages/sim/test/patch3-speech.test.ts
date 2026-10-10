@@ -79,7 +79,7 @@ function plainWorld(): SimState {
 }
 
 function hit(s: SimState, i: number, from: number): void {
-  hurtUnit(s, i, { damage: 1, from: s.entities.id[from]!, projectile: false, blunt: false, pierce: false });
+  hurtUnit(s, i, { damage: 1, from: s.entities.id[from]!, projectile: false, blunt: false, pierce: false, roll: 0 });
 }
 
 describe("under attack (Jade's Patch 3: say what by)", () => {
