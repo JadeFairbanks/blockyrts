@@ -111,6 +111,7 @@ import {
 import { barnOf, cloaked, crewOf, encounterRuns, graveNow, haulerOf, isCrystalGuardian, isRisen, isWoodsman, keeperRuns, keeperWarns, menOnTop, rootedNow, Mount, mountSpec, onTop, platformCrew, platformEngine, topRoom, woodsmanLedger } from '@blockyrts/sim';
 import { OrderKind, PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, PROSPECT_TOOL_TIER, PropShape, propInfo } from '@blockyrts/sim';
 import { peoplesInfo } from './peoples-info.ts';
+import { struckOwn } from './hud/attack-pings.ts';
 import { S, SHOT_STRIDE, SpellOn, STATE_STRIDE, Task, UnitFlag, type BuildingInfo, type FarmInfo, type FromWorker, type TavernPanel, type ToWorker } from './messages.ts';
 import { threatMarks } from './minimap/marks.ts';
 import { GroundCache } from './world/ground-under.ts';
@@ -140,6 +141,8 @@ let events: SimEvent[] = [];
 const openedChests: number[] = [];
 /** Hits since the last state post. */
 let hits: HitEvent[] = [];
+/** Mini patch 7.3: blows on this player's units since the last state message (x, z wu pairs). */
+let struck: number[] = [];
 /** Paused: alone from the menu, online by the relay (a player missing, a manual pause, a reload). */
 let paused = false;
 /**
@@ -324,7 +327,9 @@ function postState(s: SimState): void {
   });
   const out = hits;
   hits = [];
-  send({ type: 'state', step: s.step, hash: lastHash, hashStep: lastHashStep, count: e.count, data, shots, hits: out }, [data.buffer, shots.buffer]);
+  const blows = struck;
+  struck = [];
+  send({ type: 'state', step: s.step, hash: lastHash, hashStep: lastHashStep, count: e.count, data, shots, hits: out, struck: blows }, [data.buffer, shots.buffer]);
 }
 
 /** A farm's next harvest for the panel's progress bar, or null. */
@@ -585,6 +590,7 @@ function runStep(s: SimState, orders: Order[]): void {
     if (ev.chest !== undefined && ev.player === PLAYER && !openedChests.includes(ev.chest)) openedChests.push(ev.chest);
   }
   for (const h of s.hits) hits.push(h);
+  struckOwn(s, PLAYER, struck);
   postState(s);
   // Autosave at every dawn (Saving and disconnects): the same bytes on every machine.
   if (periodStarting(s.step - 1) === Period.Dawn) {
@@ -698,6 +704,7 @@ function begin(s: SimState): void {
   pending = [];
   events = [];
   hits = [];
+  struck = [];
   waitingOn = '';
   postState(s);
   postWorld(s, true);
