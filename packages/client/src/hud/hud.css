@@ -1760,7 +1760,8 @@ body.playing.touch .hud {
 .hud-btn.autocast {
   box-shadow: inset 0 0 8px rgba(150, 120, 255, 0.55);
 }
-.hud-btn.autocast::before {
+.hud-btn.autocast::before,
+.hud-btn.autoloop::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -1792,6 +1793,23 @@ body.playing.touch .hud {
     --spin: 360deg;
   }
 }
+/* Mini patch 7.3 (Jade): auto hunt, auto gather and the woodsman's fishing
+   and foraging by himself wear the autocast ring in yellow. */
+.hud-btn.autoloop {
+  box-shadow: inset 0 0 8px rgba(255, 210, 70, 0.55);
+}
+.hud-btn.autoloop::before {
+  background: conic-gradient(
+    from var(--spin),
+    transparent 0deg 110deg,
+    rgba(255, 196, 40, 0.95) 150deg,
+    #fff8dc 176deg,
+    transparent 180deg 290deg,
+    rgba(255, 228, 90, 0.95) 330deg,
+    #fff8dc 356deg,
+    transparent 360deg
+  );
+}
 
 /* Patch 5 (VX-9): a spell's cooldown. Cast, the button goes dark; a clock
    hand sweeps round from twelve and takes the dark off until it is ready.
@@ -1817,6 +1835,10 @@ body.playing.touch .hud {
   .hud-btn.autocast::before {
     animation: none;
     background: rgba(170, 140, 255, 0.95);
+  }
+  .hud-btn.autoloop::before {
+    animation: none;
+    background: rgba(255, 210, 70, 0.95);
   }
 }
 

@@ -184,7 +184,8 @@ describe('the mage card', () => {
 
   it('trains support and battle mages at the Sanctum on S and M', () => {
     const products: Array<[number, string]> = [[Product.SupportMage, ''], [Product.BattleMage, '']];
-    const g = game({ buildings: [building(21, BuildingKind.MagiSanctum, { products })] });
+    // Mini patch 7.3: the button checks the stock pays for her wand and robe too, so the stock holds some of every good.
+    const g = game({ buildings: [building(21, BuildingKind.MagiSanctum, { products })], pool: Array.from({ length: RESOURCE_COUNT }, (_, r): [number, number] => [r, 50]) });
     const { c, sent } = harness(g, [{ ...sel('b:21', 'building'), kind: 'building' }], `building:${BuildingKind.MagiSanctum}:0`);
     const card = c.card();
     expect(card[0]!.name).toBe('Support mage');
