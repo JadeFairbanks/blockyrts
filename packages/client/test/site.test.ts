@@ -1,10 +1,10 @@
 // The site's version line, and its search and preview pieces: the site is a
-// learning project behind a sign-in box (site-gate.test.ts; deploy/README.md).
+// co-op survival open world RTS behind a sign-in box (site-gate.test.ts; deploy/README.md).
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { deployVersion, fromTenths, toTenths } from '../../../deploy/scripts/game-version.ts';
 import file from '../../../version.json';
-import { robotsTxt, SITE_DESCRIPTION, SITE_IMAGE, siteHead, sitemapXml, sitePlugin, siteUrl } from '../site.ts';
+import { robotsTxt, SITE_ABOUT, SITE_DESCRIPTION, SITE_GENRES, SITE_HEADLINE, SITE_IMAGE, siteHead, sitemapXml, sitePlugin, siteUrl } from '../site.ts';
 
 const read = (path: string): string => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -71,13 +71,18 @@ describe('site', () => {
     ]);
   });
 
-  it('calls the site a learning project in the page for search engines and link previews, and nowhere a game', () => {
+  it('presents the game as a co-op survival open world RTS to search engines and link previews', () => {
     const html = read('../index.html');
     expect(html).not.toMatch(/noindex/);
-    expect(SITE_DESCRIPTION).toBe('Survive and Conquer is a learning project.');
-    expect(html).toContain('<title>Survive and Conquer: a learning project</title>');
+    expect(SITE_HEADLINE).toBe('Survive and Conquer: Co-op Survival Open World RTS');
+    expect(SITE_DESCRIPTION).toMatch(/co-op survival open world RTS/);
+    // Search results cut descriptions at about 160 characters.
+    expect(SITE_DESCRIPTION.length).toBeLessThanOrEqual(160);
+    expect(html).toContain(`<title>${SITE_HEADLINE}</title>`);
+    for (const name of ['og:title', 'twitter:title']) expect(html).toContain(`"${name}" content="${SITE_HEADLINE}"`);
+    expect(html).toContain(`<p>${SITE_ABOUT}</p>`);
     for (const name of ['description', 'og:description', 'twitter:description']) expect(html).toContain(`"${name}" content="${SITE_DESCRIPTION}"`);
-    expect(html).not.toMatch(/game/i);
+    expect(html).not.toMatch(/learning project/i);
     expect(html).toContain('<noscript>');
     expect(html).toContain('href="/favicon.svg"');
     expect(existsSync(new URL(`../public${SITE_IMAGE}`, import.meta.url))).toBe(true);
@@ -94,9 +99,8 @@ describe('site', () => {
     const head = siteHead('https://play.example.com');
     expect(head).toContain('<link rel="canonical" href="https://play.example.com/" />');
     expect(head).toContain(`content="https://play.example.com${SITE_IMAGE}"`);
-    expect(head).not.toMatch(/game/i);
     const json = /<script type="application\/ld\+json">(.*)<\/script>/.exec(head)?.[1];
-    expect(JSON.parse(json ?? '')).toEqual({ '@context': 'https://schema.org', '@type': 'WebSite', name: 'Survive and Conquer', description: SITE_DESCRIPTION, url: 'https://play.example.com/' });
+    expect(JSON.parse(json ?? '')).toEqual({ '@context': 'https://schema.org', '@type': 'VideoGame', name: 'Survive and Conquer', description: SITE_DESCRIPTION, url: 'https://play.example.com/', genre: SITE_GENRES, playMode: ['SinglePlayer', 'CoOp'], numberOfPlayers: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 8 }, gamePlatform: 'Web browser', applicationCategory: 'GameApplication' });
   });
 
   it('writes robots.txt alone beside index.html in a build without an address', () => {

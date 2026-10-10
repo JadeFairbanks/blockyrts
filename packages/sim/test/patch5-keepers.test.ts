@@ -351,15 +351,22 @@ describe('what the keepers drop (MB-11, MF-6, MF-11)', () => {
       expect(items.filter(([r]) => r === Res.Emeralds || r === Res.Rubies || r === Res.Diamonds).length).toBeLessThanOrEqual(1);
       expect(items.find(([r]) => r === Res.BogPear)?.[1]).toBe(1);
     }
-    const mage = new Set<number>([...WAND_KITS, ...ROBE_KITS].filter((k) => k.tier > 0).flatMap((k) => k.items));
-    for (let n = 0; n < 100; n++) {
+    // Patch 7: a quarter of her magical items are her own star wand or robe.
+    const own = new Set<number>([Res.FaeStarWand, Res.FaeGuardianRobe]);
+    const mage = new Set<number>([...[...WAND_KITS, ...ROBE_KITS].filter((k) => k.tier > 0).flatMap((k) => k.items), ...own]);
+    let owns = 0;
+    for (let n = 0; n < 400; n++) {
       const items = keeperLoot(s, Mob.FaeGuardianAloft)!.items;
       expect(items.filter(([r]) => mage.has(r)).length).toBe(1);
+      if (items.some(([r]) => own.has(r))) owns++;
       const crystals = items.find(([r]) => r === Res.ManaCrystal)![1];
       expect(crystals).toBeGreaterThanOrEqual(2);
       expect(crystals).toBeLessThanOrEqual(5);
       expect(items.some(([r]) => r === Res.BlackBerries || r === Res.Raspberries || r === Res.Blueberries)).toBe(true);
     }
+    // 100 of 400 on average.
+    expect(owns).toBeGreaterThan(65);
+    expect(owns).toBeLessThan(135);
     expect(keeperLoot(s, Mob.Zombie)).toBeNull();
   });
 });

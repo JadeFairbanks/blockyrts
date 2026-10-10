@@ -705,12 +705,19 @@ const GEMS: readonly Res[] = [Res.Emeralds, Res.Rubies, Res.Diamonds];
 /** MF-6's food (s): wild berries. */
 const FAE_FOOD: readonly Res[] = [Res.BlackBerries, Res.Raspberries, Res.Blueberries];
 
-/** Their drops (s where Jade gave no number), in blueprint/patch5-mobs-picks.md. */
+/**
+ * Their drops (s where Jade gave no number), in blueprint/patch5-mobs-picks.md.
+ * Patch 7: the Bog guardian's club, half the time, is his row's gear (combat/mobs.ts).
+ */
 export const KEEPER_LOOT = {
   /** Jade's answer 4 (decisions): "4-10 sets of bronze to iron armour, 10-15 silver ingots, 0-2 gold ingots, a bog pear, 3-10 assorted weapons of tier 3-5, and 0-1 random gemstones". */
   bog: { armourMin: 4, armourMax: 10, armourLow: 4, armourHigh: 6, silverMin: 10, silverMax: 15, goldMax: 2, weaponsMin: 3, weaponsMax: 10, weaponLow: 3, weaponHigh: 5, gemPm: 500 },
-  /** MF-6 and MF-11: trinkets, mid level weapons and/or armour, food, 2 to 5 mana crystals, and one wand or robe of any tier. */
-  fae: { trinketsMin: 1, trinketsMax: 2, gearMin: 1, gearMax: 2, gearLow: 3, gearHigh: 5, foodMin: 3, foodMax: 6, crystalsMin: 2, crystalsMax: 5 },
+  /**
+   * MF-6 and MF-11: trinkets, mid level weapons and/or armour, food, 2 to 5 mana crystals, and one wand or robe of any tier;
+   * Patch 7: that wand or robe is her own (the Fae star wand or her robe) this share of the time, per mille (Jade: "only if
+   * the luck to get a magical item has already been hit, then there is 25% chance of it being one of her items").
+   */
+  fae: { trinketsMin: 1, trinketsMax: 2, gearMin: 1, gearMax: 2, gearLow: 3, gearHigh: 5, foodMin: 3, foodMax: 6, crystalsMin: 2, crystalsMax: 5, ownPm: 250 },
 } as const;
 
 /** A keeper's drops on the 'combat' stream, or null for any other mob (combat/deaths.ts). */
@@ -735,8 +742,9 @@ export function keeperLoot(state: SimState, mob: number): Rolled | null {
     for (let n = roll(l.gearMin, l.gearMax); n > 0; n--) out.items.push(...necromancerHooks.gear(state, roll(l.gearLow, l.gearHigh), rng.nextInt(2) === 1));
     out.items.push([FAE_FOOD[rng.nextInt(FAE_FOOD.length)]!, roll(l.foodMin, l.foodMax)]);
     out.items.push([Res.ManaCrystal, roll(l.crystalsMin, l.crystalsMax)]);
-    const tier = roll(1, TOP_MAGE_TIER);
-    const item = (rng.nextInt(2) === 1 ? ROBE_KITS : WAND_KITS)[tier]!.items[0];
+    const robe = rng.nextInt(2) === 1;
+    const own = rng.nextInt(1000) < l.ownPm;
+    const item = own ? (robe ? Res.FaeGuardianRobe : Res.FaeStarWand) : (robe ? ROBE_KITS : WAND_KITS)[roll(1, TOP_MAGE_TIER)]!.items[0];
     if (item !== undefined) out.items.push([item, 1]);
     return out;
   }
@@ -753,6 +761,17 @@ export function keeperRuns(state: SimState, i: number): boolean {
   if (!k) return false;
   if (k.kind === KeeperKind.Fae) return k.mode === KeeperMode.Defending || k.mode === KeeperMode.Wrath;
   return k.mode === KeeperMode.Angry || k.mode === KeeperMode.Pleading || k.mode === KeeperMode.War;
+}
+
+/**
+ * Whether a keeper is at peace with the players (combat/combat.ts atPeace,
+ * installed by threats/foes.ts): calm, asking or pleading it is after no one,
+ * so their units leave it be; angry, at war, defending or wrathful it is
+ * every player's foe.
+ */
+export function keeperAtPeace(state: SimState, i: number): boolean {
+  const k = keeperOf(state, state.entities.id[i]!);
+  return k !== undefined && (k.mode === KeeperMode.Calm || k.mode === KeeperMode.Asking || k.mode === KeeperMode.Pleading);
 }
 
 /** Whether a keeper's tooltip warns (MB-12, MF-12): the Bog guardian's always (the client stops it after 10 s), the Fae Guardian's until she is riled. */
