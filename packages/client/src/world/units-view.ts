@@ -1008,6 +1008,8 @@ export class UnitsView {
   private readonly matedAt = new Map<number, number>();
   /** The woodsmen drawn last frame, by entity id: one who dies lies on his own body. */
   private readonly woodsmen = new Set<number>();
+  /** The Dreadnoughts drawn last frame holding a weapon other than his mace (Patch 7), by entity id: one who dies falls without the mace. */
+  private readonly dreadArmed = new Set<number>();
   /** The risen skeleton archers drawn (Patch 7), by id: their player's colour, for the tint they fall in. */
   private readonly risen = new Map<number, THREE.Color | null>();
   /** Each entity's record offset in this frame's state, by id: a hauling animal finds its worker's cart and load. */
@@ -1319,13 +1321,13 @@ export class UnitsView {
       if (!seen(x, z)) continue;
       // An animal leaves a carcass where it fell, drawn with the props.
       if (h.look === 'death' && h.kind !== undefined && h.kind !== UnitKind.Animal) {
-        // The Dreadnought falls as himself, with his mace (Patch 5).
+        // The Dreadnought falls as himself, with his mace (Patch 5) unless he held another weapon (Patch 7).
         const dread = h.kind === UnitKind.Warrior && h.troop === Troop.Dreadnought;
         // A risen skeleton archer falls as the skeleton it is, in its tint (Patch 7).
         const risen = this.risen.has(h.id);
         const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : risen ? RISEN_MODEL : dread ? DREADNOUGHT_MODEL : h.kind === UnitKind.Warrior ? (this.woodsmen.has(h.id) ? 'woodsman' : 'warrior') : h.kind === UnitKind.Mage ? 'mage' : 'worker';
         const mob = h.kind === UnitKind.Mob ? (h.mob ?? 0) : risen ? Mob.SkeletonArcher : -1;
-        this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob, ...(dread ? { parts: DREADNOUGHT_PARTS } : {}), ...(risen ? { risen: this.risen.get(h.id) ?? null } : {}) });
+        this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob, ...(dread ? { parts: this.dreadArmed.has(h.id) ? [] : DREADNOUGHT_PARTS } : {}), ...(risen ? { risen: this.risen.get(h.id) ?? null } : {}) });
         this.risen.delete(h.id);
       }
       if (h.look === 'sweep') this.crescents.spawn(x, y, z, ((h.heading ?? 0) / 65536) * Math.PI * 2, now);
@@ -1631,6 +1633,8 @@ export class UnitsView {
       const caught = this.caughtAt.get(id);
       const c: LookContext = { time: clipT, moving, sinceShot: shot === undefined ? -1 : (now - shot) / 1000, hold: inCart ? '' : load.hold, sinceCatch: caught === undefined ? -1 : (now - caught) / 1000 };
       const look: Look = dread ? dreadnoughtLook(d[o + S.weapon]!) : woodsman ? woodsmanLook(d, o, body, c) : kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
+      if (dread && look.attach.length > 0) this.dreadArmed.add(id);
+      else this.dreadArmed.delete(id);
       const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : colour;
       let drawn = false;
       if (kin) {
@@ -1714,6 +1718,7 @@ export class UnitsView {
     for (const id of this.caughtAt.keys()) if (!live.has(id)) this.caughtAt.delete(id);
     for (const id of this.matedAt.keys()) if (!live.has(id)) this.matedAt.delete(id);
     for (const id of this.woodsmen) if (!live.has(id)) this.woodsmen.delete(id);
+    for (const id of this.dreadArmed) if (!live.has(id)) this.dreadArmed.delete(id);
     for (const id of this.tinkerStart.keys()) if (!live.has(id)) this.tinkerStart.delete(id);
     for (const id of this.fired.keys()) if (!live.has(id)) this.fired.delete(id);
     this.dread.keep(live);
