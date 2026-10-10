@@ -15,14 +15,23 @@ const context = ({ path = '/', init = {}, env = { SITE_PASSWORD: PASSWORD }, hos
   env,
   next: async () => new Response('the game', { headers: { 'content-type': 'text/html' } }),
 });
-/** A request with the sign-in box switched on, as it would be with SIGN_IN_ON set back to true. */
+/** A request with the sign-in box switched on, as SIGN_IN_ON has it. */
 const call = (c: Call = {}): Promise<Response> => serve(context(c), true);
 
-describe('the sign-in box is switched off', () => {
+describe('the sign-in box is switched on', () => {
+  it('asks for the password before the game', async () => {
+    expect(SIGN_IN_ON).toBe(true);
+    const res = await onRequest(context());
+    expect(res.status).toBe(401);
+    expect(res.headers.get('www-authenticate')).not.toBeNull();
+    expect(await res.text()).not.toBe('the game');
+  });
+});
+
+describe('with the sign-in box switched off', () => {
   it('sends everyone straight to the game, with no password asked', async () => {
-    expect(SIGN_IN_ON).toBe(false);
     for (const env of [{ SITE_PASSWORD: PASSWORD }, {}]) {
-      const res = await onRequest(context({ env }));
+      const res = await serve(context({ env }), false);
       expect(res.status).toBe(200);
       expect(await res.text()).toBe('the game');
       expect(res.headers.get('www-authenticate')).toBeNull();
@@ -31,8 +40,8 @@ describe('the sign-in box is switched off', () => {
   });
 
   it('still keeps the pages.dev addresses out of search results', async () => {
-    expect((await onRequest(context({ host: 'blockyrts.pages.dev' }))).headers.get('x-robots-tag')).toBe('noindex');
-    expect((await onRequest(context())).headers.get('x-robots-tag')).toBeNull();
+    expect((await serve(context({ host: 'blockyrts.pages.dev' }), false)).headers.get('x-robots-tag')).toBe('noindex');
+    expect((await serve(context(), false)).headers.get('x-robots-tag')).toBeNull();
   });
 });
 

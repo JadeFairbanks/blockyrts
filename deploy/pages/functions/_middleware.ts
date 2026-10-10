@@ -1,5 +1,5 @@
 // Cloudflare Pages middleware: the browser's own user name and password box in
-// front of the whole site (switched off for now, see SIGN_IN_ON below) (the play domain and the pages.dev mirror), so
+// front of the whole site (the play domain and the pages.dev mirror), so
 // passers-by do not reach the game or its server. It is a deterrent, not
 // security. The game's files (/assets/, /models/, /audio/), the icon, the
 // preview picture, robots.txt, sitemap.xml and the installable app's
@@ -162,11 +162,11 @@ function plain(status: number, text: string): Response {
 
 /**
  * Whether the sign-in box stands in front of the site. Switched off for
- * Patch 7, so anyone with the address goes straight to the game; set it back
- * to true to bring the box back exactly as it was (the password secret, the
- * check and the cookie are all still in place).
+ * Patch 7 and back on since mini patch 7.3; set it to false to let anyone
+ * with the address straight to the game (the password secret, the check and
+ * the cookie all stay in place either way).
  */
-export const SIGN_IN_ON = false;
+export const SIGN_IN_ON = true;
 
 export function onRequest(context: PagesContext): Promise<Response> {
   return serve(context, SIGN_IN_ON);
