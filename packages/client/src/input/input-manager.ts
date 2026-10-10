@@ -56,6 +56,25 @@ export interface TouchHooks {
   zoom(factor: number, p: Pt): void;
 }
 
+/**
+ * Dragging a HUD button (Patch 7, plan section 7: a piece of gear from the
+ * stock or a unit's bag onto a unit, its portrait or the Workshop): a left
+ * press on a button that holds a piece (its def.holds) that moves this far (CSS px)
+ * becomes a drag instead of a click.
+ */
+export const DRAG_SLOP = 6;
+
+/** What a drag does, from the game's side. */
+export interface DragHooks {
+  /** A drag begins from this button: true takes it. */
+  start(btn: HudButton, p: Pt): boolean;
+  move(p: Pt): void;
+  /** Let go here, over this element, on the HUD or the game view. */
+  drop(p: Pt, el: Element | null, inHud: boolean): void;
+  /** Called off (a right click, Esc, the window losing focus). */
+  cancel(): void;
+}
+
 /** A finger moving less than this (CSS px) is still a tap or a hold. */
 export const TAP_SLOP = 12;
 /** A finger held this long without moving is a hold, ms. */
@@ -83,6 +102,8 @@ export interface InputHooks {
   game: MouseTarget;
   /** Touch controls (patch notes 1); without them a touch is the browser's mouse emulation. */
   touch?: TouchHooks;
+  /** Dragging HUD buttons (Patch 7); without it nothing drags. */
+  drag?: DragHooks;
   /** Any press, before anything handles it, with the element under it; true swallows it (a pop-up closing). */
   anyPress?(button: number, inHud: boolean, el: Element | null): boolean;
   /** A press landed on a HUD panel, before any button or area there handles it. */
@@ -94,7 +115,7 @@ export interface InputHooks {
 /** 'off' before a game (start screen), 'menu' while a menu or dialogue is open: the real cursor and native DOM events rule. */
 export type InputMode = 'off' | 'game' | 'menu';
 
-type Capture = { kind: 'game' } | { kind: 'area'; target: MouseTarget } | { kind: 'button'; btn: HudButton } | { kind: 'hud' };
+type Capture = { kind: 'game' } | { kind: 'area'; target: MouseTarget } | { kind: 'button'; btn: HudButton; x0: number; y0: number } | { kind: 'drag' } | { kind: 'hud' };
 
 function isTextField(el: Element | null): boolean {
   if (!el) return false;
@@ -174,6 +195,11 @@ export class InputManager {
   /** Registers an interactive area inside a panel (the minimap canvas); the element gets data-area. */
   addArea(id: string, el: HTMLElement, target: MouseTarget): void {
     el.dataset.area = id;
+    this.areas.set(id, target);
+  }
+
+  /** The handler of an area whose elements carry data-area themselves, many at once (Patch 7: the game's scroll bars, game-scroll.ts). */
+  addTarget(id: string, target: MouseTarget): void {
     this.areas.set(id, target);
   }
 
@@ -307,7 +333,7 @@ export class InputManager {
   private moveCaptures(mods: Mods): boolean {
     if (this.captures.size > 0) {
       const sent = new Set<unknown>();
-      for (const c of this.captures.values()) {
+      for (const c of [...this.captures.values()]) {
         if (c.kind === 'game' && !sent.has('game')) {
           sent.add('game');
           this.hooks.game.move(this.pos, mods);
@@ -315,7 +341,17 @@ export class InputManager {
           sent.add(c.target);
           c.target.move(this.pos, mods);
         } else if (c.kind === 'button') {
+          // A draggable button pulled far enough becomes a drag (Patch 7).
+          if (c.btn.def.holds && this.hooks.drag && Math.hypot(this.pos.x - c.x0, this.pos.y - c.y0) >= DRAG_SLOP && this.hooks.drag.start(c.btn, this.pos)) {
+            c.btn.el.classList.remove('pressed');
+            this.captures.set(Btn.Left, { kind: 'drag' });
+            this.tooltip.show(null);
+            this.hooks.drag.move(this.pos);
+            continue;
+          }
           c.btn.el.classList.toggle('pressed', this.buttonAt(this.pos) === c.btn);
+        } else if (c.kind === 'drag') {
+          this.hooks.drag?.move(this.pos);
         }
       }
       return true;
@@ -377,6 +413,12 @@ export class InputManager {
   /** A press of a button at the current position: the game view, an area, a HUD button or the panel under it. */
   private pressAt(button: number, mods: Mods): void {
     if (this.captures.has(button)) return;
+    // Any other button while dragging calls the drag off.
+    if (this.dragging()) {
+      this.cancelDrag();
+      this.captures.set(button, { kind: 'hud' });
+      return;
+    }
 
     const panel = this.panels.at(this.pos);
     if (this.hooks.anyPress?.(button, panel !== null, document.elementFromPoint(this.pos.x, this.pos.y))) {
@@ -402,7 +444,7 @@ export class InputManager {
     const press: ButtonPress = { shift: mods.shift, ctrl: mods.ctrl };
     if (btn && button === Btn.Left) {
       btn.el.classList.add('pressed');
-      this.captures.set(button, { kind: 'button', btn });
+      this.captures.set(button, { kind: 'button', btn, x0: this.pos.x, y0: this.pos.y });
       return;
     }
     if (btn && button === Btn.Right && (btn.enabled || btn.def.rightWhenGrey)) btn.def.onRightClick?.(press);
@@ -429,8 +471,23 @@ export class InputManager {
       c.btn.el.classList.remove('pressed');
       if (this.buttonAt(this.pos) === c.btn && c.btn.enabled) this.activate(c.btn, { shift: mods.shift, ctrl: mods.ctrl });
       else if (this.buttonAt(this.pos) === c.btn) c.btn.def.onGreyPress?.();
+    } else if (c.kind === 'drag') {
+      this.hooks.drag?.drop(this.pos, document.elementFromPoint(this.pos.x, this.pos.y), this.panels.at(this.pos) !== null);
     }
     return this.captures.size === 0;
+  }
+
+  /** Whether a HUD button is being dragged (Patch 7). */
+  dragging(): boolean {
+    return this.captures.get(Btn.Left)?.kind === 'drag';
+  }
+
+  /** Calls a drag off: nothing is dropped (a right click or Esc). */
+  cancelDrag(): boolean {
+    if (!this.dragging()) return false;
+    this.captures.delete(Btn.Left);
+    this.hooks.drag?.cancel();
+    return true;
   }
 
   private activate(btn: HudButton, press: ButtonPress): void {
@@ -717,6 +774,7 @@ export class InputManager {
       if (c.kind === 'game') this.hooks.game.up(button, this.pos, this.lastMods);
       else if (c.kind === 'area') c.target.up(button, this.pos, this.lastMods);
       else if (c.kind === 'button') c.btn.el.classList.remove('pressed');
+      else if (c.kind === 'drag') this.hooks.drag?.cancel();
     }
   }
 }

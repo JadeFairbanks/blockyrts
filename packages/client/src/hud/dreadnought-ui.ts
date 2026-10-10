@@ -16,6 +16,7 @@ import type { ButtonRegistry, HudButtonDef } from './buttons.ts';
 import { amountBox, FOCUS_BOX, goodCount, goodPic } from './goods-ui.ts';
 import { FOOD_ICON, iconUrl } from './inventory-icons.ts';
 import type { HudPanels } from './panels.ts';
+import { gameScroll } from './game-scroll.ts';
 
 /** The Dreadnought's 64 px portrait (Patch 5), from his model heavy_knight. */
 const PORTRAIT = 'portrait_heavy_knight';
@@ -186,7 +187,7 @@ export class DreadnoughtUi {
     el('h3', 'dlg-title', head, 'Hire Dreadnought');
     this.button('close', head, { face: '×', name: 'Close', description: 'Close the window (Esc).', className: 'dlg-close', onPress: () => this.close() });
     const body = el('div', 'dlg-body', this.box);
-    body.dataset.scroll = '';
+    gameScroll(body);
     const ps = productSpec(dreadnoughtProduct(DREADNOUGHT.gold, 0));
     // His portrait, rendered from his own model, beside the price.
     const intro = el('div', 'dread-intro', body);

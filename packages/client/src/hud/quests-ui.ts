@@ -13,6 +13,7 @@ import type { GameInfo } from '../game/game-info.ts';
 import type { ButtonRegistry, HudButton } from './buttons.ts';
 import type { HudPanels } from './panels.ts';
 import { Buttons, el, frame } from './peoples-ui.ts';
+import { gameScroll } from './game-scroll.ts';
 
 export interface QuestsActions {
   /** Metres. */
@@ -77,7 +78,7 @@ export class QuestsUi {
     panels.register('quests-open', this.holder);
     this.panel = el('div', 'panel quests-panel', root);
     this.panel.hidden = true;
-    this.panel.dataset.scroll = '';
+    gameScroll(this.panel);
     panels.register('quests', this.panel);
     this.btns = new Buttons(buttons, 'quest');
   }
