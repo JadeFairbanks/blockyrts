@@ -16,6 +16,7 @@ import {
   PEOPLE_UNITS,
   stretchBetween,
   TUNNEL_WIDTH_COLUMNS,
+  trophyReach,
   UnitKind,
   WU_PER_METRE,
   troopOf,
@@ -216,6 +217,7 @@ const QUEUE = new THREE.Color(0x63e06b);
 const LIGHT = new THREE.Color(0xff9a40);
 const DIG = new THREE.Color(0xe08a3a);
 const TUNNEL = new THREE.Color(0xb48ae8);
+const TROPHY = new THREE.Color(0x8fd0ff);
 
 export class GameShell {
   readonly cam: RtsCamera;
@@ -2028,7 +2030,7 @@ export class GameShell {
     }
   }
 
-  /** Rally routes of selected buildings, Shift queue paths of selected units, and a light's reach while placing it. */
+  /** Rally routes of selected buildings, Shift queue paths of selected units, a light's reach while placing it, and a trophy's reach (Patch 7). */
   private drawOverlay(ghost: Ghost | null): void {
     const o = this.extras.overlay;
     const h = (x: number, z: number): number => this.extras.heightAt(x, z);
@@ -2038,6 +2040,9 @@ export class GameShell {
     this.flags.begin();
     for (const t of this.selection.list()) {
       const b = this.buildingOf(t);
+      // Patch 7: a selected trophy shows the ground its effect covers.
+      const reach = b ? trophyReach(b.kind) : 0;
+      if (reach > 0) o.ring(t.centre.x, t.centre.z, reach / WU_PER_METRE, TROPHY, h);
       if (b && b.owner === this.player && b.rally.length > 0) {
         let from = pt(t.centre.x, t.centre.z);
         for (let k = 0; k < b.rally.length; k++) {
@@ -2076,6 +2081,11 @@ export class GameShell {
       const light = spec.light;
       if (light) {
         for (const s of ghost.spots) o.ring((s.x + spec.w / 2) * COLUMN_M, (s.z + spec.d / 2) * COLUMN_M, light.lightM, LIGHT, h);
+      }
+      // Patch 7: a trophy shows the ground its effect will cover.
+      const reach = trophyReach(ghost.kind);
+      if (reach > 0) {
+        for (const s of ghost.spots) o.ring((s.x + spec.w / 2) * COLUMN_M, (s.z + spec.d / 2) * COLUMN_M, reach / WU_PER_METRE, TROPHY, h);
       }
     }
     o.end();

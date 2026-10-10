@@ -391,6 +391,10 @@ export const FOOTPRINTS: Readonly<Record<number, readonly LevelFootprint[]>> = {
       ],
     },
   ],
+  // Patch 7 (Jade): a trophy is the monster's own weapon as the held model cut from it, at the size it shows on the monster, stood up on its
+  // grip by the client (buildings-view.ts catalogueIds). A small item: units walk past it.
+  [BuildingKind.BogTrophy]: [{ models: [{ id: 'club_bog_guardian', x: 8, z: 8 }], rows: ['.'], fitted: 'a small item units walk past' }],
+  [BuildingKind.VictorsTrophy]: [{ models: [{ id: 'staff_morvath', x: 8, z: 8 }], rows: ['.'], fitted: 'a small item units walk past' }],
 };
 
 /** A kind's footprint at a level. */

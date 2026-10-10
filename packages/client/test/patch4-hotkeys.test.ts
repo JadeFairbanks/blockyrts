@@ -213,7 +213,7 @@ describe('the menus\' hotkeys in the settings (Patch 4)', () => {
 
   it('list every button of the build menu and every K menu product, so each can be rebound', () => {
     expect(menus).toEqual([
-      'Build menu', 'Build menu: Defences', 'Build menu: Lights',
+      'Build menu', 'Build menu: Defences', 'Build menu: Lights', 'Build menu: Trophies',
       // Patch 5 (Jade's decisions 2.17): a short list is on the building's card, a button each.
       'Barn card', 'Workshop menu', 'Forge menu', 'Artillery workshop card', 'Magi Sanctum card', "Scholar's Lodge menu",
     ]);

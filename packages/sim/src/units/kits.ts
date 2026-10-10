@@ -549,6 +549,15 @@ export const TRAINING = {
 export const Slot = { Tool: 0, Weapon: 1, Ranged: 2, Shield: 3, Armour: 4 } as const;
 export type Slot = (typeof Slot)[keyof typeof Slot];
 
+/**
+ * The special effects of epic and legendary loot (Patch 7, plan section
+ * 4.5): what each does, its numbers and its words are in units/effects.ts;
+ * a gear row carries its own here (GearSpec.effect), the two trophies on
+ * their building kinds.
+ */
+export const LootEffect = { None: 0, Fury: 1, Warlord: 2, Reaper: 3, FarSight: 4, FaeSet: 5, BogTrophy: 6, VictorsTrophy: 7, GraveGuard: 8 } as const;
+export type LootEffect = (typeof LootEffect)[keyof typeof LootEffect];
+
 /** One thing a unit holds or wears, with its stats in sim units. */
 export interface GearSpec {
   id: number;
@@ -583,6 +592,8 @@ export interface GearSpec {
   stature: number;
   /** Patch 7: the good it is, which it comes off as, or undefined (fists, "No armour", the peoples' own leathers). */
   item?: Res;
+  /** Patch 7: the special effect of an epic or legendary looted piece (LootEffect; units/effects.ts), working while it is held or worn. */
+  effect?: LootEffect;
 }
 
 /** Tenths of a second as steps. */
@@ -661,6 +672,12 @@ export const CLOSE_GEAR: readonly number[] = CLOSE_KITS.map((k) => add({ name: k
 export const LONG_GEAR: readonly number[] = LONG_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Weapon, tier: k.tier, model: k.model, melee: meleeStats(k, false, true), heft: k.heft, rarity: troopRarity(k.tier), item: k.items[0] })));
 export const RANGER_GEAR: readonly number[] = RANGER_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Ranged, tier: k.tier, model: k.model, ranged: rangedStats(k), heft: k.heft, rarity: troopRarity(k.tier), item: k.items[0] })));
 export const PISTOL_GEAR: number = add({ name: 'Flintlock pistol', slot: Slot.Ranged, tier: 8, model: BRAWLER_KIT.model, ranged: rangedStats(BRAWLER_KIT), kind: GearKind.Pistol, heft: BRAWLER_KIT.heft, rarity: troopRarity(BRAWLER_KIT.tier), item: BRAWLER_KIT.items[0] });
+/**
+ * The bow a skeleton archer the Deathless Shroud raises shoots (Patch 7, Jade: it uses the skeleton archer's own bow attack): the
+ * monster's numbers (combat/mobs.ts SkeletonArcher: 8.6 damage, made a whole 9 (s), every 2.2 s at up to 18 m, its bone arrows).
+ * No good: it is never taken off, and is lost with the archer.
+ */
+export const RISEN_BOW_GEAR: number = add({ name: "Skeleton archer's bow", slot: Slot.Ranged, tier: 4, model: 'bow_skeleton_recurve', ranged: { damage: 9, attackSteps: ds(22), range: cm(1800), spreadBp: 700, shot: Shot.BoneArrow, blunt: false } });
 export const ARMOUR_GEAR: readonly number[] = ARMOUR_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Armour, tier: k.tier, model: k.model, armourBp: k.protectionPct * 100, stature: k.stature, rarity: troopRarity(k.tier), item: k.items[0] })));
 /** Shields: tier 1 and 2 common, 3 and 4 rare, 5 epic (plan 3); a row's tier is the material it needs, its rung the shield tier. */
 export const SHIELD_GEAR: readonly number[] = SHIELD_KITS.map((k) => (k.tier === 0 ? 0 : add({ name: k.name, slot: Slot.Shield, tier: k.need, rung: k.tier, model: k.model, blockBp: k.blockPct * 100, heft: k.heft, rarity: ladderRarity(k.tier, 3, 5), item: k.items[0] })));
@@ -802,9 +819,11 @@ export interface LootKit {
   protectionPct?: number;
   /** What the Workshop gives back for it (plan 6, s where the plan has no row). */
   scrap: Cost;
+  /** Its special effect, an epic or legendary piece's (plan 4.5; units/effects.ts). */
+  effect?: LootEffect;
 }
 
-type LootStats = Partial<Pick<LootKit, 'melee' | 'ranged' | 'wand' | 'robe' | 'blockPct' | 'protectionPct'>>;
+type LootStats = Partial<Pick<LootKit, 'melee' | 'ranged' | 'wand' | 'robe' | 'blockPct' | 'protectionPct' | 'effect'>>;
 
 const loot = (item: Res, rarity: Rarity, kind: GearKind, size: number, tier: number, model: string, scrap: Cost, stats: LootStats = {}): LootKit => ({
   // The stats first: the balance editor then writes each number back into its own argument, never into the stats.
@@ -843,14 +862,14 @@ export const LOOT_KITS: readonly LootKit[] = [
   loot(Res.GoblinChiefCleaver, C, GearKind.OneHanded, 26, 5, 'cleaver_goblin_chief', [[Res.WroughtIron, 2], [LE, 1]], swings(11, 13, 120, Hit.Arc)),
   loot(Res.HobgoblinSword, C, GearKind.OneHanded, 19, 6, 'sword_hobgoblin', [[IRON, 2], [LE, 1]], swings(13, 12, 120, Hit.Arc)),
   loot(Res.BarrowKnightLongsword, R, GearKind.OneHanded, 35, 6, 'sword_barrow_knight', [[IRON, 3], [Res.Silver, 1]], swings(18, 13, 140, Hit.Arc)),
-  loot(Res.FiendCleaver, E, GearKind.OneHanded, 62, 6, 'cleaver_fiend', [[IRON, 2], [Res.DemonHorn, 1]], swings(26, 12, 130, Hit.Arc)),
+  loot(Res.FiendCleaver, E, GearKind.OneHanded, 62, 6, 'cleaver_fiend', [[IRON, 2], [Res.DemonHorn, 1]], { ...swings(26, 12, 130, Hit.Arc), effect: LootEffect.Fury }),
   loot(Res.PlagueCenser, R, GearKind.Flail, 34, 6, 'flail_plague_censer', [[IRON, 2], [Res.Sulphur, 1]], swings(11, 15, 160, Hit.Sweep, true)),
   loot(Res.ChainAndHook, R, GearKind.Flail, 62, 6, 'flail_chain_hook', [[IRON, 3]], swings(14, 16, 250, Hit.Sweep)),
   loot(Res.GoblinFeatheredSpear, C, GearKind.Spear, 28, 4, 'spear_goblin_feathered', [[BZ, 1], [SW, 1], [FE, 1]], swings(16, 14, 230, Hit.Stab)),
   loot(Res.KoboldSpear, C, GearKind.Spear, 42, 5, 'spear_kobold', [[WI, 1], [SW, 2]], swings(19, 14, 250, Hit.Stab)),
   loot(Res.GnollSpear, C, GearKind.Spear, 41, 5, 'spear_gnoll', [[WI, 1], [SW, 2], [Res.Hides, 1]], swings(22, 15, 250, Hit.Stab)),
   loot(Res.MinotaurGreatAxe, R, GearKind.Great, 134, 7, 'axe_great_minotaur', [[STEEL, 4], [SW, 3]], swings(29, 20, 220, Hit.Arc)),
-  loot(Res.ArchfiendGreatsword, E, GearKind.Great, 153, 6, 'greatsword_archfiend', [[IRON, 5], [Res.DemonHorn, 2], [Res.Rubies, 1]], swings(40, 19, 240, Hit.Arc)),
+  loot(Res.ArchfiendGreatsword, E, GearKind.Great, 153, 6, 'greatsword_archfiend', [[IRON, 5], [Res.DemonHorn, 2], [Res.Rubies, 1]], { ...swings(40, 19, 240, Hit.Arc), effect: LootEffect.Warlord }),
   loot(Res.BogGuardianClub, E, GearKind.Great, 351, 1, '', [[HW, 10], [STONE, 20], [Res.Emeralds, 1]]),
   loot(Res.GoblinSling, C, GearKind.Ranged, 10, 1, 'sling_goblin', [[LE, 1]], shoots(7, 20, 18, 8, Shot.SlingStone, true)),
   loot(Res.GoblinBow, C, GearKind.Ranged, 17, 2, 'bow_goblin', [[ST, 2], [FE, 1]], shoots(9, 20, 22, 6, Shot.Arrow)),
@@ -860,7 +879,7 @@ export const LOOT_KITS: readonly LootKit[] = [
   loot(Res.NecromancerStaff, R, GearKind.Wand, 43, 5, 'staff_necromancer', [[Res.Witchwood, 2], [Res.Bone, 1], [MC, 1]], asWand(5)),
   loot(Res.FlamecallerStaff, R, GearKind.Wand, 76, 5, 'staff_flamecaller', [[IRON, 2], [Res.Witchwood, 1], [Res.Sulphur, 1]], asWand(5)),
   // 130% spell power (plan 4.1), mana a step past the archstaff's (s), and the Fae's +25% regain.
-  loot(Res.FaeStarWand, L, GearKind.Wand, 14, 6, 'wand_fae_star', [[MC, 3], [Res.Diamonds, 1]], { wand: { powerPct: 130, mana: 60, regainPct: FAE_REGAIN_PCT } }),
+  loot(Res.FaeStarWand, L, GearKind.Wand, 14, 6, 'wand_fae_star', [[MC, 3], [Res.Diamonds, 1]], { wand: { powerPct: 130, mana: 60, regainPct: FAE_REGAIN_PCT }, effect: LootEffect.FaeSet }),
   loot(Res.MorvathStaff, L, GearKind.Wand, 413, 6, '', [[IRON, 6], [Res.Witchwood, 4], [Res.Bone, 10], [MC, 8], [Res.Diamonds, 2]]),
   loot(Res.GoblinPlankShield, C, GearKind.Shield, 20, 1, 'shield_goblin_plank', [[PL, 2], [ST, 1]], { blockPct: 12 }),
   loot(Res.HobgoblinShield, C, GearKind.Shield, 44, 6, 'shield_hobgoblin', [[IRON, 2], [PL, 2]], { blockPct: 22 }),
@@ -876,7 +895,7 @@ export const LOOT_KITS: readonly LootKit[] = [
   loot(Res.NecromancerRobe, R, GearKind.Robe, 20, 5, 'robe_necromancer', [[FX, 3], [Res.Gold, 1]], asRobe(5)),
   loot(Res.FlamecallerRobe, R, GearKind.Robe, 21, 5, 'robe_flamecaller', [[FX, 3], [Res.Sulphur, 1], [MC, 1]], asRobe(5)),
   // Above the archmage's mantle (plan 4.3: 30% protection and 30% regain, s), plus the Fae's +25% regain.
-  loot(Res.FaeGuardianRobe, L, GearKind.Robe, 18, 6, 'robe_fae', [[Res.SpiderSilk, 3], [MC, 3], [Res.MoonRose, 1]], { robe: { protectionPct: 30, regainPct: 30 + FAE_REGAIN_PCT } }),
+  loot(Res.FaeGuardianRobe, L, GearKind.Robe, 18, 6, 'robe_fae', [[Res.SpiderSilk, 3], [MC, 3], [Res.MoonRose, 1]], { robe: { protectionPct: 30, regainPct: 30 + FAE_REGAIN_PCT }, effect: LootEffect.FaeSet }),
   // Fit nobody (plan 4.3): their Stature is outside every body's range.
   loot(Res.GoblinLeathers, C, GearKind.Armour, 12, 1, '', [[LE, 2]]),
   loot(Res.GoblinChiefHelmet, C, GearKind.Armour, 14, 5, '', [[WI, 1]]),
@@ -889,10 +908,13 @@ export const LOOT_KITS: readonly LootKit[] = [
   loot(Res.HalflingShortsword, R, GearKind.OneHanded, 16, 5, 'halfling_shortsword', [[WI, 2], [SW, 1], [LE, 1]], swings(11, 11, 110, Hit.Arc)),
   loot(Res.HalflingShortbow, R, GearKind.Ranged, 24, 5, 'halfling_shortbow', [[SW, 3], [ROPE, 1], [WI, 1], [FE, 1]], shoots(14, 20, 20, 6, Shot.Arrow)),
   loot(Res.HalflingBuckler, C, GearKind.Shield, 18, 2, 'halfling_buckler', [[PL, 2], [HL, 1]], { blockPct: 10 }),
-  loot(Res.ElfGlaive, E, GearKind.Great, 66, 8, 'halberd', [[CS, 3], [SW, 2]], swings(32, 16, 250, Hit.Arc)),
-  loot(Res.ElfLongbow, E, GearKind.Ranged, 44, 8, 'bow', [[SW, 3], [CS, 1], [FE, 1], [ROPE, 1]], shoots(24, 20, 40, 4, Shot.Arrow)),
+  loot(Res.ElfGlaive, E, GearKind.Great, 66, 8, 'halberd', [[CS, 3], [SW, 2]], { ...swings(32, 16, 250, Hit.Arc), effect: LootEffect.Reaper }),
+  loot(Res.ElfLongbow, E, GearKind.Ranged, 44, 8, 'bow', [[SW, 3], [CS, 1], [FE, 1], [ROPE, 1]], { ...shoots(24, 20, 40, 4, Shot.Arrow), effect: LootEffect.FarSight }),
   loot(Res.DwarfWarAxe, R, GearKind.OneHanded, 30, 7, 'axe_war', [[STEEL, 3], [SW, 1], [LE, 1]], swings(18, 13, 120, Hit.Arc)),
   loot(Res.DwarfWarHammer, R, GearKind.Great, 64, 7, 'mace', [[STEEL, 3], [SW, 2]], swings(24, 18, 160, Hit.Arc, true)),
+  // Jade (23:05 UTC 2026-10-09): the lich's legendary robe, "appropriate stats for tier (worse than morvoth items by alot though)": as the
+  // tier 6 robe, Stature 20, mages only (plan 4.3); it raises skeleton archers and blocks debuffs (Grave guard, units/effects.ts).
+  loot(Res.DeathlessShroud, L, GearKind.Robe, 20, 6, 'robe_lich', [[Res.SpiderSilk, 3], [Res.Bone, 3], [MC, 2], [Res.Diamonds, 1]], { ...asRobe(6), effect: LootEffect.GraveGuard }),
 ];
 
 /** What the Workshop gives back for the Dreadnought's mace (s: carbon steel and hardwood, a little under a two-handed carbon steel piece twice over). */
@@ -994,7 +1016,7 @@ export const OBSIDIAN_AXE_GEAR: number = ownRow(Res.ObsidianHandAxe, CLOSE_KITS[
 /** A looted piece's gear row as written, or undefined for a piece that fits nobody. */
 function lootRow(k: LootKit): GearRow | undefined {
   const sized = k.kind === GearKind.Armour || k.kind === GearKind.Robe ? { stature: k.size } : { heft: k.size };
-  const base = { name: k.name, tier: k.tier, model: k.model, kind: k.kind, rarity: k.rarity, item: k.item, ...sized };
+  const base = { name: k.name, tier: k.tier, model: k.model, kind: k.kind, rarity: k.rarity, item: k.item, ...sized, ...(k.effect ? { effect: k.effect } : {}) };
   if (k.melee) {
     const m = k.melee;
     const oneHanded = k.kind === GearKind.OneHanded || k.kind === GearKind.Flail;

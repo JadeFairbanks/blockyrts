@@ -58,10 +58,10 @@ import {
 type KitUpOrder = Extract<UnitOrder, { t: 'kitUp' }>;
 type CartOrder = Extract<UnitOrder, { t: 'cart' }>;
 
-/** A unit's kit as the upgrade rules see it, or undefined for units that have none (mobs, animals, the peoples' units, mercenaries). */
+/** A unit's kit as the upgrade rules see it, or undefined for units that have none (mobs, animals, the peoples' units, mercenaries, and the skeleton archers the Deathless Shroud raises, whose gear cannot be changed). */
 export function kitHolder(state: SimState, i: number): KitHolder | undefined {
   const e = state.entities;
-  if (e.role[i] === Role.Mercenary || e.role[i] === Role.People) return undefined;
+  if (e.role[i] === Role.Mercenary || e.role[i] === Role.People || e.role[i] === Role.Risen) return undefined;
   const kind = holderKind(e.kind[i]!);
   if (!kind) return undefined;
   // A piece with a gear row of its own (a looted piece, the obsidian hand-axe) goes back to stock as itself.

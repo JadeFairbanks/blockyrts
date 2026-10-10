@@ -46,6 +46,8 @@ import {
   Mob,
   STEPS_PER_SECOND,
   IDOL_AREA_M,
+  GRAVE_GUARD,
+  RISEN_NAME,
 } from '@blockyrts/sim';
 import type { WorldHooks } from '../hud/shell.ts';
 import type { GameInfo } from '../game/game-info.ts';
@@ -559,6 +561,18 @@ export class WorldView {
         this.lootLine(details, id);
         const up = upgradeText(d, o, 'worker');
         if (up) details.push(up);
+        if (owner === this.player) {
+          const q = this.game?.queues.get(id) ?? [];
+          details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);
+        }
+        u.details = details;
+      } else if (kind === UnitKind.Warrior && (d[o + S.flags]! & UnitFlag.Risen) !== 0) {
+        // A skeleton archer the Deathless Shroud raised (Patch 7): its own type, ordered as a mercenary is.
+        u.typeKey = `risen:${Mob.SkeletonArcher}`;
+        u.clickType = 'risen';
+        u.label = RISEN_NAME;
+        u.halfSize.set(0.3, 0.875, 0.3);
+        const details = [health, `Raised by the Deathless Shroud. It falls ${Math.round(GRAVE_GUARD.lifeSteps / STEPS_PER_SECOND)} s after it rises. Its bow cannot be changed.`];
         if (owner === this.player) {
           const q = this.game?.queues.get(id) ?? [];
           details.push(q.length > 1 ? `${unitOrderText(q[0])}, then ${q.length - 1} more.` : `${unitOrderText(q[0])}.`);

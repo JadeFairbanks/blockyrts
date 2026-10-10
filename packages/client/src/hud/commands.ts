@@ -71,6 +71,8 @@ import {
   TAVERN,
   stretchBetween,
   stretchCells,
+  lootEffectSpec,
+  trophyEffect,
   stretchSpots,
   stretchEnd,
   stretchRoom,
@@ -482,7 +484,7 @@ export class Commands {
 
   private slotsFor(active: string, waiting: boolean): Slots {
     if (this.area && active === 'worker') return this.areaCard();
-    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active === 'warrior:woods' || active === 'warrior:dreadnought' || active.startsWith('mage:')) {
+    if (active === 'worker' || active === 'warrior' || active === 'warrior:crew' || active === 'warrior:woods' || active === 'warrior:dreadnought' || active.startsWith('mage:') || active.startsWith('risen:')) {
       if (this.alliedOnly(active)) return this.alliedCard(active);
       if (this.menu.page === 'build' && active === 'worker') return this.buildMenuCard(waiting);
       return this.unitCard(active);
@@ -677,6 +679,8 @@ export class Commands {
         { ...pace, description: `${pace.description} A Dreadnought pays ${g.runFood} food for every ${RUN_FOOD_METRES} m he runs.` },
       ];
     }
+    // A skeleton archer the Deathless Shroud raised (Patch 7): ordered as a mercenary is, but it eats nothing and its bow is its own.
+    if (active.startsWith('risen:')) return [attack, patrol, move, pace];
     const troops = this.unitIds((u) => u.typeKey === 'warrior');
     return [
       attack,
@@ -1010,7 +1014,8 @@ export class Commands {
 
   /**
    * The build menu (Jade's Patch 2: one Build button, fourteen buildings): a
-   * button per building, with Defences and Lights opening their submenus. A
+   * button per building, with Defences and Lights opening their submenus
+   * (Patch 7: and Trophies, while there is one in the stock to place). A
    * submenu longer than the card (Defences' 17 choices) shows pages. Each
    * button is on a letter of its own, as everywhere on the card (Jade's
    * Patch 4; before, the key in its place on the keyboard's grid, Q to V,
@@ -1024,6 +1029,8 @@ export class Commands {
     else {
       slots.forEach((specs, i) => {
         const group = specs[0]?.group;
+        // Patch 7: the trophies show once there is one in the stock to place (each piece's tooltip sends the player here).
+        if (group === 'Trophies' && !specs.some((t) => t.trophy && this.d.game.have(t.trophy.item) > 0)) return;
         if (specs.length === 1 && !group) list.push(this.buildEntry(specs[0]!, 0, specs[0]!.name));
         else if (specs.length > 0) {
           const name = group ?? specs.map((s) => s.name).join(', ');
@@ -1099,8 +1106,9 @@ export class Commands {
     if (l.gives) lines.push(`Gives: ${l.gives}.`);
     if (l.supply) lines.push(`Supply +${l.supply}.`);
     if (spec.light) lines.push(`Light ${spec.light.lightM} m${spec.light.claimM ? `, claims ${spec.light.claimM} m while lit` : ''}.`);
+    if (spec.trophy) lines.push(lootEffectSpec(trophyEffect(spec.kind))!.text, TROPHY_HELP);
     if (Commands.chained(spec.kind)) lines.push(WALL_CHAIN_HELP);
-    else if (spec.w === 1 && spec.d === 1) lines.push('Drag to place a line of them, 8 m apart.');
+    else if (Commands.draggable(spec.kind)) lines.push('Drag to place a line of them, 8 m apart.');
     if (!Commands.chained(spec.kind)) lines.push('Shift + click to place several.');
     const reason = [why, short].filter((x) => x).join(' ');
     const action = placeAction(spec.kind, variant);
@@ -1223,7 +1231,18 @@ export class Commands {
         for (const b of all) if (b.inside.length > 0) this.d.send({ kind: 'unload', player: this.d.player, building: b.id, unit: 0 });
       }, { name: 'Unload All' });
     }
-    if (!waiting && (!first.complete || first.upgrading)) {
+    if (!waiting && spec.trophy) {
+      const item = RESOURCES[spec.trophy.item]!.name;
+      card[14] = this.entry(
+        'cancelBuild',
+        'Pick up',
+        `Take the ${item.toLowerCase()} back into your stock, all of it, to place again elsewhere.`,
+        () => {
+          for (const b of all) this.d.send({ kind: 'cancelBuild', player: this.d.player, building: b.id });
+        },
+        { name: 'Pick up' },
+      );
+    } else if (!waiting && (!first.complete || first.upgrading)) {
       card[14] = this.entry(
         'cancelBuild',
         'Cancel',
@@ -2558,7 +2577,7 @@ export class Commands {
   /** Whether a building kind is placed in lines by dragging (1 x 1 lights). */
   static draggable(kind: number): boolean {
     const s = buildingSpec(kind);
-    return s.w === 1 && s.d === 1 && !Commands.chained(kind);
+    return s.w === 1 && s.d === 1 && !s.trophy && !Commands.chained(kind);
   }
 
   /** Whether a building kind is placed in chains of stretches, click by click (walls, and the earth rampart's chunks from Patch 5; Building placement: wall chains). */
@@ -2798,6 +2817,8 @@ export class Commands {
 }
 
 /** The help line of a wall in the build menu. */
+/** The build menu's line for a trophy (Jade's Patch 7: a looted piece placed as a small item anywhere). */
+const TROPHY_HELP = 'It needs no land of yours and blocks no one. Pick it up again (select it) to place it elsewhere; if monsters knock it down it goes back to your stock.';
 const WALL_CHAIN_HELP = 'Click to place one; click it again (or right click) to stop there. Or click further points: each click builds the whole stretch from the last point, straight or diagonal, skipping what is in the way. A click on the last point, right click, Esc or Done ends the chain.';
 
 /** The Tunnel button's help on the dig card. */

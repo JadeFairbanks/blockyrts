@@ -1,9 +1,10 @@
 // Light and torches (Table 18) and claimed land (Table 8): which lights
 // burn, the land the players claim (5 m round a lit torch post, 10 m round a
 // lit bonfire or a building, and regions closed off by barriers that hold a
-// building) and the outlying light count at dusk. Patch 2 (Jade): lights need
-// no fuel; once built, a light burns until something puts it out (goblins, a
-// badger, Morvath's Crown of night), and a worker relights it in 2 s at no cost.
+// building; a trophy, Patch 7, claims none) and the outlying light count at
+// dusk. Patch 2 (Jade): lights need no fuel; once built, a light burns until
+// something puts it out (goblins, a badger, Morvath's Crown of night), and a
+// worker relights it in 2 s at no cost.
 
 import { floorDiv, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { MOB_WALKER, TOP, Walk } from '../nav/grid.ts';
@@ -79,7 +80,10 @@ export function claimShapes(state: SimState, player: number): ClaimShapes {
   const grow = BUILDING_CLAIM_M * WU_PER_METRE;
   for (const b of state.buildings.list) {
     if (b.owner !== player) continue;
-    const light = buildingSpec(b.kind).light;
+    const spec = buildingSpec(b.kind);
+    // A trophy (Patch 7) is a small item: it claims no land.
+    if (spec.trophy) continue;
+    const light = spec.light;
     if (light) {
       // A light claims land only while lit (Table 8, Jade).
       if (light.claimM > 0 && isLit(b)) {
@@ -232,7 +236,7 @@ export function computeEnclosed(state: SimState): void {
   const held: number[] = [];
   for (const b of state.buildings.list) {
     const s = buildingSpec(b.kind);
-    if (b.complete && !s.light && !s.defence) held.push(b.id, b.owner);
+    if (b.complete && !s.light && !s.defence && !s.trophy) held.push(b.id, b.owner);
   }
   const last = lastEnclosed.get(state.world);
   if (last && last.epoch === state.world.navEpoch && last.held.length === held.length && last.held.every((v, k) => v === held[k])) {
@@ -248,7 +252,7 @@ export function computeEnclosed(state: SimState): void {
   const regions: number[][] = [];
   for (const b of state.buildings.list) {
     const s = buildingSpec(b.kind);
-    if (!b.complete || s.light || s.defence) continue;
+    if (!b.complete || s.light || s.defence || s.trophy) continue;
     const d = placedDims(b);
     // The column in front of the building: just south of its footprint's middle.
     const sx = b.x + d.ox + (d.w >> 1);
@@ -329,7 +333,10 @@ export function outlyingLights(state: SimState, player: number, night: number): 
   let halves = 0;
   for (const b of state.buildings.list) {
     if (b.owner !== player) continue;
-    const light = buildingSpec(b.kind).light;
+    const spec = buildingSpec(b.kind);
+    // A trophy (Patch 7) is a small item: it claims no land.
+    if (spec.trophy) continue;
+    const light = spec.light;
     if (!light || light.outlyingHalves === 0 || !isLit(b)) continue;
     if (!nearMainBase(state, b, OUTLYING_M)) halves += light.outlyingHalves;
   }

@@ -32,7 +32,7 @@ const HORDE = { cutters: 3, slingers: 1, chiefEvery: 5, max: 40 };
 
 function counts(b: { kind: number; complete: boolean }): boolean {
   const s = buildingSpec(b.kind);
-  return b.complete && !s.defence && !s.light;
+  return b.complete && !s.defence && !s.light && !s.trophy;
 }
 
 /** A territorial creature hunting one of the player's units (Table 8: provoked). */
@@ -83,7 +83,8 @@ export function readDusk(state: SimState, player: number): DuskReading {
     note(e.x[i]!, e.z[i]!, 0);
   }
   for (const b of state.buildings.list) {
-    if (b.owner !== player) continue;
+    // A trophy (Patch 7) is a small item, not a holding the extras come for.
+    if (b.owner !== player || buildingSpec(b.kind).trophy) continue;
     const [x, z] = buildingCentre(b);
     note(x, z, b.id);
   }
