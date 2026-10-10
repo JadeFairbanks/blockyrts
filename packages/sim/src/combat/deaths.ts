@@ -22,7 +22,7 @@ import { clearLair } from '../threats/lairs.ts';
 import { rollDropList, rollGear } from '../threats/loot.ts';
 import { necromancerLoot } from '../threats/necromancer.ts';
 import { keeperLoot } from '../threats/keepers.ts';
-import { bagEmpty, bagItems, dropLoot, lootBrag, notableMob } from '../units/loot.ts';
+import { bagBare, bagItems, dropLoot, lootBrag, notableMob } from '../units/loot.ts';
 import { Role } from '../threats/types.ts';
 import { onVillageLoss } from '../threats/villages.ts';
 import { peopleGearDrop } from '../peoples/war.ts';
@@ -112,9 +112,10 @@ function onUnitDeath(state: SimState, i: number): void {
   askHooks.fell(state, i);
   // Gear set aside for it goes back to the stock; what it wore is lost with it, and the loot it carried falls where it fell.
   dropQueue(state, i);
-  if (!bagEmpty(state, i)) {
+  if (!bagBare(state, i)) {
     const items = bagItems(state, i);
     e.bag[i] = [];
+    e.kept[i] = [];
     dropLoot(state, e.x[i]!, e.z[i]!, items, { killer: -1, owner: e.owner[i]! < state.players.length ? e.owner[i]! : -1, brag: 0, src: 0 });
   }
   // A goblin that killed a worker takes its load.
