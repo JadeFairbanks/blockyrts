@@ -40,15 +40,32 @@
   image-rendering: pixelated;
   flex: none;
 }
-/* Screenshots of the game and a page's model drawn by the game (model-view.ts) are smooth. */
+/* A thing's model, live (model-view.ts): smooth, no padding, and turned round by dragging. */
 .book .pic.photo,
 .book .pic.model {
   image-rendering: auto;
 }
-.book .pic.big.model {
-  width: 144px;
-  height: 144px;
+.book .pic.model {
+  display: block;
   padding: 0;
+}
+.book .pic.model.turns {
+  cursor: grab;
+  touch-action: pan-y;
+}
+.book .pic.model.turns:active {
+  cursor: grabbing;
+}
+.book .pic.big.model {
+  width: 200px;
+  height: 200px;
+}
+.book .pic.icon.model {
+  width: 64px;
+  height: 64px;
+}
+.book .pic.banner.model {
+  height: 280px;
 }
 .book .pic.photo.tiny {
   object-fit: cover;
@@ -334,10 +351,21 @@
   content: '';
   position: absolute;
   inset: 0;
+  z-index: 1;
+  pointer-events: none;
   background: linear-gradient(180deg, rgba(10, 6, 3, 0) 20%, rgba(10, 6, 3, 0.85) 85%);
 }
 .hero > * {
   position: relative;
+  z-index: 2;
+}
+/* The front page's model fills the picture behind the words. */
+.book .hero > .hero-model {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
 }
 .hero h1 {
   font-size: 60px;
