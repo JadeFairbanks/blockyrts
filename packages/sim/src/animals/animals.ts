@@ -304,10 +304,33 @@ export function stockCell(state: SimState, cellId: number, only = -1): void {
 const COLUMN_AREA_MM2 = 2025;
 
 /**
- * Stocks a chunk's water with fish (Fish): Heartland streams trout (1 per
- * 4 m2), Fringe streams salmon and Deepwoods pools giant catfish (1 per
- * 8 m2). The water's fish are shared out over stretches of bank about 4 m
- * apart, up to 4 a chunk (s), each starting full.
+ * How much fish a chunk's water holds (Fish). Each band's water first holds
+ * a fish per so many square metres, in thousandths (Heartland 4, Fringe and
+ * Deepwoods 8); a water with fewer than 4 fish, or stretches of fewer than 2,
+ * holds none. Mini patch 7.3 (Jade, 2026-10-10: "Trout and salmon can now
+ * only spawn in streams ... Catfish are only in the ponds still. The max
+ * amount of fish in ponds is nerfed by 50%, the max amount of fish in streams
+ * is nerfed by 25%"): what is left is then cut to streamBp in streams and
+ * pondBp in ponds (rounded, never below 1). Flowing water (streams and
+ * rivers) holds trout in the Heartland and salmon beyond; still water (ponds,
+ * a bog's pools, springs) holds giant catfish.
+ */
+export const FISH_WATER = {
+  heartlandPerM2Thousandths: 4000,
+  fringePerM2Thousandths: 8000,
+  deepwoodsPerM2Thousandths: 8000,
+  /** What a stream's stretch holds at most, bp of what it held before mini patch 7.3 (75%). */
+  streamBp: 7500,
+  /** What a pond's stretch holds at most, bp of what it held before mini patch 7.3 (50%). */
+  pondBp: 5000,
+};
+
+/**
+ * Stocks a chunk's water with fish (Fish): streams trout in the Heartland
+ * and salmon in the Fringe and Deepwoods, ponds giant catfish (mini patch
+ * 7.3), at FISH_WATER's density. Each water's fish are shared out over
+ * stretches of bank about 4 m apart, up to 4 a chunk for each (s), each
+ * starting full; what a stretch starts with is the most it breeds back to.
  */
 export function stockChunk(state: SimState, cx: number, cz: number, key: number): void {
   if (state.stockedChunks.has(key)) return;
@@ -317,33 +340,44 @@ export function stockChunk(state: SimState, cx: number, cz: number, key: number)
   const x0 = cx * N;
   const z0 = cz * N;
   let band = state.world.gen.columnBand(x0 + (N >> 1), z0 + (N >> 1));
-  // A start pocket's water holds trout (Table 9) wherever its chunk falls: since Jade's mini patch made the
+  // A start pocket's water holds Heartland fish (Table 9) wherever its chunk falls: since Jade's mini patch made the
   // basin 30% smaller, a yard's stream or pond can reach a chunk whose middle lies in a Fringe cell. A chunk
   // it reaches lies within the chunk's half diagonal (46 columns, rounded up to 48) of its middle.
   if (band !== Band.Heartland && state.world.gen.start.pockets.some((p) => distanceToWater(p.water, x0 + (N >> 1), z0 + (N >> 1)) <= (N * 3) >> 2)) band = Band.Heartland;
-  const kind = band === Band.Heartland ? PropKind.FishTrout : band === Band.Fringe ? PropKind.FishSalmon : band === Band.Deepwoods ? PropKind.FishCatfish : -1;
-  if (kind < 0) return;
-  let water = 0;
-  const banks: Array<[number, number]> = [];
+  const fw = FISH_WATER;
+  const perM2Thousandths = band === Band.Heartland ? fw.heartlandPerM2Thousandths : band === Band.Fringe ? fw.fringePerM2Thousandths : band === Band.Deepwoods ? fw.deepwoodsPerM2Thousandths : 0;
+  if (perM2Thousandths <= 0) return;
+  // Water and banks by kind: 0 still (ponds), 1 flowing (streams). A bank goes with the first water beside it.
+  const water = [0, 0];
+  const banks: Array<Array<[number, number]>> = [[], []];
+  const world = state.world;
   for (let z = z0; z < z0 + N; z++) {
     for (let x = x0; x < x0 + N; x++) {
       if (hasWaterAt(state, x, z)) {
-        water++;
+        water[world.flowingAt(x, z) ? 1 : 0]!++;
         continue;
       }
       if ((x & 7) !== 0 && (z & 7) !== 0) continue;
-      if (hasWaterAt(state, x + 1, z) || hasWaterAt(state, x - 1, z) || hasWaterAt(state, x, z + 1) || hasWaterAt(state, x, z - 1)) banks.push([x, z]);
+      for (const [wx, wz] of [[x + 1, z], [x - 1, z], [x, z + 1], [x, z - 1]] as const) {
+        if (!hasWaterAt(state, wx, wz)) continue;
+        banks[world.flowingAt(wx, wz) ? 1 : 0]!.push([x, z]);
+        break;
+      }
     }
   }
-  const perM2Thousandths = kind === PropKind.FishTrout ? 4000 : 8000;
-  const fish = floorDiv(water * COLUMN_AREA_MM2, perM2Thousandths);
-  if (fish < 4 || banks.length === 0) return;
-  const stretches = Math.min(4, banks.length);
-  const each = floorDiv(fish, stretches);
-  if (each < 2) return;
-  for (let k = 0; k < stretches; k++) {
-    const [x, z] = banks[floorDiv(k * banks.length, stretches)]!;
-    state.world.addProp(x, z, kind, 0, each, state.step);
+  for (const flowing of [1, 0]) {
+    const kind = flowing ? (band === Band.Heartland ? PropKind.FishTrout : PropKind.FishSalmon) : PropKind.FishCatfish;
+    const at = banks[flowing]!;
+    const fish = floorDiv(water[flowing]! * COLUMN_AREA_MM2, perM2Thousandths);
+    if (fish < 4 || at.length === 0) continue;
+    const stretches = Math.min(4, at.length);
+    const was = floorDiv(fish, stretches);
+    if (was < 2) continue;
+    const each = Math.max(1, floorDiv(was * (flowing ? fw.streamBp : fw.pondBp) + 5000, 10000));
+    for (let k = 0; k < stretches; k++) {
+      const [x, z] = at[floorDiv(k * at.length, stretches)]!;
+      world.addProp(x, z, kind, 0, each, state.step);
+    }
   }
 }
 

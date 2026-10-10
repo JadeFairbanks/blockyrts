@@ -58,5 +58,7 @@ export function budgetFormulaText(t: Terms): string {
   if (t.perNightTenths) parts.push(`${num(t.perNightTenths, 10)}n`);
   if (t.curveThousandths) parts.push(`${num(t.curveThousandths, 1000)}n²`);
   const scale = t.scalePct ?? 100;
-  return `${parts.join(' + ')}${scale === 100 ? '' : `, × ${scale}%`}`;
+  // Mini patch 7.3: the raise at the start, gone by frontEndNight.
+  const raise = t.frontBonusBp ? `, raised ${num(t.frontBonusBp, 100)}% on night 1 to nothing by night ${t.frontEndNight ?? 0}` : '';
+  return `${parts.join(' + ')}${scale === 100 ? '' : `, × ${scale}%`}${raise}`;
 }

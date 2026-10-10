@@ -169,16 +169,17 @@ function toNight(s: SimState, night: number): void {
 }
 
 describe('night 0', () => {
-  it('is survived behind a wooden fence with the three starting warriors and four workers', () => {
+  it('is survived behind a wooden fence with the starting warriors and four workers', () => {
     const s = createWorld(3);
     const e = s.entities;
-    // Close melee with wooden cudgels and no armour (Troops and gear: starting units), and from Patch 7 a spearman (Jade).
-    for (const i of [4, 5, 6]) {
+    // Close melee with wooden cudgels and no armour (Troops and gear: starting units; two since mini patch 7.3), and from
+    // Patch 7 a spearman (Jade).
+    for (const i of [4, 5]) {
       expect(e.troop[i]).toBe(Troop.Close);
       expect(e.weapon[i]).toBe(CLOSE_GEAR[1]);
       expect(e.armour[i]).toBe(0);
     }
-    expect([e.troop[7], e.weapon[7], e.armour[7]]).toEqual([Troop.Long, LONG_GEAR[1], 0]);
+    expect([e.troop[6], e.weapon[6], e.armour[6]]).toEqual([Troop.Long, LONG_GEAR[1], 0]);
     fenceIn(s);
     run(s, NIGHT_START + NIGHT_STEPS + 20 - s.step);
     expect(clockAt(s.step).period).toBe(Period.Dawn);
@@ -212,7 +213,8 @@ describe('night 0', () => {
     const picked = pickNight(s, 0).sort((a, b) => a - b);
     expect(picked).toEqual([Mob.Zombie, Mob.Zombie, Mob.Zombie, Mob.Zombie, Mob.CaveBat, Mob.CaveBat, Mob.GiantRat, Mob.GiantRat, Mob.GiantSpider, Mob.Slime]);
     expect(nightBudgetTenths(0)).toBe(120);
-    expect(nightBudgetTenths(10)).toBe(550);
+    // Mini patch 7.3: 550 raised by night 10's share of the 10% (8.16%).
+    expect(nightBudgetTenths(10)).toBe(594);
   });
 });
 
@@ -445,8 +447,8 @@ describe('training troops (Troops and gear: Barracks panel; Patch 2: cavalry the
   });
 
   it('waits for free supply before a troop starts', () => {
-    // 8 workers, 3 warriors and the spearman fill the Big House's 12 supply (Patch 7).
-    const s = createWorld(1, { playerUnits: 8, peaceful: true });
+    // 9 workers, 2 warriors and the spearman fill the Big House's 12 supply (Patch 7; mini patch 7.3: a clubman fewer).
+    const s = createWorld(1, { playerUnits: 9, peaceful: true });
     const base = bigHouse(s)!;
     const texts: string[] = [];
     for (let k = 0; k < 200; k++) {

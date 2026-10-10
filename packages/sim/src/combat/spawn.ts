@@ -24,7 +24,7 @@ import { buildingCentre, claimShapes, dist2, isLit, type ClaimShapes } from '../
 import { clockAt, Period } from '../clock.ts';
 import { floorDiv, isqrt, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { WALKER } from '../nav/grid.ts';
-import { NIGHT_STEPS } from '../rules.ts';
+import { BP, NIGHT_STEPS } from '../rules.ts';
 import { UnitKind, type PendingSpawn, type SimState } from '../state.ts';
 import { FOG_TILE_COLUMNS } from '../world/world.ts';
 import { aimsOf, nearestAim, pickAim, WAVE_AIMS } from './aims.ts';
@@ -60,7 +60,7 @@ const PACK_MAX = 6;
 const GROUP_SPREAD_WU = 2 * WU_PER_METRE;
 const TILE_WU = WU_PER_COLUMN * FOG_TILE_COLUMNS;
 
-/** The terms of the night's budget (Rising difficulty; Jade 2026-10-04): 12 + (n - 1) + 3n + 0.04n^2 threat on night n, scaled by scalePct. */
+/** The terms of the night's budget (Rising difficulty; Jade 2026-10-04): 12 + (n - 1) + 3n + 0.04n^2 threat on night n, scaled by scalePct, and (mini patch 7.3) raised at the start. */
 export interface NightBudget {
   /** The start: threat every night begins with (the 12), held in tenths. */
   startTenths: number;
@@ -72,6 +72,22 @@ export interface NightBudget {
   curveThousandths: number;
   /** The whole budget scaled up or down, percent. */
   scalePct: number;
+  /**
+   * Mini patch 7.3 (Jade, 2026-10-10: "increase night difficulty in a front
+   * loaded way such that night one is roughly 10% harder ... and by night 50
+   * it is back to the same per night as before this patch, but it should
+   * never get easier from one night to the next"): night 1's budget is
+   * raised by this much, bp (10%), the raise falling to nothing by night
+   * frontEndNight. Rounded down, never below the budget without the raise,
+   * and never below the night before's.
+   */
+  frontBonusBp: number;
+  /** The night the raise is gone by (50). */
+  frontEndNight: number;
+  /** How the raise falls: 1 in a straight line from night 1 to frontEndNight, 2 or more falling faster at first (the share left to that power). */
+  frontShape: number;
+  /** The raised budget is rounded down to this many tenths of threat (1: a tenth; 10: whole threat points). */
+  frontRoundTenths: number;
 }
 
 export const NIGHT_BUDGET: NightBudget = {
@@ -80,12 +96,48 @@ export const NIGHT_BUDGET: NightBudget = {
   perNightTenths: 30,
   curveThousandths: 40,
   scalePct: 100,
+  frontBonusBp: 1000,
+  frontEndNight: 50,
+  frontShape: 1,
+  frontRoundTenths: 1,
 };
 
-/** The night's budget in tenths of threat: 12 + (n - 1) + 3n + 0.04n^2 (each term rounded down to a tenth), times the scale. */
-export function nightBudgetTenths(night: number, b: NightBudget = NIGHT_BUDGET): number {
+/** The night's budget before mini patch 7.3's raise: 12 + (n - 1) + 3n + 0.04n^2 (each term rounded down to a tenth), times the scale. */
+function plainBudgetTenths(night: number, b: NightBudget): number {
   const raw = b.startTenths + b.rampTenths * Math.max(0, night - 1) + b.perNightTenths * night + floorDiv(b.curveThousandths * night * night, 100);
   return floorDiv(raw * b.scalePct, 100);
+}
+
+/** Mini patch 7.3's raise on a night, bp: frontBonusBp on night 1, falling to 0 by frontEndNight (frontShape), none on night 0. */
+export function frontBonusBp(night: number, b: NightBudget = NIGHT_BUDGET): number {
+  const span = (b.frontEndNight ?? 0) - 1;
+  if (night < 1 || span <= 0 || night >= b.frontEndNight || !(b.frontBonusBp > 0)) return 0;
+  // The share of the raise left, bp, to the shape's power.
+  const leftBp = floorDiv((b.frontEndNight - night) * BP, span);
+  let bonus = b.frontBonusBp;
+  for (let k = 0; k < Math.max(1, b.frontShape ?? 1); k++) bonus = floorDiv(bonus * leftBp, BP);
+  return bonus;
+}
+
+/** A night's budget with its raise: rounded down to frontRoundTenths, never below the plain budget. */
+function raisedBudgetTenths(night: number, b: NightBudget): number {
+  const plain = plainBudgetTenths(night, b);
+  const step = Math.max(1, b.frontRoundTenths ?? 1);
+  const raised = floorDiv(floorDiv(plain * (BP + frontBonusBp(night, b)), BP), step) * step;
+  return Math.max(plain, raised);
+}
+
+/**
+ * The night's budget in tenths of threat: 12 + (n - 1) + 3n + 0.04n^2 (each
+ * term rounded down to a tenth), times the scale, raised by mini patch 7.3's
+ * front-loaded share (frontBonusBp) and never less than the night before's.
+ * Necromancers, Morvath and the other special arrivals come on top of it.
+ */
+export function nightBudgetTenths(night: number, b: NightBudget = NIGHT_BUDGET): number {
+  let most = raisedBudgetTenths(night, b);
+  // Never easier than an earlier night: the raise only runs to frontEndNight, so only those nights can be above.
+  for (let n = 1; n < night && n < b.frontEndNight; n++) most = Math.max(most, raisedBudgetTenths(n, b));
+  return most;
 }
 
 /** The mobs that may come on a night, with their pick weights: 3 for those unlocked in the last 10 nights, else 1. */

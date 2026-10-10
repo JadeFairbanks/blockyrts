@@ -219,6 +219,12 @@ export class World {
     return this.columns(l.cx, l.cz).water[l.i]!;
   }
 
+  /** Whether a global column's water, as the land was made, is a river or stream (it flows), not a pond, a bog's pool or a spring. */
+  flowingAt(x: number, z: number): boolean {
+    const l = this.locate(x, z);
+    return this.generated(l.cx, l.cz).columns.source[l.i] === 1;
+  }
+
   /** The layers of a global column, as (bottom, top, material) triples. */
   columnAt(x: number, z: number): number[] {
     const l = this.locate(x, z);
