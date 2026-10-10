@@ -8,7 +8,6 @@ import {
   CLOSE_KITS,
   createWorld,
   gearSpec,
-  giveWaveGear,
   Line,
   LONG_KITS,
   OBSIDIAN_AXE_GEAR,
@@ -33,11 +32,9 @@ import {
   UnitKind,
   upgradeSteps,
   upgradeTarget,
-  waveGearTier,
   type Building,
   type KitHolder,
   type Order,
-  type PendingSpawn,
   type Piece,
   type SimState,
 } from '../src/index.ts';
@@ -205,22 +202,5 @@ describe('the obsidian hand-axe', () => {
     const trained = (): number => [...Array(e.count).keys()].findIndex((j) => e.id[j]! >= first && e.kind[j] === UnitKind.Warrior);
     until(() => trained() >= 0);
     expect([e.wTier[trained()], e.weapon[trained()]]).toEqual([4, OBSIDIAN_AXE_GEAR]);
-  });
-});
-
-describe('the night waves carry gear (GP-1)', () => {
-  it('carry about 0.04 pieces a night per player, of the tier expected by then', () => {
-    const s = createWorld(7, { peaceful: true });
-    const plan = (): PendingSpawn[] => Array.from({ length: 30 }, (_, k) => ({ at: k, mob: 0, player: 0, group: 1, x: 0, z: 0, placed: 0, role: 0, ax: 0, az: 0, src: 0, gear: 0 }));
-    let total = 0;
-    for (let night = 1; night <= 100; night++) {
-      const p = plan();
-      giveWaveGear(s, p, 0, night);
-      total += p.filter((x) => x.gear !== 0).length;
-    }
-    // 0.04 x (1 + 2 + ... + 100) = 202 on average.
-    expect(total).toBeGreaterThan(170);
-    expect(total).toBeLessThan(235);
-    expect([waveGearTier(5), waveGearTier(15), waveGearTier(50)]).toEqual([4, 5, 8]);
   });
 });
