@@ -34,7 +34,6 @@ import { DEPTH_AHEAD, LAIR_SHARE_DELAY_STEPS } from '../threats/data.ts';
 import { fogged, throughFog } from '../threats/fog.ts';
 import { lairBudgetTenths, lairsOf, lairSpawns } from '../threats/lairs.ts';
 import { brightTonight } from '../threats/bright.ts';
-import { giveWaveGear } from '../threats/loot.ts';
 import { necromancerNight } from '../threats/necromancer.ts';
 import { headlessTonight, unleash, unleashedSpot } from '../threats/headless.ts';
 import { Role } from '../threats/types.ts';
@@ -197,7 +196,7 @@ export function planNight(state: SimState, player: number, night: number, start:
   const mobs = nightMobs(state, player, night);
   const out: PendingSpawn[] = [];
   let group = state.spawns.reduce((g, s) => Math.max(g, s.group), 0) + 1;
-  const spawn = (at: number, p: Planned, g: number): PendingSpawn => ({ at, mob: p.mob, player, group: g, x: 0, z: 0, placed: 0, role: p.role, ax: p.ax, az: p.az, src: p.src, gear: 0 });
+  const spawn = (at: number, p: Planned, g: number): PendingSpawn => ({ at, mob: p.mob, player, group: g, x: 0, z: 0, placed: 0, role: p.role, ax: p.ax, az: p.az, src: p.src });
   const fromLairs = new Map<number, Planned[]>();
   // Grouped by role, then kind: the depth weighting's extras come apart from the rest.
   const byKind = new Map<number, Planned[]>();
@@ -483,8 +482,6 @@ export function updateSpawns(state: SimState): void {
     for (let p = 0; p < state.players.length; p++) {
       if (state.players[p]!.out || brightTonight(state, p)) continue;
       const planned = planNight(state, p, c.cycle, state.step);
-      // Patch 5 (GP-1): now and then one of them carries a weapon, armour or shield.
-      giveWaveGear(state, planned, p, c.cycle);
       // Jade's SCB-4: the Headless God Idol turns tonight's waves on a faction.
       const f = headlessTonight(state, p, c.cycle);
       if (f) unleash(state, planned, p, f);
@@ -524,11 +521,6 @@ export function updateSpawns(state: SimState): void {
     const cz = floorDiv(z + oz, WU_PER_COLUMN);
     const ok = state.nav.standable(cx, cz, WALKER);
     const i = addMob(state, s.mob, s.player, ok ? x + ox : x, ok ? z + oz : z, c.cycle);
-    if (s.gear) {
-      // Carried like a goblin's stolen load: it drops where the mob is killed (combat/deaths.ts).
-      state.entities.carryRes[i] = s.gear;
-      state.entities.carryAmt[i] = 1;
-    }
     if (s.role === Role.Aimed || s.role === Role.Unleashed) {
       const e = state.entities;
       e.role[i] = s.role;

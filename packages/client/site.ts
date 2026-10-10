@@ -1,5 +1,5 @@
-// The site's search and link-preview pieces. The site describes itself as a
-// learning project. A sign-in box stands in front of it
+// The site's search and link-preview pieces. The site presents the game as a
+// co-op survival open world RTS. A sign-in box stands in front of it
 // (deploy/pages/functions/_middleware.ts), so search engines and link
 // previews read the page behind the box, which uses the same words;
 // index.html, behind it, carries the title, description, preview tags and a
@@ -11,11 +11,22 @@
 
 import type { Plugin } from 'vite';
 
-/** The site's name, as the page title and previews show it. */
+/** The site's name. */
 export const SITE_TITLE = 'Survive and Conquer';
 
+/** The page title, as search results and previews show it (the page behind the sign-in box uses the same). */
+export const SITE_HEADLINE = 'Survive and Conquer: Co-op Survival Open World RTS';
+
 /** One line for search results and link previews (index.html and the page behind the sign-in box carry the same words). */
-export const SITE_DESCRIPTION = 'Survive and Conquer is a learning project.';
+export const SITE_DESCRIPTION =
+  'A co-op survival open world RTS in your browser for 1 to 8 players. Gather, craft and build a base with friends, then hold it as every night grows deadlier.';
+
+/** The longer pitch: index.html's no-script summary and the page behind the sign-in box. */
+export const SITE_ABOUT =
+  'Survive and Conquer is a co-op survival open world real-time strategy game you play in your browser. Gather wood, stone and food, craft gear, raise a base and train your people, then push out into wild lands that grow more dangerous the farther you go. When night falls, monsters come for your walls, and every night brings stronger ones. The nights never end: play alone or with up to 7 friends and see how long you last.';
+
+/** The genres the structured data lists (the page behind the sign-in box lists the same). */
+export const SITE_GENRES = ['Survival', 'Real-time strategy', 'Open world'];
 
 /** The share picture, in public/ (1200 by 630, from the main menu's battle). */
 export const SITE_IMAGE = '/og-image.jpg';
@@ -46,10 +57,15 @@ export function sitemapXml(site: string): string {
 export function siteHead(site: string): string {
   const page = {
     '@context': 'https://schema.org',
-    '@type': 'WebSite',
+    '@type': 'VideoGame',
     name: SITE_TITLE,
     description: SITE_DESCRIPTION,
     url: `${site}/`,
+    genre: SITE_GENRES,
+    playMode: ['SinglePlayer', 'CoOp'],
+    numberOfPlayers: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 8 },
+    gamePlatform: 'Web browser',
+    applicationCategory: 'GameApplication',
   };
   return [
     `<link rel="canonical" href="${site}/" />`,

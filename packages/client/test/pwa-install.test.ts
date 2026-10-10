@@ -5,6 +5,7 @@
 // Chromium, with the sign-in gate.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
+import { SITE_DESCRIPTION } from '../site.ts';
 import { buildId, serviceWorker } from '../pwa.ts';
 import { INSTALL_STEPS, installWay, type InstallFacts } from '../src/ui/install.ts';
 
@@ -30,9 +31,8 @@ describe('manifest', () => {
     expect(manifest.background_color).toBe(theme);
   });
 
-  it('calls it a learning project, not a game', () => {
-    expect(String(manifest.description)).toContain('a learning project');
-    expect(JSON.stringify(manifest)).not.toMatch(/\bgame\b/i);
+  it('describes the game with the page\'s own description', () => {
+    expect(manifest.description).toBe(SITE_DESCRIPTION);
   });
 
   it('has the 192 and 512 icons and a maskable one, each the size it says', () => {

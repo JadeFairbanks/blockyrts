@@ -1,5 +1,5 @@
 // Cloudflare Pages middleware: the browser's own user name and password box in
-// front of the whole site (the play domain and the pages.dev mirror), so
+// front of the whole site (switched off for now, see SIGN_IN_ON below) (the play domain and the pages.dev mirror), so
 // passers-by do not reach the game or its server. It is a deterrent, not
 // security. The game's files (/assets/, /models/, /audio/), the icon, the
 // preview picture, robots.txt, sitemap.xml and the installable app's
@@ -22,7 +22,11 @@ const REALM = 'Survive and Conquer';
 // How the box's page describes the site to visitors, search engines and link
 // previews: packages/client/site.ts has the same words for index.html.
 const TITLE = 'Survive and Conquer';
-const DESCRIPTION = 'Survive and Conquer is a learning project.';
+const HEADLINE = 'Survive and Conquer: Co-op Survival Open World RTS';
+const DESCRIPTION =
+  'A co-op survival open world RTS in your browser for 1 to 8 players. Gather, craft and build a base with friends, then hold it as every night grows deadlier.';
+const ABOUT =
+  'Survive and Conquer is a co-op survival open world real-time strategy game you play in your browser. Gather wood, stone and food, craft gear, raise a base and train your people, then push out into wild lands that grow more dangerous the farther you go. When night falls, monsters come for your walls, and every night brings stronger ones. The nights never end: play alone or with up to 7 friends and see how long you last.';
 const IMAGE = '/og-image.jpg';
 
 interface Env {
@@ -97,8 +101,19 @@ const attr = (s: string): string => s.replace(/&/g, '&amp;').replace(/"/g, '&quo
 
 /** The page behind the box: what a visitor sees after closing it, and what search engines and link previews read. */
 export function signInPage(origin: string): string {
-  const title = `${TITLE}: a learning project`;
-  const site = { '@context': 'https://schema.org', '@type': 'WebSite', name: TITLE, description: DESCRIPTION, url: `${origin}/` };
+  const title = HEADLINE;
+  const site = {
+    '@context': 'https://schema.org',
+    '@type': 'VideoGame',
+    name: TITLE,
+    description: DESCRIPTION,
+    url: `${origin}/`,
+    genre: ['Survival', 'Real-time strategy', 'Open world'],
+    playMode: ['SinglePlayer', 'CoOp'],
+    numberOfPlayers: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 8 },
+    gamePlatform: 'Web browser',
+    applicationCategory: 'GameApplication',
+  };
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -124,15 +139,17 @@ export function signInPage(origin: string): string {
     <script type="application/ld+json">${JSON.stringify(site).replace(/</g, '\\u003c')}</script>
     <style>
       html, body { margin: 0; min-height: 100%; background: #1b1f24; color: #e8e2d4; font: 16px/1.5 system-ui, sans-serif; }
-      main { max-width: 22em; margin: 12vh auto 0; padding: 0 16px; }
+      main { max-width: 34em; margin: 12vh auto 0; padding: 0 16px; }
       h1 { margin: 0; font-size: 1.6em; }
-      p { margin: 0.25em 0; color: #b9b2a3; }
+      p { margin: 0.5em 0; color: #b9b2a3; }
+      p.sign-in { margin-top: 1.5em; color: #e8e2d4; }
     </style>
   </head>
   <body>
     <main>
       <h1>${TITLE}</h1>
-      <p>A learning project. Reload the page to sign in.</p>
+      <p>${ABOUT}</p>
+      <p class="sign-in">Reload the page to sign in.</p>
     </main>
   </body>
 </html>
@@ -143,9 +160,22 @@ function plain(status: number, text: string): Response {
   return new Response(`${text}\n`, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
 }
 
-export async function onRequest({ request, env, next }: PagesContext): Promise<Response> {
+/**
+ * Whether the sign-in box stands in front of the site. Switched off for
+ * Patch 7, so anyone with the address goes straight to the game; set it back
+ * to true to bring the box back exactly as it was (the password secret, the
+ * check and the cookie are all still in place).
+ */
+export const SIGN_IN_ON = false;
+
+export function onRequest(context: PagesContext): Promise<Response> {
+  return serve(context, SIGN_IN_ON);
+}
+
+/** Answers a request, behind the sign-in box when signIn is true. */
+export async function serve({ request, env, next }: PagesContext, signIn: boolean): Promise<Response> {
   const url = new URL(request.url);
-  const res = await gate(url, request, env, next);
+  const res = signIn ? await gate(url, request, env, next) : await next();
   // _headers does not reach answers from Functions, so the mirror's
   // delisting is repeated here (deploy/pages/static/_headers).
   if (!url.hostname.endsWith('.pages.dev')) return res;
