@@ -1,6 +1,5 @@
-// Takes the screenshots of the game that How to Play and the patch notes
-// show (QV-8: the quest menu and a leader's offer, and a picture for every
-// guide): a dev build of the game in Chromium, set up with the dev build's
+// Takes the screenshots of the game that the patch notes show (QV-8: the
+// quest menu and a leader's offer): a dev build of the game in Chromium, set up with the dev build's
 // debugger buttons, captured and saved as JPEG under
 // packages/assets/src/shots/<name>.jpg. Run by hand, not part of `pnpm test`:
 //
@@ -9,12 +8,12 @@
 //
 // Software drawing is slow: each shot takes a minute or so.
 //
-// Screenshots are only for the guides and the patch notes: a page about a
-// thing shows its kit icon or draws its model (how-to-play/model-view.ts),
-// and nothing gets a picture made for it. When an update changes something
-// so that a screenshot no longer shows the game as it is, remove the
-// screenshot (and its entry here) rather than retaking it, and point the
-// guide at the thing's model ("model:<id>") or kit picture instead.
+// Screenshots are only for the patch notes: How to Play shows a thing's
+// kit icon or its model, live (how-to-play/model-view.ts; Patch 7 retired
+// the guides' screenshots), and nothing gets a picture made for it. When an
+// update changes something so that a screenshot no longer shows the game
+// as it is, remove the screenshot (and its entry here) rather than retaking
+// it.
 /* global window, document */
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -83,44 +82,12 @@ async function clipAround(page, selector, w, h, above = 0.25) {
   const y = Math.max(0, Math.min(720 - h, b.y - h * above));
   return { x, y, width: w, height: h };
 }
-/** Waits until no model has finished loading for `quietMs` (a model not loaded yet is drawn as a block, or not at all). */
-async function settleModels(page, quietMs = 6000, maxMs = 150_000) {
-  const started = Date.now();
-  let last = -1;
-  let since = Date.now();
-  while (Date.now() - started < maxMs) {
-    const n = await page.evaluate(() => performance.getEntriesByType('resource').filter((e) => e.name.includes('.glb')).length);
-    if (n !== last) {
-      last = n;
-      since = Date.now();
-    } else if (Date.now() - since > quietMs) break;
-    await wait(page, 500);
-  }
-  await wait(page, 2000);
-}
 async function newGame(page, base, seed) {
   await page.goto(`${base}?seed=${seed}`);
   await page.waitForFunction(() => window.shell && window.shell.game.info, null, { timeout: 120_000 });
   await wait(page, 2500);
 }
 
-/** The shots: name, what it shows, and how to set it up. Each returns the clip to save, or null for the whole window. */
-/** The player's main base, metres. */
-const base0 = (page) =>
-  page.evaluate(() => {
-    const b = [...window.shell.world.selectables.candidates()].find((t) => t.typeKey.startsWith('building:0:') && t.owner === 0);
-    return b ? { x: b.centre.x, z: b.centre.z } : { x: window.shell.cam.focus.x, z: window.shell.cam.focus.z };
-  });
-/** Answers No to the starting units' questions and lets the main base's advice fade, so the picture is clear of bubbles. */
-async function settle(page) {
-  await page.evaluate(() => {
-    for (const el of document.querySelectorAll('.bubble.question.mine .yes-no-btn.no')) window.shell.buttons.get(el.dataset.btn)?.def.onPress?.({ shift: false, ctrl: false });
-  });
-  await wait(page, 16_000);
-  await page.evaluate(() => {
-    for (const el of document.querySelectorAll('.bubble.question.mine .yes-no-btn.no')) window.shell.buttons.get(el.dataset.btn)?.def.onPress?.({ shift: false, ctrl: false });
-  });
-}
 /** A Halfling village found 34 m from the main base, on revealed land. */
 async function village(page) {
   await look(page, { dx: 34, dz: 10, distance: 26 });
@@ -129,6 +96,7 @@ async function village(page) {
   await press(page, 'dbg-villages');
 }
 
+/** The shots: name, what it shows, and how to set it up. Each returns the clip to save, or null for the whole window. */
 const SHOTS = [
   {
     name: 'shot_quest_offer',
@@ -169,91 +137,6 @@ const SHOTS = [
       const x = Math.max(0, b.x - 20);
       const y = Math.max(0, b.y - 80);
       return { x, y, width: Math.min(1280 - x, b.width + 300), height: Math.min(720 - y, b.height + 120) };
-    },
-  },
-  {
-    name: 'shot_start',
-    about: 'The start of a game: the Big House, four workers and three warriors.',
-    async stage(page) {
-      await settle(page);
-      const b = await base0(page);
-      await look(page, { x: b.x, z: b.z + 3, distance: 26, yaw: 0.45 });
-      await wait(page, 3000);
-      return null;
-    },
-  },
-  {
-    name: 'shot_citadel',
-    about: 'A main base at its top tier, the Citadel, with its engine platform.',
-    async stage(page) {
-      await press(page, 'dbg-citadel');
-      await settle(page);
-      const b = await base0(page);
-      await look(page, { x: b.x, z: b.z + 2, distance: 40, yaw: 0.45 });
-      await wait(page, 6000);
-      return null;
-    },
-  },
-  {
-    name: 'shot_barracks',
-    about: "A Barracks selected, with the troop panel's four troops and their kits.",
-    async stage(page) {
-      await press(page, 'dbg-troops');
-      await press(page, 'dbg-citadel');
-      await settle(page);
-      await page.evaluate(() => {
-        const s = window.shell;
-        const b = [...s.world.selectables.candidates()].find((t) => t.typeKey.startsWith('building:8:') && t.owner === 0);
-        if (!b) return;
-        s.cam.setView({ x: b.centre.x, z: b.centre.z + 2, distance: 24 });
-        s.selection.set([b]);
-      });
-      await wait(page, 5000);
-      return null;
-    },
-  },
-  {
-    name: 'shot_unit_card',
-    about: "A warrior selected: his card's numbers, gear and orders.",
-    async stage(page) {
-      await settle(page);
-      await page.evaluate(() => {
-        const s = window.shell;
-        const u = [...s.world.selectables.candidates()].find((t) => t.key.startsWith('e:') && t.owner === 0 && s.game.unit(Number(t.key.slice(2)))?.kind === 1);
-        if (!u) return;
-        s.cam.setView({ x: u.centre.x, z: u.centre.z - 3, distance: 12 });
-        s.selection.set([u]);
-      });
-      await wait(page, 4000);
-      return { x: 352, y: 474, width: 928, height: 246 };
-    },
-  },
-  {
-    name: 'shot_siege',
-    about: 'A catapult, a ballista and a bronze cannon with their crews.',
-    async stage(page) {
-      await settle(page);
-      const b = await base0(page);
-      await look(page, { x: b.x + 24, z: b.z + 10 });
-      await press(page, 'dbg-siege');
-      await wait(page, 2000);
-      await look(page, { x: b.x + 24, z: b.z + 8, distance: 22, yaw: Math.PI + 0.45 });
-      await settleModels(page);
-      return null;
-    },
-  },
-  {
-    name: 'shot_barn',
-    about: 'A Barn with its animals.',
-    async stage(page) {
-      await settle(page);
-      const b = await base0(page);
-      await look(page, { x: b.x - 22, z: b.z + 8 });
-      await press(page, 'dbg-barn');
-      await wait(page, 2000);
-      await look(page, { x: b.x - 22, z: b.z + 10, distance: 20, yaw: 0.45 });
-      await wait(page, 12_000);
-      return null;
     },
   },
 ];

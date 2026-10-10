@@ -1,9 +1,9 @@
 // The URL of a picture by file name, for How to Play and the patch notes:
 // the HUD's own icons and portraits (rendered from the game's models), the
 // minimap marks, and screenshots of the game (packages/assets/src/shots,
-// taken by scripts/make-shots.mjs). Screenshots are for the guides and the
-// patch notes only; a page about a thing shows its icon or draws its model
-// (book.ts MODEL_PICTURE has the whole rule).
+// taken by scripts/make-shots.mjs). Screenshots are for the patch notes
+// only; How to Play shows a thing's icon or its model, live (book.ts
+// MODEL_PICTURE has the whole rule).
 import { kitUrl } from '../../hud/kit-icons.ts';
 
 const MORE = import.meta.glob<string>(

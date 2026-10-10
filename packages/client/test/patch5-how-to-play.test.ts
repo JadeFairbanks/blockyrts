@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { importSimModules, readSimDocs } from '@blockyrts/balance/node';
 import type { Block } from '../src/ui/how-to-play/article.ts';
-import { MODEL_PICTURE } from '../src/ui/how-to-play/book.ts';
+import { MODEL_PICTURE, modelOfPic } from '../src/ui/how-to-play/book.ts';
 import { bookFromHash } from '../src/ui/book-links.ts';
 import { LEFT_OUT_GROUPS } from '../src/ui/how-to-play/categories.ts';
 import { GUIDES } from '../src/ui/how-to-play/guides.ts';
@@ -26,7 +26,8 @@ const w = buildWiki(mods, readSimDocs(), {
 
 /** Every catalogue model's id, from its Blockbench source (a look "~x" or state set "@x" is drawn from the same file). */
 const MODEL_IDS = new Set(
-  (readdirSync(join(import.meta.dirname, '../../assets/src/models'), { recursive: true }) as string[])
+  ['../../assets/src/models', '../../assets/base/models']
+    .flatMap((dir) => readdirSync(join(import.meta.dirname, dir), { recursive: true }) as string[])
     .filter((f) => f.endsWith('.bbmodel'))
     .map((f) => f.slice(f.lastIndexOf('/') + 1, -'.bbmodel'.length)),
 );
@@ -63,8 +64,10 @@ function labelsOf(blocks: readonly Block[], out: string[] = []): string[] {
 const included = [...w.catalog.entries.values()].filter((e) => !LEFT_OUT_GROUPS.has(e.group));
 
 describe('How to Play pages', () => {
-  it('has one page for every catalog entry, each at its own address and under a section', () => {
-    expect(w.articles.filter((a) => a.entry)).toHaveLength(included.length);
+  it('has a page for every catalog entry, each at its own address and under a section', () => {
+    // Patch 7: one sheet per thing, so a row of the same name or a rule about a thing is on that thing's page.
+    const onPages = w.articles.flatMap((a) => (a.entry ? [a.entry.id, ...a.parts.filter((p) => !p.entry.id.startsWith('rules:')).map((p) => p.entry.id)] : []));
+    expect(new Set(onPages).size).toBe(onPages.length);
     expect(new Set(w.articles.map((a) => a.slug)).size).toBe(w.articles.length);
     for (const e of included) expect(w.slugOf(e.id), e.label).not.toBe('');
     const filed = w.sections.flatMap((s) => s.shelves.flatMap((sh) => sh.articles));
@@ -112,14 +115,17 @@ describe('How to Play pages', () => {
     expect(bare).toEqual([]);
   });
 
-  it('draws its model for a page with no picture, and only a model the catalogue has', () => {
+  it('names its model for a page about a thing the game draws, and only a model the catalogue has', () => {
     const elfHall = w.byTitle('Elf hall')!;
     expect(elfHall.pic).toBeNull();
     expect(elfHall.model).toBe('elf_hall');
     expect(w.byTitle('Intact trilithon')?.model).toBe('trilithon_intact');
+    expect(w.byTitle('Zombie')?.model).toBe('zombie');
     const drawn = w.articles.filter((a) => a.model);
-    expect(drawn.length).toBeGreaterThan(50);
-    expect(drawn.filter((a) => a.pic || !modelExists(a.model)).map((a) => `${a.title}: ${a.model}`)).toEqual([]);
+    expect(drawn.length).toBeGreaterThan(150);
+    // A page whose picture is an icon keeps it (Patch 7), so only the models shown must exist.
+    const shown = drawn.filter((a) => !a.pic || modelOfPic(a.pic));
+    expect(shown.filter((a) => !modelExists(a.model)).map((a) => `${a.title}: ${a.model}`)).toEqual([]);
   });
 
   it('names its numbers in plain words, not the code\'s', () => {
@@ -129,11 +135,10 @@ describe('How to Play pages', () => {
     expect([...bad]).toEqual([]);
   });
 
-  it('gives every guide pictures of the game: screenshots, kit pictures or models, never a stand-in', () => {
+  it('gives every guide pictures of the game: kit pictures or models, never a stand-in or a screenshot (Patch 7)', () => {
     const pictures = GUIDES.flatMap((g) => [g.picture, ...g.parts.map((p) => p.picture ?? '')]).filter(Boolean);
-    const bad = pictures.filter((f) => (f.startsWith(MODEL_PICTURE) ? !modelExists(f.slice(MODEL_PICTURE.length)) : !pictureUrl(f)) || f === 'icon_scriptorium');
+    const bad = pictures.filter((f) => (f.startsWith(MODEL_PICTURE) ? !modelExists(f.slice(MODEL_PICTURE.length)) : !pictureUrl(f)) || f === 'icon_scriptorium' || f.startsWith('shot_'));
     expect(bad).toEqual([]);
-    expect(pictures.filter((f) => f.startsWith('shot_')).length).toBeGreaterThan(5);
   });
 
   it('never mentions a patch in the guides (they tell the game as it is)', () => {

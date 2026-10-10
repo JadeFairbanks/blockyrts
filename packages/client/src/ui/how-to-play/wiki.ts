@@ -2,13 +2,16 @@
 // balance catalog (every building, unit, piece of gear, spell, recipe,
 // good, creature and rule table the sim exports), filed into the player's
 // sections (categories.ts), with links both ways and a search. Built from
-// the sim's live modules, so it changes as the game does.
+// the sim's live modules, so it changes as the game does. One sheet per
+// thing (Patch 7, sheets.ts): rows of the same name are one page, and a
+// rules page about particular things goes onto their own pages.
 import { buildCatalog, type Catalog, type CatNode, type Entry, type SimDocs, type SimModules } from '@blockyrts/balance';
 import { articleBlocks, type Block, type Links, type Pic } from './article.ts';
 import { GUIDES_SECTION, pageByTitle, searchPages, type Book, type Related, type RelatedItem } from './book.ts';
 import { CATEGORIES, categoryOf, FALLBACK_CATEGORY, GROUP_HEADINGS, LEFT_OUT_GROUPS, MENU_NAMES, type Category } from './categories.ts';
 import { GUIDES, type Guide } from './guides.ts';
 import { plainWords } from './plain-words.ts';
+import { FOLDS, KEPT_TITLES, pieceOf, splitRules, targetEntry } from './sheets.ts';
 
 export interface Article {
   /** Its address: "guides/premise", "monsters/zombie". */
@@ -19,14 +22,22 @@ export interface Article {
   /** Its sub-heading in the sidebar ('' for none). */
   heading: string;
   entry: Entry | null;
+  /** The rest of its sheet, after its own entry: its other forms and the rules about it (sheets.ts). */
+  parts: Part[];
   guide: Guide | null;
   pic: Pic | null;
-  /** The catalogue model the page draws when it has no picture ('' for none). */
+  /** The catalogue model the page shows ('' for none). */
   model: string;
   /** Lower-case words a search matches first: the title, sub-heading, section and the page's own words. */
   words: string;
   /** Lower-case names the page refers to (a mob's drops, a recipe's goods), matched last. */
   more: string;
+}
+
+/** A part of a sheet: another form of the thing, or the rules about it, as an entry (a rules page's share is that page with only its share). */
+export interface Part {
+  label: string;
+  entry: Entry;
 }
 
 export interface Shelf {
@@ -48,8 +59,10 @@ export interface Pictures {
   entry(entry: Entry): Pic | null;
   ref(kind: string, id: number): Pic | null;
   level(entry: Entry, level: number): Pic | null;
-  /** The model a page with no picture draws ('' for none); tests may leave it out. */
+  /** The model a page shows ('' for none); tests may leave it out. */
   model?(entry: Entry): string;
+  /** A merged row's heading on its sheet (sheets.ts formName); tests may leave it out. */
+  form?(entry: Entry): string;
 }
 
 export interface Wiki {
@@ -119,6 +132,7 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
       category: GUIDES_SECTION,
       heading: '',
       entry: null,
+      parts: [],
       guide: g,
       pic: { file: g.picture },
       model: '',
@@ -141,6 +155,29 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
     if (!byCategory.has(cat)) byCategory.set(cat, []);
     for (const e of g.entries) byCategory.get(cat)!.push({ group: g.id, entry: e });
   }
+  // ---- Rules pages split up: their things' rules go to those things' sheets (sheets.ts) ----
+  const kept = new Map<string, Entry | null>();
+  const moving: Array<{ label: string; to: string[]; entry: Entry }> = [];
+  for (const g of catalog.groups) {
+    if (LEFT_OUT_GROUPS.has(g.id)) continue;
+    for (const e of g.entries) {
+      if (!e.id.startsWith('rules:')) continue;
+      const split = splitRules(e);
+      if (split.moved.size === 0) continue;
+      const stay = [...split.kept];
+      for (const [i, nodes] of split.moved) {
+        const fold = FOLDS[i]!;
+        const to = fold.to.map((t) => targetEntry(catalog, t)).filter((id): id is string => !!id);
+        // A rule whose sheet is not in the game (yet) stays on its rules page.
+        if (to.length === 0) stay.push(...nodes);
+        else moving.push({ label: fold.label, to, entry: { ...e, children: nodes } });
+      }
+      kept.set(e.id, stay.length ? { ...e, label: KEPT_TITLES[e.id] ?? e.label, children: stay } : null);
+    }
+  }
+  const gone = new Map<string, string>();
+  const pieces: Array<{ label: string; host: string; entry: Entry }> = [];
+
   const categories: Category[] = [...CATEGORIES];
   for (const c of categories) {
     const list = byCategory.get(c.id) ?? [];
@@ -149,7 +186,30 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
     const rank = (g: string): number => (c.groups.includes(g) ? c.groups.indexOf(g) : c.groups.length);
     list.sort((a, b) => rank(a.group) - rank(b.group));
     const shelves = new Map<string, Article[]>();
-    for (const { group, entry } of list) {
+    const byTitle = new Map<string, Article>();
+    let count = 0;
+    for (const { group, entry: own } of list) {
+      // A rules page with nothing left on it is no page (its rules are on their things' sheets).
+      const entry = kept.has(own.id) ? kept.get(own.id) : own;
+      if (!entry) {
+        gone.set(own.id, moving.find((m) => m.entry.id === own.id)?.to[0] ?? '');
+        continue;
+      }
+      // A row that is another side of a thing with its own page goes on that page (Patch 7).
+      const piece = pieceOf(entry, mods);
+      const host = piece && targetEntry(catalog, piece.to);
+      if (piece && host) {
+        pieces.push({ label: piece.label, host, entry });
+        continue;
+      }
+      // A second row of the same name is another form of the first: one sheet (Patch 7).
+      const same = byTitle.get(entry.label.toLowerCase());
+      if (same && !entry.id.startsWith('rules:')) {
+        same.parts.push({ label: pictures.form?.(entry) ?? 'Another kind', entry });
+        same.words += ` ${textOf(entry.children).join(' ').toLowerCase()}`;
+        slugByEntry.set(entry.id, same.slug);
+        continue;
+      }
       const menu = entry.menu.join(': ');
       const heading =
         c.id === FALLBACK_CATEGORY && !c.groups.includes(group)
@@ -167,16 +227,20 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
         category: c.id,
         heading,
         entry,
+        parts: [],
         guide: null,
         pic,
-        model: pic ? '' : pictures.model?.(entry) ?? '',
+        model: pictures.model?.(entry) ?? '',
         words: [entry.label, heading, c.label, ...texts].join(' ').toLowerCase(),
         more: '',
       };
       add(a);
+      count++;
+      if (!entry.id.startsWith('rules:')) byTitle.set(entry.label.toLowerCase(), a);
       if (!shelves.has(heading)) shelves.set(heading, []);
       shelves.get(heading)!.push(a);
     }
+    if (count === 0) continue;
     // Rules pages after the things themselves.
     const ordered = [...shelves].sort(([a], [b]) => Number(a === 'Rules') - Number(b === 'Rules'));
     sections.push({
@@ -185,9 +249,30 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
       blurb: c.blurb,
       pic: { file: c.picture },
       shelves: ordered.map(([heading, list]) => ({ heading, articles: list })),
-      count: list.length,
+      count,
     });
   }
+
+  // ---- The rules about a thing, on its sheet: parts of one heading are one part ----
+  for (const m of moving) {
+    for (const target of m.to) {
+      const host = bySlug.get(slugByEntry.get(target) ?? '');
+      if (!host) continue;
+      const part = host.parts.find((p) => p.label === m.label && p.entry.id.startsWith('rules:'));
+      if (part) part.entry = { ...part.entry, children: [...part.entry.children, ...m.entry.children] };
+      else host.parts.push({ label: m.label, entry: m.entry });
+      host.words += ` ${m.label.toLowerCase()}`;
+    }
+  }
+  for (const p of pieces) {
+    const host = bySlug.get(slugByEntry.get(p.host) ?? '');
+    if (!host) continue;
+    host.parts.push({ label: p.label, entry: p.entry });
+    host.words += ` ${textOf(p.entry.children).join(' ').toLowerCase()}`;
+    slugByEntry.set(p.entry.id, host.slug);
+  }
+  for (const [id, target] of gone) slugByEntry.set(id, slugByEntry.get(target) ?? '');
+  for (const a of articles) for (const p of a.parts) if (p.entry.id.startsWith('rules:')) p.entry = { ...p.entry, children: opened(p.entry.children) };
 
   const slugOf = (entryId: string): string => slugByEntry.get(entryId) ?? '';
   const links: Links = { page: slugOf, refPic: (k, id) => pictures.ref(k, id), levelPic: (e, l) => pictures.level(e, l) };
@@ -203,9 +288,7 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
     if (!list.some((x) => x.slug === item.slug && x.detail === item.detail)) list.push(item);
   };
   for (const a of articles) {
-    const e = a.entry;
-    if (!e) continue;
-    for (const u of e.usedBy) {
+    for (const e of a.entry ? [a.entry, ...a.parts.map((p) => p.entry)] : []) for (const u of e.usedBy) {
       const from = slugOf(u.from);
       const fromArticle = bySlug.get(from);
       if (!fromArticle) continue;
@@ -245,11 +328,31 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
     articles,
     bySlug,
     slugOf,
-    blocks: (a, seen) => (a.entry ? articleBlocks(a.entry, catalog, links, seen) : []),
+    blocks: (a, seen) => sheetBlocks(a, catalog, links, seen),
     related: relatedOf,
     search,
     byTitle,
   };
+}
+
+/**
+ * A sheet's share of a rules page, laid open: one section alone is its
+ * part (the Necromancer's numbers under "Summoning and drops", not under
+ * "Necromancer" again); several keep their names, open (the Void witch's
+ * Hex and Blink).
+ */
+function opened(nodes: readonly CatNode[]): CatNode[] {
+  const only = nodes.length === 1 ? nodes[0] : undefined;
+  if (only?.type === 'section') return only.children;
+  return nodes.map((n) => (n.type === 'section' ? { ...n, open: true } : n));
+}
+
+/** A sheet's blocks: its own entry's, then each part under its heading. */
+function sheetBlocks(a: Article, catalog: Catalog, links: Links, seen?: Set<string>): Block[] {
+  if (!a.entry) return [];
+  const blocks = articleBlocks(a.entry, catalog, links, seen);
+  for (const p of a.parts) blocks.push({ kind: 'group', label: p.label, pic: null, folded: false, blocks: articleBlocks(p.entry, catalog, links, seen) });
+  return blocks;
 }
 
 /** The book as plain data for the page: every page's blocks and links worked out. */

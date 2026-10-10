@@ -17,8 +17,8 @@ Read this whole file before starting. Everything you need is in this repository;
 
 - Never push to `main`. Never change anything outside `packages/assets/src/`.
 - Never put a password, token, key or other secret in any file, commit, pull request or comment, and never ask the project owner for one.
-- **Never change an existing model file.** That includes every monster, the player bodies in `packages/assets/base/models/`, and `heavy_knight`. Every model in this brief is a new file. Where a piece comes from an existing model, copy the parts into a new file and leave the original untouched.
-- **Not your work:** the held monster weapons (the code team cuts them from the monster models itself), item icons, How to play pictures, and all code.
+- **Never change an existing model file.** That includes every monster, the player bodies in `packages/assets/base/models/`, and `heavy_knight`. Every model in sections 5.1 to 5.5 is a new file. Where a piece comes from an existing model, copy the parts into a new file and leave the original untouched. The one exception is the 25 held weapons in section 5.6: MCP agent reviews and corrects those files in place.
+- **Not your work:** item icons, How to play pictures, and all code.
 
 ---
 
@@ -71,11 +71,11 @@ The game places a worn piece by matching bone names, so an armour or robe file m
 
 ## 4. Who Makes What
 
-The code team cuts the monster weapons into held models and renders all item icons. This team makes the 16 models in section 5: four human armour sets, the Dreadnought split into three parts, two Dreadnought armour pieces, six looted robes and one material.
+This team makes the 16 models in sections 5.1 to 5.5: four human armour sets, the Dreadnought split into three parts, two Dreadnought armour pieces, six looted robes and one material. The code team already cut the 25 monster weapons into held models; MCP agent reviews and corrects them (section 5.6). No held weapon is left for this team to make: every monster weapon the plan lists is among the 25. The code team renders all item icons from the reviewed and delivered models.
 
 ---
 
-## 5. The Models (16)
+## 5. The Models (16 new, 25 to review)
 
 Each armour or robe piece is **redrawn** to fit its wearer's body, keeping the source's design, materials and colours so it is clearly the same piece. It is a worn piece, following the `armour_iron_mail` pattern in section 3, and it must look right in every clip the body plays.
 
@@ -130,6 +130,48 @@ These are worn by mages and fit `base/models/peoples/mage/mage.bbmodel`. Each ro
 |---|---|---|
 | 16 | `witchwood` | A small bundle of dark, gnarled staff wood with a faint violet sheen, a material left over when casters' staffs are scrapped. Under 12 cubes, in the style of the existing `sticks_bundle` and `bone_bundle` items |
 
+### 5.6 Held Weapons to Review (25)
+
+The code team cut these from the monsters' own cubes, one held piece per weapon, as `obsidian_handaxe_held` was made: the grip (the monster's hand slot) at the origin, an empty `slot_grip` group there, a `root` group over everything, the texture cropped from the monster's sheet. They are on `main` already but **none goes into the game until MCP agent has reviewed it**. Each file is `packages/assets/src/models/items/<id>/<id>.bbmodel` with its `<id>.png`, and has a row in `src/MANIFEST.md`.
+
+Review them first, before the batches in section 6, in the order below: the bog guardian's club and Morvath's staff come first, because the loot thread's ground trophies (Bog trophy and Victor's trophy) use them as they are.
+
+Held pattern: blades and points along -Z from the grip; bows with their limbs along Z; the sling, the censer and the chain and hook hanging along -Y; shields facing out along X on the shield arm. The hobgoblin, kobold, gnoll and minotaur pieces are at 16/9 of the size those monsters are drawn, the size their builder made them, so they are not toy-sized in a person's hand; every other piece is at its monster's drawn size.
+
+| # | Id | Cut from (monster, group) | Length | Held by | Clips to check it in |
+|---|---|---|---|---|---|
+| 17 | `club_bog_guardian` | `bog_guardian`, `club` | 149 cm | nobody: scrap and the Bog trophy, lying on the ground | none; check it lies flat when turned onto its side |
+| 18 | `staff_morvath` | `morvath`, `staff` | 466 cm | nobody: scrap and Victor's trophy | none; as item 17 |
+| 19 | `dagger_goblin` | `goblin`, `dagger` | 37 cm | warrior, right hand | `attack_1h_stab`, `guard_1h` |
+| 20 | `cleaver_goblin_chief` | `goblin_chief`, `cleaver` | 62 cm | warrior, right hand | `attack_1h_slash`, `guard_1h` |
+| 21 | `sword_hobgoblin` | `hobgoblin`, `gear_sword` | 65 cm | warrior, right hand | `attack_1h_slash`, `guard_1h` |
+| 22 | `sword_barrow_knight` | `barrow_knight`, `longsword` | 120 cm | warrior, right hand | `attack_1h_slash`, `guard_1h` |
+| 23 | `cleaver_fiend` | `fiend`, `cleaver` | 110 cm | warrior, right hand | `attack_1h_slash`, `guard_1h` |
+| 24 | `flail_plague_censer` | `plague_bearer`, `chain_1` | 52 cm | warrior, right hand | `attack_1h_slash`, `guard_1h`, `idle` |
+| 25 | `flail_chain_hook` | `chain_fiend`, `held_hook` | 37 cm | warrior, right hand | `attack_1h_slash`, `guard_1h`, `idle` |
+| 26 | `spear_goblin_feathered` | `goblin_wolf_rider`, `spear` | 104 cm | warrior, right hand | `attack_polearm_thrust`, `guard_polearm` |
+| 27 | `spear_kobold` | `kobold`, `gear_spear` | 123 cm | warrior, right hand | `attack_polearm_thrust`, `guard_polearm` |
+| 28 | `spear_gnoll` | `gnoll`, `gear_spear` | 148 cm | warrior, right hand | `attack_polearm_thrust`, `guard_polearm` |
+| 29 | `axe_great_minotaur` | `minotaur`, `gear_axe` | 193 cm | Dreadnought, right hand | `attack_smash`, `attack_swing` |
+| 30 | `greatsword_archfiend` | `archfiend`, `greatsword` | 204 cm | Dreadnought, right hand | `attack_smash`, `attack_swing` |
+| 31 | `sling_goblin` | `goblin_slinger`, `sling` | 37 cm | warrior, right hand | `sling_throw`, `idle` |
+| 32 | `bow_goblin` | `goblin_archer`, `bow` | 66 cm | warrior, left hand | `bow_shoot` |
+| 33 | `bow_skeleton_recurve` | `skeleton_archer`, `recurve_bow` | 121 cm | warrior, left hand | `bow_shoot` |
+| 34 | `wand_goblin_hexstick` | `goblin_mage`, `hexstick` | 90 cm | mage, right hand | `cast_bolt`, `cast_beam`, `cast_heal`, `cast_area` |
+| 35 | `staff_hollow_priest` | `hollow_priest`, `crooked_staff` | 172 cm | mage, right hand | as item 34 |
+| 36 | `staff_necromancer` | `necromancer`, `staff` | 135 cm | mage, right hand | as item 34 |
+| 37 | `staff_flamecaller` | `flamecaller`, `iron_staff` | 197 cm | mage, right hand | as item 34 |
+| 38 | `wand_fae_star` | `fairy`, `wand` | 51 cm | mage, right hand | as item 34 |
+| 39 | `shield_goblin_plank` | `goblin`, `shield` | 42 cm | warrior, shield arm | `shield_block`, `guard_1h` |
+| 40 | `shield_hobgoblin` | `hobgoblin`, `gear_shield` | 73 cm | warrior, shield arm | `shield_block`, `guard_1h` |
+| 41 | `shield_barrow_knight` | `barrow_knight`, `kite_shield` | 70 cm | warrior, shield arm | `shield_block`, `guard_1h` |
+
+To see a piece in a hand, copy the body (warrior, mage or `heavy_knight`) into a scratch file that you do not commit, put the piece's cubes under the body's `slot_hand_r`, `slot_hand_l` or `slot_shield_l` at that slot's origin, and play the clips. The Dreadnought's own mace is `dreadnought_mace_held` (item 6), not part of this batch.
+
+Fix any piece in place in its own folder and manifest row. Keep the id, the grip at the origin, `slot_grip`, the `root` group, the facing and the monster's colours. Do not change the monster it was cut from.
+
+**Icons:** the code team renders each icon from the reviewed piece after this batch merges. The Deathless Shroud's icon on `main` (`src/ui/icon_deathless_shroud.png`) is a stopgap rendered from the lich's own robe; it is replaced by one rendered from `robe_lich` (item 15) when that lands. Do not make icons.
+
 ---
 
 ## 6. Batches
@@ -138,6 +180,7 @@ There is one pull request per batch.
 
 | Batch | Branch | Contents |
 |---|---|---|
+| weapons review (first) | `assets/patch7-weapons-review` | Items 17 to 41: review and correct, no new files |
 | armour | `assets/patch7-armour` | Items 1 to 4 |
 | dreadnought | `assets/patch7-dreadnought` | Items 5 to 9 (make 5, 6 and 7 first; 8 and 9 fit over them) |
 | robes | `assets/patch7-robes` | Items 10 to 15 |
@@ -181,6 +224,13 @@ Check every model in the pull request. Fix what you can by pushing to the branch
 - [ ] Body plus harness plus mace in `slot_hand_r` looks exactly like today's `heavy_knight` in all nine clips, with the mace in the same place in his hand.
 - [ ] The body alone looks finished: no holes or floating parts where the plate was.
 - [ ] Items 8 and 9 sit over the harness without hiding his helmet plume or the harness's pauldron outline.
+
+**Held weapons (items 17 to 41)**
+- [ ] The grip is at the origin with an empty `slot_grip` there, under a `root` group, and the piece faces as section 5.6 says.
+- [ ] In the hand it is held by, the hand closes round the grip: the grip neither floats off the palm nor sinks through the fist.
+- [ ] In every clip listed for it, the piece does not pass through its holder's body, head or legs in a way that breaks the look, and it does not jump between frames.
+- [ ] The size reads right in the hand against the person (1.69 m) or the Dreadnought (about 2.5 m), and matches the length in the table within a few cm.
+- [ ] Its look and colours are its monster's piece, cube for cube unless a fix needed a change; any change is listed in the pull request body.
 
 **General quality**
 - [ ] The pixel density matches its neighbours: no blurry or stretched texels, no missing faces and no stray cubes.
