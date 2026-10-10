@@ -75,7 +75,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'combat/mob-ai.ts:MOB_SEARCHES_PER_STEP', 'animals/animals.ts:STOCK_CHECK_STEPS',
   'economy/resources.ts:RESOURCE_COUNT',
   // Patch 5's farms and Barn: the leave question's kind and the barn hand's line, a stacked queue item's storage limit, and the plant foods' list.
-  'units/barn-hand.ts:BARN_LEAVE_ASK', 'units/barn-hand.ts:BARN_HAND_TEXT', 'buildings/production.ts:STACK_MAX', 'animals/species.ts:PLANT_FOODS',
+  'units/barn-hand.ts:BARN_LEAVE_ASK', 'units/pickup-ask.ts:PICKUP_ASK', 'units/barn-hand.ts:BARN_HAND_TEXT', 'buildings/production.ts:STACK_MAX', 'animals/species.ts:PLANT_FOODS',
   // The longest timed action the 16-bit tinker column can count (Patch 2): a storage limit, not balance.
   'units/tinker.ts:TINKER_MAX_STEPS',
   // The food kinds' lists (which goods are meats and fish, in the inventory's order) and the meal accounts' unit.
@@ -157,6 +157,7 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/moves.ts': 'units',
   'units/field.ts': 'animals',
   'units/loot.ts': 'loot',
+  'units/handling.ts': 'loot',
   'threats/loot.ts': 'loot',
   'units/forage.ts': 'loot',
   'units/woods.ts': 'loot',
@@ -527,7 +528,7 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'threats/boss.ts': 'Morvath',
   'threats/burns.ts': 'Fire', 'combat/projectiles.ts': 'Projectiles', 'combat/blasts.ts': 'Blasts and craters', 'economy/resources.ts': 'Resources', 'buildings/lights.ts': 'Lights',
   'buildings/placement.ts': 'Placement', 'buildings/chains.ts': 'Wall chains', 'world:buildings/chains.ts': 'Tunnel chains', 'world/layout.ts': 'World layout', 'combat/mob-ai.ts': 'Mob behaviour',
-  'units/loot.ts': 'Loot', 'units/forage.ts': 'Gather, and how far from home', 'units/woods.ts': 'The woodsman fishing and foraging', 'units/woodsman.ts': 'The woodsman', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
+  'units/loot.ts': 'Loot', 'units/handling.ts': 'Handing gear to a unit', 'units/forage.ts': 'Gather, and how far from home', 'units/woods.ts': 'The woodsman fishing and foraging', 'units/woodsman.ts': 'The woodsman', 'loot:units/field.ts': 'Hunt', 'loot:combat/fight.ts': 'Guarding workers',
   'tools:units/kits.ts': 'Prospecting', 'melee:units/kits.ts': 'Long melee criticals', 'training:units/kits.ts': 'Training and upgrading',
   'threats/wanderers.ts': 'Wandering night monsters', 'mobs:threats/wanderers.ts': 'Wandering night monsters',
   'combat/aims.ts': 'Waves: the bases and parties they go for', 'mobs:combat/aims.ts': 'Waves: the bases and parties they go for',
