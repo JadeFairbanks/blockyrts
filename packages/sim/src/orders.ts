@@ -629,7 +629,7 @@ export interface EatBagOrder extends UnitsOrder {
   res: number;
 }
 
-/** Fetch food (Patch 7, Jade: food dragged from the stock onto a unit): each unit walks to a main base or storehouse and takes a full heal's worth of the food `res` from the stock into its bag (units/food-bag.ts). */
+/** Fetch (Patch 7, Jade: food dragged from the stock onto a unit; mini patch 7.3: any good): each unit walks to a main base or storehouse and takes the good `res` from the stock into its bag, a full heal's worth of a food (units/food-bag.ts fetchAmount). */
 export interface FetchFoodOrder extends UnitsOrder {
   kind: 'fetchFood';
   res: number;

@@ -345,17 +345,22 @@ const PERSON_STATURE = 17;
 
 const armour = (tier: number, what: What, model: string, protectionPct: number, cost: Cost[], timeS: number): ArmourKit => ({ tier, ...named(what), model, protectionPct, cost, timeS, need: tier, stature: PERSON_STATURE });
 
-/** Armour by tier, for every troop type (Table 3): body, helmet and boots in one. Flax may stand in for leather where the table says. */
+/**
+ * Armour by tier, for every troop type (Table 3): body, helmet and boots in one. Flax may stand in for leather where the table says.
+ * Mini patch 7.3 (Jade: "all existing armour should be scaled down proportionally" to the 50% cap, rules.ts ARMOUR_CAP_BP): every
+ * armour percent, here, in the robes, the looted pieces and the peoples' own, was taken to 5/7 of what it was, to the nearest whole
+ * percent, so the Fluted Gothic harness's 70 is 50.
+ */
 export const ARMOUR_KITS: readonly ArmourKit[] = [
   armour(0, 'No armour', '', 0, [[]], 0),
-  armour(1, Res.LeatherJerkin, 'armour_leather+boots@leather', 10, only([[LE, 3]]), 30),
-  armour(2, Res.BoiledLeatherCuirass, 'armour_leather_boiled+helmet_leather_cap+boots@leather', 20, only([[HL, 3], [LE, 2]]), 49),
-  armour(3, Res.CopperScaleJack, 'armour_copper_scale+helmet_bronze+boots', 25, [[[CU, 5], [HL, 2], [LE, 1]], [[CU, 5], [HL, 2], [FX, 1]]], 77),
-  armour(4, Res.BronzeScaleArmour, 'armour_bronze_scale+helmet_bronze+boots', 37, [[[BZ, 5], [HL, 2], [LE, 1]], [[BZ, 5], [HL, 2], [FX, 1]]], 84),
-  armour(5, Res.WroughtIronMail, 'armour_iron_mail@iron_wrought+helmet_iron_nasal@iron_wrought+boots', 48, [[[WI, 5], [LE, 3]], [[WI, 5], [FX, 3]]], 84),
-  armour(6, Res.IronCoatOfPlates, 'armour_iron_plates+helmet_iron_nasal@iron_refined+boots', 53, [[[IRON, 5], [LE, 3]], [[IRON, 5], [FX, 3]]], 84),
-  armour(7, Res.SteelPlateHarness, 'armour_steel_plate@steel+helmet_steel_sallet@steel', 65, [[[STEEL, 7], [LE, 4]], [[STEEL, 7], [FX, 4]]], 139),
-  armour(8, Res.FlutedGothicHarness, 'armour_steel_plate@hq_steel+helmet_steel_sallet@hq_steel', 70, [[[CS, 7], [LE, 4]], [[CS, 7], [FX, 4]]], 139),
+  armour(1, Res.LeatherJerkin, 'armour_leather+boots@leather', 7, only([[LE, 3]]), 30),
+  armour(2, Res.BoiledLeatherCuirass, 'armour_leather_boiled+helmet_leather_cap+boots@leather', 14, only([[HL, 3], [LE, 2]]), 49),
+  armour(3, Res.CopperScaleJack, 'armour_copper_scale+helmet_bronze+boots', 18, [[[CU, 5], [HL, 2], [LE, 1]], [[CU, 5], [HL, 2], [FX, 1]]], 77),
+  armour(4, Res.BronzeScaleArmour, 'armour_bronze_scale+helmet_bronze+boots', 26, [[[BZ, 5], [HL, 2], [LE, 1]], [[BZ, 5], [HL, 2], [FX, 1]]], 84),
+  armour(5, Res.WroughtIronMail, 'armour_iron_mail@iron_wrought+helmet_iron_nasal@iron_wrought+boots', 34, [[[WI, 5], [LE, 3]], [[WI, 5], [FX, 3]]], 84),
+  armour(6, Res.IronCoatOfPlates, 'armour_iron_plates+helmet_iron_nasal@iron_refined+boots', 38, [[[IRON, 5], [LE, 3]], [[IRON, 5], [FX, 3]]], 84),
+  armour(7, Res.SteelPlateHarness, 'armour_steel_plate@steel+helmet_steel_sallet@steel', 46, [[[STEEL, 7], [LE, 4]], [[STEEL, 7], [FX, 4]]], 139),
+  armour(8, Res.FlutedGothicHarness, 'armour_steel_plate@hq_steel+helmet_steel_sallet@hq_steel', 50, [[[CS, 7], [LE, 4]], [[CS, 7], [FX, 4]]], 139),
 ];
 
 const shield = (tier: number, what: What, model: string, need: number, blockPct: number, cost: Cost[], timeS: number, heft = 0): ShieldKit => ({
@@ -472,11 +477,11 @@ export const WAND_KITS: readonly WandKit[] = [
 export const ROBE_KITS: readonly RobeKit[] = [
   robe(0, 'No robe', '', 0, 0, [], 0),
   robe(1, Res.HomespunRobe, 'robe_1', 0, 0, [[FX, 3]], 10),
-  robe(2, Res.LeatherTrimmedRobe, 'robe_2', 5, 5, [[FX, 3], [LE, 1]], 20),
-  robe(3, Res.HardenedLeatherRobe, 'robe_3', 10, 10, [[FX, 3], [HL, 2]], 30),
-  robe(4, Res.WardedRobe, 'robe_4', 15, 15, [[FX, 3], [HL, 2], [MC, 1]], 30),
-  robe(5, Res.RuneStitchedVestments, 'robe_5', 20, 20, [[FX, 3], [HL, 2], [CU, 2], [MC, 2]], 45),
-  robe(6, Res.ArchmagesMantle, 'robe_6', 25, 25, [[FX, 3], [HL, 2], [STEEL, 2], [MC, 5]], 60),
+  robe(2, Res.LeatherTrimmedRobe, 'robe_2', 4, 5, [[FX, 3], [LE, 1]], 20),
+  robe(3, Res.HardenedLeatherRobe, 'robe_3', 7, 10, [[FX, 3], [HL, 2]], 30),
+  robe(4, Res.WardedRobe, 'robe_4', 11, 15, [[FX, 3], [HL, 2], [MC, 1]], 30),
+  robe(5, Res.RuneStitchedVestments, 'robe_5', 14, 20, [[FX, 3], [HL, 2], [CU, 2], [MC, 2]], 45),
+  robe(6, Res.ArchmagesMantle, 'robe_6', 18, 25, [[FX, 3], [HL, 2], [STEEL, 2], [MC, 5]], 60),
 ];
 
 /** The top wand and robe tier. */
@@ -663,16 +668,16 @@ export const PeopleGear = {
   Shortbow: add({ name: 'Halfling shortbow', slot: Slot.Ranged, tier: 5, model: 'halfling_shortbow', item: Res.HalflingShortbow, ranged: { damage: 14, attackSteps: ds(35), range: cm(2000), spreadBp: 300, shot: Shot.Arrow, blunt: false, rollBp: DAMAGE_ROLL.physicalBp } }),
   Shortsword: add({ name: 'Halfling shortsword', slot: Slot.Weapon, tier: 5, model: 'halfling_shortsword', item: Res.HalflingShortsword, melee: { damage: 16, attackSteps: ds(11), reach: cm(110), hit: Hit.Arc, blunt: false, oneHanded: true, crit: false, rollBp: DAMAGE_ROLL.physicalBp } }),
   Buckler: add({ name: 'Halfling buckler', slot: Slot.Shield, tier: 2, model: 'halfling_buckler', item: Res.HalflingBuckler, blockBp: 1000 }),
-  HalflingHelm: add({ name: 'Halfling iron cap', slot: Slot.Armour, tier: 5, model: 'helmet_iron_nasal', item: Res.HalflingIronCap, armourBp: 500 }),
+  HalflingHelm: add({ name: 'Halfling iron cap', slot: Slot.Armour, tier: 5, model: 'helmet_iron_nasal', item: Res.HalflingIronCap, armourBp: 400 }),
   Glaive: add({ name: 'Elf glaive', slot: Slot.Weapon, tier: 8, model: 'halberd', item: Res.ElfGlaive, melee: { damage: 45, attackSteps: ds(16), reach: cm(250), hit: Hit.Arc, blunt: false, oneHanded: false, crit: true, rollBp: DAMAGE_ROLL.physicalBp } }),
   ElfLongbow: add({ name: 'Elf longbow', slot: Slot.Ranged, tier: 8, model: 'bow', item: Res.ElfLongbow, ranged: { damage: 24, attackSteps: ds(35), range: cm(4000), spreadBp: 300, shot: Shot.Arrow, blunt: false, rollBp: DAMAGE_ROLL.physicalBp } }),
-  Leathers: add({ name: 'Leather armour', slot: Slot.Armour, tier: 2, model: 'armour_leather', armourBp: 1500 }),
+  Leathers: add({ name: 'Leather armour', slot: Slot.Armour, tier: 2, model: 'armour_leather', armourBp: 1100 }),
   DwarfWarAxe: add({ name: 'Dwarf war axe', slot: Slot.Weapon, tier: 7, model: 'axe_war', item: Res.DwarfWarAxe, melee: { damage: 26, attackSteps: ds(13), reach: cm(120), hit: Hit.Arc, blunt: false, oneHanded: true, crit: false, rollBp: DAMAGE_ROLL.physicalBp } }),
   DwarfWarHammer: add({ name: 'Dwarf war hammer', slot: Slot.Weapon, tier: 7, model: 'mace', item: Res.DwarfWarHammer, melee: { damage: 34, attackSteps: ds(18), reach: cm(160), hit: Hit.Arc, blunt: true, oneHanded: false, crit: false, rollBp: DAMAGE_ROLL.physicalBp } }),
   // The Dwarves' crossbow drops as the players' steel-prod crossbow (plan 4.4).
   DwarfCrossbow: add({ name: 'Dwarf crossbow', slot: Slot.Ranged, tier: 7, model: 'crossbow', item: Res.SteelProdCrossbow, ranged: { damage: 30, attackSteps: ds(45), range: cm(2800), spreadBp: 300, shot: Shot.Bolt, blunt: false, rollBp: DAMAGE_ROLL.physicalBp } }),
-  DwarfPlate: add({ name: 'Dwarf plate and sallet', slot: Slot.Armour, tier: 7, model: 'armour_steel_plate', item: Res.DwarfPlate, armourBp: 6200 }),
-  DwarfMail: add({ name: 'Dwarf mail and sallet', slot: Slot.Armour, tier: 5, model: 'armour_iron_mail', item: Res.DwarfMail, armourBp: 4700 }),
+  DwarfPlate: add({ name: 'Dwarf plate and sallet', slot: Slot.Armour, tier: 7, model: 'armour_steel_plate', item: Res.DwarfPlate, armourBp: 4400 }),
+  DwarfMail: add({ name: 'Dwarf mail and sallet', slot: Slot.Armour, tier: 5, model: 'armour_iron_mail', item: Res.DwarfMail, armourBp: 3400 }),
   // Patch 7: the Runkin archers' cudgel and the Elves' and Dwarves' steel side-sword, at the ladder's numbers before the 30% cut.
   Cudgel: add({ name: 'Wooden cudgel', slot: Slot.Weapon, tier: 1, model: 'club', item: Res.WoodenCudgel, melee: { damage: 8, attackSteps: ds(13), reach: cm(120), hit: Hit.Arc, blunt: true, oneHanded: true, crit: false, rollBp: DAMAGE_ROLL.physicalBp } }),
   SteelSword: add({ name: 'Steel side-sword', slot: Slot.Weapon, tier: 7, model: 'sword_steel@steel', item: Res.SteelSideSword, melee: { damage: 30, attackSteps: ds(12), reach: cm(130), hit: Hit.Arc, blunt: false, oneHanded: true, crit: false, rollBp: DAMAGE_ROLL.physicalBp } }),
@@ -899,18 +904,18 @@ export const LOOT_KITS: readonly LootKit[] = [
   loot(Res.GoblinPlankShield, C, GearKind.Shield, 20, 1, 'shield_goblin_plank', [[PL, 2], [ST, 1]], { blockPct: 12 }),
   loot(Res.HobgoblinShield, C, GearKind.Shield, 44, 6, 'shield_hobgoblin', [[IRON, 2], [PL, 2]], { blockPct: 22 }),
   loot(Res.BarrowKnightKiteShield, R, GearKind.Shield, 45, 6, 'shield_barrow_knight', [[IRON, 3], [PL, 1]], { blockPct: 28 }),
-  loot(Res.GnollBracer, C, GearKind.Armour, 20, 1, 'armour_gnoll_bracer', [[Res.Hides, 1]], { protectionPct: 5 }),
-  loot(Res.HobgoblinArmour, C, GearKind.Armour, 19, 6, 'armour_hobgoblin', [[IRON, 4], [LE, 2]], { protectionPct: 40 }),
-  loot(Res.BarrowKnightMail, R, GearKind.Armour, 20, 6, 'armour_barrow_mail', [[IRON, 5], [Res.Silver, 1]], { protectionPct: 50 }),
-  loot(Res.VoidStalkerCloak, R, GearKind.Armour, 21, 2, 'armour_void_cloak', [[Res.SpiderSilk, 2], [MC, 1]], { protectionPct: 38 }),
-  loot(Res.FiendShoulderPlate, R, GearKind.Armour, 25, 6, 'armour_fiend_shoulder_dread', [[IRON, 3]], { protectionPct: 62 }),
-  loot(Res.MinotaurBracers, R, GearKind.Armour, 36, 7, 'armour_minotaur_dread', [[STEEL, 3], [HL, 2]], { protectionPct: 66 }),
+  loot(Res.GnollBracer, C, GearKind.Armour, 20, 1, 'armour_gnoll_bracer', [[Res.Hides, 1]], { protectionPct: 4 }),
+  loot(Res.HobgoblinArmour, C, GearKind.Armour, 19, 6, 'armour_hobgoblin', [[IRON, 4], [LE, 2]], { protectionPct: 29 }),
+  loot(Res.BarrowKnightMail, R, GearKind.Armour, 20, 6, 'armour_barrow_mail', [[IRON, 5], [Res.Silver, 1]], { protectionPct: 36 }),
+  loot(Res.VoidStalkerCloak, R, GearKind.Armour, 21, 2, 'armour_void_cloak', [[Res.SpiderSilk, 2], [MC, 1]], { protectionPct: 27 }),
+  loot(Res.FiendShoulderPlate, R, GearKind.Armour, 25, 6, 'armour_fiend_shoulder_dread', [[IRON, 3]], { protectionPct: 44 }),
+  loot(Res.MinotaurBracers, R, GearKind.Armour, 36, 7, 'armour_minotaur_dread', [[STEEL, 3], [HL, 2]], { protectionPct: 47 }),
   loot(Res.PlagueBearerRobe, C, GearKind.Robe, 18, 3, 'robe_plague_bearer', [[FX, 3], [Res.Venom, 1]], asRobe(3)),
   loot(Res.HollowPriestRobe, R, GearKind.Robe, 19, 4, 'robe_hollow_priest', [[FX, 3], [HL, 1]], asRobe(4)),
   loot(Res.NecromancerRobe, R, GearKind.Robe, 20, 5, 'robe_necromancer', [[FX, 3], [Res.Gold, 1]], asRobe(5)),
   loot(Res.FlamecallerRobe, R, GearKind.Robe, 21, 5, 'robe_flamecaller', [[FX, 3], [Res.Sulphur, 1], [MC, 1]], asRobe(5)),
   // Above the archmage's mantle (plan 4.3: 30% protection and 30% regain, s), plus the Fae's +25% regain.
-  loot(Res.FaeGuardianRobe, L, GearKind.Robe, 18, 6, 'robe_fae', [[Res.SpiderSilk, 3], [MC, 3], [Res.MoonRose, 1]], { robe: { protectionPct: 30, regainPct: 30 + FAE_REGAIN_PCT }, effect: LootEffect.FaeSet }),
+  loot(Res.FaeGuardianRobe, L, GearKind.Robe, 18, 6, 'robe_fae', [[Res.SpiderSilk, 3], [MC, 3], [Res.MoonRose, 1]], { robe: { protectionPct: 21, regainPct: 30 + FAE_REGAIN_PCT }, effect: LootEffect.FaeSet }),
   // Fit nobody (plan 4.3): their Stature is outside every body's range.
   loot(Res.GoblinLeathers, C, GearKind.Armour, 12, 1, '', [[LE, 2]]),
   loot(Res.GoblinChiefHelmet, C, GearKind.Armour, 14, 5, '', [[WI, 1]]),

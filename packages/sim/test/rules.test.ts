@@ -17,9 +17,9 @@ import {
 } from '../src/index.ts';
 
 describe('armour and damage', () => {
-  it('adds armour pieces and caps them at 75%', () => {
+  it('adds armour pieces and caps them at 50% (mini patch 7.3)', () => {
     expect(totalArmourBp([1000, 2000])).toBe(3000);
-    expect(totalArmourBp([5000, 4000])).toBe(7500);
+    expect(totalArmourBp([5000, 4000])).toBe(5000);
     expect(totalArmourBp([])).toBe(0);
   });
   it('rounds down and never deals less than 1', () => {
@@ -27,7 +27,7 @@ describe('armour and damage', () => {
     expect(damageTaken({ damage: 12, armourBp: 2500 })).toBe(9);
     expect(damageTaken({ damage: 13, armourBp: 2500 })).toBe(9); // 9.75 rounds down
     expect(damageTaken({ damage: 1, armourBp: 7500 })).toBe(1);
-    expect(damageTaken({ damage: 100, armourBp: 9900 })).toBe(25); // capped at 75%
+    expect(damageTaken({ damage: 100, armourBp: 9900 })).toBe(50); // capped at 50%
     expect(damageTaken({ damage: 0, armourBp: 0 })).toBe(0);
   });
   it('applies the mob modifier after armour', () => {

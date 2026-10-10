@@ -4,7 +4,11 @@
 // go to store point if they have the food in their inventory. And then ...
 // you should be able to drag food from your inventory to a unit, or to that
 // units inventory (both work), and then they walk to a store point to
-// collect it."). Eat from the bag is an eat order naming the food
+// collect it."). Mini patch 7.3 (Jade: "allow functionality for moving all
+// items to and from players and units inventories, not just food and
+// weapons ... For simply exchanging items there should be no
+// tinkering/progress bar"): Fetch takes any good, with no bar, and the unit
+// says what it got. Eat from the bag is an eat order naming the food
 // (unit-orders.ts), sat out where the unit stands as a meal at a building
 // is; Fetch food walks to the nearest main base or storehouse and takes a
 // full heal's worth of the food from the stock into its bag, kept there so
@@ -21,7 +25,8 @@ import { say } from '../peoples/speech.ts';
 import { NO_CARRY, type SimState } from '../state.ts';
 import { Act, besideBuilding, FAILED, MOVING, walkTo } from './behaviour.ts';
 import { inFront } from './gear.ts';
-import { addToBag, bagRoom, canLoot, carriedOf, keepItem, takeFromBag } from './loot.ts';
+import { isGearItem } from './kits.ts';
+import { addToBag, bagRoom, canLoot, carriedOf, countText, keepItem, takeFromBag } from './loot.ts';
 import { tinker, tinkering } from './tinker.ts';
 import type { UnitOrder } from './unit-orders.ts';
 
@@ -101,7 +106,7 @@ export function runEatBag(state: SimState, i: number, o: EatOrder): boolean {
   return tinker(state, i, EAT_STEPS) ? DONE : CONTINUE;
 }
 
-// ----- Fetch food -----
+// ----- Fetch (food, and since mini patch 7.3 any good) -----
 
 /** How many of a food a unit fetches from the stock (s): enough to heal fully once (4 food), at least one: 1 meat, 2 fish, 4 bunches of berries. */
 export function fetchCount(res: number): number {
@@ -109,28 +114,47 @@ export function fetchCount(res: number): number {
   return each > 0 ? Math.max(1, ceilDiv(EAT_FULL_FOOD, each)) : 0;
 }
 
+/**
+ * How many of a good one drag fetches (mini patch 7.3, Jade: "allow
+ * functionality for moving all items to and from players and units
+ * inventories, not just food and weapons"), with `room` of it fitting in the
+ * unit's bag and `stock` in the stock: a food a full heal's worth (Patch 7),
+ * a piece of gear one, any other good as many as fit; never more than the
+ * stock has. The HUD's drag word shows it.
+ */
+export function fetchAmount(res: number, room: number, stock: number): number {
+  const want = isFood(res) ? fetchCount(res) : isGearItem(res) ? 1 : room;
+  return Math.max(0, Math.min(want, room, stock));
+}
+
 /** "the main base", "the storehouse". */
 function theBuilding(b: Building): string {
   return `the ${buildingName(b.kind, b.level, b.variant).toLowerCase()}`;
 }
 
+/** "some blueberries" for a food (Patch 7's words), "iron ore" for anything else. */
+function goodText(res: number): string {
+  return isFood(res) ? mealFoodText(res) : (RESOURCES[res]?.name ?? 'it').toLowerCase();
+}
+
 /**
- * Fetch food (fetchFood): each unit walks to the nearest main base or
- * storehouse, in front of whatever it was doing, to take a full heal's worth
- * of the food from the stock into its bag. Refused when the stock has none,
- * its bag has no room for one, or there is nowhere to fetch it from.
+ * Fetch (fetchFood): each unit walks to the nearest main base or storehouse,
+ * in front of whatever it was doing, to take the good from the stock into its
+ * bag (fetchAmount). Refused when the stock has none, its bag has no room for
+ * one, or there is nowhere to fetch it from. A plain exchange: no bar.
  */
 export function orderFetchFood(state: SimState, player: number, units: readonly number[], res: number): void {
   const p = state.players[player];
-  if (!p || !isFood(res)) return;
-  const what = mealFoodText(res);
+  if (!p || !RESOURCES[res]) return;
+  const what = goodText(res);
   if ((p.pool[res] ?? 0) <= 0) {
     state.events.push({ player, kind: 'alert', text: `There is no ${(RESOURCES[res]?.name ?? 'food').toLowerCase()} in the stock.` });
     return;
   }
   for (const i of units) {
     if (!canLoot(state, i)) continue;
-    if (bagRoom(state, i, res) < 1) {
+    const room = bagRoom(state, i, res);
+    if (room < 1) {
       say(state, i, `My bag is too full for ${what}.`, true);
       continue;
     }
@@ -139,12 +163,14 @@ export function orderFetchFood(state: SimState, player: number, units: readonly 
       say(state, i, 'There is no main base or storehouse to fetch it from.', true);
       continue;
     }
-    inFront(state, i, { t: 'fetch', res, n: fetchCount(res), b: b.id });
+    // What fits now; the stock is looked at again when it gets there.
+    const n = isFood(res) ? fetchCount(res) : fetchAmount(res, room, room);
+    inFront(state, i, { t: 'fetch', res, n, b: b.id });
     say(state, i, `Off to ${theBuilding(b)} for ${what}.`, false, true);
   }
 }
 
-/** Walks to the main base or storehouse and takes the food from the stock there, as much as is left and fits, kept in its bag. */
+/** Walks to the main base or storehouse and takes the good from the stock there, as much as is left and fits, kept in its bag; says what it got. */
 export function runFetch(state: SimState, i: number, o: FetchOrder): boolean {
   const e = state.entities;
   const owner = e.owner[i]!;
@@ -162,7 +188,7 @@ export function runFetch(state: SimState, i: number, o: FetchOrder): boolean {
   if (e.act[i] === Act.Start) e.act[i] = Act.Walk;
   const r = walkTo(state, i, besideBuilding(b));
   if (r === MOVING) return CONTINUE;
-  const what = mealFoodText(o.res);
+  const what = goodText(o.res);
   if (r === FAILED) {
     say(state, i, `I cannot reach ${theBuilding(b)}.`, true);
     return DONE;
@@ -175,8 +201,9 @@ export function runFetch(state: SimState, i: number, o: FetchOrder): boolean {
   }
   pool[o.res] = pool[o.res]! - n;
   addToBag(state, i, o.res, n);
-  // Kept, so it does not hand the food straight back in at the store point (Patch 7, Keep in bag).
+  // Kept, so it does not hand it straight back in at the store point (Patch 7, Keep in bag).
   keepItem(state, i, o.res, true);
-  say(state, i, `I have ${what} in my bag now.`, false, true);
+  // Mini patch 7.3 (Jade: units say in a bubble what was given or received).
+  say(state, i, `Got ${countText(o.res, n)}.`, false, true);
   return DONE;
 }
