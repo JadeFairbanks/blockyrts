@@ -596,7 +596,7 @@ export class Commands {
       () => this.target('move', 'move'),
       { lit: t === 'move' },
     );
-    const pace = this.paceEntry(active);
+    const pace = this.paceEntry();
     if (active === 'worker') {
       const workers = this.workerIds();
       // No Unload here from Patch 5 (Jade's GP-8): one unit's inventory in the panel has Unload all, and its goods Unload and Drop.
@@ -739,10 +739,12 @@ export class Commands {
   /**
    * Run or Walk (Patch 5): every unit on foot has it, starting at Walk; it
    * shows Run once all the selected units on foot run, and a press sets them
-   * all to the other. Cavalry and siege engines never run.
+   * all to the other. Cavalry and siege engines never run. It reaches every
+   * unit on foot in the selection, not only the type the card shows (Patch 7):
+   * pressed on a mixed group, the walkers start running and the runners keep on.
    */
-  private paceEntry(active: string): CardEntry {
-    const units = this.unitIds((u) => u.typeKey === active)
+  private paceEntry(): CardEntry {
+    const units = this.unitIds((u) => !u.typeKey.startsWith('engine:'))
       .map((id) => this.d.game.unit(id))
       .filter((u): u is UnitInfo => u !== null && u.mount === 0);
     const running = units.length > 0 && units.every((u) => (u.flags & UnitFlag.RunMode) !== 0);

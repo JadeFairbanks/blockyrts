@@ -11,7 +11,9 @@
 // his crimson bolt (combat/items.ts Shot.NecroBolt) does 35 to whoever it
 // strikes and 35 to all within 0.5 m of it, every 10 s; he speaks as he
 // summons and as he attacks, in bubbles that stay 20 s. His drops are his
-// own (necromancerLoot). His row is in combat/mobs.ts.
+// own (necromancerLoot). His row is in combat/mobs.ts. Patch 7 (plan section
+// 5): his weapons and armour of random tiers are gone; in their place his
+// own staff or robe one kill in twenty (his row's gear).
 
 import { clockAt } from '../clock.ts';
 import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
@@ -19,10 +21,9 @@ import { forward } from '../combat/combat.ts';
 import { addMob, inheritRole } from '../combat/mob-ai.ts';
 import { Mob, type MobSpec } from '../combat/mobs.ts';
 import { Res } from '../economy/resources.ts';
-import { forgeStepOf } from '../buildings/production.ts';
 import { hash32 } from '../rng.ts';
-import { footprintWu, isGod, seesForSide, sightOf, buildingSight, type SimState } from '../state.ts';
-import { ARMOUR_KITS, CLOSE_KITS, LONG_KITS, RANGER_KITS, TIER_NEEDS, TOP_TIER } from '../units/kits.ts';
+import { footprintWu, seesForSide, sightOf, buildingSight, type SimState } from '../state.ts';
+import { ARMOUR_KITS, CLOSE_KITS, LONG_KITS, RANGER_KITS } from '../units/kits.ts';
 import type { Rolled } from './loot.ts';
 import { Role } from './types.ts';
 
@@ -39,12 +40,7 @@ export const NECROMANCER = {
   ringM: 3,
   /** Jade: his bubbles stay 20 s, unless he says something else first (client hud/bubbles.ts 'linger'). */
   bubbleS: 20,
-  /** His drops (Jade): 2 to 4 weapons or armours of tier 3 to 5, or up to the highest a player can make when that is higher... */
-  gearMin: 2,
-  gearMax: 4,
-  gearLowTier: 3,
-  gearHighTier: 5,
-  /** ...1 to 5 ingots of one kind... */
+  /** His drops (Jade): 1 to 5 ingots of one kind... */
   ingotMin: 1,
   ingotMax: 5,
   /** ...2 to 8 bones, and a mana crystal one time in ten (per mille). */
@@ -168,23 +164,12 @@ export function necromancerAct(state: SimState, i: number, _spec: MobSpec, _t: n
   return false;
 }
 
-/** The highest kit tier a player can make now: each tier's Forge step and research (units/kits.ts TIER_NEEDS); godmode all. */
-export function topKitTier(state: SimState, player: number): number {
-  const p = state.players[player];
-  if (!p) return 0;
-  if (isGod(state, player)) return TOP_TIER;
-  const forge = forgeStepOf(state, player);
-  let top = 0;
-  for (const t of TIER_NEEDS) if (t.forge <= forge && t.research.every((r) => (p.research & (1 << r)) !== 0)) top = Math.max(top, t.tier);
-  return top;
-}
-
 /**
- * What one of his weapon or armour drops is, as loot: the piece itself, a
- * good of the stock's Gear row since Patch 5's GP-1 (units/kits.ts). A
- * weapon is the close-melee, long-melee or ranger line's of that tier, by a
- * roll; an armour is the tier's armour. Shields are neither (Jade, MB-5:
- * "weapons OR armor").
+ * One weapon or armour of a tier as loot (the keepers' piles, threats/keepers.ts):
+ * the piece itself, a good of the stock's Gear row since Patch 5's GP-1
+ * (units/kits.ts). A weapon is the close-melee, long-melee or ranger line's of
+ * that tier, by a roll; an armour is the tier's armour. Shields are neither
+ * (Jade, MB-5: "weapons OR armor").
  */
 export const necromancerHooks = {
   gear: (state: SimState, tier: number, armour: boolean): Array<[number, number]> => {
@@ -194,17 +179,11 @@ export const necromancerHooks = {
   },
 };
 
-/** His drops for the player who killed him, on the 'combat' stream (Jade's MB-5). */
-export function necromancerLoot(state: SimState, player: number): Rolled {
+/** His drops, on the 'combat' stream (Jade's MB-5; his staff or robe is his row's gear, Patch 7). */
+export function necromancerLoot(state: SimState): Rolled {
   const rng = state.rng.combat;
   const n = NECROMANCER;
   const out: Rolled = { items: [], rarestPm: n.crystalPm };
-  const top = Math.max(n.gearHighTier, Math.min(TOP_TIER, topKitTier(state, player)));
-  const pieces = n.gearMin + rng.nextInt(n.gearMax - n.gearMin + 1);
-  for (let k = 0; k < pieces; k++) {
-    const tier = n.gearLowTier + rng.nextInt(top - n.gearLowTier + 1);
-    out.items.push(...necromancerHooks.gear(state, tier, rng.nextInt(2) === 1));
-  }
   out.items.push([NECROMANCER_INGOTS[rng.nextInt(NECROMANCER_INGOTS.length)]!, n.ingotMin + rng.nextInt(n.ingotMax - n.ingotMin + 1)]);
   out.items.push([Res.Bone, n.boneMin + rng.nextInt(n.boneMax - n.boneMin + 1)]);
   if (rng.nextInt(1000) < n.crystalPm) out.items.push([Res.ManaCrystal, 1]);

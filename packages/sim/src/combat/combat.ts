@@ -52,15 +52,16 @@ export function sideOf(state: SimState, i: number): number {
  * of the unit it is attacking, so warriors defend against a wolf but leave
  * grazing deer alone unless told (Hunting); monsters ignore it. A people's
  * unit is an enemy of the monsters, and of a player only while its faction
- * is at war with that player; peoples never fight each other.
+ * is at war with that player; peoples never fight each other. A monster
+ * at peace with a player (atPeace) is not that player's enemy.
  */
 export function hostile(state: SimState, a: number, b: number): boolean {
   const sa = sideOf(state, a);
   const sb = sideOf(state, b);
   const e = state.entities;
-  // A stone circle's keeper at peace with a player (Jade's Patch 5: the Great White Ape and Silenus' band, until wronged).
-  if (sa === Side.Monsters && sb === Side.Players && e.role[a] === Role.Encounter) return !peaceHooks.encounter(state, a, e.owner[b]!);
-  if (sb === Side.Monsters && sa === Side.Players && e.role[b] === Role.Encounter) return !peaceHooks.encounter(state, b, e.owner[a]!);
+  // A monster at peace with a player until wronged (atPeace): the keepers of bogs, large crystals and stone circles.
+  if (sa === Side.Monsters && sb === Side.Players) return !atPeace(state, a, e.owner[b]!);
+  if (sb === Side.Monsters && sa === Side.Players) return !atPeace(state, b, e.owner[a]!);
   if (sa === Side.Wild || sb === Side.Wild) {
     const [w, o] = sa === Side.Wild ? [a, b] : [b, a];
     const so = sideOf(state, o);
@@ -77,10 +78,34 @@ export function hostile(state: SimState, a: number, b: number): boolean {
   return sa !== Side.None && sb !== Side.None && sa !== sb;
 }
 
-/** Jade's Patch 5 stone circles: whether a circle's keeper is at peace with a player (threats/encounters.ts sets it). */
-export const peaceHooks: { encounter: (state: SimState, i: number, player: number) => boolean } = { encounter: () => false };
+/**
+ * Whether a monster at peace with a player now (they are set by the threats):
+ * a stone circle's keeper (Jade's Patch 5: the Great White Ape and Silenus'
+ * band, until wronged), and a Bog guardian or Fae Guardian that is after no
+ * one (threats/keepers.ts).
+ */
+export const peaceHooks: { encounter: (state: SimState, i: number, player: number) => boolean; keeper: (state: SimState, i: number) => boolean } = {
+  encounter: () => false,
+  keeper: () => false,
+};
 
-/** Whether a shot from a side (and a people's faction, and a player) may hit a unit: never its own side, a people's only at war. */
+/**
+ * Whether a monster leaves a player alone until wronged and is at peace with
+ * them now (Patch 7, Jade: units should not "auto attack things that wouldn't
+ * attack them first"): a stone circle's keeper at peace with that player, or
+ * a keeper of a bog or a large mana crystal that is after no one. The
+ * players' units never take one on by themselves, their swings and spells
+ * pass it by and their stray shots fly past it, but an attack order on it is
+ * carried out; once it turns on the players it is everyone's foe again.
+ */
+export function atPeace(state: SimState, i: number, player: number): boolean {
+  const role = state.entities.role[i];
+  if (role === Role.Encounter) return peaceHooks.encounter(state, i, player);
+  if (role === Role.Keeper) return peaceHooks.keeper(state, i);
+  return false;
+}
+
+/** Whether a shot from a side (and a people's faction, and a player) may hit a unit: never its own side, a people's only at war, a monster at peace with the player only when aimed at (the shot's mark). */
 export function shotMayHit(state: SimState, side: number, faction: number, owner: number, j: number): boolean {
   const sj = sideOf(state, j);
   if (sj === Side.None) return false;
@@ -94,6 +119,7 @@ export function shotMayHit(state: SimState, side: number, faction: number, owner
     if (side === Side.Players) return atWar(state.peoples, e.group[j]!, owner);
     return side === Side.Monsters;
   }
+  if (side === Side.Players && sj === Side.Monsters) return !atPeace(state, j, owner);
   return sj !== side;
 }
 

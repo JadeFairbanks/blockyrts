@@ -844,8 +844,6 @@ export interface PendingSpawn {
   az: number;
   /** The lair it comes out of (an entity id), or 0 for the dark edge. */
   src: number;
-  /** A weapon, armour or shield it carries, dropped when it is killed (Patch 5, GP-1: threats/loot.ts giveWaveGear), or 0. */
-  gear: number;
 }
 
 /**

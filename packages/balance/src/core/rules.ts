@@ -409,8 +409,7 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   // Patch 5: Morvath's staff and wings, the necromancer, the mana crystal guardians.
   'staff:splashTenths': 'Staff splash', 'staff:radius': 'Staff splash within', 'wings:steps': 'Wings drain over', 'wings:total': 'Wings drain at most', 'wings:radius': 'Wings drain within',
   'NECROMANCER:summonSteps': 'Summons every', 'NECROMANCER:summonMin': 'Summons at least', 'NECROMANCER:summonMax': 'Summons at most', 'NECROMANCER:ringM': 'They rise round him within',
-  'NECROMANCER:bubbleS': 'His bubbles stay', 'NECROMANCER:gearMin': 'Drops: weapons or armours, at least', 'NECROMANCER:gearMax': 'Drops: weapons or armours, at most',
-  'NECROMANCER:gearLowTier': 'Drops: lowest tier', 'NECROMANCER:gearHighTier': 'Drops: highest tier (or the highest a player can make)',
+  'NECROMANCER:bubbleS': 'His bubbles stay',
   'NECROMANCER:ingotMin': 'Drops: ingots, at least', 'NECROMANCER:ingotMax': 'Drops: ingots, at most', 'NECROMANCER:boneMin': 'Drops: bones, at least', 'NECROMANCER:boneMax': 'Drops: bones, at most',
   'NECROMANCER:crystalPm': 'Drops: a mana crystal, chance',
   'CRYSTAL_GUARDS:min': 'Guardians a crystal, at least', 'CRYSTAL_GUARDS:max': 'Guardians a crystal, at most', 'CRYSTAL_GUARDS:leashM': 'Keep within', 'CRYSTAL_GUARDS:chaseM': 'Chase no farther than',
@@ -441,6 +440,9 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   bluntBp: 'Damage taken from blunt', spreadBp: 'Spread', blockBp: 'Shield block', firstNight: 'First night', halfWidth: 'Half width', height: 'Height',
   heightCm: 'Height', lightM: 'Light radius', claimM: 'Claimed radius', outlyingHalves: 'Counts against the dusk light limit (2 whole, 1 half)',
   makes: 'Makes', tier: 'Tier', cost: 'Cost', inputs: 'Inputs (any one way)', outputs: 'Outputs', at: 'Made at', madeAt: 'Made at', recipes: 'Recipe (any one way)',
+  // Patch 7: a creature's own weapons and armour as drops, the Fae Guardian's own pieces, and what the peoples' fighters drop.
+  gear: 'Drops one of its own weapons or armour', 'fae:ownPm': 'Her magical item is one of her own, chance',
+  'PEOPLE_GEAR_DROP:chancePm': 'Drops one of the pieces it carries, chance', 'PEOPLE_GEAR_DROP:armourPm': 'That piece is its armour or shield, chance',
   drops: 'Drops', loot: 'Loot', min: 'Least', max: 'Most', meat: 'Meat', extra: 'Also gives', perCell: 'Per cell', groupMin: 'Group of at least',
   groupMax: 'Group of at most', tameFood: 'Bait to tame', tameFoods: 'Tamed with', tameSteps: 'Time to tame', tameAt: 'Kept at', upkeep: 'Upkeep a day',
   barnFeed: 'Farm fare eaten a day in a Barn', cartTenthsLb: 'Cart load', cartSpeed: 'Cart speed', packTenthsLb: 'Pack load', yield: 'Yield', perLoad: 'Per load',
@@ -555,7 +557,6 @@ export const MODULE_TITLES: Readonly<Record<string, string>> = {
   'buildings/farm-boost.ts': 'Fertilizing farms', 'animals/barn.ts': 'The Barn', 'units/barn-hand.ts': 'The barn hand',
   'units/work-asks.ts': 'Work that waits: an empty farm, an unworked building, an idle worker',
   'units/make-asks.ts': 'The Workshop\'s offer to make something',
-  'threats/loot.ts': 'Weapons, armour and shields in the night waves',
   'combat/threat.ts': 'Threat: how each monster\'s threat is worked out', 'mobs:combat/threat.ts': 'Threat: how each monster\'s threat is worked out',
 };
 
@@ -601,7 +602,7 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   // Patch 5: Morvath's staff and wings, the necromancer, the mana crystal guardians.
   'staff:splashTenths': 'damageTenths', 'wings:total': 'health',
   'NECROMANCER:ringM': 'metres', 'NECROMANCER:bubbleS': 'wholeSeconds', 'NECROMANCER:summonMin': 'count', 'NECROMANCER:summonMax': 'count',
-  'NECROMANCER:gearMin': 'count', 'NECROMANCER:gearMax': 'count', 'NECROMANCER:ingotMin': 'count', 'NECROMANCER:ingotMax': 'count', 'NECROMANCER:boneMin': 'count', 'NECROMANCER:boneMax': 'count',
+  'NECROMANCER:ingotMin': 'count', 'NECROMANCER:ingotMax': 'count', 'NECROMANCER:boneMin': 'count', 'NECROMANCER:boneMax': 'count',
   'CRYSTAL_GUARDS:min': 'count', 'CRYSTAL_GUARDS:max': 'count', 'CRYSTAL_GUARDS:leashM': 'metres', 'CRYSTAL_GUARDS:chaseM': 'metres', 'CRYSTAL_GUARDS:wakeM': 'metres', 'CRYSTAL_GUARDS:postM': 'metres',
 };
 

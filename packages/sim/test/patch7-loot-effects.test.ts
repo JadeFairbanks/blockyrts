@@ -358,7 +358,7 @@ describe('the Deathless Shroud (Jade, 23:05 UTC: the lich\'s robe)', () => {
     expect(g.armourBp).toBe(ROBE_KITS[6]!.protectionPct * 100);
     expect(g.robe?.regainPct).toBe(ROBE_KITS[6]!.regainPct);
     expect(itemEffect(Res.DeathlessShroud)).toBe(LootEffect.GraveGuard);
-    expect(mobSpec(Mob.Lich).drops).toContainEqual({ res: Res.DeathlessShroud, min: 1, max: 1, chancePm: 250 });
+    expect(mobSpec(Mob.Lich).gear).toContainEqual({ res: Res.DeathlessShroud, chancePm: 250 });
   });
 
   it('raises a skeleton archer of 10 health beside its hurt wearer, one every 12 s, which falls when its 25 s are up', () => {

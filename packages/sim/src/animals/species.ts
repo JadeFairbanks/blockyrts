@@ -4,7 +4,7 @@
 // one, converted to steps and world units; the rest are marked (s).
 
 import { Res, type Cost } from '../economy/resources.ts';
-import type { Drop } from '../combat/mobs.ts';
+import type { Drop, GearDrop } from '../combat/mobs.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
 import { Band } from '../world/layout.ts';
 import { BuildingKind } from '../buildings/data.ts';
@@ -118,6 +118,8 @@ export interface SpeciesSpec {
   venom: number;
   /** What it drops besides its carcass, rolled for the player whose unit killed it (roster 6.1). */
   loot: readonly Drop[];
+  /** Patch 7: the weapons and armour it carries, as drops of their own (combat/mobs.ts GearDrop): the minotaur's; [] for none. */
+  gear: readonly GearDrop[];
 }
 
 const m = (metres10: number): number => floorDiv(metres10 * WU_PER_METRE, 10);
@@ -143,9 +145,9 @@ const OLD_BREED_STEPS = 10 * CYCLE_STEPS;
 const PREY_BREED_STEPS = floorDiv(OLD_BREED_STEPS * 2, 3);
 
 type Base = Omit<SpeciesSpec, 'id'>;
-const defaults: Pick<SpeciesSpec, 'youngVariant' | 'armourBp' | 'swim' | 'extra' | 'groupMin' | 'groupMax' | 'tameFood' | 'tameFoods' | 'tameAt' | 'breedSteps' | 'upkeep' | 'barnFeed' | 'cartTenthsLb' | 'cartSpeed' | 'packTenthsLb' | 'guard' | 'chase' | 'roam' | 'venom' | 'loot' | 'rollBp'> = {
+const defaults: Pick<SpeciesSpec, 'youngVariant' | 'armourBp' | 'swim' | 'extra' | 'groupMin' | 'groupMax' | 'tameFood' | 'tameFoods' | 'tameAt' | 'breedSteps' | 'upkeep' | 'barnFeed' | 'cartTenthsLb' | 'cartSpeed' | 'packTenthsLb' | 'guard' | 'chase' | 'roam' | 'venom' | 'loot' | 'gear' | 'rollBp'> = {
   youngVariant: '', armourBp: 0, swim: 0, extra: [], groupMin: 2, groupMax: 2, tameFood: 0, tameFoods: [], tameAt: [], breedSteps: 0, upkeep: 0, barnFeed: 0, cartTenthsLb: 0, cartSpeed: 0, packTenthsLb: 0,
-  guard: 0, chase: 0, roam: 0, venom: 0, loot: [], rollBp: DAMAGE_ROLL.physicalBp,
+  guard: 0, chase: 0, roam: 0, venom: 0, loot: [], gear: [], rollBp: DAMAGE_ROLL.physicalBp,
 };
 const sp = (o: Partial<Base> & Pick<Base, 'name' | 'model' | 'nature' | 'hp' | 'damageTenths' | 'attackSteps' | 'reach' | 'walk' | 'run' | 'halfWidth' | 'height' | 'meat' | 'bands' | 'perCell'>): Base => ({ ...defaults, ...o });
 
@@ -214,6 +216,8 @@ const LIST: readonly Base[] = [
   sp({
     name: 'Minotaur', model: 'minotaur', nature: Nature.Hunter, hp: 250, armourBp: 3000, damageTenths: 300, attackSteps: ds(20), reach: m(25), walk: mps(15), run: mps(35), halfWidth: m(8), height: m(26),
     meat: 5, extra: [[Res.Hides, 3]], bands: [X], perCell: 1, groupMin: 1, groupMax: 1, guard: m(150), loot: [{ res: Res.Gold, min: 2, max: 2, chancePm: 100 }],
+    // Patch 7 (plan section 5): its great axe or its bracers and pauldron, one kill in ten.
+    gear: [{ res: Res.MinotaurGreatAxe, chancePm: 50 }, { res: Res.MinotaurBracers, chancePm: 50 }],
   }),
   // Wild birds (s): geese in flocks by Heartland water, pheasants in the Fringe woods; hunted with N like deer, for meat and feathers.
   sp({ name: 'Wild goose', model: 'wild_goose', nature: Nature.Shy, hp: 15, damageTenths: 0, attackSteps: ds(10), reach: m(5), walk: mps(10), run: mps(50), halfWidth: m(2), height: m(6), meat: 1, extra: [[Res.Feathers, 3]], bands: [H], perCell: 1, groupMin: 3, groupMax: 5, breedSteps: PREY_BREED_STEPS }),
