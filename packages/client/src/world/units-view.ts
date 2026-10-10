@@ -27,7 +27,7 @@
 // clips, and the Fae Guardian's bolt bursts pink-magenta over its 2 m while
 // she sways up and down in her wrath.
 import * as THREE from 'three';
-import { DREADNOUGHT_GEAR, engineSpec, gearSpec, HOP_STEPS, isStructure, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { engineSpec, gearSpec, HOP_STEPS, isStructure, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, MarkMode, useTeamKey, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { Crescents, DreadnoughtLooks, DREADNOUGHT_M, DREADNOUGHT_MODEL, DREADNOUGHT_PARTS, isDreadnoughtRow } from './dreadnought-look.ts';
@@ -1008,8 +1008,6 @@ export class UnitsView {
   private readonly matedAt = new Map<number, number>();
   /** The woodsmen drawn last frame, by entity id: one who dies lies on his own body. */
   private readonly woodsmen = new Set<number>();
-  /** The Dreadnoughts drawn last frame holding a weapon other than his mace (Patch 7), by entity id: one who dies falls without the mace. */
-  private readonly dreadArmed = new Set<number>();
   /** The risen skeleton archers drawn (Patch 7), by id: their player's colour, for the tint they fall in. */
   private readonly risen = new Map<number, THREE.Color | null>();
   /** Each entity's record offset in this frame's state, by id: a hauling animal finds its worker's cart and load. */
@@ -1321,13 +1319,13 @@ export class UnitsView {
       if (!seen(x, z)) continue;
       // An animal leaves a carcass where it fell, drawn with the props.
       if (h.look === 'death' && h.kind !== undefined && h.kind !== UnitKind.Animal) {
-        // The Dreadnought falls as himself, with his mace (Patch 5) unless he held another weapon (Patch 7).
+        // The Dreadnought falls as himself, with his mace (Patch 5).
         const dread = h.kind === UnitKind.Warrior && h.troop === Troop.Dreadnought;
         // A risen skeleton archer falls as the skeleton it is, in its tint (Patch 7).
         const risen = this.risen.has(h.id);
         const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : risen ? RISEN_MODEL : dread ? DREADNOUGHT_MODEL : h.kind === UnitKind.Warrior ? (this.woodsmen.has(h.id) ? 'woodsman' : 'warrior') : h.kind === UnitKind.Mage ? 'mage' : 'worker';
         const mob = h.kind === UnitKind.Mob ? (h.mob ?? 0) : risen ? Mob.SkeletonArcher : -1;
-        this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob, ...(dread ? { parts: this.dreadArmed.has(h.id) ? [] : DREADNOUGHT_PARTS } : {}), ...(risen ? { risen: this.risen.get(h.id) ?? null } : {}) });
+        this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob, ...(dread ? { parts: DREADNOUGHT_PARTS } : {}), ...(risen ? { risen: this.risen.get(h.id) ?? null } : {}) });
         this.risen.delete(h.id);
       }
       if (h.look === 'sweep') this.crescents.spawn(x, y, z, ((h.heading ?? 0) / 65536) * Math.PI * 2, now);
@@ -1632,9 +1630,7 @@ export class UnitsView {
       const inCart = cart === Res.HandCart || cart === Res.OxCart;
       const caught = this.caughtAt.get(id);
       const c: LookContext = { time: clipT, moving, sinceShot: shot === undefined ? -1 : (now - shot) / 1000, hold: inCart ? '' : load.hold, sinceCatch: caught === undefined ? -1 : (now - caught) / 1000 };
-      const look: Look = dread ? dreadnoughtLook(d[o + S.weapon]!) : woodsman ? woodsmanLook(d, o, body, c) : kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
-      if (dread && look.attach.length > 0) this.dreadArmed.add(id);
-      else this.dreadArmed.delete(id);
+      const look: Look = dread ? { parts: [...DREADNOUGHT_PARTS], attach: [], worn: [], clip: 'idle' } : woodsman ? woodsmanLook(d, o, body, c) : kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
       const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : colour;
       let drawn = false;
       if (kin) {
@@ -1718,7 +1714,6 @@ export class UnitsView {
     for (const id of this.caughtAt.keys()) if (!live.has(id)) this.caughtAt.delete(id);
     for (const id of this.matedAt.keys()) if (!live.has(id)) this.matedAt.delete(id);
     for (const id of this.woodsmen) if (!live.has(id)) this.woodsmen.delete(id);
-    for (const id of this.dreadArmed) if (!live.has(id)) this.dreadArmed.delete(id);
     for (const id of this.tinkerStart.keys()) if (!live.has(id)) this.tinkerStart.delete(id);
     for (const id of this.fired.keys()) if (!live.has(id)) this.fired.delete(id);
     this.dread.keep(live);
@@ -2299,17 +2294,6 @@ const CREW_DRILL: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /**
- * The Dreadnought's look: his own spiked mace, part of his body, or any other
- * two-handed weapon he was given (Patch 7, plan 2.3) in his right hand where
- * the mace was, the mace then hidden.
- */
-function dreadnoughtLook(weapon: number): Look {
-  const held = weapon !== DREADNOUGHT_GEAR.mace ? piecesOf(weapon) : [];
-  if (held.length === 0) return { parts: [...DREADNOUGHT_PARTS], attach: [], worn: [], clip: 'idle' };
-  return { parts: [], attach: held.map((p): [string, string, number] => [p, 'slot_hand_r', Stow.None]), worn: [], clip: 'idle' };
-}
-
-/**
  * A warrior's look: the weapon or ranged weapon in hand and the other on its
  * back, the quiver with a bow or the bolt case with a crossbow, its shield,
  * armour, helmet and boots, each at its tier (Patch 5, Jade: "no invisible
@@ -2362,7 +2346,7 @@ function warriorLook(d: Int32Array, o: number, body: ModelData | null, c: LookCo
 /**
  * A warrior's clip: the shot of the weapon in hand (bow, sling, crossbow,
  * gun) or its blow (a halberd's swing, a spear's or pike's thrust, a short
- * sword's or a dagger's stab, else a slash), the shield up or hurt, swimming, climbing,
+ * sword's stab, else a slash), the shield up or hurt, swimming, climbing,
  * running away or walking, reloading a crossbow or gun after a shot, on guard
  * with a target, else standing.
  */
@@ -2372,9 +2356,9 @@ function warriorClip(d: Int32Array, o: number, inHand: number, c: LookContext): 
   const order = d[o + S.order]!;
   const model = gearModel(inHand);
   if (swing === Slot.Ranged + 1) {
-    return { clip: /^bow/.test(model) ? 'bow_shoot' : /^sling/.test(model) ? 'sling_throw' : /^crossbow/.test(model) ? 'crossbow_shoot' : /^(musket|pistol)/.test(model) ? 'musket_fire' : 'throw_spear' };
+    return { clip: /^bow/.test(model) ? 'bow_shoot' : model === 'sling' ? 'sling_throw' : /^crossbow/.test(model) ? 'crossbow_shoot' : /^(musket|pistol)/.test(model) ? 'musket_fire' : 'throw_spear' };
   }
-  if (swing !== 0) return { clip: SWUNG.test(model) ? 'attack_polearm_swing' : polearm(inHand) ? 'attack_polearm_thrust' : /^(sword_short|dagger)/.test(model) ? 'attack_1h_stab' : 'attack_1h_slash' };
+  if (swing !== 0) return { clip: SWUNG.test(model) ? 'attack_polearm_swing' : polearm(inHand) ? 'attack_polearm_thrust' : /^sword_short/.test(model) ? 'attack_1h_stab' : 'attack_1h_slash' };
   if (flags & UnitFlag.Hurt) return { clip: d[o + S.shield] !== 0 ? 'shield_block' : 'injured' };
   if (order === OrderKind.Swim) return { clip: 'swim' };
   if (order === OrderKind.Climb || flags & UnitFlag.Climbing) return { clip: 'climb' };
