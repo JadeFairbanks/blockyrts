@@ -27,7 +27,7 @@
 // clips, and the Fae Guardian's bolt bursts pink-magenta over its 2 m while
 // she sways up and down in her wrath.
 import * as THREE from 'three';
-import { engineSpec, gearSpec, HOP_STEPS, isStructure, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
+import { DREADNOUGHT_GEAR, engineSpec, gearSpec, HOP_STEPS, isStructure, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, MarkMode, useTeamKey, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
 import { Crescents, DreadnoughtLooks, DREADNOUGHT_M, DREADNOUGHT_MODEL, DREADNOUGHT_PARTS, isDreadnoughtRow } from './dreadnought-look.ts';
@@ -1594,7 +1594,7 @@ export class UnitsView {
       const inCart = cart === Res.HandCart || cart === Res.OxCart;
       const caught = this.caughtAt.get(id);
       const c: LookContext = { time: clipT, moving, sinceShot: shot === undefined ? -1 : (now - shot) / 1000, hold: inCart ? '' : load.hold, sinceCatch: caught === undefined ? -1 : (now - caught) / 1000 };
-      const look: Look = dread ? { parts: [...DREADNOUGHT_PARTS], attach: [], worn: [], clip: 'idle' } : woodsman ? woodsmanLook(d, o, body, c) : kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
+      const look: Look = dread ? dreadnoughtLook(d[o + S.weapon]!) : woodsman ? woodsmanLook(d, o, body, c) : kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
       const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : colour;
       let drawn = false;
       if (kin) {
@@ -2257,6 +2257,17 @@ const CREW_DRILL: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /**
+ * The Dreadnought's look: his own spiked mace, part of his body, or any other
+ * two-handed weapon he was given (Patch 7, plan 2.3) in his right hand where
+ * the mace was, the mace then hidden.
+ */
+function dreadnoughtLook(weapon: number): Look {
+  const held = weapon !== DREADNOUGHT_GEAR.mace ? piecesOf(weapon) : [];
+  if (held.length === 0) return { parts: [...DREADNOUGHT_PARTS], attach: [], worn: [], clip: 'idle' };
+  return { parts: [], attach: held.map((p): [string, string, number] => [p, 'slot_hand_r', Stow.None]), worn: [], clip: 'idle' };
+}
+
+/**
  * A warrior's look: the weapon or ranged weapon in hand and the other on its
  * back, the quiver with a bow or the bolt case with a crossbow, its shield,
  * armour, helmet and boots, each at its tier (Patch 5, Jade: "no invisible
@@ -2309,7 +2320,7 @@ function warriorLook(d: Int32Array, o: number, body: ModelData | null, c: LookCo
 /**
  * A warrior's clip: the shot of the weapon in hand (bow, sling, crossbow,
  * gun) or its blow (a halberd's swing, a spear's or pike's thrust, a short
- * sword's stab, else a slash), the shield up or hurt, swimming, climbing,
+ * sword's or a dagger's stab, else a slash), the shield up or hurt, swimming, climbing,
  * running away or walking, reloading a crossbow or gun after a shot, on guard
  * with a target, else standing.
  */
@@ -2319,9 +2330,9 @@ function warriorClip(d: Int32Array, o: number, inHand: number, c: LookContext): 
   const order = d[o + S.order]!;
   const model = gearModel(inHand);
   if (swing === Slot.Ranged + 1) {
-    return { clip: /^bow/.test(model) ? 'bow_shoot' : model === 'sling' ? 'sling_throw' : /^crossbow/.test(model) ? 'crossbow_shoot' : /^(musket|pistol)/.test(model) ? 'musket_fire' : 'throw_spear' };
+    return { clip: /^bow/.test(model) ? 'bow_shoot' : /^sling/.test(model) ? 'sling_throw' : /^crossbow/.test(model) ? 'crossbow_shoot' : /^(musket|pistol)/.test(model) ? 'musket_fire' : 'throw_spear' };
   }
-  if (swing !== 0) return { clip: SWUNG.test(model) ? 'attack_polearm_swing' : polearm(inHand) ? 'attack_polearm_thrust' : /^sword_short/.test(model) ? 'attack_1h_stab' : 'attack_1h_slash' };
+  if (swing !== 0) return { clip: SWUNG.test(model) ? 'attack_polearm_swing' : polearm(inHand) ? 'attack_polearm_thrust' : /^(sword_short|dagger)/.test(model) ? 'attack_1h_stab' : 'attack_1h_slash' };
   if (flags & UnitFlag.Hurt) return { clip: d[o + S.shield] !== 0 ? 'shield_block' : 'injured' };
   if (order === OrderKind.Swim) return { clip: 'swim' };
   if (order === OrderKind.Climb || flags & UnitFlag.Climbing) return { clip: 'climb' };
