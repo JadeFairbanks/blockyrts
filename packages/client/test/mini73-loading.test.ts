@@ -11,11 +11,12 @@ import { meshChunk, UNIT_M, type MeshArrays } from '../src/world/mesher.ts';
 /** One page online: its lockstep and its gate, stepping the way the sim worker's tick does. */
 class Page {
   readonly sched: LockstepScheduler;
-  readonly gate = new StartGate(true);
+  readonly gate: StartGate;
   step = 0;
   started = false;
 
   constructor(readonly slot: number) {
+    this.gate = new StartGate(true, slot);
     this.sched = new LockstepScheduler({ slot, startStep: 0, activeSlots: 0b11 });
   }
 

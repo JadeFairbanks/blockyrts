@@ -16,14 +16,17 @@ export const LAND_WAIT_MS = 5000;
 
 export class StartGate {
   private readonly online: boolean;
+  /** This page's own slot online: its frames come back through the relay too, so it is briefly among those waited on. */
+  private readonly ownSlot: number;
   private loadedAt = -1;
   private firstStep = -1;
   private began = false;
   private waitingFor: readonly number[] = [];
   private released = false;
 
-  constructor(online: boolean) {
+  constructor(online: boolean, ownSlot = -1) {
     this.online = online;
+    this.ownSlot = ownSlot;
   }
 
   /** This page has loaded everything, and its sim starts now. */
@@ -42,7 +45,7 @@ export class StartGate {
     this.waitingFor = slots;
   }
 
-  /** Something the player must see now (the host's choice about a player who is gone, the game closing): the screen goes at once. */
+  /** Something the player must see now (a player holding the pause, the host's choice about a player who is gone, the game closing): the screen goes at once. */
   release(): void {
     this.released = true;
   }
@@ -60,7 +63,7 @@ export class StartGate {
     if (this.released) return null;
     if (this.loadedAt < 0) return LOADING_TEXT;
     if (!this.everyoneIn) {
-      const names = this.waitingFor.map(name);
+      const names = this.waitingFor.filter((s) => s !== this.ownSlot).map(name);
       return names.length > 0 ? `Waiting for ${names.join(' and ')} to finish loading…` : 'Waiting for the other players to finish loading…';
     }
     if (!landReady && now - this.loadedAt < LAND_WAIT_MS) return 'Drawing the land…';

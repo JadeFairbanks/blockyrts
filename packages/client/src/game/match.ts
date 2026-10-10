@@ -150,7 +150,7 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
   // closes its menu and says who did it.
   const holds = new Set<string>();
   /** Whether the match may begin behind the loading screen (mini patch 7.3). */
-  const gate = new StartGate(online !== null);
+  const gate = new StartGate(online !== null, online?.room.yourSlot ?? -1);
   let netPause: { paused: boolean; reason: number; held: boolean; by: number; waiting: number } = { paused: false, reason: PauseReason.None, held: false, by: 0, waiting: 0 };
   const hold = (why: string, on: boolean): void => {
     if (online) return;
@@ -470,6 +470,8 @@ export async function runMatch(app: HTMLElement, plan: MatchPlan, ctx: MatchCont
         send({ type: 'inputDelay', steps: m.steps });
         break;
       case 'pauseState':
+        // A player holding the pause is already playing (a rejoin into a paused game): show it, with its Resume.
+        if (m.paused && m.reason === PauseReason.Player) gate.release();
         netPause = { paused: m.paused, reason: m.reason, held: m.held, by: m.bySlot, waiting: m.waitingFor };
         send({ type: 'pause', paused: m.paused });
         showPause();
