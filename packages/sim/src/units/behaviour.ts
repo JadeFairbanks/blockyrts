@@ -53,6 +53,7 @@ import { runWoods } from './woods.ts';
 import { woodsmanOnlyLine } from './woodsman.ts';
 import { tinker } from './tinker.ts';
 import { runCircle } from '../circles/act.ts';
+import { runGive, runPutOn, runScrap } from './handling.ts';
 import { Work, workXp } from './ranks.ts';
 
 /** Phases of an order. */
@@ -1496,6 +1497,12 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runForage(state, i, o);
     case 'circle':
       return runCircle(state, i, o);
+    case 'give':
+      return runGive(state, i, o);
+    case 'scrap':
+      return runScrap(state, i, o);
+    case 'putOn':
+      return runPutOn(state, i, o);
   }
 }
 

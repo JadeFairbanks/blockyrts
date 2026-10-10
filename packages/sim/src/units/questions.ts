@@ -851,6 +851,8 @@ export interface OwnQuestion {
   holds?: () => boolean;
   unask?: () => void;
   recount?: () => string | null;
+  /** A good the question is about (Patch 7: the pickup prompt's piece), sent back with the answer; -1 when none. */
+  res?: number;
 }
 
 /** Whether a player may be asked another question now: still in the game, with fewer than OPEN_QUESTIONS_PER_PLAYER open. */
@@ -860,7 +862,7 @@ export function canAsk(state: SimState, player: number): boolean {
 
 /** Puts up a question another module asks by itself (check canAsk first); returns its id. */
 export function askOwn(state: SimState, a: OwnQuestion): number {
-  const q: Question = { player: a.player, who: a.who, building: a.building, text: a.text, info: { id: 0, q: a.q, units: [...a.units], res: -1, until: 0, yes: a.yes, no: a.no } };
+  const q: Question = { player: a.player, who: a.who, building: a.building, text: a.text, info: { id: 0, q: a.q, units: [...a.units], res: a.res ?? -1, until: 0, yes: a.yes, no: a.no } };
   if (a.holds) q.holds = a.holds;
   if (a.unask) q.unask = a.unask;
   if (a.recount) q.recount = a.recount;
