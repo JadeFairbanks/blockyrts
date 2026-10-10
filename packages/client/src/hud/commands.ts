@@ -109,6 +109,7 @@ import {
   type BuildingSpec,
   type Cost,
   type Order,
+  type UnitOrder,
 } from '@blockyrts/sim';
 import type { UnitInfo } from '../game/game-info.ts';
 import type { GameInfo } from '../game/game-info.ts';
@@ -123,7 +124,7 @@ import type { ButtonIcon, ButtonPress } from './buttons.ts';
 import { buildIcon, buildingUpgradeIcon, equipIcon, productIcon, trainTroopIcon } from './card-icons.ts';
 import { defenseAction, flatMake, MAKE_SUBMENUS, makeAction, makeList, makeSub, makeSubAction, menuSlots, MORE_ACTION, placeAction, SCRAP_SUB, submenuAction, submenuChoices } from './menu-keys.ts';
 import { buildingIconFile } from './unit-icons.ts';
-import { cardChoice, cardCostText, cardOffered, cardProduct, cardTrainsText, cardWhy, troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
+import { cardChoice, cardCostText, cardOffered, cardProduct, cardTrainsText, cardWhy, piecesWhy, troopChoice, troopCostText, troopName, troopWhy } from './troops.ts';
 import { count } from './wording.ts';
 import { woodsOn, woodsWhat, type WoodsWhat } from './woods.ts';
 
@@ -159,6 +160,8 @@ export interface CardEntry {
   troop?: number;
   /** A spell on autocast (Patch 5, MB-19): a ring of light runs round the button, not the doing-now arrow. */
   autocast?: boolean;
+  /** Auto hunt, auto gather, or a woodsman fishing or foraging by himself (mini patch 7.3, Jade): the autocast ring in yellow, in place of the doing-now marker. */
+  autoLoop?: boolean;
   /** A spell's cooldown (Patch 5, VX-9): how much of it is left, 0 to 1; the button is dark and a clock hand sweeps the dark off. */
   cool?: number;
 }
@@ -609,7 +612,7 @@ export class Commands {
           'Gather',
           'Then left click a tree, rock or bush: the workers gather from it, take each load to the nearest main base or Storehouse and go back for more of the same.\nRight click (or press twice): they fetch the basic materials the camp can use by themselves: wood, sticks, stone and flint, clay, sand and coal as the main base grows, and ore once there is a forge for it, most of what the stock is shortest of, the nearest first. They look only where your side has explored, then farther out round its edge (never more than 25 m into the unknown), and never so far that they could not get home by nightfall; at dusk they come back to the nearest main base, and go out again in the day.',
           () => this.target('gather', 'gather'),
-          { lit: t === 'gather', right: () => this.forage(), double: () => this.forage() },
+          { lit: t === 'gather', right: () => this.forage(), double: () => this.forage(), autoLoop: loopsOn(this.d.game.queues, workers, (o) => o.t === 'forage') },
         ),
         this.entry(
           'repair',
@@ -693,7 +696,7 @@ export class Commands {
         'Hunt',
         'Then left click a wild animal: the warriors hunt it, then go on hunting as usual.\nRight click (or press twice): the warriors go out after game, hares, deer and wild birds, pick the berries on bushes close by, take what they carry home when their bags are full (or cannot take the meat of the next kill) and go out again, looking farther out when nothing is in sight; workers in the selection follow and carry the meat. They never go farther than they could walk back from in dusk\'s 40 s, so they are home by nightfall, and go out again in the day. Wild boar, giant crabs, bears and creatures that guard their ground fight back, so they are left alone unless you pick one.',
         () => this.target('hunt', 'hunt'),
-        { lit: t === 'hunt', right: () => this.huntAuto(), double: () => this.huntAuto() },
+        { lit: t === 'hunt', right: () => this.huntAuto(), double: () => this.huntAuto(), autoLoop: loopsOn(this.d.game.queues, troops, (o) => o.t === 'hunt' && o.auto !== 0) },
       ),
       this.eatEntry(),
       this.equipEntry(troops),
@@ -717,7 +720,7 @@ export class Commands {
       : "Then left click wild food: berries, mushrooms and the like. The woodsmen pick it, then go on foraging by themselves.\nRight click (or press twice): they forage by themselves, or stop. Each goes to the nearest wild food ready to pick and takes his bag home when it is full, and goes back out; home by nightfall, out again in the day. Fishing and foraging can both be on: they take whatever they come across.";
     const auto = (): void => this.woodsAuto(men, what, on ? 0 : 1);
     if (men.length === 0) return this.off(action, fish ? 'Fish' : 'Forage', desc, 'Select a woodsman.');
-    return this.entry(action, fish ? 'Fish' : 'Forage', desc, () => this.target(action, action), { lit: this.targeting?.command === action, auto: on, right: auto, double: auto });
+    return this.entry(action, fish ? 'Fish' : 'Forage', desc, () => this.target(action, action), { lit: this.targeting?.command === action, autoLoop: on, right: auto, double: auto });
   }
 
   /** Fish or Forage by himself, on or off, for every selected woodsman. */
@@ -1318,9 +1321,11 @@ export class Commands {
     let reason = '';
     if (ps.research !== undefined && g.researched(ps.research)) reason = 'Already researched.';
     else if (ps.research !== undefined && [...g.buildings.values()].some((b) => b.owner === this.d.player && b.queue.some((q) => q.product === p))) reason = 'Being researched.';
-    else if (ps.food > 0 && g.food() < ps.food) reason = `Not enough food (needs ${ps.food}).`;
+    // Mini patch 7.3: a new unit's kit (a worker's tools, a mage's wand and robe) as the sim checks it, so the button greys out when the stock cannot pay for it.
+    else if (ps.pieces) reason = piecesWhy(g, ps.pieces);
+    if (!reason && ps.food > 0 && g.food() < ps.food) reason = `Not enough food (needs ${ps.food}).`;
     // An engine pays its resources and its crew's food (Patch 2).
-    if (!reason && (ps.food === 0 || ps.engine !== undefined)) reason = g.costProblem(ps.cost);
+    if (!reason && !ps.pieces && (ps.food === 0 || ps.engine !== undefined)) reason = g.costProblem(ps.cost);
     const unit = p === Product.Worker || p === Product.SupportMage || p === Product.BattleMage || p === Product.Crewman || p === Product.GarrisonCrewman || p === Product.Woodsman;
     // A fixed engine's upgrade brings only the crewmen it adds (Patch 5).
     const crew = ps.engine === undefined ? 0 : ps.upgrade !== undefined ? engineUpgradeCrew(ps.upgrade as Engine, ps.engine as Engine) : engineSpec(ps.engine).crew;
@@ -2896,6 +2901,11 @@ const SPELL_FACES: Record<number, string> = { [Spell.ArcaneBolt]: 'Bolt', [Spell
 function cardSpells(school: number): number[] {
   const all = schoolSpells(school);
   return [...all.filter((sp) => SPELLS[sp]!.rank === 1), ...all.filter((sp) => SPELLS[sp]!.rank !== 1)];
+}
+
+/** Whether every one of these units has an order of its own going on (auto hunt, auto gather) anywhere in its list, under a meal or a trip home put in front of it (mini patch 7.3). */
+function loopsOn(queues: ReadonlyMap<number, readonly UnitOrder[]>, ids: readonly number[], is: (o: UnitOrder) => boolean): boolean {
+  return ids.length > 0 && ids.every((id) => queues.get(id)?.some(is) === true);
 }
 
 /** What a spell's right click does, by what she uses it for on autocast (Patch 5: MB-14, MB-15, MB-17, MB-18). */

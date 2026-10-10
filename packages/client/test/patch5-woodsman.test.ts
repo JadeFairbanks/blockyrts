@@ -94,7 +94,9 @@ describe('the woodsman card (Patch 5)', () => {
     const on: UnitOrder = { t: 'woods', fish: 1, forage: 1, cx: 0, cz: 0, i: -1, k: 0, x: 0, z: 0, ex: 0, ez: 0 };
     const h = harness(game([building(9, BuildingKind.MainBase)], [on]), woodsmen, 'warrior:woods');
     const fish = button(h.c.card(), 'Fish');
-    expect(fish.auto).toBe(true);
+    // Mini patch 7.3: the yellow autocast ring, not the green AUTO tag.
+    expect(fish.autoLoop).toBe(true);
+    expect(fish.auto).toBeUndefined();
     fish.right!(PRESS);
     expect(h.sent).toEqual([woods(1, 0)]);
   });

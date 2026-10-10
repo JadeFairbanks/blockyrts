@@ -291,6 +291,14 @@ export function shortText(g: GameInfo, pieces: readonly Piece[], inStock = false
   return `Not enough resources (${goodsText(cost)}).`;
 }
 
+/** Why the stock cannot pay for a new unit's kit now (its research, forge or goods), or '' (mini patch 7.3: a worker's and every other unit's button greys out by it). */
+export function piecesWhy(g: GameInfo, pieces: readonly Piece[]): string {
+  const tech = g.tech();
+  const why = piecesProblem(pieces, g.pool(), tech.research, tech.forge, tech.researchName);
+  if (why) return why;
+  return planPieces(pieces, g.pool()) ? '' : shortText(g, pieces);
+}
+
 /** Why a building cannot train a card's unit at these tiers now, or '', in the order before Patch 2. */
 export function cardWhy(g: GameInfo, b: BuildingInfo, card: number, w: number, a: number, s = 0): string {
   if (!cardOffered(b, card, w, a, s)) return 'This building does not train that.';

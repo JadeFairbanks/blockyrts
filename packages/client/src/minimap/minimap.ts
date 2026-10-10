@@ -10,17 +10,18 @@ import { fitBounds, mapToWorld, minimapWindow, normalizeBounds, sameBounds, worl
 
 const UNEXPLORED = '#0b0e12';
 /**
- * A ping's look: an urgent message's gold rings for 4 s, or a new lair's red
- * rings (Patch 3) for the Lairs group's LAIR_PING_STEPS; rgb, how long it
- * shows (ms) and its rings' width (px).
+ * A ping's look: an urgent message's gold rings for 4 s, a new lair's red
+ * rings (Patch 3) for the Lairs group's LAIR_PING_STEPS, or your units
+ * attacked (mini patch 7.3: a short double ping, one ring a second for 2 s);
+ * rgb, how long it shows (ms), its rings' width (px), how often a new ring
+ * goes out (ms) and whether each comes with a second just behind it.
  */
-export type PingStyle = 'urgent' | 'lair';
-export const PINGS: Readonly<Record<PingStyle, { rgb: string; ms: number; line: number }>> = {
-  urgent: { rgb: '255, 210, 90', ms: 4000, line: 2 },
-  lair: { rgb: '224, 48, 42', ms: (LAIR_PING_STEPS * 1000) / STEPS_PER_SECOND, line: 2.5 },
+export type PingStyle = 'urgent' | 'lair' | 'attack';
+export const PINGS: Readonly<Record<PingStyle, { rgb: string; ms: number; line: number; pulse: number; twin: boolean }>> = {
+  urgent: { rgb: '255, 210, 90', ms: 4000, line: 2, pulse: 4000 / 3, twin: true },
+  lair: { rgb: '224, 48, 42', ms: (LAIR_PING_STEPS * 1000) / STEPS_PER_SECOND, line: 2.5, pulse: 4000 / 3, twin: true },
+  attack: { rgb: '255, 96, 64', ms: 2000, line: 2.5, pulse: 1000, twin: false },
 };
-/** A new ring goes out every 4/3 s, however long the ping lasts. */
-const PULSE_MS = 4000 / 3;
 /** Pings shown at once: enough for a lair for each of 8 players at one dusk, with urgent messages besides. */
 const PINGS_KEPT = 16;
 /** Units and buildings are repainted this often, ms. */
@@ -148,8 +149,8 @@ export class Minimap {
       const b = this.bounds;
       const at = worldToMap(this.t, Math.min(b.maxX, Math.max(b.minX, p.x)), Math.min(b.maxZ, Math.max(b.minZ, p.z)));
       const k = (now - p.t0) / look.ms;
-      for (const lag of [0, 0.35]) {
-        const f = ((now - p.t0) / PULSE_MS + lag) % 1;
+      for (const lag of look.twin ? [0, 0.35] : [0]) {
+        const f = ((now - p.t0) / look.pulse + lag) % 1;
         ctx.beginPath();
         ctx.arc(at.x, at.y, (3 + f * 14) * dpr, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(${look.rgb}, ${(1 - f) * (1 - k * 0.5)})`;
