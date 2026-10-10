@@ -98,7 +98,7 @@ function textOf(nodes: readonly CatNode[]): string[] {
 /** The goods a field names, with how: what a page about a good lists under "Where it comes from and goes". */
 function goodHow(path: ReadonlyArray<string | number>): string {
   const keys = path.filter((p): p is string => typeof p === 'string');
-  if (keys.includes('drops')) return 'Dropped by';
+  if (keys.includes('drops') || keys.includes('gear')) return 'Dropped by';
   if (keys.includes('outputs')) return 'Made by';
   if (keys.includes('inputs')) return 'Used to make';
   if (keys.includes('cost') || keys.includes('extra')) return 'Needed for';

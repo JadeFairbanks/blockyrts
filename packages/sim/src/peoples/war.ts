@@ -20,12 +20,13 @@ import { vanish } from '../combat/mob-ai.ts';
 import { Mob } from '../combat/mobs.ts';
 import { RESOURCES, Res, TRINKET_BASE, TRINKET_METALS } from '../economy/resources.ts';
 import { giveOrder } from '../units/behaviour.ts';
+import { gearItem } from '../units/kits.ts';
 import { nearestBuilding } from '../threats/foes.ts';
 import { Species } from '../animals/species.ts';
 import { Band } from '../world/layout.ts';
 import {
   DWARF_RAID_EVERY_STEPS, DWARF_REBUILD_STEPS, ELF_RAID_EVERY_STEPS, FACTION_KIND_NAMES, FactionKind, factionName, LAYOUTS, LEAVE_WU, LINES, People, PEOPLE_NAMES,
-  PeopleUnit, peopleUnitSpec, PLUNDER_GOODS, PLUNDER_TENTHS_PER_PERSON, RAID_BAND, RAID_FROM_WU, RECAMP_SEARCH_CELLS, REPARATIONS_PAID_LINE, REPARATIONS_PER_KILL_TENTHS,
+  PeopleUnit, peopleUnitSpec, PEOPLE_GEAR_DROP, PLUNDER_GOODS, PLUNDER_TENTHS_PER_PERSON, RAID_BAND, RAID_FROM_WU, RECAMP_SEARCH_CELLS, REPARATIONS_PAID_LINE, REPARATIONS_PER_KILL_TENTHS,
   REPARATIONS_TENTHS, SALVAGE, Status, SURRENDER_DEAD_PCT, TREE_WARN_GAP_STEPS, TREE_WARN_WU, TREE_WARNING_LINES, TREE_WARNINGS, LEADER_NAMES,
 } from './data.ts';
 import { addPerson, beastsOf, buildFaction, fieldOxen, fightersOf, isPerson, peopleOf, spotIn, structuresOf } from './factions.ts';
@@ -186,6 +187,25 @@ export function refuseSurrender(state: SimState, player: number, factionId: numb
   if (!f || f.surrender !== 1 || !(f.war & (1 << player))) return;
   f.surrender = 2;
   state.events.push({ player, kind: 'info', text: `You refused the surrender of ${factionTitle(f)}. They will fight to the last.`, faction: f.id });
+}
+
+/**
+ * The piece one of the peoples' fighters drops as it falls to a player's side
+ * (Patch 7, plan sections 4.4 and 5; PEOPLE_GEAR_DROP), at war or not, on the
+ * 'combat' stream: a piece they share with players drops as the players' (units/kits.ts
+ * gearItem: the Dwarves' crossbow as the steel-prod crossbow). Undefined for
+ * none.
+ */
+export function peopleGearDrop(state: SimState, i: number): Res | undefined {
+  const e = state.entities;
+  const pieces = (gear: readonly number[]): Res[] => gear.flatMap((g) => (g ? [gearItem(g)] : [])).filter((r): r is Res => r !== undefined);
+  const arms = pieces([e.weapon[i]!, e.ranged[i]!]);
+  const worn = pieces([e.armour[i]!, e.shield[i]!]);
+  if (arms.length + worn.length === 0) return undefined;
+  const rng = state.rng.combat;
+  if (rng.nextInt(1000) >= PEOPLE_GEAR_DROP.chancePm) return undefined;
+  const from = worn.length === 0 ? arms : arms.length === 0 ? worn : rng.nextInt(1000) < PEOPLE_GEAR_DROP.armourPm ? worn : arms;
+  return from[rng.nextInt(from.length)];
 }
 
 /** How many weapons and shields a faction of its size carries (plunder: each gives one ingot of its people's metal). */
