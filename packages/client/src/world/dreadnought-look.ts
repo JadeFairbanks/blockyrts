@@ -1,6 +1,6 @@
-// How the Dreadnought looks (Patch 5, Jade, GP-21): the heavy knight model
-// with his spiked mace always in his hand (it is his, and drawn: he never
-// changes it), his two blows each played whole, the smash and then the
+// How the Dreadnought looks (Patch 5, Jade, GP-21; Patch 7): his body, his
+// plate worn over it and his spiked mace or the two-handed weapon he was
+// given in his right hand (units-view.ts dreadnoughtLook), his two blows each played whole, the smash and then the
 // swing, so the follow-through plays on after the blow lands; his war cry
 // when he makes a remark; the jump clip over a rise; and the crescent his
 // swing leaves in front of him, drawn briefly half way through it and
@@ -9,8 +9,11 @@ import * as THREE from 'three';
 import { OrderKind, SECOND_BLOW, Slot, Troop, UnitKind } from '@blockyrts/sim';
 import { S, UnitFlag } from '../messages.ts';
 
-/** His model, and its parts he always carries. */
-export const DREADNOUGHT_MODEL = 'heavy_knight';
+/** His body (Patch 7: without his plate and his mace, which are pieces of their own), and his plate. */
+export const DREADNOUGHT_MODEL = 'heavy_knight_body';
+export const DREADNOUGHT_HARNESS = 'armour_dreadnought_harness';
+/** He falls as the whole heavy knight, in his plate, with his mace (a part of it) unless he held another weapon. */
+export const DREADNOUGHT_CORPSE = 'heavy_knight';
 export const DREADNOUGHT_PARTS: readonly string[] = ['mace'];
 /** His height, metres: the heavy knight's 90 model units of 2.8125 cm. */
 export const DREADNOUGHT_M = 2.53;
