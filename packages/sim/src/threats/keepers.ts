@@ -755,6 +755,17 @@ export function keeperRuns(state: SimState, i: number): boolean {
   return k.mode === KeeperMode.Angry || k.mode === KeeperMode.Pleading || k.mode === KeeperMode.War;
 }
 
+/**
+ * Whether a keeper is at peace with the players (combat/combat.ts atPeace,
+ * installed by threats/foes.ts): calm, asking or pleading it is after no one,
+ * so their units leave it be; angry, at war, defending or wrathful it is
+ * every player's foe.
+ */
+export function keeperAtPeace(state: SimState, i: number): boolean {
+  const k = keeperOf(state, state.entities.id[i]!);
+  return k !== undefined && (k.mode === KeeperMode.Calm || k.mode === KeeperMode.Asking || k.mode === KeeperMode.Pleading);
+}
+
 /** Whether a keeper's tooltip warns (MB-12, MF-12): the Bog guardian's always (the client stops it after 10 s), the Fae Guardian's until she is riled. */
 export function keeperWarns(state: SimState, i: number): boolean {
   const e = state.entities;
