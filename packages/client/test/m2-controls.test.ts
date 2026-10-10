@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, Res, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
+import { BuildingKind, BUILDINGS, Mob, Res, NO_CARRY, RESOURCE_COUNT, type Order } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { ACTIONS, clashes, keyFor, sanitizeBindings } from '../src/input/bindings.ts';
 import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
@@ -35,7 +35,7 @@ function game(buildings: BuildingInfo[], pool: Array<[number, number]> = []): Ga
     data[o + S.rank] = 1;
     data[o + S.hp] = 60;
     data[o + S.maxHp] = 60;
-    data[o + S.carryRes] = i === 1 ? Res.SoftwoodLumber : 255;
+    data[o + S.carryRes] = i === 1 ? Res.SoftwoodLumber : NO_CARRY;
     data[o + S.carryAmt] = i === 1 ? 5 : 0;
   }
   g.onState({ type: 'state', step: 10, hash: 0, hashStep: 0, count: 2, data, shots: new Int32Array(0), hits: [] });
@@ -96,8 +96,10 @@ describe('the build menu (Patch 2: one, in place of Basic and Advanced)', () => 
     expect(slots[12]!.map((b) => b.kind)).toEqual([BuildingKind.Tavern]);
     expect(slots[13]!.every((b) => b.group === 'Defences')).toBe(true);
     expect(slots[14]!.map((b) => b.kind)).toEqual([BuildingKind.TorchPost, BuildingKind.Bonfire]);
+    // Patch 7: the trophies last (the build menu shows them only while one is in the stock).
+    expect(slots[15]!.map((b) => b.kind)).toEqual([BuildingKind.BogTrophy, BuildingKind.VictorsTrophy]);
     // Patch 4: no place kept for Back on the grid's B.
-    expect(slots).toHaveLength(15);
+    expect(slots).toHaveLength(16);
     expect(submenuChoices(slots[13]!).map((c) => c.name)).toEqual([
       'Wooden wall', 'Hardwood wall', 'Stone wall', 'Earth rampart',
       'Wooden gate (east to west)', 'Wooden gate (north to south)', 'Hardwood gate (east to west)', 'Hardwood gate (north to south)',
@@ -162,6 +164,29 @@ describe('the worker card', () => {
     expect(c.back()).toBe(true);
     expect(c.back()).toBe(true);
     expect(button(c.card(), 'build').face).toBe('Build');
+  });
+
+  it('shows the Trophies submenu on P once a trophy is in the stock (Patch 7), each with its effect', () => {
+    const { c } = harness(game([building(9, BuildingKind.MainBase)], [[Res.BogGuardianClub, 1]]), workers, 'worker');
+    (c as unknown as { d: CommandDeps }).d.slots = () => ({ most: 40 });
+    button(c.card(), 'build').run({ shift: false, ctrl: false });
+    const trophies = c.card()[14]!;
+    expect(trophies.face).toBe('Trophies');
+    expect(trophies.key).toBe('KeyP');
+    trophies.run({ shift: false, ctrl: false });
+    const card = c.card();
+    expect(card.map((e) => e.face)).toEqual(['Bog trophy', "Victor's trophy", 'Back']);
+    expect(card[0]!.key).toBe('KeyB');
+    expect(card[0]!.enabled).toBe(true);
+    expect(card[0]!.description).toMatch(/night monsters within 15 m of it move 10% slower/);
+    expect(card[0]!.description).not.toMatch(/Drag to place a line/);
+    expect(card[1]!.enabled).toBe(false);
+  });
+
+  it('gives a risen skeleton archer Attack, Patrol, Move and Run or Walk, and nothing that changes its bow (Patch 7)', () => {
+    const risen = [sel('e:1', 'unit', `risen:${Mob.SkeletonArcher}`), sel('e:2', 'unit', `risen:${Mob.SkeletonArcher}`)];
+    const { c } = harness(game([building(9, BuildingKind.MainBase)]), risen, `risen:${Mob.SkeletonArcher}`);
+    expect(c.card().map((e) => e.face)).toEqual(['Attack', 'Patrol', 'Move', 'Walk']);
   });
 
   it('pages a menu longer than the card can show', () => {

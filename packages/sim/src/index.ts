@@ -50,6 +50,7 @@ export * from './units/top.ts';
 export * from './units/repairs.ts';
 export * from './combat/items.ts';
 export * from './units/kits.ts';
+export * from './units/effects.ts';
 export * from './units/names.ts';
 export * from './combat/mobs.ts';
 export * from './combat/threat.ts';

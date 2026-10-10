@@ -3,6 +3,7 @@
 // and the tribes' camps), which rings a depth band spans, and the spots the
 // land offers a lair: cave mouths and the foot of barrier edges.
 
+import { isTrophy } from '../buildings/data.ts';
 import { buildingCentre } from '../buildings/lights.ts';
 import { floorDiv, isqrt, WU_PER_COLUMN } from '../fixed.ts';
 import type { SimState } from '../state.ts';
@@ -26,7 +27,8 @@ export function bandAtWu(state: SimState, x: number, z: number): Band {
 export function occupiedCells(state: SimState): Map<number, number> {
   const out = new Map<number, number>();
   for (const b of state.buildings.list) {
-    if (b.owner >= state.players.length) continue;
+    // A trophy (Patch 7) is a small item: it holds no cell.
+    if (b.owner >= state.players.length || isTrophy(b.kind)) continue;
     const [x, z] = buildingCentre(b);
     const c = cellAt(state, x, z);
     out.set(c, (out.get(c) ?? 0) | (1 << b.owner));

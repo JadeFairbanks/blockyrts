@@ -51,6 +51,14 @@ export const BuildingKind = {
   EarthRampart: 23,
   /** Patch 5 (Jade, GP-19 to GP-21): burns food into silver while open for business, and hires the Dreadnought. */
   Tavern: 24,
+  /**
+   * Patch 7 (Jade, 22:08 UTC 2026-10-09): the two monster weapons no one can
+   * wield, the bog guardian's club and Morvath's staff, "place them as a small
+   * item (same size they display at on the mob) wherever you like, and they
+   * have an aoe radius of that effect of 15m each" (units/effects.ts).
+   */
+  BogTrophy: 25,
+  VictorsTrophy: 26,
 } as const;
 export type BuildingKind = (typeof BuildingKind)[keyof typeof BuildingKind];
 
@@ -97,8 +105,8 @@ export interface BuildingSpec {
    * 15 (Patch 5: the Tavern after the Mineshaft); 0 for none. Kinds that share a slot open a submenu named `group`.
    */
   slot: number;
-  /** The submenu a kind sits in: Defences (walls, gates and towers) or Lights. */
-  group?: 'Defences' | 'Lights';
+  /** The submenu a kind sits in: Defences (walls, gates and towers), Lights or Trophies (Patch 7). */
+  group?: 'Defences' | 'Lights' | 'Trophies';
   /** Footprint in 45 cm columns at level 1; which columns are solid, and how it grows, is in footprints.ts. */
   w: number;
   d: number;
@@ -130,6 +138,13 @@ export interface BuildingSpec {
   slots?: number;
   /** Extra sight for the units inside, metres (towers +10 m). */
   sightBonusM?: number;
+  /**
+   * Patch 7: a trophy, the good it is made of (units/effects.ts has its
+   * effect and reach). It is placed as a small item: units walk past it, it
+   * claims no land, monsters do not come for it, and picked up or knocked
+   * down it goes back to the stock whole.
+   */
+  trophy?: { item: Res };
 }
 
 const lvl = (name: string, cost: Cost, ws: number, health: number, o: Partial<LevelSpec> = {}): LevelSpec => ({
@@ -213,6 +228,21 @@ function rampart(kind: BuildingKind, name: string, cost: Cost, ws: number, healt
   };
 }
 
+/**
+ * A trophy (Patch 7): a monster's weapon too big to wield, planted wherever
+ * the player likes as a small item, at the size it shows on the monster. It
+ * costs the piece itself and a moment's work to plant (s: 2 s); its health is
+ * what monsters must knock off it to topple it (s: 400), and toppled it goes
+ * back to the stock. It sees nothing and claims nothing.
+ */
+function trophy(kind: BuildingKind, name: string, item: Res, purpose: string, heightCm: number): SpecInput {
+  return {
+    kind, name, purpose, slot: 16, group: 'Trophies', w: 1, d: 1, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '',
+    heightCm, wooden: false, trophy: { item },
+    levels: [lvl(name, [[item, 1]], 2, 400, { gives: 'its effect on the ground round it' })],
+  };
+}
+
 type SpecInput = Omit<BuildingSpec, 'heightCm'> & { heightCm?: number };
 
 /** Every building stands 4 m tall unless its row says otherwise (s). */
@@ -225,14 +255,15 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     slot: 1, w: 14, d: 14, dropoff: 'all', trainsWorkers: true, live: true, comesWith: '', heightCm: 600,
     levels: [
       // Supply 10, not Table 4's 8 (s): Jade's extra starting supply for the three starting warriors (Troops and gear: starting units).
-      mainBase('Big House', [[L, 100], [ST, 50]], 1200, 1200, 10, 1),
+      // Patch 7 (Jade): every tier gives 2 more, beside the starting spearman.
+      mainBase('Big House', [[L, 100], [ST, 50]], 1200, 1200, 12, 1),
       // Patch 5 (Jade): the tiers are the old levels 3, 6 and 10, each at that level's own upgrade cost, work and health. Only the
       // Citadel asks for more than wood and stone: the Hall's sticks became lumber (15 sticks, 7.5 lumber, rounded up), the Keep's
       // bricks and marble stone and its wrought iron lumber, at equal trade value (peoples/data.ts), and the Citadel adds a
       // mana crystal (her words).
-      mainBase('Hall', [[L, 118], [ST, 45]], 420, 2000, 16, 2),
-      mainBase('Keep', [[L, 235], [ST, 370]], 800, 3600, 30, 3),
-      mainBase('Citadel', [[L, 200], [ST, 300], [Res.Bricks, 150], [Res.Marble, 125], [Res.SteelIngot, 50], [Res.Gold, 5], [Res.ManaCrystal, 1]], 2000, 7500, 50, 4),
+      mainBase('Hall', [[L, 118], [ST, 45]], 420, 2000, 18, 2),
+      mainBase('Keep', [[L, 235], [ST, 370]], 800, 3600, 32, 3),
+      mainBase('Citadel', [[L, 200], [ST, 300], [Res.Bricks, 150], [Res.Marble, 125], [Res.SteelIngot, 50], [Res.Gold, 5], [Res.ManaCrystal, 1]], 2000, 7500, 52, 4),
     ],
   },
   {
@@ -332,6 +363,9 @@ export const BUILDINGS: readonly BuildingSpec[] = withHeights([
     slot: 13, w: 10, d: 10, dropoff: 'none', trainsWorkers: false, live: true, comesWith: '', heightCm: 600,
     levels: [lvl('Tavern', [[L, 80], [ST, 60], [Res.Leather, 5], [Res.Gold, 1]], 400, 1200, { alt: [[L, 80], [ST, 60], [Res.Leather, 5], [Res.Silver, 7]], needsBase: 3, gives: 'silver from food while open for business; hires Dreadnoughts' })],
   },
+  // Patch 7 (Jade): the bog guardian's club and Morvath's staff as trophies. Their heights are the pieces' own lengths on their monsters' models (149 cm and 465 cm).
+  trophy(BuildingKind.BogTrophy, 'Bog trophy', Res.BogGuardianClub, "The bog guardian's club, planted as a trophy wherever you like. Night monsters crossing the ground round it move slower. Picked up (or knocked down), it goes back to your stock.", 149),
+  trophy(BuildingKind.VictorsTrophy, "Victor's trophy", Res.MorvathStaff, "Morvath's staff, planted as a trophy wherever you like. Your units on the ground round it are a little better at everything. Picked up (or knocked down), it goes back to your stock.", 465),
 ]);
 
 export function buildingSpec(kind: number): BuildingSpec {
@@ -443,4 +477,11 @@ export const BUILDING_SIGHT_M: Readonly<Partial<Record<number, number>>> = {
   [BuildingKind.Wall]: 10, [BuildingKind.Gate]: 10, [BuildingKind.Tower]: 20, [BuildingKind.TorchPost]: 10, [BuildingKind.Bonfire]: 20,
   [BuildingKind.WallHardwood]: 10, [BuildingKind.WallStone]: 10, [BuildingKind.GateHardwood]: 10, [BuildingKind.GateStone]: 10,
   [BuildingKind.TowerHardwood]: 20, [BuildingKind.TowerStone]: 20, [BuildingKind.EarthRampart]: 10, [BuildingKind.Tavern]: 10,
+  // Patch 7: a trophy is a small item planted in the ground, with no eyes of its own (s).
+  [BuildingKind.BogTrophy]: 0, [BuildingKind.VictorsTrophy]: 0,
 };
+
+/** Whether a building kind is a trophy (Patch 7): a small item placed anywhere, which the threats and claimed land pass over. */
+export function isTrophy(kind: number): boolean {
+  return BUILDINGS[kind]?.trophy !== undefined;
+}

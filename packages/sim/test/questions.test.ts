@@ -126,12 +126,13 @@ describe('the questions (Patch 2, round 3)', () => {
     const s = startWorld();
     const ev = untilAsked(s, troopsKit, 3 * STEPS_PER_SECOND);
     const warriors = units(s, UnitKind.Warrior);
-    expect(ev.text).toBe('Three of us could use better kit. Upgrade?');
+    // Patch 7: three warriors and the starting spearman.
+    expect(ev.text).toBe('Four of us could use better kit. Upgrade?');
     expect(ev.player).toBe(0);
     expect(ev.speaker).toBe(ev.ask!.units[0]);
     expect([...ev.ask!.units].sort()).toEqual(warriors.map((i) => s.entities.id[i]!).sort());
     // The tooltip says what Yes does and what it takes from the stock.
-    expect(ev.ask!.yes).toMatch(/^All 3 go to the nearest .* From the stock: .+\.$/);
+    expect(ev.ask!.yes).toMatch(/^All 4 go to the nearest .* From the stock: .+\.$/);
     expect(ev.ask!.until).toBe(s.step - 1 + QUESTION_WAIT_STEPS);
     run(s, 1, [answer(ev, true)]);
     expect(s.events.some((x) => x.kind === 'question' && x.ask!.id === ev.ask!.id && x.ask!.closed)).toBe(true);

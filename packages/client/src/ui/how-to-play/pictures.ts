@@ -82,6 +82,9 @@ export function entryPic(entry: Entry, mods: SimModules): Pic | null {
       return wandPic(tier);
     case 'ROBE_KITS':
       return robePic(tier);
+    case 'LOOT_KITS':
+      // A looted piece's page shows the good's own picture, as the inventory does.
+      return goodPic(num('item'));
     case 'GAITS':
       return pic(GAIT_PORTRAITS[num('id')]);
     case 'PROPS':

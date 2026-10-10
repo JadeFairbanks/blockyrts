@@ -40,6 +40,7 @@ import { aTroop } from './kits.ts';
 import { runEat, runHitch, runHunt, runProspect, runTame } from './field.ts';
 import { MAGE_XP_TENTHS, mageTrainingProblem, nextMageTraining, payRankCrystals, rankCrystalsIn, setMageRank } from '../magic/mages.ts';
 import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
+import { effectMoveBp, effectWorkBp } from './effects.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { propTaken } from '../circles/disturb.ts';
 import { askHooks, speakerName } from '../peoples/speech.ts';
@@ -295,6 +296,8 @@ export function moveSpeed(state: SimState, i: number, run = runsNow(state, i)): 
   if (e.hexUntil[i]! > state.step) bp -= HEX_SLOW_BP;
   // A support mage's Quicken: 25% faster.
   if (e.quickUntil[i]! > state.step) bp += spellSpec(Spell.Quicken).bp;
+  // Patch 7: the Elf glaive's Reaper, Victor's trophy (units/effects.ts).
+  bp += effectMoveBp(state, i);
   // Hopping up a rise.
   if (hoppingUp(state, i)) bp -= HOP_SLOW_BP;
   return Math.max(1, floorDiv(base * bp, 10000));
@@ -321,11 +324,11 @@ export function gatherable(state: SimState, i: number, view: PropView | undefine
   return nodeResource(view.kind, view.variant) >= 0 && (info.tool === Tool.None || toolTier(state.entities, i, propJob(view.kind)) >= info.tool);
 }
 
-/** A worker's pace at a node, per mille: its tool for the job, x1.0 for a stone maul on soft ore (Table 2c). */
+/** A worker's pace at a node, per mille: its tool for the job, x1.0 for a stone maul on soft ore (Table 2c); Victor's trophy 5% faster (Patch 7, units/effects.ts). */
 function gatherPace(state: SimState, i: number, kind: number): number {
   const tier = toolTier(state.entities, i, propJob(kind));
-  if (tier === Tool.Stone && isSoftOre(kind)) return 1000;
-  return TOOL_SPEED_PER_MILLE[tier] ?? 1000;
+  const pace = tier === Tool.Stone && isSoftOre(kind) ? 1000 : (TOOL_SPEED_PER_MILLE[tier] ?? 1000);
+  return floorDiv(pace * (10000 + effectWorkBp(state, i)), 10000);
 }
 
 /** Units working a node right now, not counting `except`. */
@@ -560,7 +563,9 @@ export function destroyBuilding(state: SimState, id: number): void {
   // The men who stood up top come down with it.
   for (const j of inside) if (e.y[j]! > b.y * WU_PER_TERRAIN_UNIT) e.y[j] = standY(state, e.x[j]!, e.z[j]!);
   const [x, z] = buildingCentre(b);
-  if (!buildingSpec(b.kind).defence) alert(state, b.owner, `${buildingName(b.kind, b.level, b.variant)} was destroyed.`, x, z);
+  // A trophy knocked down says so itself (combat/deaths.ts: its piece goes back to the stock, Patch 7).
+  const spec = buildingSpec(b.kind);
+  if (!spec.defence && !spec.trophy) alert(state, b.owner, `${buildingName(b.kind, b.level, b.variant)} was destroyed.`, x, z);
   computeEnclosed(state);
 }
 
@@ -1016,8 +1021,8 @@ function runWork(state: SimState, i: number, o: Extract<UnitOrder, { t: 'work' }
   const [bx, bz] = buildingCentre(b);
   e.heading[i] = headingTowards(bx - e.x[i]!, bz - e.z[i]!);
   e.order[i] = OrderKind.Chop;
-  // Work goes at the pace of the worker's mallet or hammer (Table 2c: a stone hammer x1.15), a step of work per 1000.
-  const pace = TOOL_SPEED_PER_MILLE[toolTier(e, i, ToolJob.Build)] ?? 1000;
+  // Work goes at the pace of the worker's mallet or hammer (Table 2c: a stone hammer x1.15), a step of work per 1000; Victor's trophy 5% faster (Patch 7).
+  const pace = floorDiv((TOOL_SPEED_PER_MILLE[toolTier(e, i, ToolJob.Build)] ?? 1000) * (10000 + effectWorkBp(state, i)), 10000);
   e.timer[i] = e.timer[i]! + pace;
   // A worker learns as it builds, upgrades or repairs (Patch 3).
   workXp(state, i, Work.Build, pace);

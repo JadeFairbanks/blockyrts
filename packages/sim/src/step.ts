@@ -29,6 +29,7 @@ import { updateSeen } from './threats/lairs.ts';
 import { guardSpring, updateSprings } from './threats/springs.ts';
 import { updateMagic } from './magic/cast.ts';
 import { refillMages } from './magic/mages.ts';
+import { risenHooks, updateLootEffects } from './units/effects.ts';
 import { peoplesAtPeriod, runBeast, runWagon, updatePeoples } from './peoples/ai.ts';
 import { checkPeoples } from './peoples/factions.ts';
 import { peoplesHooks } from './peoples/hooks.ts';
@@ -68,6 +69,7 @@ stockHooks.cell = (state, cellId) => {
 peoplesHooks.death = onPeoplesDeath;
 peoplesHooks.salvage = onSalvage;
 peoplesHooks.wagon = runWagon;
+risenHooks.leave = leaveBuilding;
 peoplesHooks.beast = runBeast;
 peoplesHooks.treeCut = onTreeCut;
 peoplesHooks.kill = onQuestKill;
@@ -197,6 +199,8 @@ export function step(state: SimState, orders: readonly Order[] = []): StepResult
   updateQuests(state);
   updateMagic(state);
   refillMages(state);
+  // Patch 7: a mage in the whole Fae set heals those round her now and then (units/effects.ts).
+  updateLootEffects(state);
   updateFood(state);
   updateQuestions(state);
   // Jade's Patch 4: an empty farm, a building no one works on and an idle worker ask by themselves.

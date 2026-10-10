@@ -286,11 +286,11 @@ function buildingNeeds(state: SimState, player: number, kind: number): Need[] {
 
 // ----- who sorts each out -----
 
-/** Whether a unit of the player can be asked: theirs, alive, outside, not a mercenary, not asking already or asked this click. */
+/** Whether a unit of the player can be asked: theirs, alive, outside, not a mercenary or a risen archer, not asking already or asked this click. */
 function askable(state: SimState, player: number, i: number, used: Set<string>): boolean {
   const e = state.entities;
   if (e.owner[i] !== player || e.hp[i]! <= 0 || e.inside[i] !== 0) return false;
-  if (e.role[i] === Role.Mercenary || e.role[i] === Role.People) return false;
+  if (e.role[i] === Role.Mercenary || e.role[i] === Role.People || e.role[i] === Role.Risen) return false;
   const id = e.id[i]!;
   return !used.has(`u${id}`) && !isAsking(state, id, false);
 }

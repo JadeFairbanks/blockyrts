@@ -6,7 +6,7 @@
 // dropdown does (card-pop.ts). Use is always there, greyed out with the
 // reason when the item has no use. An item with a use of its own (the Stone
 // Circles' Pan Flute, Ancient Seed and idols) gives it with registerItemUse.
-import { FOODS, gearItemPieces, Res, RESOURCES } from '@blockyrts/sim';
+import { FOODS, GEAR_ITEMS, Res, RESOURCES } from '@blockyrts/sim';
 import type { CardChoice } from './commands.ts';
 
 /** The item a menu is for: a good, and the unit carrying it (null: the stock). */
@@ -36,7 +36,7 @@ export function registerItemUse(res: number, use: ItemUse): void {
 export const NO_USE = 'It has no use of its own.';
 
 /** What a unit can put on from the stock (Equip): every weapon, armour, shield, tool, wand and robe, and poison tips. */
-const EQUIPPABLE: ReadonlySet<number> = new Set<number>([...gearItemPieces().map(([r]) => r), Res.PoisonTips]);
+const EQUIPPABLE: ReadonlySet<number> = new Set<number>([...GEAR_ITEMS, Res.PoisonTips]);
 
 /** Whether Equip is offered for a good. */
 export function equippable(res: number): boolean {

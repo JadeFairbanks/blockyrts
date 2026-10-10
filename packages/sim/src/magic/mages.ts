@@ -10,8 +10,9 @@ import { floorDiv, STEPS_PER_SECOND } from '../fixed.ts';
 import { rankSpellPowerBonusBp, XP_TENTHS } from '../rules.ts';
 import { BuildingKind } from '../buildings/data.ts';
 import { standY, UnitKind, WALK_SPEED_WU, type SimState } from '../state.ts';
-import { applyKit, ROBE_KITS, WAND_KITS } from '../units/kits.ts';
+import { applyKit, GEAR, WAND_KITS } from '../units/kits.ts';
 import { AUTOCAST_RULES, COMBAT_PAUSE_STEPS, defaultAutocast, MANA_SCALE, MAGE_RANKS, MAGE_TOP_RANK, mageRank, School, SCHOOL_NAMES, Spell, SPELLS, spellSpec } from './spells.ts';
+import { effectSpellBp } from '../units/effects.ts';
 
 const SEC = STEPS_PER_SECOND;
 
@@ -116,10 +117,18 @@ export function mageMaxMana(rank: number, wand = 0): number {
   return (mageRank(rank).mana + (WAND_KITS[wand]?.mana ?? 0)) * MANA_SCALE;
 }
 
-/** A mage's own mana bar, in twentieths. */
-export function manaCap(state: SimState, i: number): number {
+/** What a mage's wand and robe give (Patch 7: read from what she holds and wears, so a looted wand or robe gives its own): extra mana, spell power and extra mana regain, percentages. */
+function mageGear(state: SimState, i: number): { mana: number; powerPct: number; regainPct: number } {
   const e = state.entities;
-  return mageMaxMana(e.rank[i]!, e.wTier[i]!);
+  const wand = GEAR[e.weapon[i]!]?.wand;
+  const robe = GEAR[e.armour[i]!]?.robe;
+  // Fae Guardian gear (Jade): the star wand's regain adds to the robe's.
+  return { mana: wand?.mana ?? 0, powerPct: wand?.powerPct ?? 100, regainPct: (wand?.regainPct ?? 0) + (robe?.regainPct ?? 0) };
+}
+
+/** A mage's own mana bar, in twentieths: her rank's and her wand's. */
+export function manaCap(state: SimState, i: number): number {
+  return (mageRank(state.entities.rank[i]!).mana + mageGear(state, i).mana) * MANA_SCALE;
 }
 
 /** A new Novice Acolyte of a school, with a full mana bar, a hazel wand and a homespun robe; returns her index. */
@@ -149,7 +158,7 @@ export function setMageRank(state: SimState, i: number, rank: number): void {
   e.rank[i] = after.rank;
   e.hp[i] = e.hp[i]! + after.health - e.maxHp[i]!;
   e.maxHp[i] = after.health;
-  e.mana[i] = Math.min(mageMaxMana(rank, e.wTier[i]!), e.mana[i]! + (after.mana - before.mana) * MANA_SCALE);
+  e.mana[i] = Math.min(manaCap(state, i), e.mana[i]! + (after.mana - before.mana) * MANA_SCALE);
 }
 
 /** A mage's name for messages and the selection panel: "Battle mage (Acolyte)". */
@@ -185,13 +194,13 @@ export function mageGainXp(state: SimState, i: number, tenths: number): void {
 /**
  * Spell power, bp over the spell's own amount: +10% a rank above the first,
  * multiplied by her wand's power (Table 13: x1.0 to x1.25), plus Rally's
- * +20% while it lasts.
+ * +20% while it lasts, and Victor's trophy (Patch 7, units/effects.ts).
  */
 export function spellPowerBp(state: SimState, i: number): number {
   const e = state.entities;
-  const wand = e.kind[i] === UnitKind.Mage ? (WAND_KITS[e.wTier[i]!]?.powerPct ?? 100) : 100;
+  const wand = e.kind[i] === UnitKind.Mage ? mageGear(state, i).powerPct : 100;
   const rank = floorDiv((10000 + rankSpellPowerBonusBp(e.rank[i]!)) * wand, 100) - 10000;
-  return rank + (e.rallyUntil[i]! > state.step ? spellSpec(Spell.Rally).bp : 0);
+  return rank + (e.rallyUntil[i]! > state.step ? spellSpec(Spell.Rally).bp : 0) + effectSpellBp(state, i);
 }
 
 /**
@@ -216,8 +225,8 @@ export function refillMages(state: SimState): void {
       continue;
     }
     if (inCombat(state, i)) continue;
-    // Her robe adds to her regain (Table 13: +0% to +25%).
-    const acc = e.manaAcc[i]! + floorDiv(mageRank(e.rank[i]!).refill * (100 + (ROBE_KITS[e.aTier[i]!]?.regainPct ?? 0)), 100);
+    // Her robe adds to her regain (Table 13: +0% to +25%), and from Patch 7 the Fae star wand (+25%).
+    const acc = e.manaAcc[i]! + floorDiv(mageRank(e.rank[i]!).refill * (100 + mageGear(state, i).regainPct), 100);
     e.mana[i] = Math.min(max, e.mana[i]! + floorDiv(acc, 100));
     e.manaAcc[i] = acc % 100;
   }

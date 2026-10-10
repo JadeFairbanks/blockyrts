@@ -145,7 +145,8 @@ describe('the peoples\' quests (Patch 5, QV-1 to QV-34)', () => {
     const k = place(s, FactionKind.ElfKingdom);
     const w = worker(s);
     bring(s, w, k);
-    run(s, 25);
+    // Two of the once-a-second quest checks: the meeting is noticed on its own beat, which the start's units move (Patch 7's spearman).
+    run(s, 45);
     answer(s, asked(s, k, QuestAsk.Offer)!, 1);
     expect(k.quest[0]).toBe(QuestStage.Taken);
     for (let n = 0; n < 2; n++) kill(s, addMob(s, Mob.FaeGuardian, 0, s.entities.x[w]! + 3 * M, s.entities.z[w]!, 0), w);
