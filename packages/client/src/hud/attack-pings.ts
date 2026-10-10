@@ -29,7 +29,8 @@ export function struckOwn(s: SimState, player: number, out: number[]): void {
   for (const h of s.hits) {
     if (h.dmg === undefined || h.id === 0 || h.id === last) continue;
     const i = e.indexOf(h.id);
-    if (i < 0 || e.owner[i] !== player || !UNIT_KINDS.has(e.kind[i]!) || e.hurtAt[i] !== s.step) continue;
+    // Called after the step, which ends by counting the step on: a blow it landed was marked with the step before.
+    if (i < 0 || e.owner[i] !== player || !UNIT_KINDS.has(e.kind[i]!) || e.hurtAt[i] !== s.step - 1) continue;
     const from = e.attacker[i]!;
     const a = from === 0 ? -1 : e.indexOf(from);
     if (a < 0 || !hostile(s, i, a)) continue;

@@ -48,6 +48,7 @@ export const PATCH_NOTES: readonly PatchNote[] = [
     headline: 'Any item can now be fetched from the stock or handed back in, magic and poison go through armour and shields, and a loading screen brings every player into the match together.',
     intro: [
       'Mini patch 7.3 is a small update to indev 1.2. Saved games keep working and the game version is unchanged. If the game was open in your browser when the update went live, reload the page to play it.',
+      'The site asks for its sign-in again, as it did before Patch 7.',
     ],
     changes: {
       bugFixes: [

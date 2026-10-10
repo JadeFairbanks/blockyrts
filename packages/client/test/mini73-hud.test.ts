@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BuildingKind, BUILDINGS, NO_CARRY, Product, Res, RESOURCE_COUNT, UnitKind, type UnitOrder } from '@blockyrts/sim';
+import { addMob, BuildingKind, BUILDINGS, createWorld, Mob, NO_CARRY, Product, Res, RESOURCE_COUNT, step, UnitKind, WU_PER_METRE, type Order, type SimState, type UnitOrder } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
-import { ATTACK_PING_QUIET_MS, ATTACK_PING_RADIUS_M, AttackPings } from '../src/hud/attack-pings.ts';
+import { ATTACK_PING_QUIET_MS, ATTACK_PING_RADIUS_M, AttackPings, struckOwn } from '../src/hud/attack-pings.ts';
 import { Commands, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
 import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
@@ -121,5 +121,32 @@ describe('yellow auto rings (mini patch 7.3)', () => {
     // The gathering itself runs in front of the Gather order; the ring stays on.
     expect(button(commands(game(UnitKind.Worker, [building(9, BuildingKind.MainBase)], [gather, forage]), workers, 'worker').card(), 'Gather').autoLoop).toBe(true);
     expect(button(commands(game(UnitKind.Worker, [building(9, BuildingKind.MainBase)], [gather]), workers, 'worker').card(), 'Gather').autoLoop).toBe(false);
+  });
+});
+
+describe('attack pings from a running game (mini patch 7.3)', () => {
+  /** A new world with a giant rat 3 m from the first troop at the start; runs the sim as the sim worker does, and returns the blows struckOwn saw on the player's units. */
+  function fight(orders: (s: SimState, troops: number[], rat: number) => Order[]): number[] {
+    const s = createWorld(1);
+    const e = s.entities;
+    const troops = Array.from({ length: e.count }, (_, k) => k).filter((k) => e.owner[k] === ME && e.kind[k] === UnitKind.Warrior);
+    const i = troops[0]!;
+    const rat = e.id[addMob(s, Mob.GiantRat, ME, e.x[i]! + 3 * WU_PER_METRE, e.z[i]!, 0)]!;
+    const struck: number[] = [];
+    let first = orders(s, troops.map((k) => e.id[k]!), rat);
+    for (let k = 0; k < 600 && e.indexOf(rat) >= 0; k++) {
+      step(s, first);
+      first = [];
+      struckOwn(s, ME, struck);
+    }
+    return struck;
+  }
+
+  it('sees the blows on a troop that did not start the fight', () => {
+    expect(fight(() => []).length).toBeGreaterThan(0);
+  });
+
+  it('leaves out troops sent to attack', () => {
+    expect(fight((_, troops, rat) => [{ kind: 'attack', player: ME, units: troops, target: rat }])).toEqual([]);
   });
 });

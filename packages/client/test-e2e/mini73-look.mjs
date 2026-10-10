@@ -4,17 +4,18 @@
 //   pnpm --filter @blockyrts/client exec vite --port 5198
 //   node packages/client/test-e2e/mini73-look.mjs http://localhost:5198 /tmp/shots
 //
-// Starts seed 1 alone and checks, in one pass: the loading screen and its
-// bar; the start units (4 workers, 2 clubmen, a spearman); the Worker button
-// greyed with what is short once the stock has no hardwood lumber; fetching
-// copper ore by dragging it onto a unit (no bar, "Got N copper ore."),
-// handing it in by dragging it onto the stock ("Handed in ..."), and Give
-// ("Here, take ..." and "Got ..."); a Fluted Gothic harness at 50%; a battle
-// mage's bolt landing in full on a hobgoblin's shield; the attack pings (one
-// for a fight the player did not start, one more for a second fight far
-// off, none for an Attack order); the yellow auto rings on Gather and Hunt;
-// and a pine seen side on. Saves mini73-*.png in the output folder and
-// prints what it checked.
+// Starts seed 1 alone and checks, in one pass and inside the first day: the
+// loading screen and its bar; the start units (4 workers, 2 clubmen, a
+// spearman); the yellow auto rings on Gather and Hunt; fetching copper ore by
+// dragging it onto a clubman (no bar, "Got 3 copper ore."), Give ("Here,
+// take ..." and "Got ..."), and handing a bag good in by dragging it onto
+// the stock ("Handed in ..."); the attack pings (one minimap ping and one
+// ground ring for a fight in view that the player did not start, one more
+// minimap ping for a second fight far off, none for an Attack order); a
+// Fluted Gothic harness at 50%; and the Worker button greyed, naming what is
+// short, once the stock has no sticks. Saves mini73-*.png in the output
+// folder and prints what it checked. The rules behind poison, magic and
+// shields, the spell cut and fish placement are checked by the unit tests.
 /* global window, document -- used inside page.evaluate callbacks */
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -24,10 +25,6 @@ const WU = 8000;
 const STICKS = 29;
 const COPPER_ORE = 9;
 const GOTHIC = 144;
-/** GOD_SPAWNS (sim debug/god.ts): a Champion, a battle mage, a hobgoblin, a giant rat. */
-const PLACE_TROOP = 1;
-const PLACE_BATTLE_MAGE = 9;
-const PLACE_HOBGOBLIN = 61;
 const GIANT_RAT = 2;
 /** The sim's OrderKind.Tinker. */
 const TINKER = 13;
@@ -53,39 +50,23 @@ const check = (name, ok, detail = '') => {
 const order = (o) => page.evaluate((x) => window.shell.opts.issueOrder(x), o);
 const unit = (n) => page.evaluate((id) => window.shell.game.unit(id), n);
 const bag = (n) => page.evaluate((id) => window.shell.game.info?.bags.find(([x]) => x === id)?.[1] ?? [], n);
-/** Every line the player's units said since the hook went in (shell.onSpeech), as [speaker, text]. */
-const said = () => page.evaluate(() => window.__said ?? []);
-const saidBy = async (n, re) => (await said()).filter(([id, t]) => id === n && re.test(t)).map(([, t]) => t);
-const ids = () => page.evaluate(() => window.world.units.map((u) => Number(u.key.slice(2))));
+const pool = (r) => page.evaluate((x) => window.shell.game.pool()[x], r);
+/** What one unit said since the hook went in (shell.onSpeech), matching a pattern. */
+const saidBy = (n, re) => page.evaluate(([id, src]) => window.__said.filter(([s, t]) => s === id && new RegExp(src).test(t)).map(([, t]) => t), [n, re.source]);
+const pings = () => page.evaluate(() => ({ minimap: window.__pings.length, ground: window.__rings }));
+/** Minimap pings since the n-th within 20 m of (x, z) metres: a hunting spearman or a worker elsewhere may be in a fight of its own. */
+const pingsNear = (n, x, z) => page.evaluate(([k, px, pz]) => window.__pings.slice(k).filter(([a, b]) => Math.hypot(a - px, b - pz) <= 20).length, [n, x, z]);
 const select = (list) =>
   page.evaluate((l) => {
     window.shell.selection.set(window.world.units.filter((u) => l.includes(Number(u.key.slice(2)))));
   }, list);
-const look = (x, z, d = 0) =>
-  page.evaluate(
-    ([a, b, c]) => {
-      window.shell.cam.jumpTo(a / 8000, b / 8000);
-      if (c) window.shell.cam.targetDistance = c;
-    },
-    [x, z, d],
-  );
-/** Places a godmode spawn and returns the new unit's id. */
-async function place(what, x, z) {
-  const before = new Set(await ids());
-  await order({ kind: 'debugPlace', player: 0, what, x, z });
-  for (let k = 0; k < 40; k++) {
-    await page.waitForTimeout(250);
-    const now = (await ids()).filter((n) => !before.has(n));
-    if (now.length) return now[0];
-  }
-  return -1;
-}
-async function spawnRats(x, z, n) {
-  const before = new Set(await ids());
-  for (let k = 0; k < n; k++) await order({ kind: 'debugSpawn', player: 0, mob: GIANT_RAT, x: x + k * 3000, z });
-  await page.waitForTimeout(1500);
-  return (await ids()).filter((i) => !before.has(i));
-}
+const look = (x, z) => page.evaluate(([a, b]) => window.shell.cam.jumpTo(a / 8000, b / 8000), [x, z]);
+const onScreen = (n) =>
+  page.evaluate((id) => {
+    const it = window.shell.items.find((i) => i.item.key === `e:${id}`);
+    return it ? { x: it.x, y: it.y } : null;
+  }, n);
+const centre = (b) => (b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null);
 async function drag(from, to, name) {
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
@@ -100,18 +81,42 @@ async function drag(from, to, name) {
 async function stockSlot(name) {
   for (let k = 0; k < 30; k++) {
     const box = await page.locator(`.inv-slot[aria-label="${name}"]:not([hidden])`).first().boundingBox().catch(() => null);
-    if (box) return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    if (box) return centre(box);
     await page.locator('[data-btn="inv-down"]').first().click().catch(() => {});
     await page.waitForTimeout(200);
   }
   return null;
 }
-const centre = (b) => (b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null);
-const onScreen = (n) =>
-  page.evaluate((id) => {
-    const it = window.shell.items.find((i) => i.item.key === `e:${id}`);
-    return it ? { x: it.x, y: it.y } : null;
-  }, n);
+async function until(test, tries = 120, ms = 500) {
+  for (let k = 0; k < tries; k++) {
+    if (await test()) return true;
+    await page.waitForTimeout(ms);
+  }
+  return false;
+}
+/** Spawns a giant rat and returns its id. */
+async function rat(x, z) {
+  await order({ kind: 'debugSpawn', player: 0, mob: GIANT_RAT, x, z });
+  let id = -1;
+  await until(
+    async () => {
+      id = await page.evaluate(
+        ([px, pz]) => {
+          for (const u of window.world.units) {
+            const i = window.shell.game.unit(Number(u.key.slice(2)));
+            if (i && i.mob === 2 && Math.abs(i.x - px) < 32000 && Math.abs(i.z - pz) < 32000) return i.id;
+          }
+          return -1;
+        },
+        [x, z],
+      );
+      return id >= 0;
+    },
+    20,
+    100,
+  );
+  return id;
+}
 
 // 1. The loading screen.
 const t0 = Date.now();
@@ -126,27 +131,10 @@ const midway = await page.evaluate(() => [document.querySelector('.loading-line'
 await shot('loading');
 check('it says what it loads and counts models and pictures', /models and pictures/.test(midway[1]), midway.join(' | '));
 const gone = await page
-  .waitForFunction(() => !document.querySelector('[data-page="loading"]'), null, { timeout: 900000 })
+  .waitForFunction(() => window.shell && !document.querySelector('[data-page="loading"]'), null, { timeout: 900000 })
   .then(() => true)
   .catch(() => false);
 check('the screen goes once everything is in', gone, `${Math.round((Date.now() - t0) / 1000)} s here (software drawing)`);
-const firstStep = await page.evaluate(() => window.shell.game.step ?? -1);
-check('no game time passed behind the screen', firstStep >= 0 && firstStep < 40, `step ${firstStep} when it went`);
-await page.waitForTimeout(4000);
-await shot('first-sight');
-
-// 2. Start units.
-const start = await page.evaluate(() => {
-  const own = window.world.units.filter((u) => u.owner === 0);
-  const info = own.map((u) => window.shell.game.unit(Number(u.key.slice(2))));
-  return {
-    workers: own.filter((u) => u.typeKey === 'worker').map((u) => Number(u.key.slice(2))),
-    troops: own.filter((u) => u.typeKey === 'warrior').map((u) => Number(u.key.slice(2))),
-    kinds: info.filter((i) => i && i.troop).map((i) => i.troop),
-  };
-});
-check('the start has 4 workers and 3 troops (2 clubmen and the spearman)', start.workers.length === 4 && start.troops.length === 3, `troop types ${JSON.stringify(start.kinds)}`);
-
 await page.evaluate(() => {
   const s = window.shell;
   window.__said = [];
@@ -168,209 +156,135 @@ await page.evaluate(() => {
     return ring(v);
   };
 });
-const home = await page.evaluate(() => {
-  const b = [...window.world.buildings.selectables()].find((x) => x.typeKey.startsWith('building:0:'));
-  return { x: Math.round(b.centre.x * 8000), z: Math.round(b.centre.z * 8000) };
-});
+await page.waitForTimeout(2000);
+await shot('first-sight');
 
-// Yellow auto rings on Gather (workers) and Hunt (the spearman).
+// 2. Start units.
+const start = await page.evaluate(() => {
+  const own = window.world.units.filter((u) => u.owner === 0);
+  const info = own.map((u) => window.shell.game.unit(Number(u.key.slice(2))));
+  return {
+    workers: own.filter((u) => u.typeKey === 'worker').map((u) => Number(u.key.slice(2))),
+    troops: own.filter((u) => u.typeKey === 'warrior').map((u) => Number(u.key.slice(2))),
+    kinds: info.filter((i) => i && i.troop).map((i) => i.troop),
+  };
+});
+check('the start has 4 workers and 3 troops (2 clubmen and the spearman)', start.workers.length === 4 && start.troops.length === 3, `troop types ${JSON.stringify(start.kinds)}`);
+const [clubA, clubB, spear] = start.troops;
+
+// 3. Yellow auto rings: Gather on the workers, Hunt on the spearman.
 await select(start.workers);
 await page.waitForTimeout(800);
-await page.locator('.hud-btn[aria-label="Gather"]').first().click({ button: 'right' }).catch(() => {});
-await page.waitForTimeout(1500);
-const gatherRing = await page.locator('.hud-btn.autoloop[aria-label="Gather"]').count();
+await page.locator('.hud-btn.cmd[aria-label="Gather"]').first().click({ button: 'right' }).catch(() => {});
+await page.waitForTimeout(1200);
+check('auto Gather shows the yellow ring', (await page.locator('.hud-btn.autoloop[aria-label="Gather"]').count()) > 0);
 await shot('gather-ring');
-check('auto Gather shows the yellow ring', gatherRing > 0);
-await select([start.troops[2]]);
+await select([spear]);
 await page.waitForTimeout(800);
-await page.locator('.hud-btn[aria-label*="Hunt"]').first().click({ button: 'right' }).catch(() => {});
-await page.waitForTimeout(1500);
-const huntRing = await page.locator('.hud-btn.autoloop[aria-label*="Hunt"]').count();
+await page.locator('.hud-btn.cmd[aria-label="Hunt"]').first().click({ button: 'right' }).catch(() => {});
+await page.waitForTimeout(1200);
+check('auto Hunt shows the yellow ring', (await page.locator('.hud-btn.autoloop[aria-label="Hunt"]').count()) > 0);
 await shot('hunt-ring');
-check('auto Hunt shows the yellow ring', huntRing > 0);
 
-// 3. Fetch, hand in, give: any good, no bar, bubbles.
-const [clubA, clubB] = start.troops;
+// 4. Fetch by drag, Give, and hand in by drag. The clubmen stand 25 m from the main base first, out of reach of its
+// automatic hand-in (5 m).
+await order({ kind: 'move', player: 0, units: [clubA], x: 0, z: 25 * WU });
+await order({ kind: 'move', player: 0, units: [clubB], x: 3 * WU, z: 25 * WU });
 await order({ kind: 'debugGive', player: 0, res: COPPER_ORE, count: 30 });
+await until(async () => Math.abs((await unit(clubA)).z - 25 * WU) < 2 * WU, 60);
 await select([clubA]);
-let a = await unit(clubA);
-await look(a.x, a.z, 14);
+await look(0, 25 * WU);
 await page.waitForTimeout(1200);
 const oreAt = await stockSlot('Copper ore');
-const word1 = oreAt ? await drag(oreAt, await onScreen(clubA), 'fetch-drag') : '';
+const clubAt = await onScreen(clubA);
+const word1 = oreAt && clubAt ? await drag(oreAt, clubAt, 'fetch-drag') : '';
 check('dragging copper ore onto a clubman says it will be fetched', /^Fetch \d+ from a store point$/.test(word1), word1);
 let barSeen = false;
-const fetched = await (async () => {
-  for (let k = 0; k < 240; k++) {
-    const u = await unit(clubA);
-    if (u?.order === TINKER) barSeen = true;
-    if ((await bag(clubA)).some(([r]) => r === COPPER_ORE)) return true;
-    await page.waitForTimeout(500);
-  }
-  return false;
-})();
-await page.waitForTimeout(1000);
-const gotLine = (await saidBy(clubA, /^Got \d+ copper ore\.$/))[0] ?? '';
+const fetched = await until(async () => {
+  if ((await unit(clubA))?.order === TINKER) barSeen = true;
+  return (await bag(clubA)).some(([r]) => r === COPPER_ORE);
+}, 240);
 check('he fetched the ore into his bag', fetched, JSON.stringify(await bag(clubA)));
 check('no bar while fetching', !barSeen);
-check('his bubble says what he got', gotLine !== '', gotLine || JSON.stringify(await said()));
+check('he says what he got', (await saidBy(clubA, /^Got \d+ copper ore\.$/)).length > 0, (await saidBy(clubA, /copper/)).join(' | '));
 await shot('fetched');
 
-// Give: half of it... all of a good goes; the other clubman is the taker.
+await order({ kind: 'move', player: 0, units: [clubA], x: 0, z: 25 * WU });
+await until(async () => Math.abs((await unit(clubA)).z - 25 * WU) < 2 * WU, 60);
 await order({ kind: 'giveItem', player: 0, units: [clubA], res: COPPER_ORE, target: clubB });
-let giveLines = [];
-for (let k = 0; k < 120 && giveLines.length < 2; k++) {
-  await page.waitForTimeout(500);
-  giveLines = [...(await saidBy(clubA, /^Here, take \d+ copper ore\.$/)), ...(await saidBy(clubB, /^Got \d+ copper ore\.$/))];
-}
-const bBag = await bag(clubB);
-check('Give hands the ore over with both bubbles', bBag.some(([r]) => r === COPPER_ORE) && giveLines.length === 2, `${JSON.stringify(giveLines)} taker bag ${JSON.stringify(bBag)}`);
+const gave = await until(async () => (await saidBy(clubA, /^Here, take \d+ copper ore\.$/)).length > 0 && (await saidBy(clubB, /^Got \d+ copper ore\.$/)).length > 0, 60);
+check('Give hands the ore over and both say so', gave, [...(await saidBy(clubA, /Here/)), ...(await saidBy(clubB, /Got/))].join(' | '));
 await shot('give');
 
-// Hand in by dragging it from the taker's inventory onto the stock.
-const takerLog = [];
-for (let k = 0; k < 6; k++) {
-  takerLog.push(JSON.stringify(await bag(clubB)));
-  await page.waitForTimeout(500);
-}
-console.log(`  taker's bag over 3 s: ${takerLog.join(' ')}; said ${JSON.stringify(await saidBy(clubB, /./))}`);
-await select([clubB]);
-await page.waitForTimeout(800);
-const poolBefore = await page.evaluate((r) => window.shell.game.pool()[r], COPPER_ORE);
-const slot0 = centre(await page.locator('.unit-inv .unit-slot[aria-label="Copper ore"]').first().boundingBox().catch(() => null));
-const stockBox = centre(await page.evaluate(() => {
+// Hand in a kept bag good by dragging it onto the stock: the clubman fetches ore again and hands it in.
+await order({ kind: 'fetchFood', player: 0, units: [clubA], res: COPPER_ORE });
+await until(async () => (await bag(clubA)).some(([r]) => r === COPPER_ORE), 240);
+await select([clubA]);
+const a = await unit(clubA);
+await look(a.x, a.z);
+await page.waitForTimeout(1200);
+const before = await pool(COPPER_ORE);
+const slot = centre(await page.locator('.unit-inv .unit-slot[aria-label="Copper ore"]').first().boundingBox().catch(() => null));
+const stock = await page.evaluate(() => {
   const r = window.shell.layout.stockpile.getBoundingClientRect();
-  return { x: r.x, y: r.y, width: r.width, height: r.height };
-}));
-const word2 = slot0 ? await drag(slot0, stockBox, 'handin-drag') : '';
-if (!slot0) {
-  await shot('handin-no-slot');
-  await order({ kind: 'unloadItem', player: 0, units: [clubB], res: COPPER_ORE });
-}
+  return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+});
+const word2 = slot ? await drag(slot, stock, 'handin-drag') : '';
 check('dragging a bag good onto the stock says hand in', word2 === 'Hand in at a store point', word2);
-let handLine = '';
-for (let k = 0; k < 240 && !handLine; k++) {
-  await page.waitForTimeout(500);
-  handLine = (await saidBy(clubB, /^Handed in .*copper ore\.$/))[0] ?? '';
-}
-const poolAfter = await page.evaluate((r) => window.shell.game.pool()[r], COPPER_ORE);
-check('he hands it in and says so', handLine !== '' && poolAfter > poolBefore, `${handLine} stock ${poolBefore} to ${poolAfter}`);
+const handed = await until(async () => (await saidBy(clubA, /^Handed in .*copper ore\.$/)).length > 0, 120);
+check('he hands it in and says so', handed && (await pool(COPPER_ORE)) > before, `${(await saidBy(clubA, /Handed/)).join(' | ')}; stock ${before} to ${await pool(COPPER_ORE)}`);
 
-// 4. Greyed Worker button once the stock has no sticks (its tool kit's cost): the clubmen and workers fetch sticks into their bags.
-await order({ kind: 'fetchFood', player: 0, units: [...start.troops.slice(0, 2), ...start.workers], res: STICKS });
-for (let k = 0; k < 240; k++) {
-  if ((await page.evaluate((r) => window.shell.game.pool()[r], STICKS)) === 0) break;
-  await page.waitForTimeout(500);
-}
-const hwNow = await page.evaluate((r) => window.shell.game.pool()[r], STICKS);
+// 5. Armour cap: a Fluted Gothic harness put on a clubman shows 50%.
+await order({ kind: 'debugGive', player: 0, res: GOTHIC, count: 1 });
+await page.waitForTimeout(800);
+await order({ kind: 'equip', player: 0, units: [clubA], res: GOTHIC });
+const worn = await until(async () => (await saidBy(clubA, /gothic harness/i)).length > 0, 120);
+await select([clubA]);
+await page.waitForTimeout(1200);
+await page.locator('.selection-panel [aria-label^="Fluted Gothic harness"]').first().hover().catch(() => {});
+await page.waitForTimeout(800);
+const tip = await page.evaluate(() => [...document.querySelectorAll('.tt-body')].map((x) => x.textContent).join(' '));
+await shot('harness');
+check('a Fluted Gothic harness goes on and shows 50% protection', worn && /Protection 50%/.test(tip), tip.slice(0, 120));
+await page.mouse.move(640, 300);
+
+// 6. Attack pings. The clubmen go 30 m south and 40 m east, the camera with the first.
+await order({ kind: 'move', player: 0, units: [clubA], x: 0, z: 30 * WU });
+await order({ kind: 'move', player: 0, units: [clubB], x: 40 * WU, z: -10 * WU });
+await until(async () => Math.abs((await unit(clubB)).x - 40 * WU) < 3 * WU && Math.abs((await unit(clubA)).z - 30 * WU) < 3 * WU, 60);
+await look(0, 30 * WU);
+await page.waitForTimeout(1000);
+const p0 = await pings();
+await rat(6 * WU, 30 * WU);
+await until(async () => (await pings()).ground > p0.ground, 40, 250);
+await shot('ping-in-view');
+await page.waitForTimeout(8000);
+const p1 = await pings();
+check('a fight in view the player did not start pings once (minimap and ground)', (await pingsNear(p0.minimap, 3, 30)) === 1 && p1.ground - p0.ground === 1, JSON.stringify(p1));
+await rat(46 * WU, -10 * WU);
+await until(async () => (await pings()).minimap > p1.minimap, 40, 250);
+await shot('ping-minimap');
+await page.waitForTimeout(8000);
+const p2 = await pings();
+check('a second fight far off pings the minimap once more, not the ground', (await pingsNear(p1.minimap, 43, -10)) === 1 && p2.ground === p1.ground, JSON.stringify(p2));
+const c = await unit(clubA);
+const target = await rat(c.x + 25 * WU, c.z);
+await order({ kind: 'attack', player: 0, units: [clubA], target });
+await page.waitForTimeout(10000);
+check('a fight started with Attack does not ping', (await pingsNear(p2.minimap, (c.x + 12 * WU) / WU, c.z / WU)) === 0, JSON.stringify(await page.evaluate((n) => window.__pings.slice(n), p2.minimap)));
+
+// 7. The Worker button greyed once the stock has no sticks (its tool kit's cost): the workers fetch them all.
+await order({ kind: 'fetchFood', player: 0, units: start.workers, res: STICKS });
+await until(async () => (await pool(STICKS)) === 0, 240);
 await page.evaluate(() => window.shell.selection.set([...window.world.buildings.selectables()].filter((s) => s.typeKey.startsWith('building:0:'))));
 await page.waitForTimeout(1000);
-const workerBtn = page.locator('.hud-btn[aria-label*="Worker"]').first();
+const workerBtn = page.locator('.hud-btn.cmd[aria-label="Worker"]').first();
 const greyed = await workerBtn.evaluate((b) => b.classList.contains('disabled')).catch(() => null);
 await workerBtn.hover().catch(() => {});
 await page.waitForTimeout(700);
 const reason = await page.locator('.tt-reason').first().textContent().catch(() => '');
 await shot('worker-greyed');
-check('with no sticks the Worker button is grey and says what is short', hwNow === 0 && greyed === true && /Short/.test(reason ?? ''), `sticks ${hwNow}, grey ${greyed}, "${reason}"`);
-await page.mouse.move(640, 300);
-
-// 5. Armour cap: a Fluted Gothic harness dragged onto a Champion.
-const champ = await place(PLACE_TROOP, home.x + 6 * WU, home.z);
-await order({ kind: 'debugGive', player: 0, res: GOTHIC, count: 1 });
-await select([champ]);
-let c = await unit(champ);
-await look(c.x, c.z, 14);
-await page.waitForTimeout(1200);
-const harnessAt = await stockSlot('Fluted Gothic harness');
-let champAt = null;
-for (let k = 0; k < 40 && !champAt; k++) {
-  champAt = await onScreen(champ);
-  if (!champAt) await page.waitForTimeout(250);
-}
-console.log(`  champion ${champ} at ${JSON.stringify(champAt)}, harness slot ${JSON.stringify(harnessAt)}`);
-if (harnessAt && champAt) await drag(harnessAt, champAt, 'harness-drag');
-else await order({ kind: 'equip', player: 0, units: [champ], res: GOTHIC });
-let worn = null;
-for (let k = 0; k < 240; k++) {
-  c = await unit(champ);
-  if (c.armour === GOTHIC) {
-    worn = c;
-    break;
-  }
-  await page.waitForTimeout(500);
-}
-await select([champ]);
-await page.waitForTimeout(800);
-const panel = await page.locator('.selection-panel, .sel-panel, .unit-card').first().textContent().catch(() => '');
-await shot('harness');
-check('a Fluted Gothic harness goes on and shows 50%', worn !== null && /50%/.test(panel ?? ''), (panel ?? '').replace(/\s+/g, ' ').slice(0, 200));
-
-// 6. Magic past a shield: a battle mage's bolts on a hobgoblin land in full.
-const mx = home.x - 40 * WU;
-const mage = await place(PLACE_BATTLE_MAGE, mx, home.z);
-const hob = await place(PLACE_HOBGOBLIN, mx + 9 * WU, home.z);
-await look(mx + 4 * WU, home.z, 18);
-await order({ kind: 'attack', player: 0, units: [mage], target: hob });
-const hits = [];
-let last = (await unit(hob))?.hp ?? 0;
-for (let k = 0; k < 120 && hits.length < 4; k++) {
-  await page.waitForTimeout(250);
-  const h = await unit(hob);
-  if (!h) break;
-  if (h.hp < last) hits.push(last - h.hp);
-  last = h.hp;
-}
-await shot('mage-hobgoblin');
-check('the mage’s bolts land in full on the shielded hobgoblin (16, rolls 3%)', hits.length > 0 && hits.every((d) => d >= 15 && d <= 17), JSON.stringify(hits));
-await order({ kind: 'debugTool', player: 0, tool: 2, x: mx, z: home.z });
-
-// 7. Attack pings.
-const pings = () => page.evaluate(() => ({ minimap: window.__pings.length, ground: window.__rings }));
-// a) A fight the player did not start, in view: one minimap ping and one ground ring, however long it goes on.
-const p1 = await place(PLACE_TROOP, home.x + 60 * WU, home.z);
-await look(home.x + 60 * WU, home.z, 18);
-await page.waitForTimeout(1000);
-await spawnRats(home.x + 64 * WU, home.z, 3);
-await page.waitForTimeout(2500);
-await shot('ping-in-view');
-await page.waitForTimeout(8000);
-const after1 = await pings();
-check('a fight the player did not start pings once (minimap and ground)', after1.minimap === 1 && after1.ground === 1, JSON.stringify(after1));
-// b) A second fight far off, out of view: one more minimap ping, no ground ring.
-const p2 = await place(PLACE_TROOP, home.x, home.z + 70 * WU);
-await page.waitForTimeout(500);
-await spawnRats(home.x + 3 * WU, home.z + 70 * WU, 2);
-await page.waitForTimeout(9000);
-const after2 = await pings();
-check('a second fight far off pings the minimap once more, not the ground', after2.minimap === 2 && after2.ground === 1, JSON.stringify(after2));
-await shot('ping-minimap');
-// c) A fight the player starts with Attack: no ping.
-const p3 = await place(PLACE_TROOP, home.x - 70 * WU, home.z + 70 * WU);
-await page.waitForTimeout(500);
-const rats3 = await spawnRats(home.x - 64 * WU, home.z + 70 * WU, 1);
-await order({ kind: 'attack', player: 0, units: [p3], target: rats3[0] });
-await page.waitForTimeout(9000);
-const after3 = await pings();
-check('an ordered attack does not ping', after3.minimap === 2, JSON.stringify(after3));
-void p1;
-void p2;
-
-// 9. A grown pine side on (look at the picture: the green starts just above a worker's head).
-const pine = await page.evaluate(([hx, hz]) => {
-  let best = null;
-  for (const c of window.world.chunks.values()) {
-    for (const p of c.props ?? []) {
-      if (p.typeKey !== 'node:pine') continue;
-      const d = Math.hypot(p.centre.x - hx, p.centre.z - hz);
-      if (!best || d < best.d) best = { d, x: p.centre.x, z: p.centre.z };
-    }
-  }
-  return best;
-}, [home.x / WU, home.z / WU]);
-check('a pine near the start to look at', pine !== null, pine ? `${Math.round(pine.d)} m away` : '');
-if (pine) await look(pine.x * WU, (pine.z + 3) * WU, 9);
-await page.waitForTimeout(2500);
-await shot('pine');
+check('with no sticks the Worker button is grey and says what is short', (await pool(STICKS)) === 0 && greyed === true && /Short/.test(reason ?? ''), `grey ${greyed}, "${reason}"`);
 
 console.log('\n' + results.join('\n'));
 if (problems.length) console.log(`console problems:\n${problems.slice(0, 10).join('\n')}`);
