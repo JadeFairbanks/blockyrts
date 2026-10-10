@@ -35,10 +35,10 @@
 // every number not Jade's is a pick (s) in blueprint/patch5-mobs-picks.md.
 
 import { floorDiv, headingTowards, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
-import { dealtTenths, deathHooks, forward, gap, hurtUnit, peaceHooks, Side, sideOf } from '../combat/combat.ts';
+import { dealtTenths, deathHooks, forward, gap, hurtUnit, peaceHooks, rollDamage, Side, sideOf } from '../combat/combat.ts';
 import { Shot } from '../combat/items.ts';
 import { addMob, attackBuilding, engageUnit, explode, lateHooks, walkMob } from '../combat/mob-ai.ts';
-import { blowTenths, bomber, Mob, mobSpec, type MobSpec } from '../combat/mobs.ts';
+import { blowRollBp, blowTenths, bomber, Mob, mobSpec, type MobSpec } from '../combat/mobs.ts';
 import { shotHooks } from '../combat/projectiles.ts';
 import { Res } from '../economy/resources.ts';
 import { WALKER } from '../nav/grid.ts';
@@ -46,7 +46,7 @@ import type { AnswerOrder } from '../orders.ts';
 import { questTimerHooks } from '../peoples/quests.ts';
 import { sayForeign } from '../peoples/speech.ts';
 import { hash32 } from '../rng.ts';
-import { CYCLE_STEPS } from '../rules.ts';
+import { CYCLE_STEPS, DAMAGE_ROLL } from '../rules.ts';
 import { DamageKind, landAt, MONSTERS, OrderKind, standY, UnitKind, type SimState } from '../state.ts';
 import { answerKinds, askForever, asksOf, closeAsksBy } from '../units/questions.ts';
 import { Troop } from '../units/kits.ts';
@@ -110,7 +110,7 @@ export const ENCOUNTERS = {
     /** SCA-2's [thunderclap]: "deals 5-10 dmg to the hp of all units in the 6 metre radius". He leaps at a foe 8 to 20 m off every 15 s (s), 1.2 s in the air after a 0.4 s crouch (his clip is 2.2 s). */
     leap: { minM: 8, maxM: 20, everyS: 15, crouchSteps: floorDiv(2 * SEC, 5), flightSteps: floorDiv(6 * SEC, 5), clipSteps: floorDiv(11 * SEC, 5), radiusM: 6, min: 5, max: 10, peakM: 4 },
     /** SCA-2's [grab enemy]: "toss them up to 30 metres away. Dealing 5 dmg per 10 metres": human units in his reach, every 18 s, thrown 12 to 30 m at 20 m/s, after 1.1 s in his hands (his clip is 2.3 s) (s). */
-    toss: { everyS: 18, minM: 12, maxM: 30, holdSteps: floorDiv(11 * SEC, 10), clipSteps: floorDiv(23 * SEC, 10), metresPerSecond: 20, perTenMetres: 5 },
+    toss: { everyS: 18, minM: 12, maxM: 30, holdSteps: floorDiv(11 * SEC, 10), clipSteps: floorDiv(23 * SEC, 10), metresPerSecond: 20, perTenMetres: 5, rollBp: DAMAGE_ROLL.physicalBp },
     /** SCA-2: "you can buy Sweet Hawthorne Fruit, Honey, enchanted wine from him": a bundle for a silver, 3 bundles of each a day (s). */
     goods: { fruit: 5, honey: 3, wine: 1, perDay: 3, silver: 1 },
   },
@@ -126,7 +126,7 @@ export const ENCOUNTERS = {
     /** Answer 8: they go for those who wronged them whenever they come this near the middle again (s). */
     grudgeM: 30,
     /** SCS-3, SCS-4: the lash "can reach 10 m ... for 30 dmg", "his deals 10 more dmg"; every 12 s (s). */
-    lash: { m: 10, damage: 40, everyS: 12, castSteps: SEC },
+    lash: { m: 10, damage: 40, everyS: 12, castSteps: SEC, rollBp: DAMAGE_ROLL.magicBp },
     /** SCS-4: [entangling roots] "hold a target enemy unit in place for 20 seconds ... only once every two minutes", at up to 20 m (s). */
     roots: { m: 20, holdS: 20, everyS: 120, castSteps: 2 * SEC },
     /** SCS-5: "only do this transformation once every five days": when he is down to half his health (s). */
@@ -141,7 +141,7 @@ export const ENCOUNTERS = {
     vanishEveryS: 25,
     seekM: 30,
     /** SCS-3: the Reveler's lash, "reach 10 m ... 30 dmg"; every 12 s (s). */
-    lash: { m: 10, damage: 30, everyS: 12, castSteps: SEC },
+    lash: { m: 10, damage: 30, everyS: 12, castSteps: SEC, rollBp: DAMAGE_ROLL.magicBp },
     /** Revelers drink now and then while they revel (s). */
     drinkS: [15, 30] as const,
   },
@@ -158,7 +158,7 @@ export const ENCOUNTERS = {
     riteSteps: floorDiv(16 * SEC, 5),
     /** SCB-2: [Touch of the Grave], "3 dmg every 5 seconds but cannot drop under 2 HP ... spread ... up to 5 metres away": 3 Acrid Wind hits in 10 bring it, it lasts 60 s, and it passes to an ally within 5 m one tick in four (s). */
     gravePm: 300,
-    grave: { damage: 3, everyS: 5, floor: 2, lastS: 60, spreadM: 5, spreadPm: 250 },
+    grave: { damage: 3, everyS: 5, floor: 2, lastS: 60, spreadM: 5, spreadPm: 250, rollBp: DAMAGE_ROLL.magicBp },
     quipS: [12, 20] as const,
   },
 } as const;
@@ -742,9 +742,10 @@ function flights(state: SimState, r: Encounter): void {
     if (k >= span) {
       landAt(state, t, r.tossX1, r.tossZ1);
       const m = floorDiv(length2d(r.tossX1 - r.tossX0, r.tossZ1 - r.tossZ0), M);
-      const dmg = floorDiv(m * ENCOUNTERS.ape.toss.perTenMetres, 10);
+      // Rolled here (Patch 7), so the dirt shows the damage it does.
+      const dmg = rollDamage(state, floorDiv(m * ENCOUNTERS.ape.toss.perTenMetres, 10), ENCOUNTERS.ape.toss.rollBp);
       state.hits.push({ look: 'dirt', x: e.x[t]!, y: e.y[t]!, z: e.z[t]!, id: e.id[t]!, dmg });
-      hurtUnit(state, t, { damage: dmg, from: r.leader, projectile: false, blunt: true, pierce: false, exact: true });
+      hurtUnit(state, t, { damage: dmg, from: r.leader, projectile: false, blunt: true, pierce: false, exact: true, roll: 0 });
       r.toss = 0;
       return;
     }
@@ -804,8 +805,9 @@ function thunderclap(state: SimState, i: number, r: Encounter): void {
   for (const j of state.grid.near(e.x[i]!, e.z[i]!, rad + M)) {
     if (j === i || e.hp[j]! <= 0 || e.inside[j] !== 0 || distTo(state, j, e.x[i]!, e.z[i]!) > rad) continue;
     if (e.kind[j] === UnitKind.Mob && mobSpec(e.mob[j]!).role === Role.Structure) continue;
+    // Already anywhere from 5 to 10: not rolled again (Patch 7).
     const dmg = l.min + state.rng.combat.nextInt(l.max - l.min + 1);
-    hurtUnit(state, j, { damage: dmg, from: e.id[i]!, projectile: false, blunt: true, pierce: false });
+    hurtUnit(state, j, { damage: dmg, from: e.id[i]!, projectile: false, blunt: true, pierce: false, roll: 0 });
   }
   if (state.rng.combat.nextInt(3) === 0) sayForeign(state, i, pick(state, r, APE_LINES.thunder, 18), false);
 }
@@ -914,7 +916,7 @@ function tendSilenus(state: SimState, i: number, r: Encounter, second: boolean):
   if (state.step >= r.lashNext && d <= sl.lash.m * M) {
     r.lashNext = state.step + sl.lash.everyS * SEC;
     r.still = state.step + sl.lash.castSteps;
-    lash(state, i, t, sl.lash.damage);
+    lash(state, i, t, sl.lash.damage, sl.lash.rollBp);
   }
 }
 
@@ -932,13 +934,13 @@ function roots(state: SimState, i: number, r: Encounter, t: number): void {
 }
 
 /** SCS-3's [lash of thorns]: a thorny vine whips one unit (Silenus' for 10 more). */
-function lash(state: SimState, i: number, t: number, damage: number): void {
+function lash(state: SimState, i: number, t: number, damage: number, roll: number): void {
   const e = state.entities;
   e.atkAt[i] = 0;
   e.atkNext[i] = Math.max(e.atkNext[i]!, state.step + ENCOUNTERS.silenus.lash.castSteps);
   e.heading[i] = headingTowards(e.x[t]! - e.x[i]!, e.z[t]! - e.z[i]!);
   state.hits.push({ look: 'lash', x: e.x[t]!, y: e.y[t]!, z: e.z[t]!, id: e.id[t]!, to: e.id[i]! });
-  hurtUnit(state, t, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: true, spell: true });
+  hurtUnit(state, t, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: true, spell: true, roll });
 }
 
 /** Silenus becomes the sabretooth (SCS-5), keeping his own health for when it falls. */
@@ -1043,11 +1045,12 @@ function tickMarks(state: SimState): void {
     list[kept++] = m;
     if (m.kind !== MarkKind.Grave || state.step < m.next) continue;
     m.next = state.step + g.everyS * SEC;
-    const d = Math.min(g.damage, e.hp[j]! - g.floor);
+    // Rolled here (Patch 7), so the curse shows the damage it does, never past the floor.
+    const d = Math.min(rollDamage(state, g.damage, g.rollBp), e.hp[j]! - g.floor);
     if (d > 0) {
       // A curse: magic (Patch 7).
       state.hits.push({ look: 'grave', x: e.x[j]!, y: e.y[j]! + M, z: e.z[j]!, id: m.id, dmg: d, dmgKind: DamageKind.Magic });
-      hurtUnit(state, j, { damage: d, from: 0, projectile: false, blunt: false, pierce: false, exact: true, magic: true });
+      hurtUnit(state, j, { damage: d, from: 0, projectile: false, blunt: false, pierce: false, exact: true, magic: true, roll: 0 });
     }
     // To an ally standing within 5 m, now and then.
     for (const k of state.grid.nearOthers(e.x[j]!, e.z[j]!, g.spreadM * M)) {
@@ -1141,7 +1144,7 @@ export function runEncounter(state: SimState, i: number, spec: MobSpec): void {
   if (e.mob[i] === Mob.SatyrReveler && state.step >= e.abilityAt[i]! && gap(state, i, t) <= ENCOUNTERS.satyr.lash.m * M) {
     const l = ENCOUNTERS.satyr.lash;
     e.abilityAt[i] = state.step + l.everyS * SEC;
-    return lash(state, i, t, l.damage);
+    return lash(state, i, t, l.damage, l.rollBp);
   }
   // A skeleton bomber goes off beside them, as on any night.
   if (bomber(spec) && gap(state, i, t) <= spec.reach + M) return explode(state, i, false);
@@ -1289,7 +1292,7 @@ function mobBlow(state: SimState, i: number, spec: MobSpec, t: number): void {
   const e = state.entities;
   if (e.role[i] === Role.Unleashed) return headlessBlow(state, i, spec, t);
   if (!strayMonster(state, t) || gap(state, i, t) > spec.reach + M) return;
-  hurtUnit(state, t, { damage: dealtTenths(state, i, blowTenths(state.rng.combat, spec)), from: e.id[i]!, projectile: false, blunt: true, pierce: false });
+  hurtUnit(state, t, { damage: dealtTenths(state, i, blowTenths(state.rng.combat, spec)), from: e.id[i]!, projectile: false, blunt: true, pierce: false, roll: blowRollBp(spec, false) });
 }
 
 /** Whether a circle's keeper is at peace with a player (combat/combat.ts hostile): the Ape and Silenus' band until they are wronged; never the Lich's. */

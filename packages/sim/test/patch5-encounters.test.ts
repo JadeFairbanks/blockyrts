@@ -197,7 +197,7 @@ describe('Silenus and his satyrs (SCS-1 to SCS-5, answer 8)', () => {
     const t = e.indexOf(r.leader);
     expect(e.mob[t]).toBe(Mob.Sabretooth);
     expect(r.heldHp).toBe(low);
-    hurtUnit(s, t, { damage: 100000, from: 0, projectile: false, blunt: false, pierce: false, exact: true });
+    hurtUnit(s, t, { damage: 100000, from: 0, projectile: false, blunt: false, pierce: false, exact: true, roll: 0 });
     settleDeaths(s);
     const back = e.indexOf(r.leader);
     expect(back).toBeGreaterThanOrEqual(0);

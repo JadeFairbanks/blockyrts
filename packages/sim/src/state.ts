@@ -816,6 +816,8 @@ export interface Projectile {
   vz: number;
   age: number;
   damage: number;
+  /** Patch 7 (Jade): how far its damage may land above or below `damage` on what it hits, bp (its weapon's or spell's rollBp; combat.ts rollDamage). */
+  roll: number;
   /** Bit 0 blunt, bit 1 fire, bit 2 web. */
   flags: number;
   /**

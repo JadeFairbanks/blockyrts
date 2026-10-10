@@ -29,7 +29,7 @@ import { pointGoal } from '../nav/path.ts';
 import { damageTaken, withBonus } from '../rules.ts';
 import { OrderKind, PEOPLES, sightOf, UnitKind, WILD, type Projectile, type SimState } from '../state.ts';
 import { factionById, warFaction } from '../peoples/types.ts';
-import { bodyHeight, canReach, gainXp, gap, halfWidth, hostile, hurtBuilding, hurtUnit, meleeOf, shotMayHit, Side, sideOf, startSwing } from '../combat/combat.ts';
+import { bodyHeight, canReach, gainXp, gap, halfWidth, hostile, hurtBuilding, hurtUnit, meleeOf, rollDamage, shotMayHit, Side, sideOf, startSwing } from '../combat/combat.ts';
 import { chase, face, pickTarget, stepToward, targetLost, validTarget } from '../combat/fight.ts';
 import { hasResearch, Research, Shot } from '../combat/items.ts';
 import { Slot } from '../units/kits.ts';
@@ -303,16 +303,16 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
   },
   bolt(state, i, s, t) {
     const [x, y, z] = eye(state, i);
-    fireAt(state, i, x, y, z, t, s.shot, spellAmount(state, i, s), 0, ProjectileFlag.Spell);
+    fireAt(state, i, x, y, z, t, s.shot, spellAmount(state, i, s), s.rollBp ?? 0, 0, ProjectileFlag.Spell);
   },
   fireball(state, i, s, t) {
     const [x, y, z] = eye(state, i);
-    fireAt(state, i, x, y, z, t, Shot.Fireball, spellAmount(state, i, s), 0, ProjectileFlag.Spell | ProjectileFlag.Fire | ProjectileFlag.Burst);
+    fireAt(state, i, x, y, z, t, Shot.Fireball, spellAmount(state, i, s), s.rollBp ?? 0, 0, ProjectileFlag.Spell | ProjectileFlag.Fire | ProjectileFlag.Burst);
   },
   beam(state, i, s, t) {
     const e = state.entities;
-    // The whole beam is worked out now, then handed out step by step; magic goes through armour (Patch 7, Jade).
-    const raw = floorDiv(spellAmount(state, i, s) * s.steps, STEPS_PER_SECOND);
+    // The whole beam is worked out now, rolled as one blow, then handed out step by step; magic goes through armour (Patch 7, Jade).
+    const raw = rollDamage(state, floorDiv(spellAmount(state, i, s) * s.steps, STEPS_PER_SECOND), s.rollBp ?? 0);
     e.beamLeft[i] = damageTaken({ damage: raw, armourBp: 0, projectile: false });
     e.beamTarget[i] = e.id[t]!;
     e.beamUntil[i] = state.step + s.steps;
@@ -321,7 +321,7 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
     const e = state.entities;
     const damage = spellAmount(state, i, s);
     // Patch 5 (MB-25): "damaging every non player unit be it hostile or not": monsters, wild animals and the peoples alike.
-    for (const j of othersNear(state, i, x, z, s.radius)) hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true });
+    for (const j of othersNear(state, i, x, z, s.radius)) hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true, roll: s.rollBp ?? 0 });
   },
   counter(state, _i, _s, t) {
     cancelSpell(state, t);
@@ -343,7 +343,7 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
     const near = enemiesNear(state, i, e.x[t]!, e.z[t]!, s.radius).filter((j) => j !== t);
     near.sort((a, b) => gap(state, t, a) - gap(state, t, b) || e.id[a]! - e.id[b]!);
     const targets = [t, ...near.slice(0, s.bp - 1)];
-    for (let k = 0; k < s.bp; k++) fireAt(state, i, x, y, z, targets[k % targets.length]!, Shot.Thorn, spellAmount(state, i, s), THORN_SPREAD_BP, ProjectileFlag.Spell);
+    for (let k = 0; k < s.bp; k++) fireAt(state, i, x, y, z, targets[k % targets.length]!, Shot.Thorn, spellAmount(state, i, s), s.rollBp ?? 0, THORN_SPREAD_BP, ProjectileFlag.Spell);
   },
   bark(state, i, s, _t, x, z) {
     for (const j of alliesNear(state, i, x, z, s.radius)) state.entities.barkUntil[j] = state.step + s.steps;
@@ -389,12 +389,12 @@ export function fireballBurst(state: SimState, p: Projectile, x: number, y: numb
     if (j === hit || e.hp[j]! <= 0 || e.inside[j] !== 0) continue;
     if (sideOf(state, j) === Side.Wild || !shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > s.radius + halfWidth(state, j)) continue;
-    hurtUnit(state, j, { damage: splash, from: p.shooter, projectile: false, blunt: false, pierce: false, spell: true });
+    hurtUnit(state, j, { damage: splash, from: p.shooter, projectile: false, blunt: false, pierce: false, spell: true, roll: p.roll });
   }
   if (!b) return;
-  if (buildingSpec(b.kind).wooden === false) hurtBuilding(state, b, s.vsWalls, x, y, z);
+  if (buildingSpec(b.kind).wooden === false) hurtBuilding(state, b, s.vsWalls, x, y, z, p.roll);
   else {
-    hurtBuilding(state, b, p.damage * FIREBALL_WOOD_MULTIPLIER, x, y, z);
+    hurtBuilding(state, b, p.damage * FIREBALL_WOOD_MULTIPLIER, x, y, z, p.roll);
     smoulder(state, b, FIREBALL_BURN.perSecond, FIREBALL_BURN.steps);
   }
 }
@@ -416,7 +416,7 @@ function beamStep(state: SimState, i: number): boolean {
   e.beamLeft[i] = e.beamLeft[i]! - d;
   face(state, i, t);
   e.order[i] = OrderKind.Cast;
-  if (d > 0) hurtUnit(state, t, { damage: d, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true, exact: true });
+  if (d > 0) hurtUnit(state, t, { damage: d, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true, exact: true, roll: 0 });
   if (left <= 1) {
     e.beamUntil[i] = 0;
     e.beamTarget[i] = 0;

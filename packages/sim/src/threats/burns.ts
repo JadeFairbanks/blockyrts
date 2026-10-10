@@ -5,12 +5,12 @@ import { buildingCentre } from '../buildings/lights.ts';
 import { buildingSpec } from '../buildings/data.ts';
 import type { Building } from '../buildings/store.ts';
 import { STEPS_PER_SECOND, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
-import { burnThisStep } from '../rules.ts';
+import { burnThisStep, DAMAGE_ROLL } from '../rules.ts';
 import type { SimState } from '../state.ts';
 import { hurtBuilding } from '../combat/combat.ts';
 
-/** Spark toss: 8 damage, and dry wood it hits smoulders 2 a second for 5 s (Table 17). */
-export const SPARK = { damage: 8, smoulderPerSecond: 2, smoulderSteps: 5 * STEPS_PER_SECOND };
+/** Spark toss: 8 damage (magic, rolled by up to 3%, Patch 7), and dry wood it hits smoulders 2 a second for 5 s (Table 17). */
+export const SPARK = { damage: 8, smoulderPerSecond: 2, smoulderSteps: 5 * STEPS_PER_SECOND, rollBp: DAMAGE_ROLL.magicBp };
 
 /** A fire bolt hit a building: wood smoulders for a while (a second hit makes it last longer, not burn harder). */
 export function smoulder(state: SimState, b: Building, perSecond: number, steps: number): void {
@@ -36,7 +36,7 @@ export function updateBurns(state: SimState): void {
     const d = burnThisStep(burn.perSecond, k);
     if (d > 0) {
       const [x, z] = buildingCentre(b);
-      hurtBuilding(state, b, d, x, b.y * WU_PER_TERRAIN_UNIT + WU_PER_METRE, z);
+      hurtBuilding(state, b, d, x, b.y * WU_PER_TERRAIN_UNIT + WU_PER_METRE, z, 0);
     }
     return true;
   });

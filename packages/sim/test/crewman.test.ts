@@ -150,7 +150,7 @@ describe('the artillery crewman (Patch 2)', () => {
     const near = addEngine(s, 0, Engine.Ballista, yx, yz + 12 * M);
     expect(crewSworn(s, gun).length).toBe(2);
     const fallen = crewSworn(s, gun)[0]!;
-    hurtUnit(s, fallen, { damage: 10000, from: 0, projectile: false, blunt: false, pierce: false });
+    hurtUnit(s, fallen, { damage: 10000, from: 0, projectile: false, blunt: false, pierce: false, roll: 0 });
     settleDeaths(s);
     const ev = s.events.find((x) => x.kind === 'question' && !x.ask!.closed && x.ask!.q === Ask.Crew)!;
     expect(ev).toBeDefined();

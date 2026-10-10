@@ -213,7 +213,7 @@ function fire(state: SimState, i: number, t: number, spec: EngineSpec): boolean 
   const y = e.y[i]! + MUZZLE_WU;
   if (clearLob(state, spec.shot, e.x[i]!, y, e.z[i]!, e.x[t]!, e.y[t]!, e.z[t]!, true) === 0) return false;
   const flags = ProjectileFlag.Siege | (spec.pierce ? ProjectileFlag.Pierce : ProjectileFlag.Blunt);
-  fireAt(state, i, e.x[i]!, y, e.z[i]!, t, spec.shot, spec.damage, spec.spreadBp, flags);
+  fireAt(state, i, e.x[i]!, y, e.z[i]!, t, spec.shot, spec.damage, spec.rollBp, spec.spreadBp, flags);
   e.atkNext[i] = state.step + spec.reloadSteps;
   e.order[i] = OrderKind.Shoot;
   return true;

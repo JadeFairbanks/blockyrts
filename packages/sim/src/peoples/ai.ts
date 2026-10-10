@@ -104,7 +104,7 @@ function raid(state: SimState, f: Faction, i: number): void {
     const [bx, bz] = buildingCentre(b);
     e.heading[i] = 0;
     e.atkNext[i] = state.step + w.attackSteps;
-    hurtBuilding(state, b, dealt(state, i, w.damage), bx, e.y[i]! + M, bz);
+    hurtBuilding(state, b, dealt(state, i, w.damage), bx, e.y[i]! + M, bz, w.rollBp);
     state.hits.push({ look: 'swing', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
     return;
   }

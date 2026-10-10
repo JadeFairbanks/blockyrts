@@ -9,6 +9,7 @@
 
 import { Res } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
+import { DAMAGE_ROLL } from '../rules.ts';
 import { Shot, SHOTS } from './items.ts';
 import { Area, THREAT, threatTenths, Trait, type ThreatInput, effectiveHealth100 } from './threat.ts';
 
@@ -227,6 +228,16 @@ export interface MobSpec {
    * blow of damageTenths every time.
    */
   damageMaxTenths: number;
+  /**
+   * Patch 7 (Jade: "make all damage randomized ... up to ~6% higher and ~6%
+   * lower"): how far its blow's damage and its hits on walls may land above
+   * or below their numbers, bp (rules.ts DAMAGE_ROLL); a blow that already
+   * falls anywhere in a range (damageMaxTenths) is not rolled again
+   * (blowRollBp).
+   */
+  rollBp: number;
+  /** Patch 7 (Jade): the same for its ranged attack (a shot, a curse, a drain, a breath), 3% for magic ("magic which only has 3% upper and lower bounds"). */
+  shotRollBp: number;
 }
 
 /** A mob as written in the table below: everything but its threat, which is worked out (combat/threat.ts). */
@@ -243,6 +254,7 @@ const BP = 10000;
 const base = {
   traits: [], splitsInto: [], armourBp: 0, pierceBp: BP, bluntBp: BP, range: 0, shot: Shot.Arrow, spreadBp: 0, climbSpeed: 0, arc: false, undead: false, role: 0, xpTenths: 0, blockBp: 0, poisonTenths: 0, mana: 0,
   strike: Strike.Shot, demon: Demon.None, perNight: 0, woodClimber: false, knockWu: 0, slamRadius: 0, tint: '', damageMaxTenths: 0,
+  rollBp: DAMAGE_ROLL.physicalBp, shotRollBp: DAMAGE_ROLL.physicalBp,
 } as const;
 
 /** The role values of threats/types.ts Role, kept here so this data file imports nothing of the threats. */
@@ -280,7 +292,7 @@ const MORVATH: MobRow = {
  */
 const FAE: MobRow = {
   ...base, id: Mob.FaeGuardian, name: 'Fae Guardian', model: 'fairy', firstNight: 0, hp: 300, damageTenths: 300, attackSteps: ds(50),
-  reach: cm(120), range: cm(1600), shot: Shot.FairyBolt, spreadBp: 200, speed: v10(20), vsWalls: 0,
+  reach: cm(120), range: cm(1600), shot: Shot.FairyBolt, spreadBp: 200, shotRollBp: DAMAGE_ROLL.magicBp, speed: v10(20), vsWalls: 0,
   moves: Moves.LowFlyer, sun: Sun.Proof, comes: Comes.Never, xpTenths: 60, halfWidth: cm(45), height: cm(210),
   drops: [],
 };
@@ -377,7 +389,7 @@ const MOB_ROWS: readonly MobRow[] = [
   },
   {
     ...base, id: Mob.ManaWraith, name: 'Mana wraith', model: 'mana_wraith', firstNight: 80, hp: 300, pierceBp: 5000, damageTenths: 213, attackSteps: ds(20), reach: cm(150),
-    range: cm(1800), shot: Shot.ManaBolt, spreadBp: 300, speed: v10(30), vsWalls: 0,
+    range: cm(1800), shot: Shot.ManaBolt, spreadBp: 300, shotRollBp: DAMAGE_ROLL.magicBp, speed: v10(30), vsWalls: 0,
     moves: Moves.LowFlyer, sun: Sun.Flees, comes: Comes.Never, xpTenths: 60, halfWidth: cm(45), height: cm(180), role: RESIDENT,
     drops: [{ res: Res.ManaCrystal, min: 2, max: 3, chancePm: 1000 }],
   },
@@ -409,7 +421,7 @@ const MOB_ROWS: readonly MobRow[] = [
     drops: [{ res: Res.Feathers, min: 2, max: 4, chancePm: 300 }, { res: Res.Leather, min: 1, max: 1, chancePm: 150 }, { res: Res.Hexstone, min: 1, max: 1, chancePm: 50 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.GoblinMage, name: 'Goblin mage', model: 'goblin_mage', firstNight: 0, hp: 25, damageTenths: 80, attackSteps: ds(30), reach: cm(100), range: cm(1400), shot: Shot.Spark, spreadBp: 400, speed: v10(30), vsWalls: 1,
+    ...base, id: Mob.GoblinMage, name: 'Goblin mage', model: 'goblin_mage', firstNight: 0, hp: 25, damageTenths: 80, attackSteps: ds(30), reach: cm(100), range: cm(1400), shot: Shot.Spark, spreadBp: 400, shotRollBp: DAMAGE_ROLL.magicBp, speed: v10(30), vsWalls: 1,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, xpTenths: 10, halfWidth: cm(30), height: cm(120), role: VILLAGE, mana: 60,
     drops: [{ res: Res.Hexstone, min: 1, max: 2, chancePm: 400 }, { res: Res.Silver, alt: Res.Gold, min: 1, max: 1, chancePm: 40 }],
   },
@@ -480,7 +492,7 @@ const MOB_ROWS: readonly MobRow[] = [
     drops: [{ res: Res.Bone, min: 2, max: 4, chancePm: 500 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }],
   },
   {
-    ...base, id: Mob.HollowPriest, traits: [Trait.Summons], name: 'Hollow priest', model: 'hollow_priest', firstNight: 40, hp: 140, damageTenths: 133, attackSteps: ds(25), reach: cm(120), range: cm(1600), strike: Strike.Curse, speed: v10(20), vsWalls: 0,
+    ...base, id: Mob.HollowPriest, traits: [Trait.Summons], name: 'Hollow priest', model: 'hollow_priest', firstNight: 40, hp: 140, damageTenths: 133, attackSteps: ds(25), reach: cm(120), range: cm(1600), strike: Strike.Curse, shotRollBp: DAMAGE_ROLL.magicBp, speed: v10(20), vsWalls: 0,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Alone, halfWidth: cm(35), height: cm(190), undead: true,
     drops: [{ res: Res.ManaCrystal, min: 1, max: 1, chancePm: 80 }, { res: Res.Silver, min: 1, max: 1, chancePm: 20 }, { res: Res.Emeralds, min: 1, max: 1, chancePm: 10 }],
   },
@@ -513,7 +525,7 @@ const MOB_ROWS: readonly MobRow[] = [
   },
   {
     ...base, id: Mob.Flamecaller, traits: [Trait.Ignites], name: 'Flamecaller', model: 'flamecaller', firstNight: 70, hp: 220, armourBp: 1000, damageTenths: 285, attackSteps: ds(30), reach: cm(120),
-    range: cm(2200), shot: Shot.Hellfire, spreadBp: 300, speed: v10(22), vsWalls: 30,
+    range: cm(2200), shot: Shot.Hellfire, spreadBp: 300, shotRollBp: DAMAGE_ROLL.magicBp, speed: v10(22), vsWalls: 30,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Trickle, halfWidth: cm(35), height: cm(210), demon: Demon.Red,
     drops: [{ res: Res.Sulphur, min: 1, max: 2, chancePm: 200 }, { res: Res.DemonHorn, min: 1, max: 1, chancePm: 80 }, { res: Res.ManaCrystal, min: 1, max: 1, chancePm: 50 }, { res: Res.Rubies, min: 1, max: 1, chancePm: 20 }],
   },
@@ -534,13 +546,13 @@ const MOB_ROWS: readonly MobRow[] = [
   },
   {
     // Drain: 20 a second, so one strike a second (s).
-    ...base, id: Mob.VoidWitch, traits: [Trait.Heals, Trait.Debuffs, Trait.Blinks], name: 'Void witch', model: 'void_witch', firstNight: 90, hp: 600, armourBp: 1000, damageTenths: 190, attackSteps: ds(10), reach: cm(150), range: cm(2000), strike: Strike.Drain, speed: v10(25), vsWalls: 0,
+    ...base, id: Mob.VoidWitch, traits: [Trait.Heals, Trait.Debuffs, Trait.Blinks], name: 'Void witch', model: 'void_witch', firstNight: 90, hp: 600, armourBp: 1000, damageTenths: 190, attackSteps: ds(10), reach: cm(150), range: cm(2000), strike: Strike.Drain, shotRollBp: DAMAGE_ROLL.magicBp, speed: v10(25), vsWalls: 0,
     moves: Moves.Walker, sun: Sun.Flees, comes: Comes.Alone, halfWidth: cm(40), height: cm(220), demon: Demon.Purple, mana: 0,
     drops: [{ res: Res.ManaCrystal, min: 2, max: 3, chancePm: 300 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 10 }],
   },
   {
     // Void breath: 40 a second along a 12 m line, so one strike a second (s).
-    ...base, id: Mob.AbyssalDrake, name: 'Abyssal drake', model: 'abyssal_drake', firstNight: 95, hp: 1800, armourBp: 3000, damageTenths: 380, attackSteps: ds(10), reach: cm(200), range: cm(1200), strike: Strike.Breath, speed: v10(90), vsWalls: 40,
+    ...base, id: Mob.AbyssalDrake, name: 'Abyssal drake', model: 'abyssal_drake', firstNight: 95, hp: 1800, armourBp: 3000, damageTenths: 380, attackSteps: ds(10), reach: cm(200), range: cm(1200), strike: Strike.Breath, shotRollBp: DAMAGE_ROLL.magicBp, speed: v10(90), vsWalls: 40,
     moves: Moves.HighFlyer, sun: Sun.Flees, comes: Comes.Alone, halfWidth: cm(200), height: cm(250), demon: Demon.Purple,
     drops: [{ res: Res.ManaCrystal, min: 1, max: 2, chancePm: 350 }, { res: Res.Gold, min: 1, max: 1, chancePm: 20 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 20 }],
   },
@@ -593,7 +605,7 @@ const MOB_ROWS: readonly MobRow[] = [
     // Jade's Patch 5 (MB-5): his crimson bolt every 10 s, 35 to whoever it strikes and 35 within 0.5 m (Shot.NecroBolt); his summons and drops are
     // threats/necromancer.ts. Never bought from the budget. Health, armour, range and speed (s); XP by the header rule, health / 50.
     ...base, id: Mob.Necromancer, traits: [Trait.Summons], name: 'Necromancer', model: 'necromancer', firstNight: 10, hp: 300, armourBp: 1000, damageTenths: 350, attackSteps: ds(100),
-    reach: cm(120), range: cm(1800), shot: Shot.NecroBolt, spreadBp: 300, speed: v10(20), vsWalls: 5,
+    reach: cm(120), range: cm(1800), shot: Shot.NecroBolt, spreadBp: 300, shotRollBp: DAMAGE_ROLL.magicBp, speed: v10(20), vsWalls: 5,
     moves: Moves.Walker, sun: Sun.Burns, comes: Comes.Never, xpTenths: 60, halfWidth: cm(35), height: cm(200),
     drops: [],
   },
@@ -621,7 +633,7 @@ const MOB_ROWS: readonly MobRow[] = [
     // SCS-4: "750 HP. 18-35 dmg per hit. Base attack = ranged; magical; nature", his "huge claw-like hands" in reach; 2.5 m tall. His nature bolt every
     // 3 s at up to 18 m, his walk 1.8 m/s, armour (s). He drops hawthorne cider (s: Jade named none; the revelers' god drinks it too).
     ...base, id: Mob.Silenus, name: 'Silenus', model: 'silenus', firstNight: 0, hp: 750, armourBp: 1500, damageTenths: 180, damageMaxTenths: 350, attackSteps: ds(30),
-    reach: cm(200), range: cm(1800), shot: Shot.NatureBolt, spreadBp: 200, speed: v10(18), vsWalls: 20,
+    reach: cm(200), range: cm(1800), shot: Shot.NatureBolt, spreadBp: 200, shotRollBp: DAMAGE_ROLL.magicBp, speed: v10(18), vsWalls: 20,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, role: ENCOUNTER, xpTenths: 150, halfWidth: cm(55), height: cm(250),
     drops: [{ res: Res.HawthorneCider, min: 2, max: 4, chancePm: 1000 }],
   },
@@ -645,7 +657,7 @@ const MOB_ROWS: readonly MobRow[] = [
     // SCS-3: "75 HP. 10-20 dmg per hit. Base attack = Ranged, magical", "a bottle of Hawthorne Cider, which he drops upon death". A bolt every 2.5 s at up
     // to 16 m, 3 m/s (s).
     ...base, id: Mob.SatyrReveler, name: 'Satyr Reveler', model: 'satyr_reveler', firstNight: 0, hp: 75, damageTenths: 100, damageMaxTenths: 200, attackSteps: ds(25),
-    reach: cm(120), range: cm(1600), shot: Shot.RevelerBolt, spreadBp: 300, speed: v10(30), vsWalls: 5,
+    reach: cm(120), range: cm(1600), shot: Shot.RevelerBolt, spreadBp: 300, shotRollBp: DAMAGE_ROLL.magicBp, speed: v10(30), vsWalls: 5,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, role: ENCOUNTER, xpTenths: 15, halfWidth: cm(35), height: cm(200),
     drops: [{ res: Res.HawthorneCider, min: 1, max: 1, chancePm: 1000 }],
   },
@@ -654,7 +666,7 @@ const MOB_ROWS: readonly MobRow[] = [
     // none): 3 mana crystals, 2 to 4 gold, and a diamond half the time.
     // Patch 7 (Jade, 23:05 UTC 2026-10-09): "The lich should have a drop that is legendary tier (robes) with a 25% drop rate": the Deathless Shroud.
     ...base, id: Mob.Lich, name: 'Lich', model: 'lich', firstNight: 0, hp: 750, armourBp: 1000, damageTenths: 50, damageMaxTenths: 160, attackSteps: ds(30),
-    reach: cm(150), range: cm(1800), shot: Shot.AcridWind, spreadBp: 200, speed: v10(16), vsWalls: 10,
+    reach: cm(150), range: cm(1800), shot: Shot.AcridWind, spreadBp: 200, shotRollBp: DAMAGE_ROLL.magicBp, speed: v10(16), vsWalls: 10,
     moves: Moves.Walker, sun: Sun.Proof, comes: Comes.Never, role: ENCOUNTER, xpTenths: 150, halfWidth: cm(45), height: cm(230), undead: true,
     drops: [{ res: Res.ManaCrystal, min: 3, max: 3, chancePm: 1000 }, { res: Res.Gold, min: 2, max: 4, chancePm: 1000 }, { res: Res.Diamonds, min: 1, max: 1, chancePm: 500 },
       { res: Res.DeathlessShroud, min: 1, max: 1, chancePm: 250 }],
@@ -727,6 +739,16 @@ export function blowTenths(rng: { nextInt(n: number): number }, spec: MobSpec): 
   return spec.damageTenths + rng.nextInt(spec.damageMaxTenths - spec.damageTenths + 1);
 }
 
+/**
+ * The roll on a mob's blow (or its shot, `shot`) (Patch 7, Jade: "Don't
+ * change the few damage things that are already randomized"): none on a blow
+ * that already falls anywhere in its range (damageMaxTenths), else its row's.
+ */
+export function blowRollBp(spec: MobSpec, shot: boolean): number {
+  if (spec.damageMaxTenths > spec.damageTenths) return 0;
+  return shot ? spec.shotRollBp : spec.rollBp;
+}
+
 export function mobSpec(id: number): MobSpec {
   const sp = MOBS[id];
   if (!sp) throw new Error(`unknown mob ${id}`);
@@ -761,7 +783,7 @@ export const WEB = { slowBp: 5000, steps: ds(30), cooldown: ds(100) };
 /** Slime engulf: holds a worker still for 2 s. */
 export const ENGULF_STEPS = ds(20);
 /** Bloated corpse burst: 38 to the players' units within 3 m (40 before Patch 5's 5% cut), in tenths. */
-export const BURST = { damageTenths: 380, radius: cm(300) };
+export const BURST = { damageTenths: 380, radius: cm(300), rollBp: DAMAGE_ROLL.physicalBp };
 /**
  * Bomber blast: 300 to walls and buildings where it goes off, half that at
  * 2.5 m (s: the roster had 220, which cannot break a 300 HP softwood column),
@@ -769,7 +791,7 @@ export const BURST = { damageTenths: 380, radius: cm(300) };
  * bomb goes off 2 s after it falls; since Patch 5 (BL-7) a wall breaker
  * killed before it goes off drops none.
  */
-export const BLAST = { building: 300, buildingRadius: cm(250), unit: 30, unitRadius: cm(300), fuse: ds(20) };
+export const BLAST = { building: 300, buildingRadius: cm(250), unit: 30, unitRadius: cm(300), fuse: ds(20), rollBp: DAMAGE_ROLL.physicalBp };
 /** A bomber goes for 5 or more of the players' units within 8 m of it on its way. */
 export const CLUSTER = { units: 5, radius: cm(800) };
 /** Goblins within 10 m of a chief run 20% faster. */

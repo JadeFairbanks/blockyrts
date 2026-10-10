@@ -11,6 +11,7 @@
 
 import { Res, type Cost } from '../economy/resources.ts';
 import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
+import { DAMAGE_ROLL } from '../rules.ts';
 import { BuildingKind } from '../buildings/data.ts';
 
 /**
@@ -49,6 +50,8 @@ export interface EngineSpec {
   hp: number;
   /** Hit on a unit; the splash and the damage against walls are its shot's (combat/items.ts SHOTS). */
   damage: number;
+  /** Patch 7 (Jade): how far its hit, its splash and its damage against walls may land above or below their numbers, bp (rules.ts DAMAGE_ROLL). */
+  rollBp: number;
   /** A ballista bolt goes on through one more target in a line (Table 2f: pierces 2). */
   pierce: boolean;
   range: number;
@@ -95,7 +98,7 @@ const PB = Res.LeadOre;
 
 const MOBILE_ROWS: EngineSpec[] = [
   {
-    id: Engine.Catapult, name: 'Catapult', model: 'catapult', hp: 300, damage: 80, pierce: false,
+    id: Engine.Catapult, name: 'Catapult', model: 'catapult', hp: 300, damage: 80, pierce: false, rollBp: DAMAGE_ROLL.physicalBp,
     range: cm(5000), minRange: cm(1500), reloadSteps: sec(15), crew: 2, horse: v10(20), ox: v10(15), pushed: v10(8),
     shot: ENGINE_SHOT.CatapultStone, cannon: false, mobile: -1, spreadBp: 600,
     // Patch 2: from main base 5, where the Great Workshop stood before (tier 3 from Patch 5); 120 s with no crew, what 240 s took two workers (s, Jade's rebalance).
@@ -103,7 +106,7 @@ const MOBILE_ROWS: EngineSpec[] = [
     halfWidth: cm(150), height: cm(300),
   },
   {
-    id: Engine.Ballista, name: 'Ballista', model: 'ballista', hp: 250, damage: 90, pierce: true,
+    id: Engine.Ballista, name: 'Ballista', model: 'ballista', hp: 250, damage: 90, pierce: true, rollBp: DAMAGE_ROLL.physicalBp,
     range: cm(4500), minRange: cm(500), reloadSteps: sec(8), crew: 1, horse: v10(25), ox: v10(15), pushed: v10(10),
     shot: ENGINE_SHOT.BallistaBolt, cannon: false, mobile: -1, spreadBp: 200,
     // Patch 2: from main base 7, the Manufactory's level (tier 3 from Patch 5); 120 s as the catapult (s, Jade's rebalance).
@@ -114,7 +117,7 @@ const MOBILE_ROWS: EngineSpec[] = [
     // Patch 5 (Jade, MB-8): bronze cannot take the pressure iron can, so its barrel is thicker with a smaller mouth, and its shot,
     // blast, splash and damage are smaller than the iron cannon's, still more than any engine without gunpowder; and it takes a
     // lot of bronze ingots (40, s; 20 before).
-    id: Engine.BronzeCannon, name: 'Bronze cannon', model: 'cannon_bronze', hp: 400, damage: 120, pierce: false,
+    id: Engine.BronzeCannon, name: 'Bronze cannon', model: 'cannon_bronze', hp: 400, damage: 120, pierce: false, rollBp: DAMAGE_ROLL.physicalBp,
     range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, horse: v10(25), ox: v10(15), pushed: v10(10),
     shot: ENGINE_SHOT.BronzeCannonball, cannon: true, mobile: -1, spreadBp: 300,
     // Patch 2: from main base 8, the Foundry's level (tier 4 from Patch 5), at the same pace the Foundry had.
@@ -122,7 +125,7 @@ const MOBILE_ROWS: EngineSpec[] = [
     halfWidth: cm(110), height: cm(150),
   },
   {
-    id: Engine.IronCannon, name: 'Iron cannon', model: 'cannon_iron', hp: 500, damage: 150, pierce: false,
+    id: Engine.IronCannon, name: 'Iron cannon', model: 'cannon_iron', hp: 500, damage: 150, pierce: false, rollBp: DAMAGE_ROLL.physicalBp,
     range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, horse: v10(25), ox: v10(15), pushed: v10(10),
     shot: ENGINE_SHOT.Cannonball, cannon: true, mobile: -1, spreadBp: 300,
     at: BuildingKind.ArtilleryWorkshop, base: 4, research: CANNONS, cost: [[Res.WroughtIron, 12], [L, 10], [PB, 6]], steps: sec(150),
@@ -130,7 +133,7 @@ const MOBILE_ROWS: EngineSpec[] = [
   },
   {
     // A Dwarf city's own cannon (Table 19: "its own Dwarf cannons are not for sale"): the iron cannon's numbers, never made by players.
-    id: Engine.DwarfCannon, name: 'Dwarf cannon', model: 'cannon_dwarf', hp: 500, damage: 150, pierce: false,
+    id: Engine.DwarfCannon, name: 'Dwarf cannon', model: 'cannon_dwarf', hp: 500, damage: 150, pierce: false, rollBp: DAMAGE_ROLL.physicalBp,
     range: cm(6000), minRange: cm(1000), reloadSteps: sec(12), crew: 2, horse: 0, ox: 0, pushed: 0,
     shot: ENGINE_SHOT.Cannonball, cannon: true, mobile: -1, spreadBp: 300,
     at: -1, base: 0, research: 0, cost: [], steps: 0,

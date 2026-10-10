@@ -80,6 +80,8 @@ export interface MeleeStats {
   crit: boolean;
   /** Steps from the swing's start to the blow, where its clip strikes (Patch 5: the Dreadnought's); 40% of the attack time when left out. */
   landSteps?: number;
+  /** Patch 7 (Jade): how far a blow's damage may land above or below its number, bp (rules.ts DAMAGE_ROLL). */
+  rollBp: number;
 }
 
 export interface RangedStats {
@@ -90,6 +92,8 @@ export interface RangedStats {
   spreadBp: number;
   shot: Shot;
   blunt: boolean;
+  /** Patch 7 (Jade): how far a shot's damage may land above or below its number, bp (rules.ts DAMAGE_ROLL). */
+  rollBp: number;
 }
 
 /** Research steps (Table 2a): bit numbers in a player's research mask. */

@@ -14,12 +14,13 @@ import { buildingCentre, isLit, snuffLight } from '../buildings/lights.ts';
 import { garrisonRoom, type Building } from '../buildings/store.ts';
 import { clockAt } from '../clock.ts';
 import { floorDiv, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
+import { DAMAGE_ROLL } from '../rules.ts';
 import { DamageKind, MONSTERS, UnitKind, standY, type SimState } from '../state.ts';
 import { WALKER } from '../nav/grid.ts';
-import { bodyHeight, dealtTenths, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, inArc, Side, sideOf, wholeDamage } from '../combat/combat.ts';
+import { bodyHeight, dealtTenths, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, inArc, rollDamage, Side, sideOf, wholeDamage } from '../combat/combat.ts';
 import { Shot } from '../combat/items.ts';
 import { addMob, combatTroop, engageUnit, inheritRole, lateHooks, playerUnit, turnedOnTroops } from '../combat/mob-ai.ts';
-import { blowTenths, Demon, FLY_HEIGHT, Mob, mobSpec, Strike, type MobSpec } from '../combat/mobs.ts';
+import { blowRollBp, blowTenths, Demon, FLY_HEIGHT, Mob, mobSpec, Strike, type MobSpec } from '../combat/mobs.ts';
 import { buildingTop, FIRE, launch, POISON } from '../combat/projectiles.ts';
 import { knockBack } from '../mounts/riding.ts';
 import { leaveBuilding } from '../units/behaviour.ts';
@@ -36,21 +37,21 @@ export const LATE = {
   /** Plague bearer: 1 a second within 6 m, and no natural healing while in it. */
   miasma: { radius: 6 * M, perSecond: 1 },
   /** Gravewing (and the Rift griffin): a lone worker (nobody else of its side within 6 m), within 30 m; dropped from 6 m for 38 (40 before Patch 5's 5% cut), held 2 s; low for 2 s while it swoops. */
-  snatch: { damageTenths: 380, loneWu: 6 * M, huntWu: 30 * M, heldSteps: 2 * SEC, lowSteps: 2 * SEC },
+  snatch: { damageTenths: 380, loneWu: 6 * M, huntWu: 30 * M, heldSteps: 2 * SEC, lowSteps: 2 * SEC, rollBp: DAMAGE_ROLL.physicalBp },
   /** Bone colossus: a boulder at a tower or parapet within 20 m, every 8 s, for 23.8 (25 before Patch 5's 5% cut). */
-  boulder: { range: 20 * M, cooldown: 8 * SEC, damageTenths: 238 },
+  boulder: { range: 20 * M, cooldown: 8 * SEC, damageTenths: 238, rollBp: DAMAGE_ROLL.physicalBp },
   /** Hollow priest: a zombie every 12 s, up to 6 at a time, raised within 3 m. */
   raise: { cooldown: 12 * SEC, most: 6, within: 3 * M },
   /** Hellhound: a 5 m cone of fire, 11.4 a second for 2 s (12 before Patch 5's 5% cut), every 8 s; it sets wood alight. */
-  breath: { reach: 5 * M, perSecondTenths: 114, steps: 2 * SEC, cooldown: 8 * SEC },
+  breath: { reach: 5 * M, perSecondTenths: 114, steps: 2 * SEC, cooldown: 8 * SEC, rollBp: DAMAGE_ROLL.physicalBp },
   /** Fiend: below 30% health it attacks 40% faster. */
   fury: { belowPct: 30, fasterPct: 40 },
   /** Chain fiend: a unit on a tower, parapet or wall top within 10 m, pulled down for 14.3 (15 before Patch 5's 5% cut), every 8 s. */
-  hook: { range: 10 * M, damageTenths: 143, cooldown: 8 * SEC },
+  hook: { range: 10 * M, damageTenths: 143, cooldown: 8 * SEC, rollBp: DAMAGE_ROLL.physicalBp },
   /** Void stalker: unseen beyond 4 m until it attacks, unless in the light; its first strike does triple damage. */
   cloak: { seenWu: 4 * M, ambushMul: 3 },
   /** Infernal juggernaut: 4.8 a second within 3 m of its sides (5 before Patch 5's 5% cut); double damage from behind. */
-  heat: { radius: 3 * M, perSecondTenths: 48 },
+  heat: { radius: 3 * M, perSecondTenths: 48, rollBp: DAMAGE_ROLL.physicalBp },
   /** Void witch: empties the mana of the players' mages within 10 m every 15 s; blinks up to 15 m every 10 s when a foe is within 4 m. */
   hex: { radius: 10 * M, cooldown: 15 * SEC },
   blink: { distance: 15 * M, cooldown: 10 * SEC, threat: 4 * M },
@@ -60,22 +61,22 @@ export const LATE = {
   command: { radius: 15 * M, bonusBp: 2000 },
   summon: { count: 4, cooldown: 20 * SEC },
   /** Rift colossus: a 30 m beam at a tower or wall for 200, every 10 s. */
-  beam: { range: 30 * M, damage: 200, cooldown: 10 * SEC },
+  beam: { range: 30 * M, damage: 200, cooldown: 10 * SEC, rollBp: DAMAGE_ROLL.physicalBp },
   /** Rift scorpion: every other hit stings for 9.5 more and 28.5 poison over 5 s (10 and 30 before Patch 5's 5% cut); Rift hornet: a sting slows by 30% for 3 s. */
-  sting: { damageTenths: 95, poisonTenths: 285 },
+  sting: { damageTenths: 95, poisonTenths: 285, rollBp: DAMAGE_ROLL.physicalBp },
   hornet: { slowBp: 3000, steps: 3 * SEC },
   /** Morvath: every torch within 30 m goes out; the Rift opens every 60 s for 30 s, a red demon every 3 s; violet ruin every 20 s, 3 s of warning, 300 in 20 m. */
   crown: { radius: 30 * M },
   rift: { cooldown: 60 * SEC, open: 30 * SEC, every: 3 * SEC },
-  ruin: { radius: 20 * M, damage: 300, warning: 3 * SEC, cooldown: 20 * SEC },
+  ruin: { radius: 20 * M, damage: 300, warning: 3 * SEC, cooldown: 20 * SEC, rollBp: DAMAGE_ROLL.magicBp },
   /**
    * Morvath's staff (Jade's Patch 5 MB-4): 200 to his target (his row), and
    * 100 to everyone else within 1 m of it, his own monsters too; he takes in
    * every point it drains from them, and none from the players' units.
    */
-  staff: { splashTenths: 1000, radius: M },
+  staff: { splashTenths: 1000, radius: M, rollBp: DAMAGE_ROLL.magicBp },
   /** His wings (MB-4): once, as he takes to the air, he drains up to 500 from the players' units within 12 m over 5 s (s: 12 m), and takes it in. */
-  wings: { total: 500, steps: 5 * SEC, radius: 12 * M },
+  wings: { total: 500, steps: 5 * SEC, radius: 12 * M, rollBp: DAMAGE_ROLL.magicBp },
 } as const;
 
 const BP = 10000;
@@ -141,20 +142,20 @@ export function updateLateMobs(state: SimState): void {
     if (e.kind[i] !== UnitKind.Mob || e.hp[i]! <= 0) continue;
     const m = e.mob[i]!;
     if (m < Mob.BarrowKnight && m !== Mob.GoblinWolfRider) continue;
-    if (second && m === Mob.PlagueBearer) aura(state, i, LATE.miasma.radius, LATE.miasma.perSecond * 10, true);
-    if (second && m === Mob.InfernalJuggernaut) aura(state, i, LATE.heat.radius + halfWidth(state, i), LATE.heat.perSecondTenths, false);
+    if (second && m === Mob.PlagueBearer) aura(state, i, LATE.miasma.radius, LATE.miasma.perSecond * 10, true, 0);
+    if (second && m === Mob.InfernalJuggernaut) aura(state, i, LATE.heat.radius + halfWidth(state, i), LATE.heat.perSecondTenths, false, LATE.heat.rollBp);
     if (second && m === Mob.Archfiend) command(state, i);
     if ((m === Mob.Morvath || m === Mob.MorvathAloft) && e.role[i] === 0) morvath(state, i, second);
   }
 }
 
-/** A plague bearer's miasma (poison, Patch 7) or a juggernaut's heat: each of the players' and the peoples' units within takes its due (in tenths), exact. */
-function aura(state: SimState, i: number, radius: number, tenths: number, sick: boolean): void {
+/** A plague bearer's miasma (poison, Patch 7) or a juggernaut's heat: each of the players' and the peoples' units within takes its due (in tenths), exact, rolled by `roll` (Patch 7: poison never). */
+function aura(state: SimState, i: number, radius: number, tenths: number, sick: boolean, roll: number): void {
   const e = state.entities;
   const damage = wholeDamage(state, i, tenths);
   for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, radius)) {
     if (!playerUnit(state, j) || length2d(e.x[j]! - e.x[i]!, e.z[j]! - e.z[i]!) > radius + halfWidth(state, j)) continue;
-    hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, exact: true, poison: sick });
+    hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, exact: true, poison: sick, roll });
     if (sick) e.sickUntil[j] = state.step + SEC + 1;
   }
 }
@@ -196,7 +197,7 @@ function act(state: SimState, i: number, spec: MobSpec, t: number): boolean {
       const b = nearestPerch(state, i, LATE.boulder.range);
       if (!b) return false;
       const [x, z] = buildingCentre(b);
-      launch(state, i, e.x[i]!, e.y[i]! + floorDiv(spec.height * 3, 4), e.z[i]!, x, buildingTop(b), z, Shot.BoneBoulder, dealtTenths(state, i, LATE.boulder.damageTenths), 0);
+      launch(state, i, e.x[i]!, e.y[i]! + floorDiv(spec.height * 3, 4), e.z[i]!, x, buildingTop(b), z, Shot.BoneBoulder, dealtTenths(state, i, LATE.boulder.damageTenths), LATE.boulder.rollBp, 0);
       e.abilityAt[i] = now + LATE.boulder.cooldown;
       e.atkNext[i] = now + spec.attackSteps;
       return true;
@@ -220,7 +221,7 @@ function act(state: SimState, i: number, spec: MobSpec, t: number): boolean {
       if (now < e.abilityAt[i]! || t < 0 || gap(state, i, t) > LATE.breath.reach) return false;
       e.abilityAt[i] = now + LATE.breath.cooldown;
       e.atkNext[i] = now + spec.attackSteps;
-      breathe(state, i, LATE.breath.reach, 0, wholeDamage(state, i, LATE.breath.perSecondTenths * 2));
+      breathe(state, i, LATE.breath.reach, 0, wholeDamage(state, i, LATE.breath.perSecondTenths * 2), LATE.breath.rollBp);
       return true;
     }
     case Mob.ChainFiend: {
@@ -234,7 +235,7 @@ function act(state: SimState, i: number, spec: MobSpec, t: number): boolean {
       e.x[j] = e.x[i]! + floorDiv(fx * M, 65536);
       e.z[j] = e.z[i]! + floorDiv(fz * M, 65536);
       e.y[j] = standY(state, e.x[j]!, e.z[j]!);
-      hurtUnit(state, j, { damage: wholeDamage(state, i, LATE.hook.damageTenths), from: e.id[i]!, projectile: false, blunt: true, pierce: false, exact: true });
+      hurtUnit(state, j, { damage: wholeDamage(state, i, LATE.hook.damageTenths), from: e.id[i]!, projectile: false, blunt: true, pierce: false, exact: true, roll: LATE.hook.rollBp });
       state.hits.push({ look: 'shot', x: e.x[i]!, y: e.y[i]! + spec.height, z: e.z[i]!, id: e.id[i]! });
       return true;
     }
@@ -267,7 +268,7 @@ function act(state: SimState, i: number, spec: MobSpec, t: number): boolean {
       e.ability2At[i] = now + LATE.beam.cooldown;
       e.atkNext[i] = now + spec.attackSteps;
       const [x, z] = buildingCentre(b);
-      hurtBuilding(state, b, LATE.beam.damage, x, buildingTop(b), z);
+      hurtBuilding(state, b, LATE.beam.damage, x, buildingTop(b), z, LATE.beam.rollBp);
       state.hits.push({ look: 'spell', x: e.x[i]!, y: e.y[i]! + spec.height, z: e.z[i]!, id: e.id[i]! });
       return true;
     }
@@ -391,9 +392,10 @@ function blink(state: SimState, i: number, t: number): void {
 /**
  * Breath in front of a mob: a hellhound's 5 m cone (width 0) or a drake's
  * 12 m line (its width), set as burning damage over 2 s on everything of the
- * players' and the peoples' in it, and wood in it set alight.
+ * players' and the peoples' in it, each one's whole burn rolled by `roll`
+ * as it lands (Patch 7), and wood in it set alight.
  */
-function breathe(state: SimState, i: number, reach: number, width: number, total: number): void {
+function breathe(state: SimState, i: number, reach: number, width: number, total: number, roll: number): void {
   const e = state.entities;
   const [fx, fz] = forward(e.heading[i]!);
   for (const j of state.grid.nearOthers(e.x[i]!, e.z[i]!, reach + 2 * M)) {
@@ -403,7 +405,7 @@ function breathe(state: SimState, i: number, reach: number, width: number, total
     const along = floorDiv(dx * fx + dz * fz, 65536);
     if (along < 0 || along > reach + halfWidth(state, j)) continue;
     if (width > 0 ? Math.abs(floorDiv(dx * fz - dz * fx, 65536)) > width + halfWidth(state, j) : !inArc(state, i, e.x[j]!, e.z[j]!)) continue;
-    e.dotLeft[j] = (e.dotUntil[j]! > state.step ? e.dotLeft[j]! : 0) + total;
+    e.dotLeft[j] = (e.dotUntil[j]! > state.step ? e.dotLeft[j]! : 0) + rollDamage(state, total, roll);
     e.dotUntil[j] = state.step + LATE.breath.steps;
     e.dotFrom[j] = e.id[i]!;
     // A hellhound's fire burns as any blow does; a drake's void breath is magic (Patch 7).
@@ -426,10 +428,10 @@ function strike(state: SimState, i: number, spec: MobSpec, t: number): void {
   const e = state.entities;
   const damage = dealtTenths(state, i, blowTenths(state.rng.combat, spec));
   if (spec.strike === Strike.Breath) {
-    breathe(state, i, spec.range, LATE.line.width, damage);
+    breathe(state, i, spec.range, LATE.line.width, damage, blowRollBp(spec, true));
     return;
   }
-  const d = hurtUnit(state, t, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true });
+  const d = hurtUnit(state, t, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true, roll: blowRollBp(spec, true) });
   state.hits.push({ look: 'spell', x: e.x[t]!, y: e.y[t]! + floorDiv(bodyHeight(state, t), 2), z: e.z[t]!, id: e.id[t]! });
   // Drain heals her by what it took.
   if (spec.strike === Strike.Drain && d > 0) e.hp[i] = Math.min(e.maxHp[i]!, e.hp[i]! + d);
@@ -449,14 +451,14 @@ function hit(state: SimState, i: number, spec: MobSpec, t: number, d: number): v
       // The snatch: carried up and dropped from 6 m.
       const drop = wholeDamage(state, i, LATE.snatch.damageTenths);
       if (e.kind[t] === UnitKind.Worker && d < drop) {
-        hurtUnit(state, t, { damage: drop - d, from: e.id[i]!, projectile: false, blunt: true, pierce: false, exact: true });
+        hurtUnit(state, t, { damage: drop - d, from: e.id[i]!, projectile: false, blunt: true, pierce: false, exact: true, roll: LATE.snatch.rollBp });
         e.heldUntil[t] = state.step + LATE.snatch.heldSteps;
       }
       break;
     }
     case Mob.RiftScorpion:
       if ((e.strikes[i]! & 1) === 0) {
-        hurtUnit(state, t, { damage: dealtTenths(state, i, LATE.sting.damageTenths), from: e.id[i]!, projectile: false, blunt: false, pierce: true });
+        hurtUnit(state, t, { damage: dealtTenths(state, i, LATE.sting.damageTenths), from: e.id[i]!, projectile: false, blunt: false, pierce: true, roll: LATE.sting.rollBp });
         e.dotLeft[t] = (e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0) + wholeDamage(state, i, LATE.sting.poisonTenths);
         e.dotUntil[t] = state.step + POISON.steps;
         e.dotFrom[t] = e.id[i]!;
@@ -560,7 +562,7 @@ function staffSplash(state: SimState, i: number, t: number): void {
     const own = e.kind[j] === UnitKind.Mob && e.owner[j] === MONSTERS && e.role[j] !== Role.Structure;
     if (!own && !playerUnit(state, j)) continue;
     // Its violet burst is magic (Patch 7).
-    const d = hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: true, pierce: false, magic: true });
+    const d = hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: true, pierce: false, magic: true, roll: LATE.staff.rollBp });
     if (own) drainInto(state, i, j, d);
   }
 }
@@ -586,7 +588,7 @@ function wingDrain(state: SimState, i: number): void {
     const want = each + (odd > 0 ? 1 : 0);
     if (odd > 0) odd--;
     if (want <= 0) continue;
-    drainInto(state, i, j, hurtUnit(state, j, { damage: want, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true, exact: true }));
+    drainInto(state, i, j, hurtUnit(state, j, { damage: want, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true, exact: true, roll: LATE.wings.rollBp }));
   }
 }
 
@@ -600,12 +602,12 @@ function ruin(state: SimState, i: number, x: number, z: number): void {
   state.hits.push({ look: 'blast', x, y, z, id: e.id[i]! });
   for (const j of state.grid.nearOthers(x, z, r + 2 * M)) {
     if (!playerUnit(state, j) || length2d(e.x[j]! - x, e.z[j]! - z) > r + halfWidth(state, j)) continue;
-    hurtUnit(state, j, { damage: LATE.ruin.damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true });
+    hurtUnit(state, j, { damage: LATE.ruin.damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true, roll: LATE.ruin.rollBp });
   }
   for (const b of state.buildings.list) {
     if (b.hp <= 0 || b.owner >= state.players.length) continue;
     const [bx, bz] = buildingCentre(b);
-    if (length2d(bx - x, bz - z) <= r) hurtBuilding(state, b, LATE.ruin.damage, bx, y, bz);
+    if (length2d(bx - x, bz - z) <= r) hurtBuilding(state, b, LATE.ruin.damage, bx, y, bz, LATE.ruin.rollBp);
   }
 }
 

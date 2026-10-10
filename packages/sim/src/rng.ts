@@ -2,8 +2,8 @@
 // extra draw in one subsystem never shifts another. World generation never uses
 // a stream: it uses the stateless coordinate hash below.
 
-/** The named streams, in the fixed order they are serialised and hashed. */
-export const STREAM_NAMES = ['ai', 'spawns', 'combat', 'trade', 'weather'] as const;
+/** The named streams, in the fixed order they are serialised and hashed ('damage': Patch 7's damage rolls, combat/combat.ts rollDamage). */
+export const STREAM_NAMES = ['ai', 'spawns', 'combat', 'trade', 'weather', 'damage'] as const;
 export type StreamName = (typeof STREAM_NAMES)[number];
 
 function rotl(x: number, k: number): number {

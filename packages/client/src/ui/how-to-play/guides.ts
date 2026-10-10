@@ -19,6 +19,7 @@ import {
   CRYSTAL_GUARDS,
   CRYSTAL_STAND_IN,
   CYCLE_STEPS,
+  DAMAGE_ROLL,
   DAWN_STEPS,
   DAY_STEPS,
   DREADNOUGHT,
@@ -363,6 +364,7 @@ export const GUIDES: readonly Guide[] = [
           'Weapons, armour, shields, tool kits, wands and robes are items in your stockpile. Each kind has tiers, from wood and leather up to carbon steel, and each metal needs its research and its main base tier at the [[Forge]].',
           `Training or upgrading a unit makes its piece from materials, or, when a ready piece is in stock, puts it on in ${TRAINING.fitTimePm === 200 ? 'a fifth' : `${TRAINING.fitTimePm / 10}%`} of the time. Upgrading from materials takes ${TRAINING.upgradeTimePm / 10}% of the new piece's time. The piece a unit takes off goes to your stockpile.`,
           'Close melee troops carry a shield in a slot of its own. The [[Workshop]] scraps unwanted gear back into its full materials. See [[Training and upgrading]].',
+          `No blow lands for exactly its number: its damage rolls a little higher or lower each time, by up to its damage roll, shown on every page that lists damage (${DAMAGE_ROLL.physicalBp / 100}% for most, ${DAMAGE_ROLL.magicBp / 100}% for magic). Poison never rolls, and the few blows that already land anywhere in a range keep that range.`,
         ],
       },
       {

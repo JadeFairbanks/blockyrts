@@ -71,7 +71,7 @@ function answer(s: SimState, a: AskInfo, yes: number): void {
 }
 
 function kill(s: SimState, i: number, by: number): void {
-  hurtUnit(s, i, { damage: 100000, from: s.entities.id[by]!, projectile: false, blunt: false, pierce: false, exact: true });
+  hurtUnit(s, i, { damage: 100000, from: s.entities.id[by]!, projectile: false, blunt: false, pierce: false, exact: true, roll: 0 });
   settleDeaths(s);
 }
 

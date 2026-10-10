@@ -431,6 +431,9 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   res: 'Resource', hexcraft: 'Needs Hexcraft', projectile: 'Flies (walls and trees stop it)', auto: 'Cast by herself', bp: 'Strength',
   refill: 'Refill (hundredths of a point a second)', crystals: 'Mana crystals', amount: 'Healing or damage', 'RESEARCH:at': 'Researched at',
   'melee:min': 'Shortest reach', 'ranged:min': 'Shortest range', ws: 'Build work', hp: 'Health', health: 'Health', damageTenths: 'Damage', poisonTenths: 'Poison over 5 s', perSecondTenths: 'Damage a second', vsWalls: 'Damage to walls', threatTenths: 'Threat', xpTenths: 'Experience',
+  // Patch 7 (Jade): every damage source's roll, and the starting values the rows not set by hand take.
+  rollBp: 'Damage roll (up or down by at most)', shotRollBp: 'Ranged damage roll (up or down by at most)',
+  'DAMAGE_ROLL:physicalBp': 'Starting damage roll, all but magic and poison', 'DAMAGE_ROLL:magicBp': 'Starting damage roll, magic',
   chancePm: 'Chance', weightTenthsLb: 'Weight', needsBase: 'Main base level needed', research: 'Research needed', research2: 'Also needs research',
   after: 'Research needed first', forge: 'Forge step needed first (1 any Forge; 2 to 4 its main base level)', made: 'Must have made first', supply: 'Supply given', shelters: 'Shelters at night',
   workers: 'Worker places', perDay: 'Made a day per farmer', steps: 'Time', attackSteps: 'Time between attacks', reach: 'Reach', range: 'Range',

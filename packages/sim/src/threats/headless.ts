@@ -214,5 +214,5 @@ export function headlessBlow(state: SimState, i: number, spec: MobSpec, t: numbe
   const f = topOf(state, e.group[i]!);
   if (!f || !buildingOf(state, f, t) || gap(state, i, t) > Math.max(spec.reach, spec.range) + M) return;
   const damage = Math.max(1, floorDiv(spec.vsWalls * e.power[i]!, 1000));
-  hurtUnit(state, t, { damage, from: e.id[i]!, projectile: false, blunt: true, pierce: false, exact: true });
+  hurtUnit(state, t, { damage, from: e.id[i]!, projectile: false, blunt: true, pierce: false, exact: true, roll: spec.rollBp });
 }

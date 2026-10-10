@@ -23,7 +23,7 @@ import { onPlatform, onTop } from '../units/top.ts';
 import { aimsOf, atBase, nearestAim, WAVE_AIMS } from './aims.ts';
 import { costAt, fieldFor, MobClass, nextStep, UNREACHED } from './fields.ts';
 import { Shot, spellShot } from './items.ts';
-import { BLAST, blowTenths, bomber, CLUSTER, ENGULF_STEPS, flies, FLY_HEIGHT, GRASP, HIGH_FLY_HEIGHT, HOWL, Mob, mobSpec, Moves, SHOUT, Strike, Sun, SUNBURN_PER_MILLE_PER_SECOND, SWOOP, SWOOP_HEIGHT, WEB, type MobSpec } from './mobs.ts';
+import { BLAST, blowRollBp, blowTenths, bomber, CLUSTER, ENGULF_STEPS, flies, FLY_HEIGHT, GRASP, HIGH_FLY_HEIGHT, HOWL, Mob, mobSpec, Moves, SHOUT, Strike, Sun, SUNBURN_PER_MILLE_PER_SECOND, SWOOP, SWOOP_HEIGHT, WEB, type MobSpec } from './mobs.ts';
 import { chargeKnock, startCharge, takeCharge } from '../mounts/riding.ts';
 import { fireAt, hasClearLob, noteFlight, POISON, ProjectileFlag } from './projectiles.ts';
 import { MANA_SCALE } from '../magic/spells.ts';
@@ -493,7 +493,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
     let dmg = floorDiv(spec.vsWalls * e.power[i]!, 1000);
     // Rats gnaw wooden gates for double (roster).
     if (spec.id === Mob.GiantRat && buildingSpec(b.kind).defence === 'gate' && buildingSpec(b.kind).wooden !== false) dmg *= 2;
-    hurtBuilding(state, b, dmg, e.x[i]!, e.y[i]! + floorDiv(spec.height, 2), e.z[i]!);
+    hurtBuilding(state, b, dmg, e.x[i]!, e.y[i]! + floorDiv(spec.height, 2), e.z[i]!, spec.rollBp);
     lateHooks.building(state, i, spec, b);
     return;
   }
@@ -516,18 +516,18 @@ function land(state: SimState, i: number, spec: MobSpec): void {
       return;
     }
     const flags = spec.shot === Shot.GoblinStone ? ProjectileFlag.Blunt : spellShot(spec.shot) ? ProjectileFlag.Spell : 0;
-    fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, spec.shot, dealtTenths(state, i, blowTenths(state.rng.combat, spec)), spec.spreadBp, flags);
+    fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, spec.shot, dealtTenths(state, i, blowTenths(state.rng.combat, spec)), blowRollBp(spec, true), spec.spreadBp, flags);
     return;
   }
   if (what === With.Web) {
-    fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, Shot.Web, 0, spec.spreadBp, ProjectileFlag.Web);
+    fireAt(state, i, e.x[i]!, fromY, e.z[i]!, t, Shot.Web, 0, 0, spec.spreadBp, ProjectileFlag.Web);
     e.abilityAt[i] = state.step + WEB.cooldown;
     return;
   }
   if (!inReach(state, i, t, { ...spec, reach: spec.reach + TOLERANCE })) return;
   // A charge doubles the blow and throws the smaller back (Table 14); a hidden void stalker's first strike is triple.
   const charge = takeCharge(state, i);
-  const blow = { damage: dealtTenths(state, i, blowTenths(state.rng.combat, spec)) * (charge ? 2 : 1) * lateHooks.hitMul(state, i, spec), from: e.id[i]!, projectile: false, blunt: false, pierce: false };
+  const blow = { damage: dealtTenths(state, i, blowTenths(state.rng.combat, spec)) * (charge ? 2 : 1) * lateHooks.hitMul(state, i, spec), from: e.id[i]!, projectile: false, blunt: false, pierce: false, roll: blowRollBp(spec, false) };
   if (spec.slamRadius > 0) {
     // The Rift colossus's ground slam: everything within 6 m.
     state.hits.push({ look: 'blast', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });

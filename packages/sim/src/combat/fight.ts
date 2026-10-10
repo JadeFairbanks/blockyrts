@@ -361,7 +361,7 @@ function land(state: SimState, i: number): void {
   const [x, y, z] = shotOrigin(state, i);
   // A bow from the saddle misses twice as wide (Table 1's mounted row).
   const spread = e.mount[i] && r.shot === Shot.Arrow ? r.spreadBp * MOUNTED.bowSpreadMul : r.spreadBp;
-  fireAt(state, i, x, y, z, t, r.shot, dealt(state, i, r.damage), spread, flags);
+  fireAt(state, i, x, y, z, t, r.shot, dealt(state, i, r.damage), r.rollBp, spread, flags);
 }
 
 /**

@@ -207,10 +207,10 @@ function mountStrike(state: SimState, i: number): void {
   e.mountAtkNext[i] = state.step + a.attackSteps;
   const damage = e.kind[i] === UnitKind.Mob ? dealt(state, i, a.damage) : a.damage;
   if (a.shot >= 0) {
-    fireAt(state, i, e.x[i]!, e.y[i]! + 2 * WU_PER_METRE, e.z[i]!, t, a.shot, damage, a.spreadBp, 0);
+    fireAt(state, i, e.x[i]!, e.y[i]! + 2 * WU_PER_METRE, e.z[i]!, t, a.shot, damage, a.rollBp, a.spreadBp, 0);
     return;
   }
-  const blow = { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false };
+  const blow = { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, roll: a.rollBp };
   hurtUnit(state, t, blow);
   if (!a.arc) return;
   for (const j of state.grid.near(e.x[i]!, e.z[i]!, a.reach + WU_PER_METRE)) {

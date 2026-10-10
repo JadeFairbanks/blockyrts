@@ -89,7 +89,7 @@ describe("Attack on a unit always attacks (Jade's Patch 2)", () => {
       const archer = addWarrior(s, 0, hx + 20 * M, hz, Troop.Ranger, 1);
       const friend = addWarrior(s, 0, hx + 30 * M, hz, Troop.Close, 1);
       const hp = e.hp[friend]!;
-      launch(s, archer, e.x[archer]!, e.y[archer]! + M, e.z[archer]!, e.x[friend]!, e.y[friend]! + M, e.z[friend]!, Shot.Arrow, 10, 0, 100, aimed ? e.id[friend]! : 0);
+      launch(s, archer, e.x[archer]!, e.y[archer]! + M, e.z[archer]!, e.x[friend]!, e.y[friend]! + M, e.z[friend]!, Shot.Arrow, 10, 0, 0, 100, aimed ? e.id[friend]! : 0);
       run(s, 3 * SEC);
       expect(s.projectiles.length).toBe(0);
       expect(e.hp[friend]! < hp, aimed ? 'aimed at it' : 'not aimed at it').toBe(aimed);
@@ -257,7 +257,7 @@ describe("snapshots keep Patch 2's timed actions and aimed shots", () => {
     run(s, 40);
     const archer = addWarrior(s, 0, hx + 20 * M, hz + 20 * M, Troop.Ranger, 1);
     const friend = addWarrior(s, 0, hx + 34 * M, hz + 20 * M, Troop.Close, 1);
-    launch(s, archer, e.x[archer]!, e.y[archer]! + M, e.z[archer]!, e.x[friend]!, e.y[friend]! + M, e.z[friend]!, Shot.Arrow, 10, 0, 100, e.id[friend]!);
+    launch(s, archer, e.x[archer]!, e.y[archer]! + M, e.z[archer]!, e.x[friend]!, e.y[friend]! + M, e.z[friend]!, Shot.Arrow, 10, 0, 0, 100, e.id[friend]!);
     step(s);
     expect(s.projectiles[0]!.mark).toBe(e.id[friend]);
     const copy = deserializeState(serializeState(s));

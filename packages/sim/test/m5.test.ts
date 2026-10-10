@@ -245,7 +245,7 @@ describe('goblin villages', () => {
     for (const id of goblins.slice(0, 5)) {
       const g = e.indexOf(id);
       s.events = [];
-      hurtUnit(s, g, { damage: 1000, from: e.id[w]!, projectile: false, blunt: false, pierce: false });
+      hurtUnit(s, g, { damage: 1000, from: e.id[w]!, projectile: false, blunt: false, pierce: false, roll: 0 });
       settleDeaths(s);
       texts.push(...s.events.map((ev) => ev.text));
     }
