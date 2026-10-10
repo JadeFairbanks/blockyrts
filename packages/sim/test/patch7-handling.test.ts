@@ -248,7 +248,7 @@ describe('Equip from the bag', () => {
 });
 
 describe('Take off and Drop', () => {
-  it('takes a worn piece off into the bag, or drops it on the ground', () => {
+  it('takes a worn piece off into the bag, kept there, or drops it on the ground', () => {
     const s = world();
     const e = s.entities;
     const i = swordsman(s, 20, 3, 2);
@@ -256,7 +256,11 @@ describe('Take off and Drop', () => {
     const sword = CLOSE_KITS[3]!.items[0]!;
     run(s, 1, [{ kind: 'takeOff', player: 0, units: [e.id[i]!], line: Line.Armour, drop: 0 }]);
     expect([e.aTier[i], e.armour[i]]).toEqual([0, 0]);
-    expect(e.bag[i]).toEqual([jerkin, 1]);
+    expect([e.bag[i], e.kept[i]]).toEqual([[], [jerkin, 1]]);
+    // Idle by day, it does not hand the piece straight back in to the stock.
+    run(s, 10 * SEC);
+    expect(e.kept[i]).toEqual([jerkin, 1]);
+    expect(s.players[0]!.pool[jerkin] ?? 0).toBe(0);
     run(s, 1, [{ kind: 'takeOff', player: 0, units: [e.id[i]!], line: Line.Weapon, drop: 1 }]);
     expect([e.wTier[i], e.weapon[i]]).toEqual([0, CLOSE_GEAR[0]]);
     expect(s.loot.some((l) => l.res === sword && l.amt === 1 && l.owner === DROPPED)).toBe(true);

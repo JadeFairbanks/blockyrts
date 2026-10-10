@@ -201,7 +201,8 @@ export function orderEquipBag(state: SimState, units: readonly number[], res: nu
  * by line (plan section 7, the gear slot menu): Line.Weapon (a worker's
  * tools, a mage's wand), Line.Armour (a mage's robe) or Line.Shield. A
  * ranger's poison tips come off with its bow. Take off is refused when the
- * bag has no room ("Bag full").
+ * bag has no room ("Bag full"); what comes off is kept in the bag (the
+ * padlock), so a unit does not hand it in by itself.
  */
 export function orderTakeOff(state: SimState, units: readonly number[], line: number, drop: boolean): void {
   const e = state.entities;
@@ -221,7 +222,11 @@ export function orderTakeOff(state: SimState, units: readonly number[], line: nu
     const off = takeOffLine(e, i, h.kind, line);
     for (const r of off) {
       if (drop) dropAtFeet(state, i, r, 1);
-      else addToBag(state, i, r, 1);
+      else {
+        // Kept, so the unit does not hand it straight in to the stock when it next goes idle.
+        addToBag(state, i, r, 1);
+        keepItem(state, i, r, true);
+      }
     }
     capMana(state, i);
     if (off.length > 0) say(state, i, drop ? `Dropped ${theGood(old)}.` : `Took off ${theGood(old)}.`, false, true);
