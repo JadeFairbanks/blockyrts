@@ -86,7 +86,7 @@ export interface NightBudget {
   frontEndNight: number;
   /** How the raise falls: 1 in a straight line from night 1 to frontEndNight, 2 or more falling faster at first (the share left to that power). */
   frontShape: number;
-  /** The raised budget is rounded down to this many tenths of threat (1: a tenth; 10: whole threat points). */
+  /** The raised budget is rounded down to this many tenths of threat (10: whole threat points, Jade's "keeping whole numbers on threat level, rounding down"; 1: a tenth). */
   frontRoundTenths: number;
 }
 
@@ -99,7 +99,7 @@ export const NIGHT_BUDGET: NightBudget = {
   frontBonusBp: 1000,
   frontEndNight: 50,
   frontShape: 1,
-  frontRoundTenths: 1,
+  frontRoundTenths: 10,
 };
 
 /** The night's budget before mini patch 7.3's raise: 12 + (n - 1) + 3n + 0.04n^2 (each term rounded down to a tenth), times the scale. */

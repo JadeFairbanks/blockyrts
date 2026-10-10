@@ -213,8 +213,8 @@ describe('night 0', () => {
     const picked = pickNight(s, 0).sort((a, b) => a - b);
     expect(picked).toEqual([Mob.Zombie, Mob.Zombie, Mob.Zombie, Mob.Zombie, Mob.CaveBat, Mob.CaveBat, Mob.GiantRat, Mob.GiantRat, Mob.GiantSpider, Mob.Slime]);
     expect(nightBudgetTenths(0)).toBe(120);
-    // Mini patch 7.3: 550 raised by night 10's share of the 10% (8.16%).
-    expect(nightBudgetTenths(10)).toBe(594);
+    // Mini patch 7.3: 550 raised by night 10's share of the 10% (8.16%), rounded down to whole threat.
+    expect(nightBudgetTenths(10)).toBe(590);
   });
 });
 

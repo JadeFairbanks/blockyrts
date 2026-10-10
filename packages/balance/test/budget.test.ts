@@ -13,7 +13,7 @@ describe('the night budget preview', () => {
     // Mini patch 7.3: night 1 raised by 10%, the raise gone by night 50.
     expect(budgetFormulaText(v.terms)).toBe('12 + (n − 1) + 3n + 0.04n², raised 10% on night 1 to nothing by night 50');
     expect(v.nights).toHaveLength(100);
-    expect(v.nights.map((n) => n.tenths / 10).filter((_, i) => [0, 9, 49, 99].includes(i))).toEqual([16.5, 59.4, 311, 811]);
+    expect(v.nights.map((n) => n.tenths / 10).filter((_, i) => [0, 9, 49, 99].includes(i))).toEqual([16, 59, 311, 811]);
     expect(v.nights.every((n) => n.tenths === n.tableTenths)).toBe(true);
   });
 
