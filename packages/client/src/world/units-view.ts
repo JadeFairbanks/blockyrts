@@ -30,7 +30,7 @@ import * as THREE from 'three';
 import { DREADNOUGHT_GEAR, engineSpec, gearSpec, HOP_STEPS, isStructure, MAGE_TOP_RANK, MEATS, Mob, MOBS, mobSpec, Moves, mountSpec, NEUTRAL, PEOPLES, peopleUnitSpec, NO_CARRY, OrderKind, PISTOL_GEAR, PROSPECT_TOOL_TIER, Res, RESOURCES, Role, School, Shot, SHOTS, Slot, Species, speciesSpec, Spell, SPELLS, ToolJob, TRINKET_BASE, Troop, UnitKind, WOODS, WU_PER_METRE, type HitEvent } from '@blockyrts/sim';
 import { S, SHOT_STRIDE, STATE_STRIDE, Task, UnitFlag, type StateMessage } from '../messages.ts';
 import { InstancedModel, MarkMode, useTeamKey, type ModelData, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
-import { Crescents, DreadnoughtLooks, DREADNOUGHT_M, DREADNOUGHT_MODEL, DREADNOUGHT_PARTS, isDreadnoughtRow } from './dreadnought-look.ts';
+import { Crescents, DreadnoughtLooks, DREADNOUGHT_CORPSE, DREADNOUGHT_HARNESS, DREADNOUGHT_M, DREADNOUGHT_MODEL, DREADNOUGHT_PARTS, isDreadnoughtRow } from './dreadnought-look.ts';
 import { fowPatch, type FowUniforms } from './fog-material.ts';
 import type { OwnDraw } from './hidden-outlines.ts';
 import { aimAlong, flightClip, ModelPools, SpellFx, wandTip } from './spell-fx.ts';
@@ -206,6 +206,7 @@ const GOODS: Partial<Record<number, string>> = {
   [Res.Bluestone]: 'bluestone',
   [Res.Earth]: 'earth_sack',
   [Res.Sticks]: 'sticks_bundle',
+  [Res.Witchwood]: 'witchwood',
   [Res.Clay]: 'clay_lump',
   [Res.Sand]: 'sand_sack',
   [Res.Charcoal]: 'charcoal_sack',
@@ -1431,7 +1432,7 @@ export class UnitsView {
         const dread = h.kind === UnitKind.Warrior && h.troop === Troop.Dreadnought;
         // A risen skeleton archer falls as the skeleton it is, in its tint (Patch 7).
         const risen = this.risen.has(h.id);
-        const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : risen ? RISEN_MODEL : dread ? DREADNOUGHT_MODEL : h.kind === UnitKind.Warrior ? (this.woodsmen.has(h.id) ? 'woodsman' : 'warrior') : h.kind === UnitKind.Mage ? 'mage' : 'worker';
+        const model = h.kind === UnitKind.Mob ? mobSpec(h.mob ?? 0).model : risen ? RISEN_MODEL : dread ? DREADNOUGHT_CORPSE : h.kind === UnitKind.Warrior ? (this.woodsmen.has(h.id) ? 'woodsman' : 'warrior') : h.kind === UnitKind.Mage ? 'mage' : 'worker';
         const mob = h.kind === UnitKind.Mob ? (h.mob ?? 0) : risen ? Mob.SkeletonArcher : -1;
         this.corpses.push({ model, x, y, z, heading: ((h.heading ?? 0) / 65536) * Math.PI * 2, t0: now, colour: null, mob, ...(dread ? { parts: this.dreadArmed.has(h.id) ? [] : DREADNOUGHT_PARTS } : {}), ...(risen ? { risen: this.risen.get(h.id) ?? null } : {}) });
         this.risen.delete(h.id);
@@ -1740,8 +1741,8 @@ export class UnitsView {
       const inCart = cart === Res.HandCart || cart === Res.OxCart;
       const caught = this.caughtAt.get(id);
       const c: LookContext = { time: clipT, moving, sinceShot: shot === undefined ? -1 : (now - shot) / 1000, hold: inCart ? '' : load.hold, sinceCatch: caught === undefined ? -1 : (now - caught) / 1000 };
-      const look: Look = dread ? dreadnoughtLook(d[o + S.weapon]!) : woodsman ? woodsmanLook(d, o, body, c) : kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
-      if (dread && look.attach.length > 0) this.dreadArmed.add(id);
+      const look: Look = dread ? dreadnoughtLook(d[o + S.weapon]!, d[o + S.armour]!) : woodsman ? woodsmanLook(d, o, body, c) : kind === UnitKind.Warrior ? warriorLook(d, o, body, c) : kind === UnitKind.Mage && !people ? mageLook(d, o, body, c) : workerLook(d, o, body, c);
+      if (dread && d[o + S.weapon] !== DREADNOUGHT_GEAR.mace) this.dreadArmed.add(id);
       else this.dreadArmed.delete(id);
       const tint = owner === PEOPLES ? (PEOPLE_COLOURS[peopleUnitSpec(d[o + S.mob]!).people] ?? null) : colour;
       let drawn = false;
@@ -2366,8 +2367,13 @@ function jobOf(task: number, order: number): number {
   return order === OrderKind.Farm ? ToolJob.Cut : ToolJob.Chop;
 }
 
-/** A mage's body: her school's robe at her robe tier once it is in the library (Patch 5: battle blue to red, support green to white), else the plain mage. */
+/** A looted robe (Patch 7), worn over the plain mage: its own model, never a ladder robe's tier ('robe_1' to 'robe_6' are drawn as the school's body). */
+const LOOTED_ROBE = /^robe_[a-z]/;
+const lootedRobe = (d: Int32Array, o: number): string => piecesOf(d[o + S.armour]!).find((p) => LOOTED_ROBE.test(p)) ?? '';
+
+/** A mage's body: the plain mage under a looted robe, else her school's robe at her robe tier once it is in the library (Patch 5: battle blue to red, support green to white), else the plain mage. */
 function mageBody(d: Int32Array, o: number, lib: ModelLibrary | null): string {
+  if (lootedRobe(d, o)) return 'mage';
   const robe = d[o + S.aTier]!;
   if (robe <= 0) return 'mage';
   const look = `mage_${SCHOOL_LOOKS[d[o + S.school]!] ?? 'support'}_${Math.min(6, robe)}`;
@@ -2375,7 +2381,8 @@ function mageBody(d: Int32Array, o: number, lib: ModelLibrary | null): string {
 }
 
 /**
- * A mage's wand, each tier its own model in her right hand, and her clip:
+ * A mage's wand, each tier its own model in her right hand, a looted robe
+ * worn over her (Patch 7), and her clip:
  * the spell's own clip while she casts (Table 13), the beam clip while she
  * holds one, the bolt clip for a tap of the wand, then hurt, swimming,
  * climbing, walking or standing.
@@ -2383,6 +2390,8 @@ function mageBody(d: Int32Array, o: number, lib: ModelLibrary | null): string {
 function mageLook(d: Int32Array, o: number, body: ModelData | null, c: LookContext): Look {
   const look: Look = { parts: [], attach: [], worn: [], clip: 'idle' };
   for (const p of piecesOf(d[o + S.weapon]!)) look.attach.push([p, 'slot_hand_r', Stow.None]);
+  const robe = lootedRobe(d, o);
+  if (robe) look.worn.push(robe);
   const cast = d[o + S.cast]!;
   const flags = d[o + S.flags]!;
   const order = d[o + S.order]!;
@@ -2407,14 +2416,19 @@ const CREW_DRILL: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /**
- * The Dreadnought's look: his own spiked mace, part of his body, or any other
- * two-handed weapon he was given (Patch 7, plan 2.3) in his right hand where
- * the mace was, the mace then hidden.
+ * The Dreadnought's look (Patch 7, plan 2.3): his body; in his right hand his
+ * spiked mace or any other two-handed weapon he was given; and his armour,
+ * his tier 8 plate or a looted piece, which is made to sit over the plate
+ * and so is worn with it. Without armour he is in his arming doublet.
  */
-function dreadnoughtLook(weapon: number): Look {
-  const held = weapon !== DREADNOUGHT_GEAR.mace ? piecesOf(weapon) : [];
-  if (held.length === 0) return { parts: [...DREADNOUGHT_PARTS], attach: [], worn: [], clip: 'idle' };
-  return { parts: [], attach: held.map((p): [string, string, number] => [p, 'slot_hand_r', Stow.None]), worn: [], clip: 'idle' };
+function dreadnoughtLook(weapon: number, armour: number): Look {
+  const worn = piecesOf(armour);
+  return {
+    parts: [],
+    attach: piecesOf(weapon).map((p): [string, string, number] => [p, 'slot_hand_r', Stow.None]),
+    worn: worn.length > 0 && !worn.includes(DREADNOUGHT_HARNESS) ? [DREADNOUGHT_HARNESS, ...worn] : [...worn],
+    clip: 'idle',
+  };
 }
 
 /**
