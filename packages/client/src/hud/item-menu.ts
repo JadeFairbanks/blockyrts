@@ -35,8 +35,11 @@ export function registerItemUse(res: number, use: ItemUse): void {
 /** Use's reason when the item has none. */
 export const NO_USE = 'It has no use of its own.';
 
+/** Every piece of gear (one is fetched at a time; a drag equips it). */
+const GEAR: ReadonlySet<number> = new Set<number>(GEAR_ITEMS);
+
 /** What a unit can put on from the stock (Equip): every weapon, armour, shield, tool, wand and robe, and poison tips. */
-const EQUIPPABLE: ReadonlySet<number> = new Set<number>([...GEAR_ITEMS, Res.PoisonTips]);
+const EQUIPPABLE: ReadonlySet<number> = new Set<number>([...GEAR, Res.PoisonTips]);
 
 /** Whether Equip is offered for a good. */
 export function equippable(res: number): boolean {
@@ -56,6 +59,8 @@ export interface ItemMenuActions {
   selected(): number;
   /** Equip: each selected unit it fits takes one, while the stock lasts (Patch 7, plan section 7). */
   equipSelected(res: number): void;
+  /** Fetch: each selected unit walks to a store point and takes some into its bag (mini patch 7.3). */
+  fetchSelected(res: number): void;
   /** Scrap: null when the item is not scrapped at all, '' when one can be now, else why not. */
   scrapWhy(res: number): string | null;
   scrap(res: number): void;
@@ -97,6 +102,20 @@ export function itemChoices(at: ItemAt, a: ItemMenuActions): CardChoice[] {
           name: n > 0 ? 'Equip…' : 'Equip',
           description: `Then left click one of your units: it walks to the nearest main base, Storehouse, Barracks or Forge (a mage also a Magi Sanctum) and puts on the ${name} from the stock there, in a fifth of the usual time. Its old piece goes to the stock.`,
           run: () => a.equip(at.res),
+        },
+        none,
+      ),
+    );
+  }
+  if (stock && a.selected() > 0) {
+    // Mini patch 7.3 (Jade: "allow functionality for moving all items to and from players and units inventories"): any good, gear too, into the selected units' bags.
+    const n = a.selected();
+    out.push(
+      greyed(
+        {
+          name: 'Fetch',
+          description: `${n === 1 ? 'The selected unit walks' : `Each of the ${n} selected units walks`} to the nearest main base or Storehouse and takes ${FOODS.includes(at.res as Res) ? 'enough to heal once' : GEAR.has(at.res) ? 'one' : 'as many as fit'} into its bag, kept there until you Unload it. ${GEAR.has(at.res) ? 'Dragging it onto a unit equips it instead.' : 'Dragging it onto a unit does the same.'}`,
+          run: () => a.fetchSelected(at.res),
         },
         none,
       ),

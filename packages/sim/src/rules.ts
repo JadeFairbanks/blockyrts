@@ -7,10 +7,15 @@ import { floorDiv, STEPS_PER_SECOND } from './fixed.ts';
 
 /** 100% in basis points. */
 export const BP = 10000;
-/** Armour pieces add up, capped at 75%. */
-export const ARMOUR_CAP_BP = 7500;
+/**
+ * Armour pieces add up, capped at 50% (mini patch 7.3, Jade: "No armor
+ * currently in the game can now block over 50%. In the future I may add a
+ * lenedary armor that does so don't hard code 50%"; it was 75%). Fortify,
+ * Barkskin and Victor's trophy stay under it.
+ */
+export const ARMOUR_CAP_BP = 5000;
 
-/** Total armour from the pieces worn, capped at 75%. */
+/** Total armour from the pieces worn, capped at ARMOUR_CAP_BP. */
 export function totalArmourBp(piecesBp: readonly number[]): number {
   let sum = 0;
   for (const p of piecesBp) sum += p;
@@ -32,7 +37,7 @@ export const DAMAGE_ROLL = { physicalBp: 600, magicBp: 300 } as const;
 export interface HitInput {
   /** Raw damage of the attack, an integer. */
   damage: number;
-  /** Armour of the target in bp, already totalled; capped at 75% here too. */
+  /** Armour of the target in bp, already totalled; capped at ARMOUR_CAP_BP here too. */
   armourBp: number;
   /** The roster's piercing or blunt modifier for this mob and damage type; 10000 = none. */
   modifierBp?: number;
