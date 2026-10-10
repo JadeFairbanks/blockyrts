@@ -64,6 +64,7 @@ export * from './combat/aims.ts';
 export * from './combat/deaths.ts';
 export * from './units/gear.ts';
 export * from './units/handling.ts';
+export * from './units/food-bag.ts';
 export * from './units/tinker.ts';
 export * from './units/spacing.ts';
 export * from './units/ranks.ts';

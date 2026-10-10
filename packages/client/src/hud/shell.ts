@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import {
   BuildingKind,
+  fetchCount,
   fitProblem,
   isGearItem,
   itemLine,
@@ -95,7 +96,7 @@ import { CardPop, ITEM_MENU, type MenuChoice } from './card-pop.ts';
 import { SCROLL_AREA, scrollTarget, syncScrollBars } from './game-scroll.ts';
 import { compareTip } from './gear-compare.ts';
 import { GearDrag, type DropOn, type DropPlan } from './gear-drag.ts';
-import { bagMenu, equipBagWhy, holderOf, slotMenu, wornGear, type GearMenuDeps } from './gear-menus.ts';
+import { bagFree, bagMenu, equipBagWhy, holderOf, slotMenu, wornGear, type GearMenuDeps } from './gear-menus.ts';
 import { itemChoices, type ItemMenuActions } from './item-menu.ts';
 import { siteTraces, sitesInOrders, TRACE_LIFT_M, TRACE_NUDGE_M } from './site-marks.ts';
 import { doingActions } from './doing.ts';
@@ -1565,8 +1566,9 @@ export class GameShell {
    * What letting go of a dragged piece does (Patch 7, plan section 7): a
    * stock or bag piece on a unit equips it (from its own bag on the spot),
    * a bag piece on another unit is given to it, any piece on the Workshop is
-   * scrapped there. Where the unit cannot take it the order still goes and
-   * it says why (the Dreadnought: "I need something for smashing.").
+   * scrapped there, and a food from the stock on a unit sends it to fetch
+   * some from a store point (Jade). Where the unit cannot take it the order
+   * still goes and it says why (the Dreadnought: "I need something for smashing.").
    */
   private dropPlan(from: HeldPiece, on: DropOn): DropPlan | null {
     const send = (o: Order): void => this.opts.issueOrder(o);
@@ -1584,6 +1586,11 @@ export class GameShell {
     if (!u || !h || from.line >= 0) return null;
     if (giver !== null && giver !== u.id) {
       return { label: `Give to ${this.fresh.get(`e:${u.id}`)?.label ?? 'it'}`, why: '', run: () => send({ kind: 'giveItem', player: this.player, units: [giver], res, target: u.id }) };
+    }
+    // Food from the stock (Patch 7, Jade: "drag food from your inventory to a unit, or to that units inventory"): it walks to a store point to collect it.
+    if (giver === null && (RESOURCES[res]?.nutrition ?? 0) > 0) {
+      const bagWhy = bagFree(u, this.gearDeps.bag(u.id)) < Math.max(1, RESOURCES[res]?.weightTenthsLb ?? 1) ? 'Bag full' : '';
+      return { label: `Fetch ${fetchCount(res)} from a store point`, why: bagWhy, run: () => send({ kind: 'fetchFood', player: this.player, units: [u.id], res }) };
     }
     if (!isGearItem(res)) return null;
     if (giver === null) return { label: 'Equip', why: fitProblem(h, res), run: () => send({ kind: 'equip', player: this.player, units: [u.id], res, queued: this.queued() }) };

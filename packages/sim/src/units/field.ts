@@ -6,11 +6,10 @@
 // other orders in behaviour.ts: a small state machine on the unit's `act`.
 
 import { buildingName } from '../buildings/data.ts';
-import { buildingCentre, dist2 } from '../buildings/lights.ts';
+import { dist2 } from '../buildings/lights.ts';
 import { sideSees } from '../combat/fight.ts';
 import { chatter } from '../peoples/speech.ts';
 import { PROSPECT_HAMMER_STEPS, PROSPECT_STEPS, prospectText, ratingAt } from '../buildings/mining.ts';
-import type { Building } from '../buildings/store.ts';
 import { clockAt, isDark, Period } from '../clock.ts';
 import { Res } from '../economy/resources.ts';
 import { PROSPECT_TOOL_TIER } from './kits.ts';
@@ -30,6 +29,7 @@ import { FOG_TILE_COLUMNS, type PropView } from '../world/world.ts';
 import { meatOf } from '../economy/food-kinds.ts';
 import type { UnitOrder } from './unit-orders.ts';
 import { tinker } from './tinker.ts';
+import { nearestTable, runEatBag } from './food-bag.ts';
 
 const CONTINUE = false;
 const DONE = true;
@@ -522,25 +522,10 @@ function leadHome(state: SimState, i: number, t: number): boolean {
   return CONTINUE;
 }
 
-/** The nearest building of the player's where a unit can eat. */
-function nearestTable(state: SimState, i: number): Building | undefined {
-  const e = state.entities;
-  let best: Building | undefined;
-  let bestD = 0;
-  for (const b of state.buildings.list) {
-    if (b.owner !== e.owner[i] || !b.complete || !servesFood(b.kind)) continue;
-    const [bx, bz] = buildingCentre(b);
-    const d = dist2(bx, bz, e.x[i]!, e.z[i]!);
-    if (!best || d < bestD) {
-      best = b;
-      bestD = d;
-    }
-  }
-  return best;
-}
-
 export function runEat(state: SimState, i: number, o: Extract<UnitOrder, { t: 'eat' }>): boolean {
   const e = state.entities;
+  // Food from its own bag is eaten where it stands (Patch 7, units/food-bag.ts).
+  if (o.res >= 0) return runEatBag(state, i, o);
   // A unit at full health does not eat (Jade's Patch 5, GP-27), one healed on its way there included.
   if (e.act[i] !== Act.Work && eatNeed(e.hp[i]!, e.maxHp[i]!) === 0) return DONE;
   let b = o.b ? state.buildings.get(o.b) : undefined;

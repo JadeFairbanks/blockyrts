@@ -54,6 +54,7 @@ import { woodsmanOnlyLine } from './woodsman.ts';
 import { tinker } from './tinker.ts';
 import { runCircle } from '../circles/act.ts';
 import { runGive, runPutOn, runScrap } from './handling.ts';
+import { runFetch } from './food-bag.ts';
 import { Work, workXp } from './ranks.ts';
 
 /** Phases of an order. */
@@ -601,6 +602,8 @@ function keepsInside(state: SimState, i: number, o: UnitOrder | undefined, insid
   if (!o || inside === 0) return false;
   // A garrison crewman stays up on the Citadel's platform for good, with his fixed engine or waiting for the next (Patch 5).
   if (o.t === 'crew') return platformCrew(state, i);
+  // Food from its own bag is eaten where it is, inside too (Patch 7).
+  if (o.t === 'eat' && o.res >= 0) return true;
   return (o.t === 'enter' || o.t === 'job' || o.t === 'train') && o.b === inside;
 }
 
@@ -1503,6 +1506,8 @@ function runOrder(state: SimState, i: number, o: UnitOrder): boolean {
       return runScrap(state, i, o);
     case 'putOn':
       return runPutOn(state, i, o);
+    case 'fetch':
+      return runFetch(state, i, o);
   }
 }
 

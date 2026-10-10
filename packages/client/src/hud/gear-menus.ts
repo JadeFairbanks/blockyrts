@@ -37,6 +37,7 @@ import type { ButtonIcon } from './buttons.ts';
 import type { MenuChoice, PopMenu } from './card-pop.ts';
 import { compareTip, headNum, rangeText, rarityClass, rarityName, rowValue, shineOf, sizeText } from './gear-compare.ts';
 import { goodIcon } from './inventory-icons.ts';
+import { NO_USE } from './item-menu.ts';
 
 /** What the menus read and do, given by the HUD. */
 export interface GearMenuDeps {
@@ -297,13 +298,34 @@ export function slotMenu(u: UnitInfo, line: number, d: GearMenuDeps): PopMenu {
   };
 }
 
-/** A piece in one unit's bag (the drafts' scene 6): Use, Equip, Keep in bag, Give…, Unload, Drop, Scrap. */
+/**
+ * Eat (Patch 7, Jade: "allow them to eat food they are carrying to heal ...
+ * dont need to go to store point"): the unit eats a food it carries where it
+ * stands, sat with the bar over its head as at a store point. Greyed at full
+ * health.
+ */
+export function eatChoice(u: UnitInfo, res: number, run: () => void): MenuChoice {
+  const each = RESOURCES[res]?.nutrition ?? 0;
+  return {
+    name: 'Eat',
+    description: `It eats the ${lower(res)} where it stands, no trip to a store point: 1 food for each quarter of its health it lacks heals it fully over 10 s. Each is ${each} food, eaten whole.`,
+    note: 'Heals it where it stands.',
+    run,
+    ...(u.hp >= u.maxHp ? { why: 'It is at full health.' } : {}),
+  };
+}
+
+/** A piece in one unit's bag (the drafts' scene 6): Use, Equip, Keep in bag, Give…, Unload, Drop, Scrap; a food's Use is Eat (Patch 7). */
 export function bagMenu(u: UnitInfo, res: number, d: GearMenuDeps): PopMenu {
   const h = holderOf(u);
   const units = [u.id];
   const n = d.bag(u.id).find(([r]) => r === res)?.[1] ?? (u.carryRes === res ? u.carryAmt : 0);
   const name = lower(res);
-  const choices: MenuChoice[] = [d.use(u.id, res)];
+  const use = d.use(u.id, res);
+  const food = (RESOURCES[res]?.nutrition ?? 0) > 0;
+  const eat = food ? eatChoice(u, res, () => d.send({ kind: 'eatBag', player: d.player, units, res })) : null;
+  // A food's use is eating it; one with a use of its own as well (enchanted wine's Drink) has both.
+  const choices: MenuChoice[] = !eat ? [use] : use.why === NO_USE ? [eat] : [use, eat];
   const gear = isGearItem(res);
   if (gear && h) {
     const line = itemLine(res);
