@@ -16,8 +16,8 @@ import type { HeldPiece, HudButton } from './buttons.ts';
 import { goodIcon, iconUrl } from './inventory-icons.ts';
 import type { Pt } from './rects.ts';
 
-/** What is under the cursor: one of the player's units, one of their Workshops, or nothing it can go to. */
-export type DropOn = { kind: 'unit'; unit: number } | { kind: 'workshop'; building: number } | { kind: 'none' };
+/** What is under the cursor: one of the player's units, one of their Workshops, their stockpile (mini patch 7.3), or nothing it can go to. */
+export type DropOn = { kind: 'unit'; unit: number } | { kind: 'workshop'; building: number } | { kind: 'stock' } | { kind: 'none' };
 
 /** What letting go would do: its word under the picture, and the order it sends. */
 export interface DropPlan {

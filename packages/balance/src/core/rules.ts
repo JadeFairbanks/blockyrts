@@ -435,6 +435,8 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   // Patch 7 (Jade): every damage source's roll, and the starting values the rows not set by hand take.
   rollBp: 'Damage roll (up or down by at most)', shotRollBp: 'Ranged damage roll (up or down by at most)',
   'DAMAGE_ROLL:physicalBp': 'Starting damage roll, all but magic and poison', 'DAMAGE_ROLL:magicBp': 'Starting damage roll, magic',
+  // Mini patch 7.3 (Jade): what each damage spell a player's unit casts does less.
+  PLAYER_SPELL_CUT: 'Players\' damage spells do less by', ARMOUR_CAP_BP: 'Most armour any unit can have',
   chancePm: 'Chance', weightTenthsLb: 'Weight', needsBase: 'Main base level needed', research: 'Research needed', research2: 'Also needs research',
   after: 'Research needed first', forge: 'Forge step needed first (1 any Forge; 2 to 4 its main base level)', made: 'Must have made first', supply: 'Supply given', shelters: 'Shelters at night',
   workers: 'Worker places', perDay: 'Made a day per farmer', steps: 'Time', attackSteps: 'Time between attacks', reach: 'Reach', range: 'Range',

@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import {
   BuildingKind,
-  fetchCount,
+  fetchAmount,
   fitProblem,
   isGearItem,
   itemLine,
@@ -537,6 +537,8 @@ export class GameShell {
       // Patch 7 (plan section 7): with units selected, Equip gives one to each it fits while the stock lasts.
       selected: () => this.geared().length,
       equipSelected: (res) => opts.issueOrder({ kind: 'equip', player: this.player, units: this.geared(), res, queued: this.queued() }),
+      // Mini patch 7.3: the selected units fetch it from a store point into their bags.
+      fetchSelected: (res) => opts.issueOrder({ kind: 'fetchFood', player: this.player, units: this.geared(), res }),
     };
     this.gearDeps = {
       player: this.player,
@@ -1544,6 +1546,8 @@ export class GameShell {
 
   /** What a dragged piece is over (Patch 7, gear-drag.ts): one of the player's units (in the world, its portrait, kit or inventory), one of their Workshops, or nothing. */
   private dropOn(p: Pt, el: Element | null): DropOn {
+    // A unit's piece let go on the stockpile is handed in (mini patch 7.3).
+    if (el && this.layout.stockpile.contains(el)) return { kind: 'stock' };
     if (this.panels.at(p) !== null) {
       const at = el?.closest<HTMLElement>('[data-drop-unit]');
       if (at) return { kind: 'unit', unit: Number(at.dataset.dropUnit) };
@@ -1567,8 +1571,12 @@ export class GameShell {
    * stock or bag piece on a unit equips it (from its own bag on the spot),
    * a bag piece on another unit is given to it, any piece on the Workshop is
    * scrapped there, and a food from the stock on a unit sends it to fetch
-   * some from a store point (Jade). Where the unit cannot take it the order
-   * still goes and it says why (the Dreadnought: "I need something for smashing.").
+   * some from a store point (Jade). Mini patch 7.3 (Jade: "allow
+   * functionality for moving all items to and from players and units
+   * inventories"): any good from the stock that is not gear is fetched the
+   * same way, and a bag good let go on the stockpile is unloaded at a store
+   * point. Where the unit cannot take it the order still goes and it says
+   * why (the Dreadnought: "I need something for smashing.").
    */
   private dropPlan(from: HeldPiece, on: DropOn): DropPlan | null {
     const send = (o: Order): void => this.opts.issueOrder(o);
@@ -1580,6 +1588,10 @@ export class GameShell {
       if (giver === null) return { label: 'Scrap', why, run: () => this.commands.scrapAt(on.building, res) };
       return { label: 'Scrap at the Workshop', why, run: () => send({ kind: 'scrapItem', player: this.player, units: [giver], res, worn: from.line >= 0 ? 1 : 0, building: on.building }) };
     }
+    if (on.kind === 'stock') {
+      if (giver === null || from.line >= 0) return null;
+      return { label: 'Hand in at a store point', why: '', run: () => send({ kind: 'unloadItem', player: this.player, units: [giver], res }) };
+    }
     const u = on.kind === 'unit' ? this.game.unit(on.unit) : null;
     const h = u ? holderOf(u) : null;
     // A worn piece goes only to the Workshop.
@@ -1587,10 +1599,11 @@ export class GameShell {
     if (giver !== null && giver !== u.id) {
       return { label: `Give to ${this.fresh.get(`e:${u.id}`)?.label ?? 'it'}`, why: '', run: () => send({ kind: 'giveItem', player: this.player, units: [giver], res, target: u.id }) };
     }
-    // Food from the stock (Patch 7, Jade: "drag food from your inventory to a unit, or to that units inventory"): it walks to a store point to collect it.
-    if (giver === null && (RESOURCES[res]?.nutrition ?? 0) > 0) {
-      const bagWhy = bagFree(u, this.gearDeps.bag(u.id)) < Math.max(1, RESOURCES[res]?.weightTenthsLb ?? 1) ? 'Bag full' : '';
-      return { label: `Fetch ${fetchCount(res)} from a store point`, why: bagWhy, run: () => send({ kind: 'fetchFood', player: this.player, units: [u.id], res }) };
+    // Food from the stock (Patch 7, Jade: "drag food from your inventory to a unit, or to that units inventory"), and any other good but gear (mini patch 7.3): it walks to a store point to collect it.
+    if (giver === null && !isGearItem(res)) {
+      const room = Math.floor(bagFree(u, this.gearDeps.bag(u.id)) / Math.max(1, RESOURCES[res]?.weightTenthsLb ?? 1));
+      const n = room < 1 ? fetchAmount(res, 1, this.game.pool()[res] ?? 0) : fetchAmount(res, room, this.game.pool()[res] ?? 0);
+      return { label: `Fetch ${n} from a store point`, why: room < 1 ? 'Bag full' : '', run: () => send({ kind: 'fetchFood', player: this.player, units: [u.id], res }) };
     }
     if (!isGearItem(res)) return null;
     if (giver === null) return { label: 'Equip', why: fitProblem(h, res), run: () => send({ kind: 'equip', player: this.player, units: [u.id], res, queued: this.queued() }) };

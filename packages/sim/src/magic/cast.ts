@@ -40,7 +40,7 @@ import { moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
 import { debuffImmune } from '../units/effects.ts';
 import { autocastOn, inCombat, spellPowerBp } from './mages.ts';
-import { CAST_STEPS, FIREBALL_BURN, FIREBALL_SPLASH, FIREBALL_WOOD_MULTIPLIER, MAGE_LEASH_WU, MANA_SCALE, School, SCHOOL_NAMES, Spell, SPELLS, spellSpec, type SpellSpec } from './spells.ts';
+import { CAST_STEPS, FIREBALL_BURN, FIREBALL_SPLASH, FIREBALL_WOOD_MULTIPLIER, MAGE_LEASH_WU, MANA_SCALE, PLAYER_SPELL_CUT, School, SCHOOL_NAMES, Spell, SPELLS, spellSpec, type SpellSpec } from './spells.ts';
 
 const M = WU_PER_METRE;
 /** A mage's spell cooldowns sit in the unit's cooldown list after the goblin abilities' ids. */
@@ -105,6 +105,21 @@ export function canCast(state: SimState, i: number, spell: number): boolean {
 /** A spell's healing or damage from this mage: the table's amount and her spell power. */
 export function spellAmount(state: SimState, i: number, s: SpellSpec): number {
   return withBonus(s.amount, spellPowerBp(state, i));
+}
+
+/** The cut a player's unit's damage spells take (mini patch 7.3, spells.ts PLAYER_SPELL_CUT); none for a monster's or a people's. */
+function spellCut(state: SimState, owner: number): number {
+  return owner >= 0 && owner < state.players.length ? PLAYER_SPELL_CUT : 0;
+}
+
+/** Damage `full` less the cut of a spell cast by one of `owner`'s units, never below 1. */
+function lessCut(state: SimState, owner: number, full: number): number {
+  return Math.max(1, full - spellCut(state, owner));
+}
+
+/** A damage spell's damage from this mage: spellAmount, less the players' cut. */
+export function spellDamage(state: SimState, i: number, s: SpellSpec): number {
+  return lessCut(state, state.entities.owner[i]!, spellAmount(state, i, s));
 }
 
 // ----- targets -----
@@ -303,23 +318,23 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
   },
   bolt(state, i, s, t) {
     const [x, y, z] = eye(state, i);
-    fireAt(state, i, x, y, z, t, s.shot, spellAmount(state, i, s), s.rollBp ?? 0, 0, ProjectileFlag.Spell);
+    fireAt(state, i, x, y, z, t, s.shot, spellDamage(state, i, s), s.rollBp ?? 0, 0, ProjectileFlag.Spell);
   },
   fireball(state, i, s, t) {
     const [x, y, z] = eye(state, i);
-    fireAt(state, i, x, y, z, t, Shot.Fireball, spellAmount(state, i, s), s.rollBp ?? 0, 0, ProjectileFlag.Spell | ProjectileFlag.Fire | ProjectileFlag.Burst);
+    fireAt(state, i, x, y, z, t, Shot.Fireball, spellDamage(state, i, s), s.rollBp ?? 0, 0, ProjectileFlag.Spell | ProjectileFlag.Fire | ProjectileFlag.Burst);
   },
   beam(state, i, s, t) {
     const e = state.entities;
     // The whole beam is worked out now, rolled as one blow, then handed out step by step; magic goes through armour (Patch 7, Jade).
-    const raw = rollDamage(state, floorDiv(spellAmount(state, i, s) * s.steps, STEPS_PER_SECOND), s.rollBp ?? 0);
+    const raw = rollDamage(state, lessCut(state, e.owner[i]!, floorDiv(spellAmount(state, i, s) * s.steps, STEPS_PER_SECOND)), s.rollBp ?? 0);
     e.beamLeft[i] = damageTaken({ damage: raw, armourBp: 0, projectile: false });
     e.beamTarget[i] = e.id[t]!;
     e.beamUntil[i] = state.step + s.steps;
   },
   blast(state, i, s, _t, x, z) {
     const e = state.entities;
-    const damage = spellAmount(state, i, s);
+    const damage = spellDamage(state, i, s);
     // Patch 5 (MB-25): "damaging every non player unit be it hostile or not": monsters, wild animals and the peoples alike.
     for (const j of othersNear(state, i, x, z, s.radius)) hurtUnit(state, j, { damage, from: e.id[i]!, projectile: false, blunt: false, pierce: false, spell: true, roll: s.rollBp ?? 0 });
   },
@@ -343,7 +358,7 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
     const near = enemiesNear(state, i, e.x[t]!, e.z[t]!, s.radius).filter((j) => j !== t);
     near.sort((a, b) => gap(state, t, a) - gap(state, t, b) || e.id[a]! - e.id[b]!);
     const targets = [t, ...near.slice(0, s.bp - 1)];
-    for (let k = 0; k < s.bp; k++) fireAt(state, i, x, y, z, targets[k % targets.length]!, Shot.Thorn, spellAmount(state, i, s), s.rollBp ?? 0, THORN_SPREAD_BP, ProjectileFlag.Spell);
+    for (let k = 0; k < s.bp; k++) fireAt(state, i, x, y, z, targets[k % targets.length]!, Shot.Thorn, spellDamage(state, i, s), s.rollBp ?? 0, THORN_SPREAD_BP, ProjectileFlag.Spell);
   },
   bark(state, i, s, _t, x, z) {
     for (const j of alliesNear(state, i, x, z, s.radius)) state.entities.barkUntil[j] = state.step + s.steps;
@@ -383,7 +398,10 @@ export function fireballBurst(state: SimState, p: Projectile, x: number, y: numb
   const e = state.entities;
   const s = spellSpec(Spell.Fireball);
   const caster = e.indexOf(p.shooter);
-  const splash = caster >= 0 ? floorDiv(FIREBALL_SPLASH * p.damage, s.amount) : FIREBALL_SPLASH;
+  // The splash and the wood it burns follow her whole fireball, before the players' cut; the cut comes off the splash again (mini patch 7.3).
+  const cut = spellCut(state, p.owner);
+  const full = p.damage + cut;
+  const splash = lessCut(state, p.owner, caster >= 0 ? floorDiv(FIREBALL_SPLASH * full, s.amount) : FIREBALL_SPLASH);
   state.hits.push({ look: 'spell', spell: Spell.Fireball, x, y, z, id: p.shooter });
   for (const j of state.grid.near(x, z, s.radius)) {
     if (j === hit || e.hp[j]! <= 0 || e.inside[j] !== 0) continue;
@@ -394,7 +412,7 @@ export function fireballBurst(state: SimState, p: Projectile, x: number, y: numb
   if (!b) return;
   if (buildingSpec(b.kind).wooden === false) hurtBuilding(state, b, s.vsWalls, x, y, z, p.roll);
   else {
-    hurtBuilding(state, b, p.damage * FIREBALL_WOOD_MULTIPLIER, x, y, z, p.roll);
+    hurtBuilding(state, b, full * FIREBALL_WOOD_MULTIPLIER, x, y, z, p.roll);
     smoulder(state, b, FIREBALL_BURN.perSecond, FIREBALL_BURN.steps);
   }
 }

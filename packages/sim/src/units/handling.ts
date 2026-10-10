@@ -50,7 +50,7 @@ import {
   wearItem,
   type KitHolder,
 } from './kits.ts';
-import { addToBag, bagCount, bagRoom, bagTakes, canLoot, dropAtFeet, keepItem, lootHooks, takeFromBag } from './loot.ts';
+import { addToBag, bagCount, bagRoom, bagTakes, canLoot, countText, dropAtFeet, keepItem, lootHooks, takeFromBag } from './loot.ts';
 import type { UnitOrder } from './unit-orders.ts';
 
 type GiveOrder = Extract<UnitOrder, { t: 'give' }>;
@@ -362,8 +362,9 @@ export function orderKeep(state: SimState, units: readonly number[], res: number
 /**
  * Give (giveItem; plan section 7: "Give… walks the piece to another unit and
  * hands it over"): the first of the units carrying the good in its bag walks
- * to `target`, another of its player's living people, and hands one into its
- * bag, in front of whatever it was doing.
+ * to `target`, another of its player's living people, and hands it into its
+ * bag, in front of whatever it was doing: one piece of gear, or all it has of
+ * any other good that fits (mini patch 7.3).
  */
 export function orderGive(state: SimState, player: number, units: readonly number[], res: number, target: number): void {
   const e = state.entities;
@@ -404,14 +405,19 @@ export function runGive(state: SimState, i: number, o: GiveOrder): boolean {
       return DONE;
     }
   }
-  if (bagRoom(state, t, o.res) < 1) {
+  const room = bagRoom(state, t, o.res);
+  if (room < 1) {
     say(state, i, 'Their bag is full.', true);
     return DONE;
   }
-  takeFromBag(state, i, o.res, 1);
-  addToBag(state, t, o.res, 1);
-  say(state, i, `Here, take ${theGood(o.res)}.`, false, true);
-  lootHooks.picked(state, t, [[o.res, 1]], false);
+  // A piece of gear goes over one at a time; any other good all it has, as much as fits (mini patch 7.3, Jade: "moving all items").
+  const n = isGearItem(o.res) ? 1 : Math.min(room, bagCount(state, i, o.res));
+  takeFromBag(state, i, o.res, n);
+  addToBag(state, t, o.res, n);
+  // Both say what changed hands (mini patch 7.3, Jade: units say in a bubble what was given or received).
+  say(state, i, n === 1 && isGearItem(o.res) ? `Here, take ${theGood(o.res)}.` : `Here, take ${countText(o.res, n)}.`, false, true);
+  say(state, t, `Got ${countText(o.res, n)}.`, false, true);
+  lootHooks.picked(state, t, [[o.res, n]], false);
   return DONE;
 }
 

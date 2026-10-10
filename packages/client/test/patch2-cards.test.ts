@@ -103,7 +103,7 @@ describe('the card tooltips', () => {
     expect(cardCostText(Troop.Close, 4, 3, 2)).toBe('30 food, 2 bronze ingots, 1 lumber, 2 leather, 5 copper ingots, 3 hardened leather, 3 planks. 2 minutes 55 seconds, 1 supply.');
     expect(cardTooltip(Troop.Long, { w: 2, a: 1, picked: true, locked: false }, 'Barracks').split('\n')).toEqual([
       'Trains a Flint spearman: flint-headed spear, leather jerkin.',
-      'Damage 12, a swing every 1.4 s, reach 2.5 m. Protection 10%.',
+      'Damage 12, a swing every 1.4 s, reach 2.5 m. Protection 7%.',
       'Costs 30 food, 3 sticks, 1 flint, 3 leather. 1 minute 25 seconds, 1 supply.',
       'Picked: until this Barracks is deselected.',
     ]);
@@ -112,9 +112,9 @@ describe('the card tooltips', () => {
   });
 
   it('show a tier against the kit trained now, protection from nothing included', () => {
-    expect(piecesStats(cardPieces(Troop.Close, 4, 3, 2), cardPieces(Troop.Close, 1, 0))).toBe('Damage 11 (+5), a swing every 1.2 s (−0.1 s), reach 1.2 m. Protection 25% (+25%), block 20% (+20%).');
+    expect(piecesStats(cardPieces(Troop.Close, 4, 3, 2), cardPieces(Troop.Close, 1, 0))).toBe('Damage 11 (+5), a swing every 1.2 s (−0.1 s), reach 1.2 m. Protection 18% (+18%), block 20% (+20%).');
     expect(piecesStats(cardPieces(mageLock(School.Support), 3, 2), cardPieces(mageLock(School.Support), 1, 1), true)).toBe(
-      'Spell power 110% (+10%), mana bar +20 (+20), protection 5% (+5%), mana regain +5% (+5%).',
+      'Spell power 110% (+10%), mana bar +20 (+20), protection 4% (+4%), mana regain +5% (+5%).',
     );
   });
 
