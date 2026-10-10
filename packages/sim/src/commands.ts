@@ -25,7 +25,7 @@ import { RESEARCH } from './combat/items.ts';
 import { addMob, combatTroop } from './combat/mob-ai.ts';
 import { MOBS } from './combat/mobs.ts';
 import { clockAt, isDark } from './clock.ts';
-import { inFront, orderCart, orderEquip, orderUpgrade, orderUpgradeEquipment } from './units/gear.ts';
+import { inFront, orderCart, orderUpgrade, orderUpgradeEquipment } from './units/gear.ts';
 import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, carriedOf, dropItem, HAND_ONE, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
@@ -52,6 +52,7 @@ import { answerQuestion } from './units/questions.ts';
 import { askGreyed, greyHooks } from './units/greyed.ts';
 import { actSpot, CircleAct, doAct, onColumn, planter, showCircle, unitAt } from './circles/act.ts';
 import { useItem } from './circles/items.ts';
+import { orderEquip, orderEquipBag, orderGive, orderKeep, orderScrapItem, orderTakeOff } from './units/handling.ts';
 import { barnHandsIn, keepBarnHands } from './units/barn-hand.ts';
 
 /** Spacing of a group spread round its target (s): 1.2 m. */
@@ -684,6 +685,22 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         break;
       case 'equip':
         orderEquip(state, o.player, ownUnits(state, o.player, o.units), o.res);
+        break;
+      // Patch 7 (plan section 7): gear moved between a unit's bag, its hands, other units and the Workshop (units/handling.ts).
+      case 'equipBag':
+        orderEquipBag(state, ownUnits(state, o.player, o.units), o.res);
+        break;
+      case 'takeOff':
+        orderTakeOff(state, ownUnits(state, o.player, o.units), o.line, o.drop === 1);
+        break;
+      case 'keepItem':
+        orderKeep(state, ownUnits(state, o.player, o.units), o.res, o.on === 1);
+        break;
+      case 'giveItem':
+        orderGive(state, o.player, ownUnits(state, o.player, o.units), o.res, o.target);
+        break;
+      case 'scrapItem':
+        orderScrapItem(state, o.player, ownUnits(state, o.player, o.units), o.res, o.worn === 1, o.building);
         break;
       case 'shelter':
         swapShelter(state, o.player, o.building, o.unit);

@@ -493,6 +493,8 @@ export class EntityStore implements Record<FieldName, Column> {
   cools: number[][] = [];
   /** The players' units: loot carried to hand in, as (resource, count) pairs (units/loot.ts). */
   bag: number[][] = [];
+  /** The players' units: goods locked in the bag with Keep in bag (Patch 7), as (resource, count) pairs, never handed in by themselves (units/loot.ts). */
+  kept: number[][] = [];
   /** Woodsmen: food brought in and eaten, minute by minute (units/woodsman.ts); empty for everyone else. */
   ledger: number[][] = [];
 
@@ -542,6 +544,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.hitters[i] = [];
     this.cools[i] = [];
     this.bag[i] = [];
+    this.kept[i] = [];
     this.ledger[i] = [];
     this.power[i] = 1000;
     this.index.set(id, i);
@@ -561,6 +564,7 @@ export class EntityStore implements Record<FieldName, Column> {
     this.hitters.splice(i, 1);
     this.cools.splice(i, 1);
     this.bag.splice(i, 1);
+    this.kept.splice(i, 1);
     this.ledger.splice(i, 1);
     this.count--;
     this.reindex();

@@ -9,7 +9,12 @@
 // idle in the dawn or day, and gatherers with every load they drop off.
 // Patch 5 (Jade, GP-6 and GP-7): any unit within 5 m of a drop-off hands in
 // by itself; the unit inventory unloads one good or drops it on the ground,
-// where nobody picks it up by themselves.
+// where nobody picks it up by themselves. Patch 7 (plan section 7): Keep in
+// bag locks a good in the bag, in a pocket of its own (EntityStore.kept) that
+// nothing hands in by itself; Unload, Drop, Give, Equip and Scrap still take
+// it, and the lock goes when the last of it leaves. A unit that picks up a
+// piece that fits it and beats what it has asks to use it (the pickup
+// prompt, units/pickup-ask.ts, through lootHooks).
 // Engines and animals carry nothing: they do not eat.
 
 import { buildingSpec } from '../buildings/data.ts';
@@ -33,6 +38,9 @@ import { accepts, Act, besideBuilding, FAILED, MOVING, nearestDropoff, resetWalk
 import type { UnitOrder } from './unit-orders.ts';
 import { rawLimitTenthsLb, rawTenthsLb } from './weight.ts';
 import { foodIn, ledgerAdd } from './woodsman.ts';
+
+/** What other modules do when a unit puts goods in its bag (Patch 7: units/pickup-ask.ts offerPickup, the pickup prompt). */
+export const lootHooks: { picked: (state: SimState, i: number, got: ReadonlyArray<readonly [number, number]>, found: boolean) => void } = { picked: () => {} };
 
 /** A unit's loot bag holds 25 lb, the Table 12 carrying limit, a worker's gathered load counting against it (s). */
 export const LOOT_BAG_TENTHS_LB = 250;
@@ -92,11 +100,10 @@ function weightOf(res: number): number {
   return Math.max(1, RESOURCES[res]?.weightTenthsLb ?? 1);
 }
 
-/** What a unit's bag holds, tenths of a pound. */
+/** What a unit's bag holds, tenths of a pound, the goods kept in it too. */
 export function bagTenthsLb(state: SimState, i: number): number {
-  const g = state.entities.bag[i]!;
   let w = 0;
-  for (let k = 0; k < g.length; k += 2) w += weightOf(g[k]!) * g[k + 1]!;
+  for (const g of [state.entities.bag[i]!, state.entities.kept[i]!]) for (let k = 0; k < g.length; k += 2) w += weightOf(g[k]!) * g[k + 1]!;
   return w;
 }
 
@@ -121,21 +128,93 @@ export function bagRoom(state: SimState, i: number, res: number): number {
   return floorDiv(bagFreeTenthsLb(state, i), weightOf(res));
 }
 
+/** Whether a unit's bag takes these goods, one of each listed, once one `less` has left it (Patch 7: the piece a swap takes off, for the piece it puts on). */
+export function bagTakes(state: SimState, i: number, add: readonly number[], less = -1): boolean {
+  let need = less >= 0 ? -weightOf(less) : 0;
+  for (const r of add) need += weightOf(r);
+  return need <= bagFreeTenthsLb(state, i);
+}
+
+/** Whether a unit's bag holds nothing to hand in (what is kept in it stays: Patch 7, Keep in bag). */
 export function bagEmpty(state: SimState, i: number): boolean {
   return state.entities.bag[i]!.length === 0;
 }
 
-/** The bag's contents as (resource, count) pairs. */
+/** Whether a unit's bag holds nothing at all, kept goods included. */
+export function bagBare(state: SimState, i: number): boolean {
+  return state.entities.bag[i]!.length === 0 && state.entities.kept[i]!.length === 0;
+}
+
+/** The bag's contents as (resource, count) pairs, the kept goods after the rest. */
 export function bagItems(state: SimState, i: number): Items {
-  const g = state.entities.bag[i]!;
   const out: Items = [];
-  for (let k = 0; k < g.length; k += 2) out.push([g[k]!, g[k + 1]!]);
+  for (const g of [state.entities.bag[i]!, state.entities.kept[i]!]) for (let k = 0; k < g.length; k += 2) out.push([g[k]!, g[k + 1]!]);
   return out;
 }
 
-/** Puts n of a resource in a unit's bag (the caller checks it fits). */
+/** Whether a good is locked in a unit's bag (Patch 7, Keep in bag). */
+export function isKept(state: SimState, i: number, res: number): boolean {
+  const g = state.entities.kept[i]!;
+  for (let k = 0; k < g.length; k += 2) if (g[k] === res) return true;
+  return false;
+}
+
+/** The goods locked in a unit's bag (Patch 7, Keep in bag). */
+export function keptGoods(state: SimState, i: number): number[] {
+  const g = state.entities.kept[i]!;
+  const out: number[] = [];
+  for (let k = 0; k < g.length; k += 2) out.push(g[k]!);
+  return out;
+}
+
+/**
+ * Keep in bag (Patch 7, plan section 7): `on` locks all of a good a unit
+ * carries in its bag, so nothing hands it in by itself (idle at dawn and by
+ * day, near a drop-off, a gatherer's drop-off); off, it goes back with the
+ * rest. Returns whether the unit carries any of it in its bag.
+ */
+export function keepItem(state: SimState, i: number, res: number, on: boolean): boolean {
+  const e = state.entities;
+  const [from, to] = on ? [e.bag[i]!, e.kept[i]!] : [e.kept[i]!, e.bag[i]!];
+  for (let k = 0; k < from.length; k += 2) {
+    if (from[k] !== res) continue;
+    const n = from[k + 1]!;
+    from.splice(k, 2);
+    to.push(res, n);
+    return true;
+  }
+  return bagCount(state, i, res) > 0;
+}
+
+/** How many of a good a unit has in its bag, kept or not (not its gathered load). */
+export function bagCount(state: SimState, i: number, res: number): number {
+  let n = 0;
+  for (const g of [state.entities.bag[i]!, state.entities.kept[i]!]) for (let k = 0; k < g.length; k += 2) if (g[k] === res) n += g[k + 1]!;
+  return n;
+}
+
+/** Takes up to n of a good from a unit's bag, kept or not; returns how many it took. A kept good's lock goes with the last of it. */
+export function takeFromBag(state: SimState, i: number, res: number, n: number): number {
+  let took = 0;
+  for (const g of [state.entities.bag[i]!, state.entities.kept[i]!]) {
+    for (let k = 0; k < g.length && took < n; k += 2) {
+      if (g[k] !== res) continue;
+      const t = Math.min(n - took, g[k + 1]!);
+      g[k + 1] = g[k + 1]! - t;
+      took += t;
+      if (g[k + 1]! <= 0) {
+        g.splice(k, 2);
+        k -= 2;
+      }
+    }
+  }
+  return took;
+}
+
+/** Puts n of a resource in a unit's bag (the caller checks it fits): with the rest of it where it is kept, else loose. */
 export function addToBag(state: SimState, i: number, res: number, n: number): void {
-  const g = state.entities.bag[i]!;
+  const e = state.entities;
+  const g = isKept(state, i, res) ? e.kept[i]! : e.bag[i]!;
   for (let k = 0; k < g.length; k += 2) {
     if (g[k] === res) {
       g[k + 1] = g[k + 1]! + n;
@@ -145,7 +224,7 @@ export function addToBag(state: SimState, i: number, res: number, n: number): vo
   g.push(res, n);
 }
 
-/** Hands a unit's bag in: what it holds goes into its owner's pool. */
+/** Hands a unit's bag in: what it holds goes into its owner's pool, all but what it keeps (Patch 7). */
 export function handIn(state: SimState, i: number): void {
   const e = state.entities;
   const g = e.bag[i]!;
@@ -157,16 +236,13 @@ export function handIn(state: SimState, i: number): void {
   e.bag[i] = [];
 }
 
-/** How many of a good a unit carries, in its gathered load and its bag. */
+/** How many of a good a unit carries, in its gathered load and its bag (kept or not). */
 export function carriedOf(state: SimState, i: number, res: number): number {
   const e = state.entities;
-  let n = e.carryRes[i] === res ? e.carryAmt[i]! : 0;
-  const g = e.bag[i]!;
-  for (let k = 0; k < g.length; k += 2) if (g[k] === res) n += g[k + 1]!;
-  return n;
+  return (e.carryRes[i] === res ? e.carryAmt[i]! : 0) + bagCount(state, i, res);
 }
 
-/** Takes all of a good out of a unit's load and bag; returns how many. */
+/** Takes all of a good out of a unit's load and bag (kept or not); returns how many. */
 function takeOut(state: SimState, i: number, res: number): number {
   const e = state.entities;
   let n = 0;
@@ -175,14 +251,7 @@ function takeOut(state: SimState, i: number, res: number): number {
     e.carryAmt[i] = 0;
     e.carryRes[i] = NO_CARRY;
   }
-  const g = e.bag[i]!;
-  for (let k = 0; k < g.length; k += 2) {
-    if (g[k] !== res) continue;
-    n += g[k + 1]!;
-    g.splice(k, 2);
-    break;
-  }
-  return n;
+  return n + takeFromBag(state, i, res, bagCount(state, i, res));
 }
 
 /** Hands in one good a unit carries, load and bag, into its owner's pool (GP-7: Unload). */
@@ -198,13 +267,17 @@ export function handInOne(state: SimState, i: number, res: number): void {
  * right click on it sends units for it as for any loot.
  */
 export function dropItem(state: SimState, i: number, res: number): number {
-  const e = state.entities;
   const n = takeOut(state, i, res);
-  if (n <= 0) return 0;
+  if (n > 0) dropAtFeet(state, i, res, n);
+  return n;
+}
+
+/** Puts n of a good on the ground at a unit's feet, dropped on purpose: nobody picks it up by themselves (Drop, and Patch 7's Drop of a worn piece). */
+export function dropAtFeet(state: SimState, i: number, res: number, n: number): void {
+  const e = state.entities;
   const x = e.x[i]!;
   const z = e.z[i]!;
   state.loot.push({ id: state.nextEntityId++, res, amt: n, x, y: standY(state, x, z), z, at: state.step, by: 0, owner: DROPPED, brag: 0, src: 0 });
-  return n;
 }
 
 /**
@@ -437,6 +510,7 @@ export function dropLoot(state: SimState, x: number, z: number, items: Items, fr
     if (got.length === 0) continue;
     if (j === k) killerGot = true;
     found(state, j, got, from.brag, from.src, j === k && hunting(state, j) ? (from.prey ?? 0) : 0);
+    lootHooks.picked(state, j, got, true);
     if (left.every((it) => it[1] === 0)) break;
   }
   // A hunter whose kill fell out of its reach (or its bag is full) still says what it got.
@@ -502,6 +576,7 @@ function pickUp(state: SimState, i: number, first: number): boolean {
   state.loot = state.loot.filter((l) => l.amt > 0);
   if (got.length === 0) return false;
   found(state, i, got, brag, src, 0);
+  lootHooks.picked(state, i, got, true);
   return true;
 }
 
