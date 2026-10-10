@@ -15,7 +15,7 @@
 // chimney smoke, the Big House campfire and the Sanctum crystal's glow are
 // building-glow.ts's.
 import * as THREE from 'three';
-import { buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, NEUTRAL, placedDims, type UnitOrder } from '@blockyrts/sim';
+import { buildingName, buildingSpec, footprintDims, footprintRect, levelFootprint, lootEffectSpec, NEUTRAL, placedDims, trophyEffect, type UnitOrder } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { BuildingInfo } from '../messages.ts';
 import { InstancedModel, TURN_CLIP, type ModelLibrary, type ModelShaderPatch } from '../models/index.ts';
@@ -65,7 +65,7 @@ interface LightSpot {
   src: LightSource;
 }
 
-/** A catalogue model of a building: its id, where it goes from the anchor (metres), its size, any tint and its turn about +Y (radians). */
+/** A catalogue model of a building: its id, where it goes from the anchor (metres), its size, any tint, its turn about +Y and its tilt about its own X (radians). */
 export interface CatalogueModel {
   id: string;
   dx: number;
@@ -73,6 +73,8 @@ export interface CatalogueModel {
   scale: number;
   tint?: number;
   yaw?: number;
+  /** Patch 7: a trophy is a held weapon model (lying along -Z from its grip), stood up on its grip. */
+  pitch?: number;
 }
 
 interface Entry {
@@ -149,7 +151,8 @@ const MODEL_UNITS_PER_COLUMN = 16;
  */
 export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>): CatalogueModel[] {
   const d = footprintDims(b.kind, b.variant, b.level);
-  const turned = buildingSpec(b.kind).turns === true && b.variant === 1;
+  const spec = buildingSpec(b.kind);
+  const turned = spec.turns === true && b.variant === 1;
   return (levelFootprint(b.kind, b.level).models ?? []).map((m) => ({
     id: m.id,
     dx: (d.ox + (turned ? m.z : m.x) / MODEL_UNITS_PER_COLUMN) * COLUMN_M,
@@ -157,6 +160,7 @@ export function catalogueIds(b: Pick<BuildingInfo, 'kind' | 'level' | 'variant'>
     scale: (m.scalePm ?? 1000) / 1000,
     ...(m.tint !== undefined ? { tint: m.tint } : {}),
     ...(turned ? { yaw: Math.PI / 2 } : {}),
+    ...(spec.trophy ? { pitch: Math.PI / 2 } : {}),
   }));
 }
 
@@ -514,6 +518,8 @@ export class BuildingsView {
       d.push(b.lit ? 'Lit. It needs no fuel.' : 'Out: right click it with a worker to relight it.');
       d.push(`Light ${light.lightM} m${light.claimM > 0 ? `, claims ${light.claimM} m while lit` : ''}.`);
     }
+    // Patch 7: a trophy's effect on the ground round it.
+    if (s.trophy) d.push(lootEffectSpec(trophyEffect(b.kind))?.text ?? '');
     if (b.up.length > 0) d.push(`${b.up.length} up top.`);
     if (b.inside.length > b.up.length) d.push(`${b.inside.length - b.up.length} inside.`);
     void info;
@@ -546,7 +552,7 @@ export class BuildingsView {
       if (n >= most) return;
       counts.set(key, n + 1);
       const clip = !moving ? '' : atWork(b) && lib.get(m.id).clips.has(WORK_CLIP) ? WORK_CLIP : TURN_CLIP;
-      d.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M - sink, b.z * COLUMN_M + m.dz, m.yaw ?? 0, clip, now / 1000, this.teamColour(b.owner), m.scale);
+      d.setInstance(n, b.x * COLUMN_M + m.dx, b.y * UNIT_M - sink, b.z * COLUMN_M + m.dz, m.yaw ?? 0, clip, now / 1000, this.teamColour(b.owner), m.scale, m.pitch ?? 0);
       if (hover) d.setHover(n);
     };
     for (const b of info.buildings.values()) {
@@ -763,7 +769,7 @@ export class BuildingsView {
         const n = counts.get(key) ?? 0;
         if (n >= d.maxInstances) continue;
         counts.set(key, n + 1);
-        d.setInstance(n, g.x + g.m.dx, g.y, g.z + g.m.dz, g.m.yaw ?? 0, '', 0, this.teamColour(owner), g.m.scale);
+        d.setInstance(n, g.x + g.m.dx, g.y, g.z + g.m.dz, g.m.yaw ?? 0, '', 0, this.teamColour(owner), g.m.scale, g.m.pitch ?? 0);
       }
     }
     for (const [key, d] of this.ghostDraws) {

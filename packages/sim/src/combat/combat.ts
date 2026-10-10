@@ -28,6 +28,7 @@ import { MAGE_RANK_NAMES, MAGE_XP_TENTHS, mageGainXp } from '../magic/mages.ts';
 import { WORKER_RANK_NAMES, WORKER_XP_TENTHS, workerGainXp } from '../units/ranks.ts';
 import { onTop } from '../units/top.ts';
 import { MAGE_TOP_RANK, Spell, spellSpec } from '../magic/spells.ts';
+import { effectArmourBp, effectAttackBp, effectDamageBp } from '../units/effects.ts';
 
 /**
  * The sides: every player together, and the monsters (Winning, losing and
@@ -218,6 +219,9 @@ export function armourOf(state: SimState, i: number): number {
   // A support mage's Fortify: +15% on top, still capped at 75% (Table 13); a Grovesinger's Barkskin +25%.
   if (e.fortUntil[i]! > state.step) pieces.push(spellSpec(Spell.Fortify).bp);
   if (e.barkUntil[i]! > state.step) pieces.push(spellSpec(Spell.Barkskin).bp);
+  // Patch 7: Victor's trophy, +5% protection on top, still capped (units/effects.ts).
+  const loot = effectArmourBp(state, i);
+  if (loot > 0) pieces.push(loot);
   return totalArmourBp(pieces);
 }
 
@@ -281,6 +285,8 @@ export interface Blow {
   spell?: boolean;
   /** Already worked out through armour (a Beam's share for the step): taken as it is, and shown only now and then. */
   exact?: boolean;
+  /** Patch 7: the share of the target's armour it ignores, bp (an Elf longbow's arrow, Far sight: units/effects.ts). */
+  armourCutBp?: number;
 }
 
 function hitLook(state: SimState, i: number, blocked: boolean): HitLook {
@@ -315,7 +321,9 @@ export function hurtUnit(state: SimState, i: number, blow: Blow): number {
   }
   // A hobgoblin's shield blocks half of what is shot at it (Table 16).
   const block = blow.projectile ? (e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).blockBp : shieldBlock(state, i)) : 0;
-  let d = blow.exact ? blow.damage : damageTaken({ damage: blow.damage, armourBp: armourOf(state, i), modifierBp, projectile: blow.projectile, shieldBlockBp: block });
+  const armour = armourOf(state, i);
+  const armourBp = blow.armourCutBp ? armour - floorDiv(armour * blow.armourCutBp, BP) : armour;
+  let d = blow.exact ? blow.damage : damageTaken({ damage: blow.damage, armourBp, modifierBp, projectile: blow.projectile, shieldBlockBp: block });
   // Warding: half damage from enemy spells (Table 13).
   if (blow.spell && e.wardUntil[i]! > state.step) d = Math.max(1, floorDiv(d * (BP - spellSpec(Spell.Warding).bp), BP));
   e.hp[i] = e.hp[i]! - d;
@@ -399,7 +407,12 @@ export function hurtBuilding(state: SimState, b: Building, damage: number, x: nu
   }
 }
 
-/** Damage a player unit deals with a weapon: +5% per rank above the first, +20% under Rally. A mob's grows 0.5% a night (its power). */
+/**
+ * Damage a player unit deals with a weapon: +5% per rank above the first,
+ * +20% under Rally, and Patch 7's loot effects (Warlord near the archfiend's
+ * greatsword, Victor's trophy: units/effects.ts). A mob's grows 0.5% a night
+ * (its power).
+ */
 export function dealt(state: SimState, i: number, base: number): number {
   const e = state.entities;
   if (e.kind[i] === UnitKind.Mob) {
@@ -408,7 +421,7 @@ export function dealt(state: SimState, i: number, base: number): number {
     return e.rallyUntil[i]! > state.step ? withBonus(d, 2000) : d;
   }
   const rally = e.rallyUntil[i]! > state.step ? spellSpec(Spell.Rally).bp : 0;
-  return withBonus(base, rankDamageBonusBp(e.kind[i] === UnitKind.Mage ? 1 : e.rank[i]!) + rally);
+  return withBonus(base, rankDamageBonusBp(e.kind[i] === UnitKind.Mage ? 1 : e.rank[i]!) + rally + effectDamageBp(state, i));
 }
 
 /**
@@ -467,11 +480,18 @@ export function startSwing(state: SimState, i: number, target: number, attackSte
   state.hits.push({ look: 'swing', x: e.x[i]!, y: e.y[i]!, z: e.z[i]!, id: e.id[i]! });
 }
 
-/** A unit under a goblin mage's Stumble hex attacks 20% slower (its attack time grows by a quarter); under Quicken 25% faster. */
+/**
+ * A unit under a goblin mage's Stumble hex attacks 20% slower (its attack
+ * time grows by a quarter); under Quicken 25% faster; Patch 7's Fury (the
+ * fiend's cleaver below half health) and Victor's trophy faster still
+ * (units/effects.ts).
+ */
 export function hexed(state: SimState, i: number, attackSteps: number): number {
   const e = state.entities;
   let steps = e.hexUntil[i]! > state.step ? floorDiv(attackSteps * BP, BP - HEX_SLOW_BP) : attackSteps;
   if (e.quickUntil[i]! > state.step) steps = floorDiv(steps * BP, BP + spellSpec(Spell.Quicken).bp);
+  const loot = effectAttackBp(state, i);
+  if (loot > 0) steps = floorDiv(steps * BP, BP + loot);
   return Math.max(1, steps);
 }
 
@@ -543,6 +563,8 @@ export const RANK_NAMES = {
 /** Adds experience and ranks the unit up as far as it reaches (a worker's and a mage's by their own ladders). */
 export function gainXp(state: SimState, i: number, tenths: number): void {
   const e = state.entities;
+  // A skeleton archer the Deathless Shroud raised never ranks up (Patch 7): its 10 health are Jade's.
+  if (e.role[i] === Role.Risen) return;
   if (e.kind[i] === UnitKind.Mage) {
     mageGainXp(state, i, tenths);
     return;
@@ -659,7 +681,8 @@ export function settleDeaths(state: SimState): void {
         deathHooks.animal(state, i);
       } else {
         deathHooks.unit(state, i);
-        if (sideOf(state, i) === Side.Players) {
+        // A risen skeleton archer's fall is no news (Patch 7): it was raised to fall.
+        if (sideOf(state, i) === Side.Players && e.role[i] !== Role.Risen) {
           const what = e.role[i] === Role.Mercenary ? 'A mercenary' : e.kind[i] === UnitKind.Warrior ? 'A warrior' : e.kind[i] === UnitKind.Mage ? 'A mage' : 'A worker';
           const text = e.kind[i] === UnitKind.Engine ? `A ${engineSpec(e.mob[i]!).name.toLowerCase()} has been destroyed.` : `${what} has been killed.`;
           state.events.push({ player: e.owner[i]!, kind: 'alert', text, x: e.x[i]!, z: e.z[i]! });

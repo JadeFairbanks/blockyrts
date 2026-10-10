@@ -264,6 +264,7 @@ export const Res = {
   DwarfWarHammer: 237,
   HeavySpikedMace: 238,
   Witchwood: 239,
+  DeathlessShroud: 240,
 } as const;
 export type Res = (typeof Res)[keyof typeof Res];
 
@@ -584,6 +585,8 @@ export const RESOURCES: readonly ResourceInfo[] = [
   ...lootItems(),
   // Patch 7: witchwood, from casters' staffs at the Workshop (s: a pound).
   r(Res.Witchwood, 'Witchwood', 'Witchwood', A, 10, "Scrapped from casters' staffs at the Workshop. Stands in for a mana crystal in wand and robe recipes.", 0, false),
+  // Patch 7 (Jade, 23:05 UTC 2026-10-09): the lich's legendary robe; a robe's 3 lb (s).
+  r(Res.DeathlessShroud, 'Deathless Shroud', 'Deathless Shroud', Gr, 30, LOOT_SOURCE, 0, false),
 ];
 
 export const RESOURCE_COUNT = RESOURCES.length;

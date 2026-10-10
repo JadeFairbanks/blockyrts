@@ -39,6 +39,7 @@ import { menOnTop, platformCrew, topRoom } from './units/top.ts';
 import { goesInside, insideAuto, mayShelter, swapShelter } from './units/shelter.ts';
 import { ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './units/unit-orders.ts';
 import { debugThreat } from './threats/debug.ts';
+import { Role } from './threats/types.ts';
 import { clearFoes, godPlace, healAll, killUnits, maxRanks, setGod, showElves } from './debug/god.ts';
 import { eliminate } from './combat/deaths.ts';
 import { peoplesOrder } from './peoples/orders.ts';
@@ -230,6 +231,16 @@ greyHooks.upgrade = applyUpgrade;
 
 function applyCancelBuild(state: SimState, b: Building): void {
   const pool = state.players[b.owner]!.pool;
+  // A trophy (Patch 7), finished or not, is picked up: its piece goes back to the stock whole, to be planted again elsewhere.
+  const trophy = buildingSpec(b.kind).trophy;
+  if (trophy) {
+    pool[trophy.item] = pool[trophy.item]! + 1;
+    for (const j of unitsInside(state, b.id)) leaveBuilding(state, j);
+    state.buildings.remove(b.id, (key) => state.world.touchNav(key));
+    const [x, z] = buildingCentre(b);
+    state.events.push({ player: b.owner, kind: 'info', text: `The ${buildingSpec(b.kind).name.toLowerCase()} was picked up. The ${RESOURCES[trophy.item]!.name.toLowerCase()} is back in your stock.`, x, z });
+    return;
+  }
   if (!b.complete) {
     // What was paid to start it, kind by kind (an "any lumber" cost comes back as the lumber it was paid in).
     refund(pool, b.paid.length ? (b.paid as Cost) : levelSpec(b.kind, 1).cost.map(([r, n]) => [r, n * b.costMul] as const), CANCEL_REFUND_PER_MILLE);
@@ -718,8 +729,8 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
       }
       case 'trainRank': {
         const b = ownBuilding(state, o.player, o.building);
-        // The Dreadnought has no ranks to train (Patch 5).
-        if (b) giveAll(state, o, (i) => (b.kind === rankTrainedAt(e.kind[i]!) && !isDreadnought(e, i) ? { t: 'train', b: b.id } : null));
+        // The Dreadnought has no ranks to train (Patch 5), nor a skeleton archer the Deathless Shroud raised (Patch 7).
+        if (b) giveAll(state, o, (i) => (b.kind === rankTrainedAt(e.kind[i]!) && !isDreadnought(e, i) && e.role[i] !== Role.Risen ? { t: 'train', b: b.id } : null));
         break;
       }
       case 'retrain':

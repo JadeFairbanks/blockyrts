@@ -6,7 +6,7 @@
 // (slowly, and not over a shut gate lit by a torch), flyers come straight
 // in, and bombers blow up against walls, barriers or a crowd of troops.
 
-import { buildingSpec } from '../buildings/data.ts';
+import { buildingSpec, isTrophy } from '../buildings/data.ts';
 import { buildingCentre, dist2, isLit, snuffLight } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
@@ -31,6 +31,7 @@ import { Ability, canUse, castSparkAt, castSparkAtBuilding, snuffEffect, spend, 
 import { LAIR_LEASH_WU } from '../threats/data.ts';
 import { fogged } from '../threats/fog.ts';
 import { Role } from '../threats/types.ts';
+import { mobSlowBp } from '../units/effects.ts';
 
 /** How far a mob notices the players' units: its sight, 12 m (half on a fog night). */
 const AGGRO_WU = SIGHT_WU[UnitKind.Mob];
@@ -106,11 +107,11 @@ export function mobMover(spec: MobSpec): Mover {
   return spec.moves === Moves.Climber ? CLIMBER : MOB_WALKER;
 }
 
-/** The middle of a player's town: their main base, else their first building, else null. */
+/** The middle of a player's town: their main base, else their first building (a trophy, Patch 7, is none), else null. */
 export function townCentre(state: SimState, player: number): [number, number] | null {
   let first: Building | null = null;
   for (const b of state.buildings.list) {
-    if (b.owner !== player) continue;
+    if (b.owner !== player || isTrophy(b.kind)) continue;
     if (b.kind === 0) return buildingCentre(b);
     first ??= b;
   }
@@ -126,10 +127,10 @@ function groundAt(state: SimState, x: number, z: number): number {
   return state.world.topAt(floorDiv(x, WU_PER_COLUMN), floorDiv(z, WU_PER_COLUMN)) * WU_PER_TERRAIN_UNIT;
 }
 
-/** A mob's speed this step: hastened by a hound's howl or a goblin chief's shout. */
+/** A mob's speed this step: hastened by a hound's howl or a goblin chief's shout; a night monster slowed by a bog trophy (Patch 7, units/effects.ts). */
 function mobSpeed(state: SimState, i: number, spec: MobSpec): number {
   const e = state.entities;
-  let bp = 10000;
+  let bp = 10000 - mobSlowBp(state, i);
   if (e.fastUntil[i]! > state.step) bp += e.fastBp[i]!;
   if (hoppingUp(state, i)) bp -= HOP_SLOW_BP;
   if (spec.id === Mob.GoblinCutter || spec.id === Mob.GoblinSlinger) {
@@ -815,13 +816,13 @@ function inField(state: SimState, i: number, cls: MobClass | -1): boolean {
   return costAt(f, floorDiv(e.x[i]!, WU_PER_COLUMN * TILE_COLUMNS), floorDiv(e.z[i]!, WU_PER_COLUMN * TILE_COLUMNS)) !== UNREACHED;
 }
 
-/** The closest of its foe's buildings to a mob, within a few metres. */
+/** The closest of its foe's buildings to a mob, within a few metres (never a trophy, Patch 7: no wave comes for one). */
 function goalNear(state: SimState, i: number): Building | undefined {
   const e = state.entities;
   let best: Building | undefined;
   let bestD = 0;
   for (const b of state.buildings.list) {
-    if (b.owner !== e.foe[i]) continue;
+    if (b.owner !== e.foe[i] || isTrophy(b.kind)) continue;
     const d = gapToBuilding(state, i, b);
     if (d > 6 * WU_PER_METRE || (best && d >= bestD)) continue;
     best = b;
