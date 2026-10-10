@@ -59,6 +59,8 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'threats/keepers.ts:KeeperKind', 'threats/keepers.ts:KeeperMode', 'threats/keepers.ts:KeeperAsk',
   // Patch 5: the stone circle keepers' moods and question id, and what can lie on a unit.
   'threats/encounters.ts:EncounterMode', 'threats/encounters.ts:EncounterAsk', 'threats/marks.ts:MarkKind',
+  // Patch 7: the looted pieces' effect ids, and their names and words (worked out from the numbers in units/effects.ts).
+  'units/kits.ts:LootEffect', 'units/effects.ts:LOOT_EFFECTS', 'units/effects.ts:RISEN_NAME', 'units/effects.ts:risenHooks',
   'state.ts:UNIT_FIELDS', 'state.ts:PLAYER_FIELDS', 'state.ts:MONSTERS', 'state.ts:NEUTRAL', 'state.ts:WILD', 'state.ts:NO_CARRY',
   'state.ts:FOG_INTERVAL_STEPS', 'units/behaviour.ts:ARRIVED', 'units/behaviour.ts:FAILED', 'units/behaviour.ts:MOVING',
   'units/behaviour.ts:PATH_SEARCHES_PER_STEP', 'units/behaviour.ts:PATH_LEG', 'units/tools.ts:TOOL_FIELDS', 'buildings/chains.ts:STRETCH_DIRS',
@@ -99,7 +101,7 @@ export const SKIP_EXPORTS: ReadonlySet<string> = new Set([
   'units/kits.ts:TROOP_TYPES', 'units/kits.ts:TROOP_NAMES', 'units/kits.ts:TROOP_TIER_NAMES', 'units/kits.ts:TROOP_KEYS', 'units/kits.ts:TOP_TIER', 'units/kits.ts:TOP_MAGE_TIER',
   'units/kits.ts:GEAR', 'units/kits.ts:PeopleGear', 'units/kits.ts:CLOSE_GEAR', 'units/kits.ts:LONG_GEAR', 'units/kits.ts:RANGER_GEAR',
   'units/kits.ts:PISTOL_GEAR', 'units/kits.ts:ARMOUR_GEAR', 'units/kits.ts:SHIELD_GEAR', 'units/kits.ts:TOOL_GEAR', 'units/kits.ts:WAND_GEAR',
-  'units/kits.ts:ROBE_GEAR', 'units/kits.ts:OBSIDIAN_AXE_GEAR',
+  'units/kits.ts:ROBE_GEAR', 'units/kits.ts:OBSIDIAN_AXE_GEAR', 'units/kits.ts:RISEN_BOW_GEAR',
   // Patch 7's gear catalogue: the rarity names and colours, the Dreadnought's line, and the loot gear rows and the list of
   // gear items, which are worked out from LOOT_KITS and the kit tables (change those rows instead).
   'units/kits.ts:RARITY_NAMES', 'units/kits.ts:RARITY_COLOURS', 'units/kits.ts:SMASHING_LINE', 'units/kits.ts:LOOT_GEAR', 'units/kits.ts:GEAR_ITEMS',
@@ -157,6 +159,8 @@ export const MODULE_GROUPS: Readonly<Record<string, string>> = {
   'units/moves.ts': 'units',
   'units/field.ts': 'animals',
   'units/loot.ts': 'loot',
+  // Patch 7: what the epic and legendary looted pieces do, and the two trophies.
+  'units/effects.ts': 'loot',
   'threats/loot.ts': 'loot',
   'units/forage.ts': 'loot',
   'units/woods.ts': 'loot',
@@ -365,6 +369,8 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   'SPELLS:shot',
   // The peoples' gear is fixed rows of the gear catalogue (Troops and gear), not numbers to tune here.
   'PEOPLE_UNITS:weapon', 'PEOPLE_UNITS:ranged', 'PEOPLE_UNITS:armour', 'PEOPLE_UNITS:shield',
+  // Patch 7: which piece a trophy is, and which special effect a looted piece carries, are links, not numbers.
+  'BUILDINGS:item', 'LOOT_KITS:effect',
   // A kit row's tier is its place in the table, and its material tier follows from it (a shield's from the armour it comes with).
   'need', 'TIER_NEEDS:tier', 'TOOL_KITS:tier', 'CLOSE_KITS:tier', 'LONG_KITS:tier', 'RANGER_KITS:tier', 'BRAWLER_KIT:tier', 'ARMOUR_KITS:tier',
   'SHIELD_KITS:tier', 'WAND_KITS:tier', 'ROBE_KITS:tier',
@@ -459,6 +465,11 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   'DREADNOUGHT_KIT:stature': 'Stature of his harness', 'LOOT_KITS:size': 'Heft (weapons, wands, shields) or Stature (armour, robes)',
   'LOOT_KITS:rarity': 'Rarity (0 common, 1 rare, 2 epic, 3 legendary)', 'LOOT_KITS:tier': 'Material tier (its look and sound)', 'LOOT_KITS:scrap': 'Scrap yield',
   PROSPECT_TOOL_TIER: 'Tool kit tier with the prospecting hammer',
+  // Patch 7: what the epic and legendary looted pieces do (units/effects.ts).
+  'FURY:attackBp': 'Attacks faster by', 'FURY:underPm': 'While below this share of its health', 'WARLORD:damageBp': 'More damage for the troops near',
+  'REAPER:moveBp': 'Moves faster by', 'FAR_SIGHT:armourCutBp': 'Armour its arrows ignore', 'FAR_SIGHT:darkSight': 'Extra sight at dusk and night',
+  'FAE_SET:heal': 'Healing', 'FAE_SET:everySteps': 'Heals every', 'BOG_TROPHY:slowBp': 'Night monsters slowed by', 'VICTORS_TROPHY:bonusBp': 'Bonus to everything',
+  'GRAVE_GUARD:everySteps': 'Raises a skeleton archer at most every', 'GRAVE_GUARD:lifeSteps': 'Each skeleton archer stands for', 'GRAVE_GUARD:hp': 'Health of each skeleton archer',
   'SWOOP:diveSpeed': 'Dive speed', 'SWOOP:climbSpeed': 'Climb speed', 'SWOOP:pullMinPct': 'Pulls off to at least (of its striking distance)',
   'SWOOP:pullMaxPct': 'Pulls off to at most (of its striking distance)', 'SWOOP:pullLowCm': 'Pulls up to at least', 'SWOOP:pullHighCm': 'Pulls up to at most',
   WILD_PATCH_M: 'Wild patch size', WILD_SAMPLES: 'Spots tested per side of a patch',
@@ -570,6 +581,8 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   timeS: 'wholeSeconds', troopS: 'wholeSeconds', swingDs: 'deciseconds', attackDs: 'deciseconds',
   reachCm: 'metresCm', rangeM: 'metres', troopFood: 'nutrition', fromArmour: 'level',
   'WAND_KITS:mana': 'number', PROSPECT_TOOL_TIER: 'level',
+  // Patch 7: the loot effects.
+  'FAR_SIGHT:darkSight': 'metresWu', 'FAE_SET:heal': 'health', 'GRAVE_GUARD:hp': 'health',
   // The swoop (Jade's patch notes 1) and the wandering night monsters.
   'SWOOP:diveSpeed': 'speed', 'SWOOP:climbSpeed': 'speed', 'SWOOP:pullLowCm': 'metresCm', 'SWOOP:pullHighCm': 'metresCm',
   WILD_FROM_NIGHT: 'night', WILD_HORDE_FROM_NIGHT: 'night', WILD_HORDE_PCT_PER_NIGHT: 'percent', WILD_HORDE_MIN: 'count', WILD_HORDE_MAX: 'count',

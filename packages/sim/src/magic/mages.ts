@@ -12,6 +12,7 @@ import { BuildingKind } from '../buildings/data.ts';
 import { standY, UnitKind, WALK_SPEED_WU, type SimState } from '../state.ts';
 import { applyKit, GEAR, WAND_KITS } from '../units/kits.ts';
 import { AUTOCAST_RULES, COMBAT_PAUSE_STEPS, defaultAutocast, MANA_SCALE, MAGE_RANKS, MAGE_TOP_RANK, mageRank, School, SCHOOL_NAMES, Spell, SPELLS, spellSpec } from './spells.ts';
+import { effectSpellBp } from '../units/effects.ts';
 
 const SEC = STEPS_PER_SECOND;
 
@@ -193,13 +194,13 @@ export function mageGainXp(state: SimState, i: number, tenths: number): void {
 /**
  * Spell power, bp over the spell's own amount: +10% a rank above the first,
  * multiplied by her wand's power (Table 13: x1.0 to x1.25), plus Rally's
- * +20% while it lasts.
+ * +20% while it lasts, and Victor's trophy (Patch 7, units/effects.ts).
  */
 export function spellPowerBp(state: SimState, i: number): number {
   const e = state.entities;
   const wand = e.kind[i] === UnitKind.Mage ? mageGear(state, i).powerPct : 100;
   const rank = floorDiv((10000 + rankSpellPowerBonusBp(e.rank[i]!)) * wand, 100) - 10000;
-  return rank + (e.rallyUntil[i]! > state.step ? spellSpec(Spell.Rally).bp : 0);
+  return rank + (e.rallyUntil[i]! > state.step ? spellSpec(Spell.Rally).bp : 0) + effectSpellBp(state, i);
 }
 
 /**

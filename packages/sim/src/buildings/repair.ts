@@ -2,14 +2,16 @@
 // resources in proportion to the health restored, so a repair from nothing to
 // full costs what the building cost in all. Each line of the cost is rounded
 // on the health still missing, so many small repairs add up to exactly the
-// same as one big one.
-import { levelSpec } from './data.ts';
+// same as one big one. A trophy (Patch 7) is worth nothing to repair: it is
+// mended for free, as it goes back to the stock whole when knocked down.
+import { buildingSpec, levelSpec } from './data.ts';
 import type { Building } from './store.ts';
 import type { Cost, Res } from '../economy/resources.ts';
 import { ceilDiv } from '../fixed.ts';
 
 /** What a building cost in all: its first level's cost (times what it was placed at) and each upgrade's. */
 export function buildingWorth(b: Pick<Building, 'kind' | 'level' | 'costMul'>): Cost {
+  if (buildingSpec(b.kind).trophy) return [];
   const sum = new Map<Res, number>();
   for (let l = 1; l <= b.level; l++) {
     for (const [r, n] of levelSpec(b.kind, l).cost) sum.set(r, (sum.get(r) ?? 0) + n * (l === 1 ? Math.max(1, b.costMul) : 1));

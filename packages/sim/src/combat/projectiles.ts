@@ -20,6 +20,7 @@ import { WEB } from './mobs.ts';
 import { smoulder, SPARK } from '../threats/burns.ts';
 import { fireballBurst } from '../magic/cast.ts';
 import { POISON_TIPS } from '../units/kits.ts';
+import { FAR_SIGHT } from '../units/effects.ts';
 import { chipGround, fellTree } from './blasts.ts';
 
 /** Gravity, wu per step per step: 9.8 m/s2 at 20 steps a second. Even, so half of it times k squared stays whole. */
@@ -37,9 +38,9 @@ export const HAND_HEIGHT = floorDiv(WU_PER_METRE * 14, 10);
  * where it stops (magic/cast.ts fireballBurst).
  */
 /** Bit 8 was a venom-coated arrow's, which nothing ever fired; Patch 2 cut it with the Herbalist hut. */
-export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Venom: 8, Spell: 16, Burst: 32, Siege: 64, Pierce: 128 } as const;
+export const ProjectileFlag = { Blunt: 1, Fire: 2, Web: 4, Venom: 8, Spell: 16, Burst: 32, Siege: 64, Pierce: 128, Sunder: 256 } as const;
 
-/** Milestone 8. Siege: an engine's shot, which does its damage against walls to the foes' structures too (lairs, huts) (s). Pierce: a ballista bolt goes on through one more foe behind its first. */
+/** Milestone 8. Siege: an engine's shot, which does its damage against walls to the foes' structures too (lairs, huts) (s). Pierce: a ballista bolt goes on through one more foe behind its first. Patch 7. Sunder: an Elf longbow's arrow in a player's hands (Far sight) ignores some of the armour it hits (units/effects.ts). */
 
 /** Poison from a bite or a sting works over 5 s (roster 6.1), on top of the hit. */
 export const POISON = { steps: 5 * STEPS_PER_SECOND };
@@ -373,7 +374,7 @@ export function updateProjectiles(state: SimState): void {
         } else {
           const spell = (p.flags & ProjectileFlag.Spell) !== 0;
           const damage = p.flags & ProjectileFlag.Siege && e.kind[hit] === UnitKind.Mob && isStructure(e.mob[hit]!) ? SHOTS[p.shot]!.vsWalls : p.damage;
-          hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell });
+          hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell, ...(p.flags & ProjectileFlag.Sunder ? { armourCutBp: FAR_SIGHT.armourCutBp } : {}) });
           if (p.flags & ProjectileFlag.Pierce) pierceOn(state, p, hit);
           if (p.flags & ProjectileFlag.Venom) envenom(state, hit, p.shooter);
           shotHooks.hit(state, p.shot, p.shooter, hit);

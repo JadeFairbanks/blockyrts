@@ -22,6 +22,7 @@ import { MOUNTED } from './mounts/data.ts';
 import { onTop } from './units/top.ts';
 import { newPeoples, type PeoplesState } from './peoples/types.ts';
 import { newCircles, type CircleState } from './circles/state.ts';
+import { effectSightWu } from './units/effects.ts';
 
 /** Owner value for entities that belong to no player. */
 export const NEUTRAL = 255;
@@ -1226,7 +1227,7 @@ export function hoppingUp(state: SimState, i: number): boolean {
   return state.entities.hopUntil[i]! > state.step && state.entities.hopRise[i]! > 0;
 }
 
-/** How far a unit sees, wu: its kind's sight, plus a tower's 10 m when on one. */
+/** How far a unit sees, wu: its kind's sight, plus a tower's 10 m when on one, and the Elf longbow's Far sight in the dark (Patch 7). */
 export function sightOf(state: SimState, i: number): number {
   const e = state.entities;
   let base = SIGHT_WU[e.kind[i]!] ?? SIGHT_WU[0];
@@ -1234,6 +1235,8 @@ export function sightOf(state: SimState, i: number): number {
   if (e.kind[i] === UnitKind.Warrior && e.rank[i]! > 3) base += (e.rank[i]! - 3) * 2 * WU_PER_METRE;
   // From the saddle: 30 m (Table 1's mounted row).
   if (e.mount[i]) base = Math.max(base, MOUNTED.sight);
+  // Patch 7: the Elf longbow's Far sight, farther at dusk and night (units/effects.ts).
+  base += effectSightWu(state, i);
   const b = e.inside[i] ? state.buildings.get(e.inside[i]!) : undefined;
   const bonus = b ? (buildingSpec(b.kind).sightBonusM ?? 0) * WU_PER_METRE : 0;
   // A fog night halves it.

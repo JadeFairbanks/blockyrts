@@ -8,7 +8,7 @@ import { buildingCentre } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
 import { clockAt, Period } from '../clock.ts';
 import { giveFood } from '../economy/food.ts';
-import { FOODS } from '../economy/resources.ts';
+import { FOODS, RESOURCES } from '../economy/resources.ts';
 import { floorDiv, WU_PER_METRE } from '../fixed.ts';
 import { MONSTERS, NEUTRAL, NO_CARRY, PEOPLES, UnitKind, type SimState } from '../state.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
@@ -129,6 +129,13 @@ function onUnitDeath(state: SimState, i: number): void {
 
 function onBuildingFall(state: SimState, b: Building): void {
   const spec = buildingSpec(b.kind);
+  // A trophy knocked down (Patch 7) is not lost: its piece goes back to its owner's stock whole.
+  if (spec.trophy) {
+    const pool = state.players[b.owner]?.pool;
+    if (pool) pool[spec.trophy.item] = pool[spec.trophy.item]! + 1;
+    const [x, z] = buildingCentre(b);
+    state.events.push({ player: b.owner, kind: 'alert', text: `Monsters knocked the ${spec.name.toLowerCase()} down. The ${RESOURCES[spec.trophy.item]!.name.toLowerCase()} is back in your stock.`, x, z });
+  }
   if (spec.defence === 'wall' || spec.defence === 'gate') {
     let last = wallAlerts.get(state);
     if (!last) {

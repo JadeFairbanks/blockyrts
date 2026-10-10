@@ -139,13 +139,16 @@ const PLACE_KEYS: Readonly<Record<number, string | readonly string[]>> = {
   // Lights: B then T then T is a torch post.
   [BuildingKind.TorchPost]: 'T',
   [BuildingKind.Bonfire]: 'B',
+  // Patch 7's trophies: B for the bog trophy, V for Victor's.
+  [BuildingKind.BogTrophy]: 'B',
+  [BuildingKind.VictorsTrophy]: 'V',
 };
 
-/** The submenus' letters (s): D for Defences; T for Lights, as L is Follow. */
-const SUBMENU_KEYS: Readonly<Record<string, string>> = { Defences: 'D', Lights: 'T' };
+/** The submenus' letters (s): D for Defences; T for Lights, as L is Follow; P for Trophies (Patch 7), as T, R and O are taken. */
+const SUBMENU_KEYS: Readonly<Record<string, string>> = { Defences: 'D', Lights: 'T', Trophies: 'P' };
 
 /** What a submenu holds, for its button's name in the settings. */
-const SUBMENU_NAMES: Readonly<Record<string, string>> = { Defences: 'Defences (walls, gates, towers)', Lights: 'Lights (torch post, bonfire)' };
+const SUBMENU_NAMES: Readonly<Record<string, string>> = { Defences: 'Defences (walls, gates, towers)', Lights: 'Lights (torch post, bonfire)', Trophies: "Trophies (bog trophy, Victor's trophy)" };
 
 function placeKey(kind: number, variant: number): string {
   const k = PLACE_KEYS[kind];
