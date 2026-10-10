@@ -98,6 +98,11 @@ export class CardPop {
     return !this.el.hidden;
   }
 
+  /** Whether this menu is open over el (the button it was opened from). */
+  openOver(el: HTMLElement): boolean {
+    return this.open && this.at === el;
+  }
+
   /** Opens the choices over a card button (a plain list), or a gear menu (Patch 7). */
   show(at: HTMLElement, action: string, choices: readonly CardChoice[] | PopMenu): void {
     this.clear();
@@ -195,6 +200,8 @@ export class CardPop {
       ...(c.nameClass ? { nameClass: c.nameClass } : {}),
       ...(c.shine ? { shine: c.shine } : {}),
       className: `pop-row${c.lit ? ' best' : ''}${c.page ? ' has-page' : ''}`,
+      // Its tooltip (the hover's table) goes above or below the whole menu, never over its rows.
+      tipAbove: this.el,
       onPress: () => {
         if (c.page) {
           this.trail.push(c.page());

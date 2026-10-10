@@ -597,6 +597,7 @@ export class GameShell {
       message: (t) => this.message(t),
     });
     this.cardPop = new CardPop(this.layout.cardPop, this.buttons);
+    this.tooltip.quiet = (b) => this.cardPop.openOver(b.el);
     this.panel = new SelectionPanel(this.layout.selectionTitle, this.layout.selectionExtra, this.layout.selectionBody, this.layout.tierStrip, this.buttons, {
       player: this.player,
       health: (t) => this.health(t),

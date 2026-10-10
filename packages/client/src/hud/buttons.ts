@@ -268,6 +268,8 @@ export class Tooltip {
   private readonly el: HTMLElement;
   private current: HudButton | null = null;
   private sig = '';
+  /** True for a button whose tooltip stays hidden: one whose pop-up menu is open, which opens where its tooltip would. */
+  quiet: (b: HudButton) => boolean = () => false;
 
   constructor(parent: HTMLElement) {
     this.el = document.createElement('div');
@@ -277,6 +279,7 @@ export class Tooltip {
   }
 
   show(b: HudButton | null): void {
+    if (b && this.quiet(b)) b = null;
     if (b === this.current && (b === null || !this.el.hidden)) {
       if (b) this.fill(b); // the reason may have changed
       return;
