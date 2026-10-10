@@ -325,15 +325,15 @@ export class InventoryUi {
       foot: food
         ? 'Right click: Don\'t eat, or eat it again. Drag it onto one of your units: it fetches enough to heal once from a store point, to eat from its bag.'
         : gear
-          ? 'Right click: Equip or Scrap. Drag it onto one of your units to equip it, or onto the Workshop to scrap it.'
+          ? 'Right click: Equip, Fetch or Scrap. Drag it onto one of your units to equip it, or onto the Workshop to scrap it.'
           : equippable(res)
-            ? 'Right click: Equip or Scrap.'
-            : 'Right click: its menu.',
+            ? 'Right click: Equip or Fetch. Drag it onto one of your units: it fetches as many as fit from a store point.'
+            : 'Right click: its menu. Drag it onto one of your units: it fetches as many as fit from a store point.',
       className: `inv-slot${have === 0 ? ' zero' : ''}${kept ? ' dont-eat' : ''}`,
       onRightClick: () => this.actions.menu(btn.el, res),
       ...(gear ? { nameClass: rarityClass(res), compare: () => this.actions.compare(res) } : {}),
-      // Gear drags onto a unit or the Workshop, food onto a unit to fetch (Patch 7).
-      ...((gear || food) && have > 0 ? { holds: { res, unit: null, line: -1 } } : {}),
+      // Gear drags onto a unit or the Workshop, any other good onto a unit to fetch (Patch 7; mini patch 7.3).
+      ...(have > 0 ? { holds: { res, unit: null, line: -1 } } : {}),
     });
     this.setShine(slot, shineOf(res));
     if (slot.pic.getAttribute('src') !== src) slot.pic.src = src;

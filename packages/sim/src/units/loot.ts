@@ -224,16 +224,19 @@ export function addToBag(state: SimState, i: number, res: number, n: number): vo
   g.push(res, n);
 }
 
-/** Hands a unit's bag in: what it holds goes into its owner's pool, all but what it keeps (Patch 7). */
-export function handIn(state: SimState, i: number): void {
+/** Hands a unit's bag in: what it holds goes into its owner's pool, all but what it keeps (Patch 7). Returns what went in. */
+export function handIn(state: SimState, i: number): Items {
   const e = state.entities;
   const g = e.bag[i]!;
-  if (g.length === 0) return;
+  if (g.length === 0) return [];
   const ps = state.players[e.owner[i]!];
   if (ps) for (let k = 0; k < g.length; k += 2) ps.pool[g[k]!] = ps.pool[g[k]!]! + g[k + 1]!;
   // A woodsman's food line counts the food he brings in (Jade's WD-7).
   if (ps) ledgerAdd(state, i, foodIn(g), 0);
   e.bag[i] = [];
+  const out: Items = [];
+  for (let k = 0; k < g.length; k += 2) out.push([g[k]!, g[k + 1]!]);
+  return out;
 }
 
 /** How many of a good a unit carries, in its gathered load and its bag (kept or not). */
@@ -254,11 +257,12 @@ function takeOut(state: SimState, i: number, res: number): number {
   return n + takeFromBag(state, i, res, bagCount(state, i, res));
 }
 
-/** Hands in one good a unit carries, load and bag, into its owner's pool (GP-7: Unload). */
-export function handInOne(state: SimState, i: number, res: number): void {
+/** Hands in one good a unit carries, load and bag, into its owner's pool (GP-7: Unload); returns how many. */
+export function handInOne(state: SimState, i: number, res: number): number {
   const n = takeOut(state, i, res);
   const ps = state.players[state.entities.owner[i]!];
   if (ps && n > 0) ps.pool[res] = ps.pool[res]! + n;
+  return n;
 }
 
 /**
@@ -303,12 +307,17 @@ export function autoDropoff(state: SimState): void {
       if (!(load ? accepts(spec, e.carryRes[i]!) : all)) continue;
       const [x0, z0, x1, z1] = solidRect(b);
       if (rectDistance({ x0, z0, x1, z1, min: 0, max: 0 }, cx, cz) > reach) continue;
+      let items: Items;
       if (load) {
         const res = e.carryRes[i]!;
+        items = [[res, e.carryAmt[i]!]];
         unload(state, i, b);
         // A gatherer keeps in mind what it was gathering, to find more of it if its node is gone, as on reaching the drop-off.
         if (e.queue[i]![0]?.t === 'gather') e.carryRes[i] = res;
-      } else handIn(state, i);
+      } else items = handIn(state, i);
+      // On its way to Unload for the player, it says what went in (mini patch 7.3), as at the drop-off itself (runLoot).
+      const q = e.queue[i]![0];
+      if (q?.t === 'loot' && q.hand !== 0 && q.back === 0 && items.length > 0) say(state, i, `Handed in ${itemsText(items)}.`, false, true);
       break;
     }
   }
@@ -642,8 +651,12 @@ export function runLoot(state: SimState, i: number, o: Extract<UnitOrder, { t: '
       // A drop-off it cannot reach is not tried again for a while.
       if (o.back) e.waitUntil[i] = state.step + 30 * STEPS_PER_SECOND;
       else say(state, i, 'I cannot reach a drop-off.', true);
-    } else if (one >= 0) handInOne(state, i, one);
-    else handIn(state, i);
+    } else {
+      // Mini patch 7.3 (Jade: units say in a bubble what was given or received): an Unload the player sent it on says what went in.
+      const n = one >= 0 ? handInOne(state, i, one) : 0;
+      const items: Items = one >= 0 ? (n > 0 ? [[one, n]] : []) : handIn(state, i);
+      if (!o.back && items.length > 0) say(state, i, `Handed in ${itemsText(items)}.`, false, true);
+    }
     o.hand = 0;
     resetWalk(state, i);
     return CONTINUE;

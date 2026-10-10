@@ -235,14 +235,14 @@ export function gapToBuilding(state: SimState, i: number, b: Building): number {
   return length2d(dx, dz);
 }
 
-/** Armour a unit wears, bp: its armour tier's protection (body, helmet and boots together), capped at 75% (Table 3). Mobs have the roster's. */
+/** Armour a unit wears, bp: its armour tier's protection (body, helmet and boots together), capped at ARMOUR_CAP_BP (Table 3). Mobs have the roster's. */
 export function armourOf(state: SimState, i: number): number {
   const e = state.entities;
   if (e.kind[i] === UnitKind.Mob) return mobSpec(e.mob[i]!).armourBp;
   if (e.kind[i] === UnitKind.Animal) return speciesSpec(e.mob[i]!).armourBp;
   const pieces: number[] = [];
   if (e.armour[i]) pieces.push(gearSpec(e.armour[i]!).armourBp ?? 0);
-  // A support mage's Fortify: +15% on top, still capped at 75% (Table 13); a Grovesinger's Barkskin +25%.
+  // A support mage's Fortify: +15% on top, still capped (Table 13); a Grovesinger's Barkskin +25%.
   if (e.fortUntil[i]! > state.step) pieces.push(spellSpec(Spell.Fortify).bp);
   if (e.barkUntil[i]! > state.step) pieces.push(spellSpec(Spell.Barkskin).bp);
   // Patch 7: Victor's trophy, +5% protection on top, still capped (units/effects.ts).
@@ -251,7 +251,7 @@ export function armourOf(state: SimState, i: number): number {
   return totalArmourBp(pieces);
 }
 
-/** A shield blocks projectiles when the unit fights one-handed (Combat: One-handed weapons and shields). */
+/** A shield blocks physical projectiles when the unit fights one-handed (Combat: One-handed weapons and shields; magic passes it, mini patch 7.3). */
 export function shieldBlock(state: SimState, i: number): number {
   const e = state.entities;
   if (!e.shield[i]) return 0;
@@ -354,9 +354,10 @@ function hitLook(state: SimState, i: number, blocked: boolean): HitLook {
 
 /**
  * A blow lands on a unit: armour, the roster's piercing and blunt
- * modifiers, a shield against projectiles, and +50% on a climber on a wall.
- * Magic goes through all armour, a mount's too (Patch 7, Jade: "make magic
- * attacks fully ignore armor"). Returns the damage done.
+ * modifiers, a shield against physical projectiles, and +50% on a climber on
+ * a wall. Magic and poison go through all armour, a mount's too, and past
+ * shields (Patch 7, Jade: "make magic attacks fully ignore armor"; mini patch
+ * 7.3). Returns the damage done.
  */
 export function hurtUnit(state: SimState, i: number, hit: Blow): number {
   const e = state.entities;
@@ -364,6 +365,9 @@ export function hurtUnit(state: SimState, i: number, hit: Blow): number {
   // Patch 7 (Jade): the blow's damage rolled up or down before anything takes from it.
   const blow = hit.roll > 0 ? { ...hit, damage: rollDamage(state, hit.damage, hit.roll) } : hit;
   if (mountTakes(state, i, blow.damage)) return hurtMount(state, i, blow);
+  const kind = blowKind(blow);
+  // Mini patch 7.3 (Jade: "sheilds should not block magic either"): a shield, a hobgoblin's or a barrow knight's shield wall included, stops only physical shots.
+  const shot = blow.projectile && kind === DamageKind.Physical;
   let modifierBp = BP;
   if (e.kind[i] === UnitKind.Mob) {
     const spec = mobSpec(e.mob[i]!);
@@ -372,12 +376,12 @@ export function hurtUnit(state: SimState, i: number, hit: Blow): number {
     if (e.climbUntil[i]! > state.step) modifierBp = floorDiv(modifierBp * CLIMBING_DAMAGE_BP, BP);
     // A juggernaut's weak back, a barrow knight's shield wall (roster 5.19, 5.7).
     const a = blow.from ? e.indexOf(blow.from) : -1;
-    if (a >= 0) modifierBp = floorDiv(modifierBp * facingBp(state, i, e.x[a]!, e.z[a]!, blow.projectile), BP);
+    if (a >= 0) modifierBp = floorDiv(modifierBp * facingBp(state, i, e.x[a]!, e.z[a]!, shot), BP);
   }
   // A hobgoblin's shield blocks half of what is shot at it (Table 16).
-  const block = blow.projectile ? (e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).blockBp : shieldBlock(state, i)) : 0;
-  const kind = blowKind(blow);
-  const armour = kind === DamageKind.Magic ? 0 : armourOf(state, i);
+  const block = shot ? (e.kind[i] === UnitKind.Mob ? mobSpec(e.mob[i]!).blockBp : shieldBlock(state, i)) : 0;
+  // Magic and poison go through all armour (Patch 7; mini patch 7.3, Jade: "poison damage should also ignore armor").
+  const armour = kind === DamageKind.Physical ? armourOf(state, i) : 0;
   const armourBp = blow.armourCutBp ? armour - floorDiv(armour * blow.armourCutBp, BP) : armour;
   let d = blow.exact ? blow.damage : damageTaken({ damage: blow.damage, armourBp, modifierBp, projectile: blow.projectile, shieldBlockBp: block });
   // Warding: half damage from enemy spells (Table 13).
@@ -406,11 +410,11 @@ export function hurtUnit(state: SimState, i: number, hit: Blow): number {
   return d;
 }
 
-/** A blow its mount takes for a mounted unit (it has the more health, or as much): through the mount's armour; at 0 the rider is on foot. */
+/** A blow its mount takes for a mounted unit (it has the more health, or as much): through the mount's armour (not magic or poison); at 0 the rider is on foot. */
 function hurtMount(state: SimState, i: number, blow: Blow): number {
   const e = state.entities;
   const kind = blowKind(blow);
-  const d = blow.exact ? blow.damage : damageTaken({ damage: blow.damage, armourBp: kind === DamageKind.Magic ? 0 : mountArmourBp(state, i), modifierBp: BP, projectile: blow.projectile, shieldBlockBp: 0 });
+  const d = blow.exact ? blow.damage : damageTaken({ damage: blow.damage, armourBp: kind === DamageKind.Physical ? mountArmourBp(state, i) : 0, modifierBp: BP, projectile: blow.projectile, shieldBlockBp: 0 });
   e.mountHp[i] = e.mountHp[i]! - d;
   e.hurtAt[i] = state.step;
   if (blow.from) e.attacker[i] = blow.from;

@@ -223,7 +223,7 @@ export function effectAttackBp(state: SimState, i: number): number {
   return fury + victorBp(state, i);
 }
 
-/** Protection a unit gains, bp, as one more piece of armour (still under the 75% cap): Victor's trophy. */
+/** Protection a unit gains, bp, as one more piece of armour (still under the armour cap): Victor's trophy. */
 export function effectArmourBp(state: SimState, i: number): number {
   return victorBp(state, i);
 }

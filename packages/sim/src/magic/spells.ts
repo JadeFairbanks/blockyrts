@@ -5,8 +5,8 @@
 // and in twentieths on the unit (threats/abilities.ts MANA_SCALE).
 
 import { Shot } from '../combat/items.ts';
-import { STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
-import { DAMAGE_ROLL } from '../rules.ts';
+import { floorDiv, STEPS_PER_SECOND, WU_PER_METRE } from '../fixed.ts';
+import { ARMOUR_CAP_BP, DAMAGE_ROLL } from '../rules.ts';
 
 const SEC = STEPS_PER_SECOND;
 const M = WU_PER_METRE;
@@ -149,6 +149,16 @@ export interface SpellSpec {
   text: string;
 }
 
+/**
+ * Mini patch 7.3 (Jade: "nerf player unit cast spells only by 4 damage each,
+ * to effect lower tiers harder and compensate for armor ignore"): what each
+ * damage spell a player's unit casts does less, after her rank and wand,
+ * never below 1 (magic/cast.ts spellDamage). A Beam loses it from its whole
+ * burn, a Fireball from its hit and from its splash on each enemy, an Area
+ * blast on each it lands on. Monsters' and the peoples' spells keep theirs.
+ */
+export const PLAYER_SPELL_CUT = 4;
+
 /** Table 13 (all values (s) unless the doc says otherwise; Warding and Counterspell's effects are Jade's). */
 export const SPELLS: readonly SpellSpec[] = [
   {
@@ -167,7 +177,7 @@ export const SPELLS: readonly SpellSpec[] = [
     id: Spell.Fortify, name: 'Fortify', key: 'F', school: School.Support, rank: 3, hexcraft: false,
     mana: 30, cooldown: 15 * SEC, range: 10 * M, projectile: false, shot: -1, target: 'point', effect: 'fortify',
     amount: 0, radius: 5 * M, steps: 10 * SEC, bp: 1500, vsWalls: 0, clip: 'cast_area', model: 'spell_fortify', icon: 'icon_spell_fortify', auto: false, role: 'buff',
-    text: 'Your units within 5 m of the spot get +15% armour for 10 s (armour still stops at 75%).',
+    text: `Your units within 5 m of the spot get +15% armour for 10 s (armour still stops at ${floorDiv(ARMOUR_CAP_BP, 100)}%).`,
   },
   {
     id: Spell.Rally, name: 'Rally', key: 'Y', school: School.Support, rank: 4, hexcraft: false,
@@ -179,25 +189,25 @@ export const SPELLS: readonly SpellSpec[] = [
     id: Spell.ArcaneBolt, name: 'Arcane bolt', key: 'R', school: School.Battle, rank: 1, hexcraft: false,
     mana: 10, cooldown: 30, range: 18 * M, projectile: true, shot: Shot.ArcaneBolt, target: 'enemy', effect: 'bolt',
     amount: 20, radius: 0, steps: 0, bp: 0, vsWalls: 2, rollBp: DAMAGE_ROLL.magicBp, clip: 'cast_bolt', model: 'arcane_bolt', icon: 'icon_spell_arcane_bolt', auto: true, role: 'attack',
-    text: 'A violet star bolt flies at one enemy for 20 damage (more at higher ranks). It arcs over a low wall in its way, but never steeply; trees stop it.',
+    text: `A violet star bolt flies at one enemy for ${20 - PLAYER_SPELL_CUT} damage (more at higher ranks). It arcs over a low wall in its way, but never steeply; trees stop it.`,
   },
   {
     id: Spell.Beam, name: 'Beam', key: 'B', school: School.Battle, rank: 2, hexcraft: false,
     mana: 25, cooldown: 6 * SEC, range: 14 * M, projectile: false, shot: -1, target: 'enemy', effect: 'beam',
     amount: 12, radius: 0, steps: 3 * SEC, bp: 0, vsWalls: 0, rollBp: DAMAGE_ROLL.magicBp, clip: 'cast_beam', model: 'spell_beam_segment', icon: 'icon_spell_beam', auto: false, role: 'attack',
-    text: 'A continuous beam burns one enemy for 12 a second for 3 s while the mage stands and holds it.',
+    text: `A continuous beam burns one enemy for ${12 * 3 - PLAYER_SPELL_CUT} over 3 s while the mage stands and holds it.`,
   },
   {
     id: Spell.Fireball, name: 'Fireball', key: 'F', school: School.Battle, rank: 3, hexcraft: false,
     mana: 30, cooldown: 8 * SEC, range: 22 * M, projectile: true, shot: Shot.Fireball, target: 'enemy', effect: 'fireball',
     amount: 35, radius: 2 * M, steps: 5 * SEC, bp: 0, vsWalls: 30, rollBp: DAMAGE_ROLL.magicBp, clip: 'cast_bolt', model: 'spell_fireball', icon: 'icon_spell_fireball', auto: false, role: 'attack',
-    text: 'A lobbed fireball: 35 to what it hits and 15 to every enemy within 2 m. Three times as hard on wooden walls and buildings, 30 on stone, and wood burns 8 a second for 5 s.',
+    text: `A lobbed fireball: ${35 - PLAYER_SPELL_CUT} to what it hits and ${15 - PLAYER_SPELL_CUT} to every enemy within 2 m. Three times its full 35 on wooden walls and buildings, 30 on stone, and wood burns 8 a second for 5 s.`,
   },
   {
     id: Spell.AreaBlast, name: 'Area blast', key: 'T', school: School.Battle, rank: 4, hexcraft: false,
     mana: 50, cooldown: 15 * SEC, range: 16 * M, projectile: false, shot: -1, target: 'point', effect: 'blast',
     amount: 45, radius: 4 * M, steps: 0, bp: 0, vsWalls: 40, rollBp: DAMAGE_ROLL.magicBp, clip: 'cast_area', model: 'spell_area_ring', icon: 'icon_spell_area_blast', auto: false, role: 'attack',
-    text: 'A ring of force: 45 damage to everything within 4 m that is not a player\'s, hostile or not. Cast on a unit, it lands where that unit is; cast on the ground, on the spot.',
+    text: `A ring of force: ${45 - PLAYER_SPELL_CUT} damage to everything within 4 m that is not a player's, hostile or not. Cast on a unit, it lands where that unit is; cast on the ground, on the spot.`,
   },
   {
     id: Spell.Warding, name: 'Warding', key: 'W', school: School.Support, rank: 2, hexcraft: true,
@@ -228,7 +238,7 @@ export const SPELLS: readonly SpellSpec[] = [
     id: Spell.Barkskin, name: 'Barkskin', key: 'B', school: School.Grove, rank: 1, hexcraft: false,
     mana: 30, cooldown: 20 * SEC, range: 10 * M, projectile: false, shot: -1, target: 'point', effect: 'bark',
     amount: 0, radius: 6 * M, steps: 10 * SEC, bp: 2500, vsWalls: 0, clip: 'cast_area', model: 'spell_barkskin', icon: 'icon_spell_barkskin', auto: true, role: 'grove',
-    text: 'Allies within 6 m of the spot get +25% armour for 10 s (armour still stops at 75%).',
+    text: `Allies within 6 m of the spot get +25% armour for 10 s (armour still stops at ${floorDiv(ARMOUR_CAP_BP, 100)}%).`,
   },
   {
     id: Spell.MendingBloom, name: 'Mending bloom', key: 'M', school: School.Grove, rank: 1, hexcraft: false,
@@ -247,7 +257,7 @@ export const SPELLS: readonly SpellSpec[] = [
     id: Spell.EnergyDart, name: 'Energy dart', key: 'D', school: School.Support, rank: 1, hexcraft: false,
     mana: 10, cooldown: 30, range: 16 * M, projectile: true, shot: Shot.EnergyDart, target: 'enemy', effect: 'bolt',
     amount: 14, radius: 0, steps: 0, bp: 0, vsWalls: 1, rollBp: DAMAGE_ROLL.magicBp, clip: 'cast_bolt', model: 'energy_dart', icon: 'icon_energy_dart', auto: true, role: 'attack',
-    text: 'An arrow made of light flies at one enemy for 14 damage (more at higher ranks). It arcs over a low wall in its way, but never steeply; trees stop it.',
+    text: `An arrow made of light flies at one enemy for ${14 - PLAYER_SPELL_CUT} damage (more at higher ranks). It arcs over a low wall in its way, but never steeply; trees stop it.`,
   },
 ];
 
