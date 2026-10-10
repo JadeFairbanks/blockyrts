@@ -125,7 +125,7 @@ export type UnitOrder =
   | { t: 'scrap'; b: number; res: number; worn: number }
   /** Equip from the stock (Patch 7, units/handling.ts): walk to the place `b` and put on `res`, paid (`paid` 1) from the stock, the old piece back to the stock; for a piece Upgrade's kitUp cannot put on (the Dreadnought's, or no higher tier than the line has). */
   | { t: 'putOn'; res: number; b: number; paid: number }
-  /** Fetch food (Patch 7, units/food-bag.ts): walk to the main base or storehouse `b` and take `n` of the food `res` from the stock into the bag, kept there. */
+  /** Fetch (Patch 7, units/food-bag.ts; any good since mini patch 7.3): walk to the main base or storehouse `b` and take `n` of the good `res` from the stock into the bag, kept there. */
   | { t: 'fetch'; res: number; n: number; b: number };
 
 export type UnitOrderType = UnitOrder['t'];
@@ -287,6 +287,6 @@ export function unitOrderText(o: UnitOrder | undefined): string {
     case 'putOn':
       return 'Going to equip';
     case 'fetch':
-      return 'Fetching food';
+      return 'Fetching from the stock';
   }
 }

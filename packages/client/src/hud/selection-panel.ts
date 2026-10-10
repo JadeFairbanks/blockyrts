@@ -1140,10 +1140,10 @@ export class SelectionPanel {
         keys: [],
         description: `Carrying ${itemsText([[res, n]])}. ${r.source}${food}${kept ? ' Kept in its bag: it is not handed in.' : ''}`,
         foot: piece
-          ? 'Right click: Equip, Keep in bag, Give, Unload, Drop or Scrap. Drag it onto this unit to equip it, onto another to give it.'
+          ? 'Right click: Equip, Keep in bag, Give, Unload, Drop or Scrap. Drag it onto this unit to equip it, onto another to give it, onto your stock to hand it in.'
           : r.nutrition > 0
-            ? 'Right click: Eat, Keep in bag, Give, Unload or Drop. Drag it onto another unit to give it.'
-            : 'Right click: Use, Keep in bag, Give, Unload or Drop. Drag it onto another unit to give it.',
+            ? 'Right click: Eat, Keep in bag, Give, Unload or Drop. Drag it onto another unit to give it, onto your stock to hand it in.'
+            : 'Right click: Use, Keep in bag, Give, Unload or Drop. Drag it onto another unit to give it, onto your stock to hand it in.',
         className: `chip unit-slot${kept ? ' kept' : ''}`,
         tipAbove: box,
         onRightClick: () => this.a.itemMenu(btn.el, unit, res),
