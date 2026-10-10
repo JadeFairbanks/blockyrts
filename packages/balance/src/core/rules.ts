@@ -499,6 +499,13 @@ export const KEY_LABELS: Readonly<Record<string, string>> = {
   // The night's budget, term by term (Jade's formula: 12 + (n - 1) + 3n + 0.04n²).
   'NIGHT_BUDGET:startTenths': 'Start (the 12)', 'NIGHT_BUDGET:rampTenths': 'Each night after the first, extra (the n − 1)',
   'NIGHT_BUDGET:perNightTenths': 'Each night (the 3n)', 'NIGHT_BUDGET:curveThousandths': 'Curve (the 0.04n²)', 'NIGHT_BUDGET:scalePct': 'Whole budget scaled',
+  // Mini patch 7.3: fish in each band's water, what streams and ponds keep of it, and the troops a player starts with.
+  'FISH_WATER:heartlandPerM2Thousandths': 'Heartland water: a fish per (m²)', 'FISH_WATER:fringePerM2Thousandths': 'Fringe water: a fish per (m²)',
+  'FISH_WATER:deepwoodsPerM2Thousandths': 'Deepwoods water: a fish per (m²)', 'FISH_WATER:streamBp': 'Streams keep', 'FISH_WATER:pondBp': 'Ponds keep',
+  'START_TROOPS:clubmen': 'Clubmen at the start', 'START_TROOPS:spearmen': 'Spearmen at the start',
+  // Mini patch 7.3: the raise at the start of the nights, falling to nothing.
+  'NIGHT_BUDGET:frontBonusBp': 'Night 1 raised by', 'NIGHT_BUDGET:frontEndNight': 'Raise gone by night',
+  'NIGHT_BUDGET:frontShape': 'Raise falls (1 straight, 2 or more faster at first)', 'NIGHT_BUDGET:frontRoundTenths': 'Raised budget rounded down to (tenths)',
   // Turning on the troops (Jade's Patch 4).
   'TROOP_AGGRO:steps': 'A troop\'s blow turns a monster on the troops for',
   'TROOP_AGGRO:lookWu': 'It looks for the nearest troop at least this far (as far as the troop that hit it if farther; halved on a fog night)',
@@ -599,6 +606,9 @@ export const KEY_UNITS: Readonly<Record<string, UnitId>> = {
   'THREAT:unitHealth': 'health', 'THREAT:unitDpsTenths': 'tenths', 'THREAT:healthParts': 'number', 'THREAT:damageParts': 'number',
   'THREAT:onceSeconds': 'wholeSeconds', 'THREAT:speedRefTenths': 'speedTenths', 'THREAT:rangedFullM': 'metres', 'THREAT:overWallReachCm': 'metresCm',
   'NIGHT_BUDGET:startTenths': 'tenths', 'NIGHT_BUDGET:rampTenths': 'tenths', 'NIGHT_BUDGET:perNightTenths': 'tenths', 'NIGHT_BUDGET:curveThousandths': 'thousandths',
+  'FISH_WATER:heartlandPerM2Thousandths': 'thousandths', 'FISH_WATER:fringePerM2Thousandths': 'thousandths', 'FISH_WATER:deepwoodsPerM2Thousandths': 'thousandths',
+  'START_TROOPS:clubmen': 'number', 'START_TROOPS:spearmen': 'number',
+  'NIGHT_BUDGET:frontBonusBp': 'percentBp', 'NIGHT_BUDGET:frontEndNight': 'number', 'NIGHT_BUDGET:frontShape': 'number', 'NIGHT_BUDGET:frontRoundTenths': 'tenths',
   BUILD_XP_TENTHS_PER_MINUTE: 'xpTenths', GATHER_XP_TENTHS_PER_MINUTE: 'xpTenths',
   // Patch 5: what the waves go for (combat/aims.ts) and the towers they break.
   'WAVE_AIMS:baseM': 'metres', 'WAVE_AIMS:openM': 'metres', 'WAVE_AIMS:partyM': 'metres', 'WAVE_AIMS:edgeSpreadM': 'metres', 'WAVE_AIMS:baseReachM': 'metres',

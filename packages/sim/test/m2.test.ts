@@ -106,10 +106,10 @@ function freeSpot(s: SimState, kind: number): [number, number] {
 }
 
 describe('the starting camp', () => {
-  it('is a finished level 1 Big House, four workers with wooden tools, three close-melee troops, a spearman and the starting stock', () => {
+  it('is a finished level 1 Big House, four workers with wooden tools, two close-melee troops, a spearman and the starting stock', () => {
     const s = createWorld(1, { peaceful: true });
     const e = s.entities;
-    expect(e.count).toBe(8);
+    expect(e.count).toBe(7);
     for (let i = 0; i < 4; i++) {
       expect(e.kind[i]).toBe(UnitKind.Worker);
       // One tool kit tier, the hardwood kit, for every job (Troops and gear: workers' tools).
@@ -118,8 +118,8 @@ describe('the starting camp', () => {
       expect(e.hp[i]).toBe(60);
       expect(e.id[i]).toBe(i + 1);
     }
-    // Troops and gear: starting units: close melee with tier 1 weapons (wooden cudgels) and no armour.
-    for (let i = 4; i < 7; i++) {
+    // Troops and gear: starting units: close melee with tier 1 weapons (wooden cudgels) and no armour; two since mini patch 7.3.
+    for (let i = 4; i < 6; i++) {
       expect(e.kind[i]).toBe(UnitKind.Warrior);
       expect(e.id[i]).toBe(i + 1);
       expect(e.hp[i]).toBe(100);
@@ -127,8 +127,8 @@ describe('the starting camp', () => {
       expect([e.weapon[i], e.ranged[i], e.shield[i], e.armour[i]]).toEqual([CLOSE_GEAR[1], 0, 0, 0]);
     }
     // Patch 7 (Jade): a spearman joins them, with the tier 1 spear and no armour.
-    expect([e.kind[7], e.troop[7], e.wTier[7], e.aTier[7]]).toEqual([UnitKind.Warrior, Troop.Long, 1, 0]);
-    expect([e.weapon[7], e.ranged[7], e.shield[7], e.armour[7]]).toEqual([LONG_GEAR[1], 0, 0, 0]);
+    expect([e.kind[6], e.troop[6], e.wTier[6], e.aTier[6]]).toEqual([UnitKind.Warrior, Troop.Long, 1, 0]);
+    expect([e.weapon[6], e.ranged[6], e.shield[6], e.armour[6]]).toEqual([LONG_GEAR[1], 0, 0, 0]);
     const b = bigHouse(s);
     expect(b.complete).toBe(true);
     expect(b.level).toBe(1);
@@ -137,7 +137,7 @@ describe('the starting camp', () => {
     // More food for the four troops, and room in the Big House's supply for them (Patch 7: 4 more venison, 2 more supply).
     expect([pool[Res.Venison], pool[Res.Trout], pool[Res.Eggs], pool[Res.SoftwoodLumber], pool[Res.Stone], pool[Res.Flint], pool[Res.Sticks]]).toEqual([29, 10, 10, 40, 20, 10, 20]);
     expect(supplyCap(s, 0)).toBe(12);
-    expect(supplyUsed(s, 0)).toBe(8);
+    expect(supplyUsed(s, 0)).toBe(7);
   });
 
   it('gives every player their own camp', () => {
@@ -426,8 +426,8 @@ describe('training and production queues', () => {
     expect(food()).toBeLessThan(before[Res.Venison]! * 2 + before[Res.Trout]! * 3 + before[Res.Eggs]! * 2);
     // The kit's 3 sticks for the one still queued (Table 7).
     expect(pool[Res.Sticks]).toBe(before[Res.Sticks]! - 3);
-    runUntil(s, () => ownUnits(s).length === 9, 700);
-    const w = ownUnits(s)[8]!;
+    runUntil(s, () => ownUnits(s).length === 8, 700);
+    const w = ownUnits(s)[7]!;
     expect(s.entities.kind[w]).toBe(UnitKind.Worker);
     expect(s.entities.wTier[w]).toBe(1);
     expect(s.entities.toolChop[w]).toBe(TOOL_GEAR[1]![ToolJob.Chop]);

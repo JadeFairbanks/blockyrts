@@ -61,7 +61,7 @@ function run(s: SimState, n: number): SimEvent[] {
   return events;
 }
 
-/** Player 0's units: the 4 workers and 3 warriors a game starts with. */
+/** Player 0's units: the 4 workers, 2 clubmen and the spearman a game starts with (mini patch 7.3: one clubman fewer). */
 function eaters(s: SimState): number[] {
   const out: number[] = [];
   for (let i = 0; i < s.entities.count; i++) if (mealQuarters(s, i) > 0 && s.entities.owner[i] === 0) out.push(i);
@@ -83,11 +83,11 @@ describe('meals', () => {
     const s = stocked(foods);
     const p = s.players[0]!;
     const before = foodQuarters(p);
-    expect(eaters(s).length).toBe(8);
-    // One round: each of the 8 (Patch 7: a spearman joins the start) eats once, half a food each.
+    expect(eaters(s).length).toBe(7);
+    // One round: each of the 7 (Patch 7: a spearman joins the start; mini patch 7.3: a clubman leaves it) eats once, half a food each.
     run(s, MEAL_STEPS);
-    expect(before - foodQuarters(p)).toBe(8 * 2);
-    // Eight meals went round the five kinds: every kind has been started.
+    expect(before - foodQuarters(p)).toBe(7 * 2);
+    // Seven meals went round the five kinds: every kind has been started.
     for (const f of foods) expect(p.pool[f]).toBe(9);
     // A day later every kind is still being eaten alike: no kind has had two more meals than another.
     run(s, 4 * MEAL_STEPS);
@@ -99,9 +99,9 @@ describe('meals', () => {
     const s = stocked([Res.Venison, Res.Trout, Res.Eggs, Res.FarmFare, Res.Salmon]);
     const p = s.players[0]!;
     const before = foodQuarters(p);
-    // Two days: 8 eaters x 2 food a day x 2, to the quarter.
+    // Two days: 7 eaters x 2 food a day x 2, to the quarter.
     run(s, 8 * MEAL_STEPS);
-    expect(before - foodQuarters(p)).toBe(8 * 2 * 2 * QUARTERS);
+    expect(before - foodQuarters(p)).toBe(7 * 2 * 2 * QUARTERS);
     // The counter is whole food, rounded down, and the pool holds whole items only.
     expect(foodValue(p)).toBe(Math.floor(foodQuarters(p) / QUARTERS));
     for (const f of FOODS) expect(p.open[f]!).toBeLessThan(itemQuarters(f));
@@ -187,7 +187,7 @@ describe('meals', () => {
   it('staggers the meals by unit and counts down to the next one', () => {
     const s = createWorld(1, { peaceful: true });
     const phases = new Set(eaters(s).map((i) => mealPhase(s.entities.id[i]!)));
-    expect(phases.size).toBe(8);
+    expect(phases.size).toBe(7);
     const id = s.entities.id[eaters(s)[0]!]!;
     const left = nextMealIn(s.step, id);
     expect(left).toBeGreaterThanOrEqual(1);

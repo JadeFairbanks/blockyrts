@@ -231,7 +231,8 @@ describe('the woodsman (Patch 5)', () => {
     }
     expect(catches).toBeGreaterThanOrEqual(3);
     expect(all.some((f) => fishLeft(s, f).amount === keepOf(s, f))).toBe(true);
-    // What he caught is in his bag: it takes 10 trout before he must take it home.
+    // What he caught is in his bag: it takes 10 trout before he must take it home (mini patch 7.3: a Heartland pond
+    // holds no fish, so it is a stream's).
     expect(e.bag[w]).toEqual([Res.Trout, catches]);
   });
 

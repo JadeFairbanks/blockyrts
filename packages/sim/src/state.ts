@@ -790,7 +790,7 @@ export interface WorldOptions {
   players?: number;
   /** Workers each player starts with: 4 (Premise, Starting setup). */
   playerUnits?: number;
-  /** Warriors each player starts with: 3 close-melee troops with wooden cudgels and no armour (Troops and gear: starting units). */
+  /** Warriors each player starts with: START_TROOPS.clubmen close-melee troops with wooden cudgels and no armour (Troops and gear: starting units). */
   warriors?: number;
   /** Spearmen each player starts with, beside the warriors: 1 with a fire-hardened spear and no armour (Patch 7, Jade); none when `warriors` is 0. */
   spearmen?: number;
@@ -1152,8 +1152,8 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
   }
   // Then the starting warriors, a little east of the workers: close melee, a wooden cudgel, no armour (Jade); and from
   // Patch 7 a spearman with a fire-hardened spear at the end of their row (Jade).
-  const warriors = options.warriors ?? 3;
-  const troops = warriors + (options.spearmen ?? (warriors > 0 ? 1 : 0));
+  const warriors = options.warriors ?? START_TROOPS.clubmen;
+  const troops = warriors + (options.spearmen ?? (warriors > 0 ? START_TROOPS.spearmen : 0));
   for (const pocket of world.gen.start.pockets) {
     const px = pocket.x * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
     const pz = pocket.z * WU_PER_COLUMN + (WU_PER_COLUMN >> 1);
@@ -1181,6 +1181,15 @@ export function createWorld(seed: number, options: WorldOptions = {}): SimState 
   revealVision(state);
   return state;
 }
+
+/**
+ * The troops each player starts with, beside the workers (Troops and gear:
+ * starting units): clubmen with wooden cudgels and no armour, and from Patch 7
+ * a spearman with a fire-hardened spear (Jade). Mini patch 7.3 (Jade,
+ * 2026-10-10: "remove one club man from the players starting units"): 2
+ * clubmen, 3 before.
+ */
+export const START_TROOPS = { clubmen: 2, spearmen: 1 };
 
 /** Warrior health by rank (Table 1: Recruit 100 to Hero 180). */
 export const WARRIOR_HEALTH_BY_RANK: readonly number[] = [100, 100, 120, 140, 160, 180];
