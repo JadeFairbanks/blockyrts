@@ -23,7 +23,7 @@ import { HOP_SLOW_BP, hoppingUp, isGod, landAt, NO_CARRY, OrderKind, placeBuildi
 import { WARRIOR_XP_TENTHS } from '../combat/combat.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { BOULDER_HALF } from '../world/generate.ts';
-import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool, ToolJob } from '../world/props.ts';
+import { isFish, isSoftOre, isTree, propInfo, propJob, PropKind, PropShape, Tool, ToolJob, woodsmanOnly } from '../world/props.ts';
 import { carcassExtra } from '../animals/animals.ts';
 import type { PropView } from '../world/world.ts';
 import { ENTER_IN, ENTER_NIGHT, ENTER_TOP, type UnitOrder } from './unit-orders.ts';
@@ -43,13 +43,14 @@ import { SCHOOL_NAMES, Spell, spellSpec } from '../magic/spells.ts';
 import { effectMoveBp, effectWorkBp } from './effects.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { propTaken } from '../circles/disturb.ts';
-import { askHooks, speakerName } from '../peoples/speech.ts';
+import { askHooks, say, speakerName } from '../peoples/speech.ts';
 import { mountedSpeed } from '../mounts/riding.ts';
 import { runCrew, runMend, runRetrain } from '../siege/engines.ts';
 import { addToBag, bagEmpty, bagFreeTenthsLb, handIn, lootIdle, runLoot } from './loot.ts';
 import { fillBag, stockTenthsLb, workedOut } from '../buildings/mining.ts';
 import { goesHome, nextNode, runForage } from './forage.ts';
 import { runWoods } from './woods.ts';
+import { woodsmanOnlyLine } from './woodsman.ts';
 import { tinker } from './tinker.ts';
 import { runCircle } from '../circles/act.ts';
 import { runGive, runPutOn, runScrap } from './handling.ts';
@@ -318,9 +319,9 @@ export function nodeResource(kind: number, variant = 0): number {
   return resourceByName(propInfo(kind).resource);
 }
 
-/** Whether a worker can gather a node now: holding something (a sapling holds nothing yet), and its tool for the node's job is good enough. Fish only woodsmen catch (Patch 5, Jade's FR-1: units/woods.ts). */
+/** Whether a worker can gather a node now: holding something (a sapling holds nothing yet), and its tool for the node's job is good enough. Fish and edible mushrooms only woodsmen take (Patch 5, Jade's FR-1; her Patch 6 playtest ruling: units/woods.ts). */
 export function gatherable(state: SimState, i: number, view: PropView | undefined): view is PropView {
-  if (!view || view.amount <= 0 || isFish(view.kind)) return false;
+  if (!view || view.amount <= 0 || woodsmanOnly(view.kind)) return false;
   const info = propInfo(view.kind);
   return nodeResource(view.kind, view.variant) >= 0 && (info.tool === Tool.None || toolTier(state.entities, i, propJob(view.kind)) >= info.tool);
 }
@@ -356,8 +357,8 @@ export function findNode(state: SimState, i: number, res: number, x: number, z: 
     for (let cx = (x - radius) >> CHUNK_SHIFT; cx <= (x + radius) >> CHUNK_SHIFT; cx++) {
       for (const p of state.world.props(cx, cz, state.step)) {
         if (skip && skip.cx === cx && skip.cz === cz && skip.i === p.index) continue;
-        // res -1: a node of anything the worker can gather.
-        if ((res >= 0 && nodeResource(p.kind, p.variant) !== res) || !gatherable(state, i, p)) continue;
+        // res -1: a node of anything the worker can gather, but never wild food, which a worker picks only when sent to it (Jade's Patch 6 ruling).
+        if ((res >= 0 ? nodeResource(p.kind, p.variant) !== res : propInfo(p.kind).forage) || !gatherable(state, i, p)) continue;
         const gx = (cx << CHUNK_SHIFT) + p.lx;
         const gz = (cz << CHUNK_SHIFT) + p.lz;
         const d = (gx - x) * (gx - x) + (gz - z) * (gz - z);
@@ -698,6 +699,10 @@ function runGather(state: SimState, i: number, o: Extract<UnitOrder, { t: 'gathe
   let view = nodeView(state, o.cx, o.cz, o.i);
   if (e.act[i] === Act.Start) {
     const kind = view?.kind ?? -1;
+    if (view && woodsmanOnly(kind)) {
+      say(state, i, woodsmanOnlyLine(kind));
+      return DONE;
+    }
     if (view && nodeResource(kind, view.variant) >= 0 && view.amount > 0 && !gatherable(state, i, view)) {
       const info = propInfo(kind);
       alert(state, e.owner[i]!, `${info.name}: needs a ${toolNeeded(propJob(kind), info.tool)} or better.`, e.x[i]!, e.z[i]!, i);

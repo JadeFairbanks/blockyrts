@@ -60,7 +60,7 @@ const TYPES = {
 const excluded = existsSync(routesFile) ? JSON.parse(readFileSync(routesFile, 'utf8')).exclude : null;
 const skipsGate = (path) => excluded === null || excluded.some((p) => (p.endsWith('/*') ? path.startsWith(p.slice(0, -1)) : path === p));
 const COOKIE = 'sac_login=yes';
-const SIGN_IN = '<!doctype html><title>Sign in</title><main id="sign-in">A learning project. Sign in to continue.</main>';
+const SIGN_IN = '<!doctype html><title>Sign in</title><main id="sign-in">Sign in to continue.</main>';
 const server = createServer((req, res) => {
   const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (!skipsGate(path) && !(req.headers.cookie ?? '').includes(COOKIE)) {

@@ -274,6 +274,16 @@ export function isFish(kind: number): boolean {
   return kind === PropKind.FishTrout || kind === PropKind.FishSalmon || kind === PropKind.FishCatfish;
 }
 
+/**
+ * Whether only a woodsman works a prop: fish stretches and edible mushrooms.
+ * Jade's Patch 6 playtest ruling: "only woodsman can get fish and edible
+ * mushrooms, but workers can still gather berries if directly ordered to";
+ * only the woodsman can tell an edible mushroom from a bad one.
+ */
+export function woodsmanOnly(kind: number): boolean {
+  return isFish(kind) || kind === PropKind.Mushroom;
+}
+
 export function propInfo(kind: number): PropInfo {
   const p = PROPS[kind];
   if (!p) throw new Error(`unknown prop kind ${kind}`);

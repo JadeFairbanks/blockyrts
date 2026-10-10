@@ -9,7 +9,7 @@ import { buildingSpec } from '../buildings/data.ts';
 import type { Building } from '../buildings/store.ts';
 import { floorDiv, isqrt, length2d, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE, WU_PER_TERRAIN_UNIT } from '../fixed.ts';
 import { rankSpreadReductionBp } from '../rules.ts';
-import { OrderKind, PEOPLES, UnitKind, type Projectile, type SimState } from '../state.ts';
+import { DamageKind, OrderKind, PEOPLES, UnitKind, type Projectile, type SimState } from '../state.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { isTree } from '../world/props.ts';
 import { bodyHeight, forward, halfWidth, hurtBuilding, hurtUnit, shotMayHit, Side, sideOf } from './combat.ts';
@@ -57,6 +57,12 @@ function envenom(state: SimState, t: number, from: number): void {
   e.dotLeft[t] = Math.max(e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0, POISON_TIPS.poison);
   e.dotUntil[t] = state.step + POISON.steps;
   e.dotFrom[t] = from;
+  e.dotKind[t] = DamageKind.Poison;
+}
+
+/** A shot of magic (Patch 7, Jade): a spell that flies, or a bolt of magic that is none (a flamecaller's hellfire); it and its burst go through armour. */
+function magicShot(p: Projectile): boolean {
+  return (p.flags & ProjectileFlag.Spell) !== 0 || SHOTS[p.shot]!.magic === true;
 }
 
 /** Where a projectile is at a given age. */
@@ -374,7 +380,7 @@ export function updateProjectiles(state: SimState): void {
         } else {
           const spell = (p.flags & ProjectileFlag.Spell) !== 0;
           const damage = p.flags & ProjectileFlag.Siege && e.kind[hit] === UnitKind.Mob && isStructure(e.mob[hit]!) ? SHOTS[p.shot]!.vsWalls : p.damage;
-          hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell, ...(p.flags & ProjectileFlag.Sunder ? { armourCutBp: FAR_SIGHT.armourCutBp } : {}) });
+          hurtUnit(state, hit, { damage, from: p.shooter, projectile: true, blunt: (p.flags & ProjectileFlag.Blunt) !== 0, pierce: (p.flags & ProjectileFlag.Blunt) === 0 && !spell, spell, magic: magicShot(p), ...(p.flags & ProjectileFlag.Sunder ? { armourCutBp: FAR_SIGHT.armourCutBp } : {}) });
           if (p.flags & ProjectileFlag.Pierce) pierceOn(state, p, hit);
           if (p.flags & ProjectileFlag.Venom) envenom(state, hit, p.shooter);
           shotHooks.hit(state, p.shot, p.shooter, hit);
@@ -451,7 +457,7 @@ function splash(state: SimState, p: Projectile, x: number, y: number, z: number,
   for (const j of state.grid.near(x, z, r + 2 * WU_PER_METRE)) {
     if (j === struck || e.hp[j]! <= 0 || e.inside[j] !== 0 || !shotMayHit(state, p.side, p.faction, p.owner, j)) continue;
     if (length2d(e.x[j]! - x, e.z[j]! - z) > r + halfWidth(state, j)) continue;
-    hurtUnit(state, j, { damage: sp.splash, from: p.shooter, projectile: false, blunt: true, pierce: false });
+    hurtUnit(state, j, { damage: sp.splash, from: p.shooter, projectile: false, blunt: true, pierce: false, magic: magicShot(p) });
   }
   if (!sp.ignite || p.side === Side.Players) return;
   for (const b of state.buildings.list) {

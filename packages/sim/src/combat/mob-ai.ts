@@ -15,7 +15,7 @@ import { CLIMBER, MOB_WALKER, WALKER, type Mover } from '../nav/grid.ts';
 import { pointGoal, TILE_COLUMNS } from '../nav/path.ts';
 import { hash32 } from '../rng.ts';
 import { burnThisStep } from '../rules.ts';
-import { HOP_SLOW_BP, hoppingUp, landAt, MONSTERS, OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
+import { DamageKind, HOP_SLOW_BP, hoppingUp, landAt, MONSTERS, OrderKind, SIGHT_WU, standY, UnitKind, type SimState } from '../state.ts';
 import { Mat } from '../world/materials.ts';
 import { blast, BOMB_BUILDINGS, BOMB_UNITS, dealtTenths, OVER_WALL_REACH, wallBetween, forward, gap, gapToBuilding, halfWidth, hurtBuilding, hurtUnit, Side, sideOf, bodyHeight, wholeDamage } from './combat.ts';
 import { crater } from './blasts.ts';
@@ -558,6 +558,7 @@ function land(state: SimState, i: number, spec: MobSpec): void {
       e.dotLeft[t] = (e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0) + wholeDamage(state, i, spec.poisonTenths);
       e.dotUntil[t] = state.step + POISON.steps;
       e.dotFrom[t] = e.id[i]!;
+      e.dotKind[t] = DamageKind.Poison;
     }
   }
   if (spec.id === Mob.Zombie) {

@@ -304,29 +304,32 @@ const ranged = (tier: number, what: What, model: string, damage: number, attackD
 
 /** A recurve bow with arrowheads of one metal (Table 2e: 3 lumber, 1 sinew or flax, 1 ingot, 1 feather). */
 const recurve = (tier: number, what: Res, damage: number, ingot: Res): RangedKit =>
-  ranged(tier, what, 'bow_recurve', damage, 20, 25, 6, Shot.Arrow, false, ways([[ingot, 1], [FE, 1], [LU, 3]], [[ROPE, 1], [FX, 1]]), 34, [], 30);
+  ranged(tier, what, 'bow_recurve', damage, 35, 25, 3, Shot.Arrow, false, ways([[ingot, 1], [FE, 1], [LU, 3]], [[ROPE, 1], [FX, 1]]), 34, [], 30);
 
 /**
  * The ranger: one ladder with deliberate repeats (Jade): a sling, a yew
  * longbow, the same recurve bow at 3 to 6 with better arrowheads, the
  * crossbow at 7 and the musket at 8. Ammunition is unlimited (Jade), and
  * every gunpowder weapon takes lead ore for it (Patch 5, Jade: a musket 2).
+ * Patch 7 (Jade): every sling, bow, crossbow and gun shoots 1.5 s slower
+ * than before (the sling with them, her pick), and every bow and crossbow
+ * misses by at most 3% of the distance, a little tighter than a musket's 4%.
  */
 export const RANGER_KITS: readonly RangedKit[] = [
   ranged(0, 'None', '', 0, 20, 0, 0, Shot.Arrow, false, [], 0),
-  ranged(1, Res.LeatherSling, 'sling', 8, 20, 20, 8, Shot.SlingStone, true, [[[LE, 1]], [[FX, 1]]], 10, [], 13),
-  ranged(2, Res.YewLongbow, 'bow', 10, 20, 25, 6, Shot.Arrow, false, ways([[FL, 1], [FE, 1], [LU, 3]], [[ROPE, 1], [FX, 1]]), 34, [], 42),
+  ranged(1, Res.LeatherSling, 'sling', 8, 35, 20, 8, Shot.SlingStone, true, [[[LE, 1]], [[FX, 1]]], 10, [], 13),
+  ranged(2, Res.YewLongbow, 'bow', 10, 35, 25, 3, Shot.Arrow, false, ways([[FL, 1], [FE, 1], [LU, 3]], [[ROPE, 1], [FX, 1]]), 34, [], 42),
   recurve(3, Res.RecurveBowCopper, 12, CU),
   recurve(4, Res.RecurveBowBronze, 13, BZ),
   recurve(5, Res.RecurveBowWroughtIron, 15, WI),
   recurve(6, Res.RecurveBowIron, 16, IRON),
-  ranged(7, Res.SteelProdCrossbow, 'crossbow_steel@steel', 40, 45, 34, 3, Shot.Bolt, false, only([[STEEL, 3], [WI, 1], [PL, 2], [FX, 1], [LU, 1], [FE, 1]]), 65, [Research.Crossbows], 48),
+  ranged(7, Res.SteelProdCrossbow, 'crossbow_steel@steel', 40, 60, 34, 3, Shot.Bolt, false, only([[STEEL, 3], [WI, 1], [PL, 2], [FX, 1], [LU, 1], [FE, 1]]), 65, [Research.Crossbows], 48),
   // Patch 7 (Jade): 2 more damage and 2 m more range than before.
-  ranged(8, Res.FlintlockMusket, 'musket', 62, 80, 42, 4, Shot.MusketBall, false, only([[CS, 1], [PL, 2], [FL, 1], [GP, 1], [LEAD, 2]]), 77, [Research.Gunpowder, Research.Muskets], 66),
+  ranged(8, Res.FlintlockMusket, 'musket', 62, 95, 42, 4, Shot.MusketBall, false, only([[CS, 1], [PL, 2], [FL, 1], [GP, 1], [LEAD, 2]]), 77, [Research.Gunpowder, Research.Muskets], 66),
 ];
 
 /** The brawler, tier 8 only: a flintlock pistol and a cutlass (the tier 8 close-melee row), one kit (Table 2e), with 1 lead ore (Patch 5). */
-export const BRAWLER_KIT: RangedKit = ranged(8, Res.FlintlockPistol, 'pistol', 40, 60, 15, 6, Shot.MusketBall, false, only([[CS, 4], [PL, 1], [FL, 1], [LU, 1], [LE, 1], [GP, 1], [LEAD, 1]]), 102, [Research.Gunpowder, Research.Muskets], 18);
+export const BRAWLER_KIT: RangedKit = ranged(8, Res.FlintlockPistol, 'pistol', 40, 75, 15, 6, Shot.MusketBall, false, only([[CS, 4], [PL, 1], [FL, 1], [LU, 1], [LE, 1], [GP, 1], [LEAD, 1]]), 102, [Research.Gunpowder, Research.Muskets], 18);
 
 // ----- Table 3: armour and shields -----
 
@@ -646,20 +649,21 @@ function add(g: GearRow): number {
  * (plan 2.4): the peoples' own units keep these numbers, the 30% cut to area
  * weapons aside, so the cudgel and steel side-sword they carry are rows of
  * their own here; a piece they drop goes on a player's unit as the player's
- * version (LOOT_KITS), the good each row names.
+ * version (LOOT_KITS), the good each row names. Their bows and crossbow
+ * shoot 1.5 s slower and miss by at most 3%, as the players' do (Patch 7, Jade).
  */
 export const PeopleGear = {
-  Shortbow: add({ name: 'Halfling shortbow', slot: Slot.Ranged, tier: 5, model: 'halfling_shortbow', item: Res.HalflingShortbow, ranged: { damage: 14, attackSteps: ds(20), range: cm(2000), spreadBp: 600, shot: Shot.Arrow, blunt: false } }),
+  Shortbow: add({ name: 'Halfling shortbow', slot: Slot.Ranged, tier: 5, model: 'halfling_shortbow', item: Res.HalflingShortbow, ranged: { damage: 14, attackSteps: ds(35), range: cm(2000), spreadBp: 300, shot: Shot.Arrow, blunt: false } }),
   Shortsword: add({ name: 'Halfling shortsword', slot: Slot.Weapon, tier: 5, model: 'halfling_shortsword', item: Res.HalflingShortsword, melee: { damage: 16, attackSteps: ds(11), reach: cm(110), hit: Hit.Arc, blunt: false, oneHanded: true, crit: false } }),
   Buckler: add({ name: 'Halfling buckler', slot: Slot.Shield, tier: 2, model: 'halfling_buckler', item: Res.HalflingBuckler, blockBp: 1000 }),
   HalflingHelm: add({ name: 'Halfling iron cap', slot: Slot.Armour, tier: 5, model: 'helmet_iron_nasal', item: Res.HalflingIronCap, armourBp: 500 }),
   Glaive: add({ name: 'Elf glaive', slot: Slot.Weapon, tier: 8, model: 'halberd', item: Res.ElfGlaive, melee: { damage: 45, attackSteps: ds(16), reach: cm(250), hit: Hit.Arc, blunt: false, oneHanded: false, crit: true } }),
-  ElfLongbow: add({ name: 'Elf longbow', slot: Slot.Ranged, tier: 8, model: 'bow', item: Res.ElfLongbow, ranged: { damage: 24, attackSteps: ds(20), range: cm(4000), spreadBp: 400, shot: Shot.Arrow, blunt: false } }),
+  ElfLongbow: add({ name: 'Elf longbow', slot: Slot.Ranged, tier: 8, model: 'bow', item: Res.ElfLongbow, ranged: { damage: 24, attackSteps: ds(35), range: cm(4000), spreadBp: 300, shot: Shot.Arrow, blunt: false } }),
   Leathers: add({ name: 'Leather armour', slot: Slot.Armour, tier: 2, model: 'armour_leather', armourBp: 1500 }),
   DwarfWarAxe: add({ name: 'Dwarf war axe', slot: Slot.Weapon, tier: 7, model: 'axe_war', item: Res.DwarfWarAxe, melee: { damage: 26, attackSteps: ds(13), reach: cm(120), hit: Hit.Arc, blunt: false, oneHanded: true, crit: false } }),
   DwarfWarHammer: add({ name: 'Dwarf war hammer', slot: Slot.Weapon, tier: 7, model: 'mace', item: Res.DwarfWarHammer, melee: { damage: 34, attackSteps: ds(18), reach: cm(160), hit: Hit.Arc, blunt: true, oneHanded: false, crit: false } }),
   // The Dwarves' crossbow drops as the players' steel-prod crossbow (plan 4.4).
-  DwarfCrossbow: add({ name: 'Dwarf crossbow', slot: Slot.Ranged, tier: 7, model: 'crossbow', item: Res.SteelProdCrossbow, ranged: { damage: 30, attackSteps: ds(30), range: cm(2800), spreadBp: 400, shot: Shot.Bolt, blunt: false } }),
+  DwarfCrossbow: add({ name: 'Dwarf crossbow', slot: Slot.Ranged, tier: 7, model: 'crossbow', item: Res.SteelProdCrossbow, ranged: { damage: 30, attackSteps: ds(45), range: cm(2800), spreadBp: 300, shot: Shot.Bolt, blunt: false } }),
   DwarfPlate: add({ name: 'Dwarf plate and sallet', slot: Slot.Armour, tier: 7, model: 'armour_steel_plate', item: Res.DwarfPlate, armourBp: 6200 }),
   DwarfMail: add({ name: 'Dwarf mail and sallet', slot: Slot.Armour, tier: 5, model: 'armour_iron_mail', item: Res.DwarfMail, armourBp: 4700 }),
   // Patch 7: the Runkin archers' cudgel and the Elves' and Dwarves' steel side-sword, at the ladder's numbers before the 30% cut.
@@ -871,9 +875,10 @@ export const LOOT_KITS: readonly LootKit[] = [
   loot(Res.MinotaurGreatAxe, R, GearKind.Great, 134, 7, 'axe_great_minotaur', [[STEEL, 4], [SW, 3]], swings(29, 20, 220, Hit.Arc)),
   loot(Res.ArchfiendGreatsword, E, GearKind.Great, 153, 6, 'greatsword_archfiend', [[IRON, 5], [Res.DemonHorn, 2], [Res.Rubies, 1]], { ...swings(40, 19, 240, Hit.Arc), effect: LootEffect.Warlord }),
   loot(Res.BogGuardianClub, E, GearKind.Great, 351, 1, '', [[HW, 10], [STONE, 20], [Res.Emeralds, 1]]),
-  loot(Res.GoblinSling, C, GearKind.Ranged, 10, 1, 'sling_goblin', [[LE, 1]], shoots(7, 20, 18, 8, Shot.SlingStone, true)),
-  loot(Res.GoblinBow, C, GearKind.Ranged, 17, 2, 'bow_goblin', [[ST, 2], [FE, 1]], shoots(9, 20, 22, 6, Shot.Arrow)),
-  loot(Res.SkeletonRecurveBow, C, GearKind.Ranged, 32, 4, 'bow_skeleton_recurve', [[Res.Bone, 2], [SW, 1], [ROPE, 1]], shoots(14, 20, 30, 6, Shot.Arrow)),
+  // Patch 7 (Jade): the looted sling and bows shoot 1.5 s slower, and the bows miss by at most 3%, as the ranger's do.
+  loot(Res.GoblinSling, C, GearKind.Ranged, 10, 1, 'sling_goblin', [[LE, 1]], shoots(7, 35, 18, 8, Shot.SlingStone, true)),
+  loot(Res.GoblinBow, C, GearKind.Ranged, 17, 2, 'bow_goblin', [[ST, 2], [FE, 1]], shoots(9, 35, 22, 3, Shot.Arrow)),
+  loot(Res.SkeletonRecurveBow, C, GearKind.Ranged, 32, 4, 'bow_skeleton_recurve', [[Res.Bone, 2], [SW, 1], [ROPE, 1]], shoots(14, 35, 30, 3, Shot.Arrow)),
   loot(Res.GoblinHexStick, C, GearKind.Wand, 21, 2, 'wand_goblin_hexstick', [[Res.Witchwood, 1], [Res.Hexstone, 1]], asWand(2)),
   loot(Res.HollowPriestStaff, R, GearKind.Wand, 49, 4, 'staff_hollow_priest', [[Res.Witchwood, 2]], asWand(4)),
   loot(Res.NecromancerStaff, R, GearKind.Wand, 43, 5, 'staff_necromancer', [[Res.Witchwood, 2], [Res.Bone, 1], [MC, 1]], asWand(5)),
@@ -906,10 +911,10 @@ export const LOOT_KITS: readonly LootKit[] = [
   loot(Res.DwarfMail, R, GearKind.Armour, 15, 6, '', [[IRON, 4]]),
   // The neutral peoples' pieces (plan 4.4), in a player unit's hands; their scrap yields are picks (s).
   loot(Res.HalflingShortsword, R, GearKind.OneHanded, 16, 5, 'halfling_shortsword', [[WI, 2], [SW, 1], [LE, 1]], swings(11, 11, 110, Hit.Arc)),
-  loot(Res.HalflingShortbow, R, GearKind.Ranged, 24, 5, 'halfling_shortbow', [[SW, 3], [ROPE, 1], [WI, 1], [FE, 1]], shoots(14, 20, 20, 6, Shot.Arrow)),
+  loot(Res.HalflingShortbow, R, GearKind.Ranged, 24, 5, 'halfling_shortbow', [[SW, 3], [ROPE, 1], [WI, 1], [FE, 1]], shoots(14, 35, 20, 3, Shot.Arrow)),
   loot(Res.HalflingBuckler, C, GearKind.Shield, 18, 2, 'halfling_buckler', [[PL, 2], [HL, 1]], { blockPct: 10 }),
   loot(Res.ElfGlaive, E, GearKind.Great, 66, 8, 'halberd', [[CS, 3], [SW, 2]], { ...swings(32, 16, 250, Hit.Arc), effect: LootEffect.Reaper }),
-  loot(Res.ElfLongbow, E, GearKind.Ranged, 44, 8, 'bow', [[SW, 3], [CS, 1], [FE, 1], [ROPE, 1]], { ...shoots(24, 20, 40, 4, Shot.Arrow), effect: LootEffect.FarSight }),
+  loot(Res.ElfLongbow, E, GearKind.Ranged, 44, 8, 'bow', [[SW, 3], [CS, 1], [FE, 1], [ROPE, 1]], { ...shoots(24, 35, 40, 3, Shot.Arrow), effect: LootEffect.FarSight }),
   loot(Res.DwarfWarAxe, R, GearKind.OneHanded, 30, 7, 'axe_war', [[STEEL, 3], [SW, 1], [LE, 1]], swings(18, 13, 120, Hit.Arc)),
   loot(Res.DwarfWarHammer, R, GearKind.Great, 64, 7, 'mace', [[STEEL, 3], [SW, 2]], swings(24, 18, 160, Hit.Arc, true)),
   // Jade (23:05 UTC 2026-10-09): the lich's legendary robe, "appropriate stats for tier (worse than morvoth items by alot though)": as the

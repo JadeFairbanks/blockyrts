@@ -667,7 +667,7 @@ export class WorldView {
       const group = d[o + S.group]!;
       if (group !== 0 && kind !== UnitKind.Animal && (owner === PEOPLES || (owner === NEUTRAL && kind === UnitKind.Mob) || (owner < 8 && kind !== UnitKind.Mob))) this.peoplesLabel(u, d, o, owner, kind, group, health);
     }
-    this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now(), (id) => this.game?.unit(id) ?? null);
+    this.unitsView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now(), (id) => this.game?.unit(id) ?? null, msg.shots);
     this.fishView.onHits(msg.hits, (x, z) => this.seenNow(x, z), performance.now());
   }
 

@@ -340,7 +340,7 @@ export const GUIDES: readonly Guide[] = [
       {
         paragraphs: [
           `The [[Woodsman]] is trained at the [[Scholar's Lodge]] (W) for ${WOODSMAN.food} food, sticks, leather (or hides) and flax. He fishes, forages for berries, mushrooms and other wild food, and fights with a spear, any tier of long weapon, for ${WOODSMAN.damageLess} less damage than a troop. Select one to see the food he brings in against what he eats.`,
-          `Only woodsmen fish. Fish swim in every stretch of water, a woodsman lands one every ${WOODS.fishS} seconds, and a stretch is never fished out. See [[The woodsman fishing and foraging]].`,
+          `Only woodsmen fish and pick mushrooms, since only they can tell an edible mushroom from a bad one. Workers pick berries only when you send them to a bush. Fish swim in every stretch of water, a woodsman lands one every ${WOODS.fishS} seconds, and a stretch is never fished out. See [[The woodsman fishing and foraging]].`,
         ],
       },
       {
@@ -454,6 +454,7 @@ export const GUIDES: readonly Guide[] = [
         paragraphs: [
           'The [[Magi Sanctum]] trains battle mages and support mages. Mages fight with spells from range, using mana that refills over time, and rise through the ranks as they train; better wands and robes add to their spells and mana.',
           `Rank training needs mana crystals; ${CRYSTAL_STAND_IN.per} demon horns can stand in for each one. See [[Spells and mage ranks]] and [[Mage training and mana]].`,
+          "Magic goes straight through armour, a mount's too, yours and the monsters' alike, and the damage it does shows in purple over what it hits. Poison's damage shows in green, and every other blow's in red.",
         ],
       },
       {
@@ -480,6 +481,7 @@ export const GUIDES: readonly Guide[] = [
         heading: 'Running',
         paragraphs: [
           `Every unit on foot has a Run/Walk button (H). Running is ${pct(RUN_BONUS_BP)} faster than walking and costs 1 food for every ${RUN_FOOD_METRES} m run.`,
+          'With a mixed group selected, the button sets every unit on foot in it: Run starts the walkers running and the runners keep on, and Walk slows them all.',
         ],
       },
       {

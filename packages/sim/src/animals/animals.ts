@@ -23,7 +23,7 @@ import { Res, type Cost } from '../economy/resources.ts';
 import { animalUpkeep, QUARTERS, takeFood } from '../economy/food.ts';
 import { ceilDiv, cos16, floorDiv, headingTowards, length2d, sin16, STEPS_PER_SECOND, WU_PER_COLUMN, WU_PER_METRE } from '../fixed.ts';
 import { CYCLE_STEPS, DAY_STEPS, DUSK_STEPS } from '../rules.ts';
-import { OrderKind, PEOPLES, standY, UnitKind, WILD, type SimState } from '../state.ts';
+import { DamageKind, OrderKind, PEOPLES, standY, UnitKind, WILD, type SimState } from '../state.ts';
 import { peoplesHooks } from '../peoples/hooks.ts';
 import { CHUNK_SHIFT } from '../world/chunk.ts';
 import { hash32 } from '../rng.ts';
@@ -489,6 +489,7 @@ export function fight(state: SimState, i: number, t: number): void {
     e.dotLeft[t] = Math.max(e.dotUntil[t]! > state.step ? e.dotLeft[t]! : 0, s.venom);
     e.dotUntil[t] = state.step + VENOM_STEPS;
     e.dotFrom[t] = e.id[i]!;
+    e.dotKind[t] = DamageKind.Poison;
   }
   // A hornet's sting slows by 30% for 3 s (roster).
   if (s.id === Species.GiantHornet) {
