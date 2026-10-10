@@ -56,8 +56,10 @@ gate from before Patch 5 came off with Patch 5; this one came back after it.)
   `sitemap.xml` and the installable app's files (below) skip the middleware,
   so loading the game costs no Functions requests (the free plan has 100,000
   a day).
-- The site calls itself a learning project, not a game, everywhere search
-  engines and link previews look. Search engines and previews read the page
+- Everywhere search engines and link previews look, the site presents the
+  game as a co-op survival open world RTS, with one title, description and
+  longer pitch (`SITE_HEADLINE`, `SITE_DESCRIPTION`, `SITE_ABOUT` in
+  `packages/client/site.ts`, repeated in the middleware). Search engines and previews read the page
   behind the box (what a visitor sees after closing it), which carries the
   title, description, preview tags and structured data; since it comes with
   a 401, search engines may also leave the site out altogether. Behind it, `packages/client/index.html` carries the same

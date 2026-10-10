@@ -4,7 +4,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { COOKIE, COOKIE_DAYS, cookieOk, loginOk, onRequest, readPassword, signInPage, SITE_USER } from '../../../deploy/pages/functions/_middleware.ts';
-import { SITE_DESCRIPTION, SITE_IMAGE } from '../site.ts';
+import { SITE_ABOUT, SITE_DESCRIPTION, SITE_GENRES, SITE_HEADLINE, SITE_IMAGE } from '../site.ts';
 
 // A made-up password that looks like a bcrypt hash: it is still just the password.
 const PASSWORD = '$2y$10$madeUpMadeUpMadeUpMadeUpMadeUpMadeUpMadeUpMadeUp1234';
@@ -100,14 +100,16 @@ describe('site login', () => {
 describe('the page behind the sign-in box, for search engines and link previews', () => {
   const html = signInPage('https://play.example.com');
 
-  it('calls the site a learning project, and nowhere a game', () => {
-    expect(html).toContain('<title>Survive and Conquer: a learning project</title>');
+  it('presents the game with the same title, description and pitch as index.html', () => {
+    expect(html).toContain(`<title>${SITE_HEADLINE}</title>`);
+    for (const name of ['og:title', 'twitter:title']) expect(html).toContain(`"${name}" content="${SITE_HEADLINE}"`);
+    expect(html).toContain(`<p>${SITE_ABOUT}</p>`);
     for (const name of ['description', 'og:description', 'twitter:description']) expect(html).toContain(`"${name}" content="${SITE_DESCRIPTION}"`);
     expect(html).toContain(`content="https://play.example.com${SITE_IMAGE}"`);
     expect(html).toContain('Reload the page to sign in.');
-    expect(html).not.toMatch(/game|<script src|<form/i);
+    expect(html).not.toMatch(/<script src|<form/i);
     const json = /<script type="application\/ld\+json">(.*)<\/script>/.exec(html)?.[1];
-    expect(JSON.parse(json ?? '')).toEqual({ '@context': 'https://schema.org', '@type': 'WebSite', name: 'Survive and Conquer', description: SITE_DESCRIPTION, url: 'https://play.example.com/' });
+    expect(JSON.parse(json ?? '')).toEqual({ '@context': 'https://schema.org', '@type': 'VideoGame', name: 'Survive and Conquer', description: SITE_DESCRIPTION, url: 'https://play.example.com/', genre: SITE_GENRES, playMode: ['SinglePlayer', 'CoOp'], numberOfPlayers: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 8 }, gamePlatform: 'Web browser', applicationCategory: 'GameApplication' });
   });
 });
 
