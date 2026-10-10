@@ -29,6 +29,9 @@ const pool = (have: Partial<Record<number, number>>): Int32Array => {
 /** Every good that can be held: a recipe's "meat" and "fish" (any kind) never are. */
 const HELD = RESOURCES.filter((r) => !isAnyRes(r.id));
 
+/** Goods whose icon the modelling team makes (Jade: no pictures of ours): drawn empty until the file is in packages/assets/src/ui. */
+const AWAITING_ART: ReadonlySet<number> = new Set([Res.DeathlessShroud]);
+
 describe('slot order', () => {
   it('gives every good one slot, in the categories the doc names', () => {
     expect(INVENTORY_ORDER).toHaveLength(HELD.length);
@@ -54,6 +57,8 @@ describe('icons', () => {
     for (const r of HELD) {
       const icon = goodIcon(r.id);
       expect(icon, r.name).toBeDefined();
+      // Patch 7 (Jade, 00:14 UTC 2026-10-10): pictures still to come from the modelling team are named here and skipped until their file lands.
+      if (AWAITING_ART.has(r.id) && !existsSync(ui(icon!.file))) continue;
       expect(existsSync(ui(icon!.file)), `${r.name}: ${icon!.file}`).toBe(true);
       expect(iconUrl(icon!.file), `${r.name}: ${icon!.file} is not in the glob`).not.toBe('');
     }
