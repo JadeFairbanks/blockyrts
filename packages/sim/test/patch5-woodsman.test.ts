@@ -200,7 +200,7 @@ describe('the woodsman (Patch 5)', () => {
     expect(gaitSpec(Gait.Woodsman).climb).toBe(gaitSpec(Gait.Worker).climb);
   });
 
-  it('there is no fishing dock to build, and workers sent to a fish stretch are told only woodsmen fish', () => {
+  it('there is no fishing dock to build, and a worker sent to a fish stretch says only woodsmen fish', () => {
     const { s, f } = fishing();
     expect(buildingSpec(BuildingKind.FishingDock).live).toBe(false);
     const e = s.entities;
@@ -208,7 +208,7 @@ describe('the woodsman (Patch 5)', () => {
     for (let i = 0; i < e.count; i++) if (e.owner[i] === 0 && e.kind[i] === UnitKind.Worker) worker = i;
     const seen: SimEvent[] = [];
     run(s, 1, [{ kind: 'gather', player: 0, units: [e.id[worker]!], cx: f.cx, cz: f.cz, index: f.i }], seen);
-    expect(seen.some((ev) => ev.text === "Only woodsmen fish. Train them at the Scholar's Lodge.")).toBe(true);
+    expect(seen.some((ev) => ev.speaker === e.id[worker] && ev.text === "I don't know how to fish. That's a woodsman's work.")).toBe(true);
     const o = e.queue[worker]![0];
     expect(o?.t === 'gather' && o.cx === f.cx && o.cz === f.cz && o.i === f.i).toBe(false);
   });
