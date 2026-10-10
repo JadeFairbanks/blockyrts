@@ -110,6 +110,19 @@ export const KEPT_TITLES: Readonly<Record<string, string>> = {
   "rules:peoples:peoples/data.ts:the peoples' units": "The peoples' animals",
 };
 
+/** Rows that are another side of a thing with its own page, by their table: the field naming that thing (Patch 7: a looted piece's gear numbers go on its item's page). */
+const PIECES: Readonly<Record<string, { field: string; ref: RefKind; label: string }>> = {
+  'units/kits.ts:LOOT_KITS': { field: 'item', ref: 'res', label: 'As gear' },
+};
+
+/** The thing a row is another side of, and its heading on that thing's sheet, or null. */
+export function pieceOf(entry: Entry, mods: SimModules): { to: Target; label: string } | null {
+  const piece = PIECES[`${entry.module}:${String(entry.path[0])}`];
+  if (!piece || entry.path.length !== 2) return null;
+  const id = (valueAt(mods[entry.module] ?? {}, entry.path) as Record<string, unknown> | undefined)?.[piece.field];
+  return typeof id === 'number' ? { to: { ref: piece.ref, id }, label: piece.label } : null;
+}
+
 /** Other forms' headings on a sheet, by the table and the row's id (Patch 7: one sheet per monster). */
 const FORM_NAMES: Readonly<Record<string, Readonly<Record<number, string>>>> = {
   MOBS: { [Mob.MorvathAloft]: 'Second form: aloft', [Mob.FaeGuardianAloft]: 'Second form: aloft, once attacked' },

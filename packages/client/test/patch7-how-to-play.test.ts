@@ -77,6 +77,15 @@ describe('Patch 7: one sheet per monster', () => {
     }
   });
 
+  it('puts a looted piece\'s gear numbers on its item\'s page', () => {
+    const shroud = w.search('deathless').filter((a) => a.category !== 'crafting');
+    expect(shroud.map((a) => `${a.category}: ${a.title}`)).toEqual(['items: Deathless Shroud', 'monsters: Lich']);
+    expect(shroud[0]!.parts.map((p) => p.label)).toContain('As gear');
+    const loot = [...w.catalog.entries.values()].filter((e) => e.path[0] === 'LOOT_KITS' && e.path.length === 2);
+    expect(loot.length).toBeGreaterThan(30);
+    for (const e of loot) expect(w.bySlug.get(w.slugOf(e.id))?.category, e.label).toBe('items');
+  });
+
   it('does the same for the rest of the book: the Tavern, the Barn, the Dreadnought and the woodsman', () => {
     for (const gone of ['The Tavern', 'The Barn', 'The Dreadnought', 'The woodsman', 'Hot spring guardians', 'The Headless God Idol']) expect(w.byTitle(gone)).toBeUndefined();
     expect([...fieldsOn('Tavern')].some((id) => id.includes('TAVERN.'))).toBe(true);

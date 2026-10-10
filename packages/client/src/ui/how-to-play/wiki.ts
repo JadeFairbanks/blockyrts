@@ -11,7 +11,7 @@ import { GUIDES_SECTION, pageByTitle, searchPages, type Book, type Related, type
 import { CATEGORIES, categoryOf, FALLBACK_CATEGORY, GROUP_HEADINGS, LEFT_OUT_GROUPS, MENU_NAMES, type Category } from './categories.ts';
 import { GUIDES, type Guide } from './guides.ts';
 import { plainWords } from './plain-words.ts';
-import { FOLDS, KEPT_TITLES, splitRules, targetEntry } from './sheets.ts';
+import { FOLDS, KEPT_TITLES, pieceOf, splitRules, targetEntry } from './sheets.ts';
 
 export interface Article {
   /** Its address: "guides/premise", "monsters/zombie". */
@@ -176,6 +176,7 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
     }
   }
   const gone = new Map<string, string>();
+  const pieces: Array<{ label: string; host: string; entry: Entry }> = [];
 
   const categories: Category[] = [...CATEGORIES];
   for (const c of categories) {
@@ -192,6 +193,13 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
       const entry = kept.has(own.id) ? kept.get(own.id) : own;
       if (!entry) {
         gone.set(own.id, moving.find((m) => m.entry.id === own.id)?.to[0] ?? '');
+        continue;
+      }
+      // A row that is another side of a thing with its own page goes on that page (Patch 7).
+      const piece = pieceOf(entry, mods);
+      const host = piece && targetEntry(catalog, piece.to);
+      if (piece && host) {
+        pieces.push({ label: piece.label, host, entry });
         continue;
       }
       // A second row of the same name is another form of the first: one sheet (Patch 7).
@@ -255,6 +263,13 @@ export function buildWiki(mods: SimModules, docs: SimDocs, pictures: Pictures): 
       else host.parts.push({ label: m.label, entry: m.entry });
       host.words += ` ${m.label.toLowerCase()}`;
     }
+  }
+  for (const p of pieces) {
+    const host = bySlug.get(slugByEntry.get(p.host) ?? '');
+    if (!host) continue;
+    host.parts.push({ label: p.label, entry: p.entry });
+    host.words += ` ${textOf(p.entry.children).join(' ').toLowerCase()}`;
+    slugByEntry.set(p.entry.id, host.slug);
   }
   for (const [id, target] of gone) slugByEntry.set(id, slugByEntry.get(target) ?? '');
   for (const a of articles) for (const p of a.parts) if (p.entry.id.startsWith('rules:')) p.entry = { ...p.entry, children: opened(p.entry.children) };
