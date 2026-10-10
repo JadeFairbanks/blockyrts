@@ -481,6 +481,7 @@ export const GUIDES: readonly Guide[] = [
         heading: 'Running',
         paragraphs: [
           `Every unit on foot has a Run/Walk button (H). Running is ${pct(RUN_BONUS_BP)} faster than walking and costs 1 food for every ${RUN_FOOD_METRES} m run.`,
+          'With a mixed group selected, the button sets every unit on foot in it: Run starts the walkers running and the runners keep on, and Walk slows them all.',
         ],
       },
       {

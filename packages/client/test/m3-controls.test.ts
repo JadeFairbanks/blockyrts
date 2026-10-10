@@ -19,7 +19,7 @@ import {
 } from '@blockyrts/sim';
 import { GameInfo } from '../src/game/game-info.ts';
 import { AREA_DEFAULT_UNITS, Commands, stepDepth, type Card, type CardEntry, type CommandDeps } from '../src/hud/commands.ts';
-import { S, STATE_STRIDE, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
+import { S, STATE_STRIDE, UnitFlag, type BuildingInfo, type InfoMessage } from '../src/messages.ts';
 import type { Selectable } from '../src/selection/types.ts';
 import { DEFAULT_SETTINGS } from '../src/settings/settings.ts';
 
@@ -202,6 +202,25 @@ describe('the warrior card', () => {
   it("has no Cannon crew button (Jade's Patch 2 cuts it)", () => {
     const g = game({ buildings: [building(20, BuildingKind.MainBase), building(21, BuildingKind.ArtilleryWorkshop)], pool: [[Res.FarmFare, 100]], research: bit(Research.Cannons) });
     expect(button(harness(g, warriors, 'warrior').c.card(), 'train')).toBeUndefined();
+  });
+});
+
+describe('Run and Walk on a mixed group (Patch 7)', () => {
+  const mixed = [...warriors, ...workers];
+  it('sends Run to every unit on foot in the selection, not only the type the card shows; runners keep running', () => {
+    const { c, sent } = harness(game({ units: { 3: { flags: UnitFlag.RunMode } } }), mixed, 'warrior');
+    const pace = button(c.card(), 'pace')!;
+    expect(pace.face).toBe('Walk');
+    pace.run(PRESS);
+    expect(sent).toEqual([{ kind: 'pace', player: ME, units: [3, 4, 1, 2], run: 1 }]);
+  });
+  it('shows Run once they all run, and a press walks them all', () => {
+    const run = { flags: UnitFlag.RunMode };
+    const { c, sent } = harness(game({ units: { 1: run, 2: run, 3: run, 4: run } }), mixed, 'worker');
+    const pace = button(c.card(), 'pace')!;
+    expect(pace.face).toBe('Run');
+    pace.run(PRESS);
+    expect(sent).toEqual([{ kind: 'pace', player: ME, units: [3, 4, 1, 2], run: 0 }]);
   });
 });
 
