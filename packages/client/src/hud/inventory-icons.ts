@@ -127,8 +127,7 @@ set(Res.ObsidianHandAxe, 'axe_hand_obsidian');
 set(Res.Obsidian, 'obsidian');
 set(Res.PoisonTips, 'arrow_poison_flint');
 // Patch 7's looted pieces and the Dreadnought's mace: the icons rendered from their models (set before the kit
-// pictures below, so a piece that goes on as a ladder piece keeps its own). Witchwood borrows the sticks', tinted,
-// until its model is in.
+// pictures below, so a piece that goes on as a ladder piece keeps its own), witchwood's from its own.
 set(Res.GoblinDagger, 'dagger_goblin');
 set(Res.GoblinChiefCleaver, 'cleaver_goblin_chief');
 set(Res.HobgoblinSword, 'sword_hobgoblin');
@@ -181,7 +180,7 @@ set(Res.ElfLongbow, 'elf_longbow');
 set(Res.DwarfWarAxe, 'dwarf_war_axe');
 set(Res.DwarfWarHammer, 'dwarf_war_hammer');
 set(Res.HeavySpikedMace, 'mace_dreadnought');
-set(Res.Witchwood, 'hardwood_sticks', { tint: 'hue-rotate(250deg) saturate(1.6) brightness(0.8)' });
+set(Res.Witchwood, 'witchwood');
 // Patch 5 (Jade's GP-1): weapons, armour, shields, tools, wands and robes are goods in the stock, each with the picture its slot shows.
 const KIT_PICS: ReadonlyArray<readonly [readonly Piece[], (tier: number) => Pic]> = [
   [CLOSE_KITS, (t) => weaponPic(Troop.Close, t)],
