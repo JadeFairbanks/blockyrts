@@ -20,9 +20,11 @@ import {
   step,
   STEPS_PER_SECOND,
   Troop,
+  UnitKind,
   WU_PER_COLUMN,
   WU_PER_METRE,
   type Order,
+  type SimEvent,
   type SimState,
 } from '../src/index.ts';
 
@@ -112,6 +114,29 @@ describe('wild food (Patch 5)', () => {
       now += MUSHROOM_SPREAD.maxS * SEC;
     }
     expect(addedRecords(s)).toBeLessThanOrEqual(records + 1);
+  });
+
+  it('only woodsmen pick mushrooms: a worker sent says why not, a woodsman beside it forages it, and a worker sent to berries picks them (Jade\'s Patch 6 ruling)', () => {
+    const { s, hx, hz, gx, gz } = camp();
+    const e = s.entities;
+    const worker = Array.from({ length: e.count }, (_, i) => i).find((i) => e.owner[i] === 0 && e.kind[i] === UnitKind.Worker)!;
+    e.queue[worker] = [];
+    const at = s.world.addProp(gx, gz, PropKind.Mushroom, 7, 1, s.step);
+    const seen: SimEvent[] = [];
+    step(s, [{ kind: 'gather', player: 0, units: [e.id[worker]!], cx: at.cx, cz: at.cz, index: at.i }]);
+    seen.push(...s.events);
+    expect(seen.some((ev) => ev.kind === 'speech' && ev.speaker === e.id[worker] && /mushroom/.test(ev.text ?? ''))).toBe(true);
+    expect(e.queue[worker]!.some((o) => o.t === 'gather')).toBe(false);
+    // Sent with a woodsman, the woodsman forages it and the worker still will not.
+    const w = addWarrior(s, 0, hx + 6 * M, hz, Troop.Woodsman, 1, 0);
+    step(s, [{ kind: 'gather', player: 0, units: [e.id[worker]!, e.id[w]!], cx: at.cx, cz: at.cz, index: at.i }]);
+    const o = e.queue[w]![0];
+    expect(o?.t === 'woods' && o.forage === 1).toBe(true);
+    expect(e.queue[worker]!.some((q) => q.t === 'gather')).toBe(false);
+    // Berries a worker picks when sent to them.
+    const bush = s.world.addProp(gx + 2, gz, PropKind.BlackBerryBush, 3, 2, s.step);
+    run(s, 1, [{ kind: 'gather', player: 0, units: [e.id[worker]!], cx: bush.cx, cz: bush.cz, index: bush.i }]);
+    expect(e.queue[worker]![0]).toMatchObject({ t: 'gather', cx: bush.cx, cz: bush.cz, i: bush.i });
   });
 
   it('a woodsman sent to a berry bush picks it with his hands up, the bush stays, and its berries grow back', () => {
