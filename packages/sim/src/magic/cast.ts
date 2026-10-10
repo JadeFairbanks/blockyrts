@@ -29,7 +29,7 @@ import { pointGoal } from '../nav/path.ts';
 import { damageTaken, withBonus } from '../rules.ts';
 import { OrderKind, PEOPLES, sightOf, UnitKind, WILD, type Projectile, type SimState } from '../state.ts';
 import { factionById, warFaction } from '../peoples/types.ts';
-import { armourOf, bodyHeight, canReach, gainXp, gap, halfWidth, hostile, hurtBuilding, hurtUnit, meleeOf, shotMayHit, Side, sideOf, startSwing } from '../combat/combat.ts';
+import { bodyHeight, canReach, gainXp, gap, halfWidth, hostile, hurtBuilding, hurtUnit, meleeOf, shotMayHit, Side, sideOf, startSwing } from '../combat/combat.ts';
 import { chase, face, pickTarget, stepToward, targetLost, validTarget } from '../combat/fight.ts';
 import { hasResearch, Research, Shot } from '../combat/items.ts';
 import { Slot } from '../units/kits.ts';
@@ -311,9 +311,9 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
   },
   beam(state, i, s, t) {
     const e = state.entities;
-    // The whole beam is worked out through the target's armour now, then handed out step by step.
+    // The whole beam is worked out now, then handed out step by step; magic goes through armour (Patch 7, Jade).
     const raw = floorDiv(spellAmount(state, i, s) * s.steps, STEPS_PER_SECOND);
-    e.beamLeft[i] = damageTaken({ damage: raw, armourBp: armourOf(state, t), projectile: false });
+    e.beamLeft[i] = damageTaken({ damage: raw, armourBp: 0, projectile: false });
     e.beamTarget[i] = e.id[t]!;
     e.beamUntil[i] = state.step + s.steps;
   },

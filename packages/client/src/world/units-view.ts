@@ -380,8 +380,25 @@ const GUARDIAN_GLOW = { colour: 0x58a8ff, perSecond: 26, pulseS: 1.6 };
 /** The gunpowder shots (Patch 5, Jade's VX-4): hot lead, barely seen by day, a bright orange streak in the dark. */
 const GUNPOWDER: ReadonlySet<number> = new Set([Shot.Cannonball, Shot.BronzeCannonball, Shot.MusketBall]);
 
-/** Seconds a gun's smoke rises after a shot (Jade's MB-7): a cannon 5, a musket 4, the brawler's pistol 3. */
-const GUN_SMOKE = { cannon: 5, musket: 4, pistol: 3 };
+/**
+ * A gun going off. Its smoke trails `smoke` seconds after a shot (Jade's MB-7:
+ * a cannon 5, a musket 4, the brawler's pistol 3) in puffs `size` metres
+ * across. Patch 7 (Jade: "make the smoke from gunpowder weapons start at the
+ * muzzle and move in the direction the gun was pointed when fired, like a real
+ * musket"): `burst` puffs blow out of the barrel at up to `push` m/s along the
+ * shot and slow to a hanging cloud about push / SMOKE_DRAG metres ahead (a
+ * cannon's 3.4 m, a musket's 2.9 m, a pistol's 2 m). Its flash (Patch 7: "a
+ * bit more ... especially from muskets"): a ball of light at the muzzle,
+ * `glow` sparks at its core and `sparks` thrown forward at up to `sparkSpeed` m/s.
+ */
+const GUN = {
+  cannon: { smoke: 5, size: 0.7, burst: 12, push: 12, glow: 16, sparks: 40, sparkSpeed: 9, flash: 'cannonMuzzle' },
+  musket: { smoke: 4, size: 0.4, burst: 8, push: 10, glow: 10, sparks: 24, sparkSpeed: 8, flash: 'musket' },
+  pistol: { smoke: 3, size: 0.3, burst: 5, push: 7, glow: 7, sparks: 14, sparkSpeed: 6, flash: 'pistol' },
+} as const;
+type GunLook = (typeof GUN)[keyof typeof GUN];
+/** How fast a gun's smoke burst slows, per second (its speed falls by e every 1 / SMOKE_DRAG s). */
+const SMOKE_DRAG = 3.5;
 
 /** A wall breaker's smoke after it goes off, seconds (Jade's BL-7). */
 const BOMB_SMOKE_S = 3;
@@ -731,6 +748,25 @@ class Particles {
     }
   }
 
+  /** Glowing bits thrown along a direction (a unit vector), `spread` wide, at up to `speed` m/s: a muzzle's sparks (Patch 7). */
+  jet(x: number, y: number, z: number, dx: number, dy: number, dz: number, colour: number, n: number, speed: number, spread: number, life: number): void {
+    const c = new THREE.Color(colour);
+    for (let k = 0; k < n && this.n < MAX_PARTICLES; k++) {
+      const o = this.n * 8;
+      const s = speed * (0.35 + Math.random() * 0.65);
+      this.p[o] = x;
+      this.p[o + 1] = y;
+      this.p[o + 2] = z;
+      this.p[o + 3] = (dx + (Math.random() - 0.5) * spread * 2) * s;
+      this.p[o + 4] = (dy + (Math.random() - 0.5) * spread * 2) * s;
+      this.p[o + 5] = (dz + (Math.random() - 0.5) * spread * 2) * s;
+      this.p[o + 6] = 0;
+      this.p[o + 7] = life * (0.6 + Math.random() * 0.8);
+      this.colours[this.n] = c;
+      this.n++;
+    }
+  }
+
   update(dt: number): void {
     const p = this.p;
     let w = 0;
@@ -764,13 +800,15 @@ class Particles {
 /**
  * Rising smoke (Patch 5): puffs from where a gun fired (Jade's MB-7: 3 to 5
  * seconds) or a wall breaker went off (BL-7: 3 seconds), drifting up and
- * swelling, paling and thinning out as they go.
+ * swelling, paling and thinning out as they go. A gun's (Patch 7) blows out
+ * of its muzzle along the shot first, a burst that slows to a hanging cloud,
+ * and the barrel trails a little more along the same line after it.
  */
 class Smoke {
   readonly mesh: THREE.InstancedMesh;
-  private readonly p = new Float32Array(MAX_SMOKE * 7); // x y z vx vz age life
+  private readonly p = new Float32Array(MAX_SMOKE * 10); // x y z vx vz jx jy jz age life (v: its drift; j: the blast's push, slowing)
   private n = 0;
-  private readonly sources: Array<{ x: number; y: number; z: number; left: number; rate: number; size: number; carry: number }> = [];
+  private readonly sources: Array<{ x: number; y: number; z: number; left: number; rate: number; size: number; carry: number; dx: number; dy: number; dz: number; push: number }> = [];
   private readonly dummy = new THREE.Object3D();
   private readonly colour = new THREE.Color();
   private readonly sizes = new Float32Array(MAX_SMOKE);
@@ -782,9 +820,14 @@ class Smoke {
     scene.add(this.mesh);
   }
 
-  /** Smoke rising from a point for `seconds`, puffs `size` metres across. */
-  add(x: number, y: number, z: number, seconds: number, size: number): void {
-    if (this.sources.length < 96) this.sources.push({ x, y, z, left: seconds, rate: 5, size, carry: 1 });
+  /**
+   * Smoke rising from a point for `seconds`, puffs `size` metres across. A
+   * gun's gives the way it pointed (a unit vector), `burst` puffs blown out
+   * along it at up to `push` m/s at once, and its barrel's trail after them.
+   */
+  add(x: number, y: number, z: number, seconds: number, size: number, dx = 0, dy = 0, dz = 0, push = 0, burst = 0): void {
+    for (let k = 0; k < burst; k++) this.puff(x, y, z, size, dx, dy, dz, push * (0.25 + 0.75 * Math.random()), 2.2 + Math.random() * 1.2);
+    if (this.sources.length < 96) this.sources.push({ x, y, z, left: seconds, rate: 5, size, carry: burst > 0 ? 0 : 1, dx, dy, dz, push: push * 0.08 });
   }
 
   update(dt: number): void {
@@ -794,27 +837,31 @@ class Smoke {
       s.carry += s.rate * dt * Math.min(1, s.left);
       while (s.carry >= 1) {
         s.carry--;
-        this.puff(s.x, s.y, s.z, s.size);
+        this.puff(s.x, s.y, s.z, s.size, s.dx, s.dy, s.dz, s.push * (0.5 + Math.random()), 1.6 + Math.random() * 0.9);
       }
       s.left -= dt;
       if (s.left <= 0) this.sources.splice(k, 1);
     }
     const p = this.p;
+    const slow = Math.exp(-SMOKE_DRAG * dt);
     let w = 0;
     for (let r = 0; r < this.n; r++) {
-      const o = r * 7;
-      const age = p[o + 5]! + dt;
-      if (age >= p[o + 6]!) continue;
-      const d = w * 7;
+      const o = r * 10;
+      const age = p[o + 8]! + dt;
+      if (age >= p[o + 9]!) continue;
+      const d = w * 10;
       p[d + 3] = p[o + 3]!;
       p[d + 4] = p[o + 4]!;
-      p[d] = p[o]! + p[d + 3]! * dt;
-      p[d + 1] = p[o + 1]! + (0.5 + age * 0.25) * dt;
-      p[d + 2] = p[o + 2]! + p[d + 4]! * dt;
-      p[d + 5] = age;
-      p[d + 6] = p[o + 6]!;
+      p[d + 5] = p[o + 5]! * slow;
+      p[d + 6] = p[o + 6]! * slow;
+      p[d + 7] = p[o + 7]! * slow;
+      p[d] = p[o]! + (p[d + 3]! + p[d + 5]!) * dt;
+      p[d + 1] = p[o + 1]! + (0.5 + age * 0.25 + p[d + 6]!) * dt;
+      p[d + 2] = p[o + 2]! + (p[d + 4]! + p[d + 7]!) * dt;
+      p[d + 8] = age;
+      p[d + 9] = p[o + 9]!;
       this.sizes[w] = this.sizes[r]!;
-      const k = age / p[d + 6]!;
+      const k = age / p[d + 9]!;
       this.dummy.position.set(p[d]!, p[d + 1]!, p[d + 2]!);
       this.dummy.scale.setScalar(this.sizes[w]! * (0.4 + 1.2 * k) * (1 - k * k * k));
       this.dummy.updateMatrix();
@@ -826,16 +873,21 @@ class Smoke {
     showInstances(this.mesh, w);
   }
 
-  private puff(x: number, y: number, z: number, size: number): void {
+  /** One puff from a point, pushed along (dx, dy, dz) at `push` m/s (slowing) and drifting a little, for `life` seconds. */
+  private puff(x: number, y: number, z: number, size: number, dx: number, dy: number, dz: number, push: number, life: number): void {
     if (this.n >= MAX_SMOKE) return;
-    const o = this.n * 7;
+    const o = this.n * 10;
     this.p[o] = x + (Math.random() - 0.5) * size * 0.4;
     this.p[o + 1] = y;
     this.p[o + 2] = z + (Math.random() - 0.5) * size * 0.4;
     this.p[o + 3] = (Math.random() - 0.5) * 0.35;
     this.p[o + 4] = (Math.random() - 0.5) * 0.35;
-    this.p[o + 5] = 0;
-    this.p[o + 6] = 1.6 + Math.random() * 0.9;
+    // A little to either side of the line, so the cloud spreads as it goes.
+    this.p[o + 5] = (dx + (Math.random() - 0.5) * 0.24) * push;
+    this.p[o + 6] = (dy + (Math.random() - 0.5) * 0.24) * push;
+    this.p[o + 7] = (dz + (Math.random() - 0.5) * 0.24) * push;
+    this.p[o + 8] = 0;
+    this.p[o + 9] = life;
     this.sizes[this.n] = size * (0.7 + Math.random() * 0.6);
     this.n++;
   }
@@ -844,21 +896,61 @@ class Smoke {
 const SMOKE_PALE = new THREE.Color(0xb8b8b2);
 
 /**
+ * The way a shot that just left flies (into `out`, a unit vector): the
+ * message's projectile of its kind nearest where it left and flying away from
+ * there, from that spot to where it is next; null when none is (Patch 7).
+ */
+export function shotDir(shots: Int32Array, h: HitEvent, out: THREE.Vector3): THREE.Vector3 | null {
+  let best = -1;
+  let bestD = (8 * WU_PER_METRE) ** 2;
+  for (let o = 0; o + SHOT_STRIDE <= shots.length; o += SHOT_STRIDE) {
+    if (shots[o + 6] !== h.shot) continue;
+    const ax = shots[o]! - h.x;
+    const ay = shots[o + 1]! - h.y;
+    const az = shots[o + 2]! - h.z;
+    const d = ax * ax + ay * ay + az * az;
+    // Flying on from where it left, not back towards it.
+    if (d >= bestD || ax * (shots[o + 3]! - shots[o]!) + ay * (shots[o + 4]! - shots[o + 1]!) + az * (shots[o + 5]! - shots[o + 2]!) < 0) continue;
+    best = o;
+    bestD = d;
+  }
+  if (best < 0) return null;
+  out.set(shots[best + 3]! - h.x, shots[best + 4]! - h.y, shots[best + 5]! - h.z);
+  return out.lengthSq() > 0 ? out.normalize() : null;
+}
+
+/**
  * An explosion's flash (Jade, Patch 5: "a rapid burst of light, like a real
  * explosion at night"): a cannonball going off or a wall breaker's bomb.
- * `life` seconds, a glowing ball `ball` metres across at its widest, and a
- * light reaching `reach` metres at `peak` candela in the dark.
+ * `life` seconds, a glowing ball `ball` metres across at its widest, `lift`
+ * metres up, and a light `lightUp` metres up reaching `reach` metres at
+ * `peak` candela in the dark; by day the ball shows at `day` of its strength
+ * and the light at half that. Patch 7 (Jade: "the light flash from both
+ * muskets and cannons should be a bit more. Especially from muskets. Do the
+ * same for the brawler pistol"): a gun's muzzle flashes too, at the muzzle,
+ * and shows more by day than an explosion's.
  */
 export const FLASH = {
-  cannon: { life: 0.15, ball: 1.2, reach: 12, peak: 40 },
-  bomb: { life: 0.22, ball: 1.8, reach: 16, peak: 60 },
+  cannon: { life: 0.15, ball: 1.2, lift: 0.3, lightUp: 1, reach: 12, peak: 40, day: 0.3 },
+  bomb: { life: 0.22, ball: 1.8, lift: 0.3, lightUp: 1, reach: 16, peak: 60, day: 0.3 },
+  cannonMuzzle: { life: 0.14, ball: 1.5, lift: 0, lightUp: 0.3, reach: 14, peak: 45, day: 0.6 },
+  musket: { life: 0.1, ball: 0.8, lift: 0, lightUp: 0.2, reach: 9, peak: 28, day: 0.6 },
+  pistol: { life: 0.09, ball: 0.6, lift: 0, lightUp: 0.2, reach: 7, peak: 18, day: 0.6 },
 } as const;
 type FlashLook = (typeof FLASH)[keyof typeof FLASH];
 /** Warm white, the colour of the flash. */
 const FLASH_COLOUR = new THREE.Color(0xffdca0);
-/** Point lights the world's own units view keeps for flashes (a fixed number, so shaders never recompile; the newest flash takes the oldest's). */
+/** Point lights the world's own units view keeps for flashes (a fixed number, so shaders never recompile; the newest flash takes the faintest's, so a musket volley does not put out a cannonball's blast). */
 export const FLASH_LIGHTS = 2;
 const MAX_FLASHES = 32;
+/** One of the flash lights: how far into its flash, and that flash's length, peak and day share. */
+interface FlashLight {
+  l: THREE.PointLight;
+  age: number;
+  life: number;
+  peak: number;
+  day: number;
+}
 
 /**
  * Explosions' flashes: a glowing ball that swells and fades, unlit and added
@@ -869,9 +961,9 @@ export class Flashes {
   private readonly balls: THREE.InstancedMesh;
   private readonly p = new Float32Array(MAX_FLASHES * 5); // x y z age life
   private readonly size = new Float32Array(MAX_FLASHES);
+  private readonly day = new Float32Array(MAX_FLASHES);
   private n = 0;
-  private readonly lights: Array<{ l: THREE.PointLight; age: number; life: number; peak: number }> = [];
-  private next = 0;
+  private readonly lights: FlashLight[] = [];
   private readonly dummy = new THREE.Object3D();
   private readonly colour = new THREE.Color();
 
@@ -883,24 +975,35 @@ export class Flashes {
     for (let i = 0; i < lights; i++) {
       const l = new THREE.PointLight(FLASH_COLOUR, 0, 10, 1.4);
       scene.add(l);
-      this.lights.push({ l, age: 0, life: 0, peak: 0 });
+      this.lights.push({ l, age: 0, life: 0, peak: 0, day: 0 });
     }
   }
 
   add(x: number, y: number, z: number, look: FlashLook): void {
     if (this.n < MAX_FLASHES) {
       const o = this.n * 5;
-      this.p.set([x, y + 0.3, z, 0, look.life], o);
+      this.p.set([x, y + look.lift, z, 0, look.life], o);
+      this.day[this.n] = look.day;
       this.size[this.n++] = look.ball;
     }
-    const s = this.lights[this.next];
+    // The light with the least left in it (one gone dark first; of equals, the oldest).
+    let s: FlashLight | undefined;
+    let least = Infinity;
+    for (const c of this.lights) {
+      const t = c.life > 0 ? Math.min(1, c.age / c.life) : 1;
+      const left = c.peak * (1 - t) * (1 - t);
+      if (left < least || (left === least && s && c.age > s.age)) {
+        least = left;
+        s = c;
+      }
+    }
     if (!s) return;
-    this.next = (this.next + 1) % this.lights.length;
-    s.l.position.set(x, y + 1, z);
+    s.l.position.set(x, y + look.lightUp, z);
     s.l.distance = look.reach;
     s.age = 0;
     s.life = look.life;
     s.peak = look.peak;
+    s.day = look.day / 2;
   }
 
   /** dark: 0 by day, 1 at night. */
@@ -916,13 +1019,14 @@ export class Flashes {
       p.copyWithin(d, o, o + 5);
       p[d + 3] = age;
       this.size[w] = this.size[r]!;
+      this.day[w] = this.day[r]!;
       const t = age / life;
       // Out at once to most of its size, then a last swell as it dies away.
       this.dummy.position.set(p[d]!, p[d + 1]!, p[d + 2]!);
       this.dummy.scale.setScalar(this.size[w]! * (0.6 + 0.4 * Math.sqrt(t)));
       this.dummy.updateMatrix();
       this.balls.setMatrixAt(w, this.dummy.matrix);
-      this.balls.setColorAt(w, this.colour.copy(FLASH_COLOUR).multiplyScalar((1 - t) * (1 - t) * (0.3 + 0.7 * dark)));
+      this.balls.setColorAt(w, this.colour.copy(FLASH_COLOUR).multiplyScalar((1 - t) * (1 - t) * (this.day[w]! + (1 - this.day[w]!) * dark)));
       w++;
     }
     this.n = w;
@@ -930,7 +1034,7 @@ export class Flashes {
     for (const s of this.lights) {
       s.age += dt;
       const t = s.life > 0 ? s.age / s.life : 1;
-      s.l.intensity = t >= 1 ? 0 : s.peak * (1 - t) * (1 - t) * (0.15 + 0.85 * dark);
+      s.l.intensity = t >= 1 ? 0 : s.peak * (1 - t) * (1 - t) * (s.day + (1 - s.day) * dark);
     }
   }
 }
@@ -1023,7 +1127,9 @@ export class UnitsView {
   private readonly dread = new DreadnoughtLooks();
   private readonly crescents: Crescents;
   /** Where each soldier's gun's muzzle was last drawn, by entity id (Patch 5, MB-7): its flash and smoke start there. */
-  private readonly muzzles = new Map<number, THREE.Vector3>();
+  private readonly muzzles = new Map<number, { at: THREE.Vector3; heading: number }>();
+  /** Scratch: the way a gun pointed as it fired. */
+  private readonly aim = new THREE.Vector3();
   /** Each held item's slot_muzzle in its own space, or null when it has none. */
   private readonly muzzleOf = new Map<string, THREE.Vector3 | null>();
   /** Jade's Patch 5: a clip a monster plays through whatever it does (Morvath's flight and spells, a summons), by entity id, with the one after it. */
@@ -1282,24 +1388,22 @@ export class UnitsView {
   }
 
   /**
-   * A gun going off (Patch 5, Jade's MB-7): a flash of light, a spray of tiny
-   * sparks out of the muzzle along `heading` (radians, three.js rotation.y),
-   * and smoke rising for `seconds`.
+   * A gun going off at its muzzle (Patch 5, Jade's MB-7; Patch 7): a flash of
+   * light just ahead of the muzzle, a spray of tiny sparks out of it along
+   * `dir` (the way it pointed, a unit vector), and its smoke blown out along
+   * `dir` too, then rising.
    */
-  private gunFire(x: number, y: number, z: number, heading: number, seconds: number): void {
-    const big = seconds >= GUN_SMOKE.cannon;
-    const fx = -Math.sin(heading);
-    const fz = -Math.cos(heading);
-    this.sparks.spawn(x, y, z, 0xfff4c0, big ? 10 : 5, 0.6, 0.3, 0.08);
-    for (let k = 0; k < (big ? 4 : 2); k++) {
-      const a = 0.15 * k;
-      this.sparks.spawn(x + fx * a, y, z + fz * a, 0xffb040, big ? 14 : 7, big ? 4.5 : 3, 1, 0.25);
-    }
-    this.smoke.add(x + fx * 0.2, y, z + fz * 0.2, seconds, big ? 0.7 : 0.35);
+  private gunFire(x: number, y: number, z: number, dir: THREE.Vector3, gun: GunLook): void {
+    const flash = FLASH[gun.flash];
+    const ahead = flash.ball * 0.35;
+    this.flashes.add(x + dir.x * ahead, y + dir.y * ahead, z + dir.z * ahead, flash);
+    this.sparks.spawn(x, y, z, 0xfff4c0, gun.glow, 0.6, 0.3, 0.08);
+    this.sparks.jet(x, y, z, dir.x, dir.y, dir.z, 0xffb040, gun.sparks, gun.sparkSpeed, 0.18, 0.25);
+    this.smoke.add(x, y, z, gun.smoke, gun.size, dir.x, dir.y, dir.z, gun.push, gun.burst);
   }
 
-  /** Where a gun held in hand (its item model's slot_muzzle) is now, for its flash and smoke when it fires. */
-  private noteMuzzle(id: number, item: string, hand: THREE.Matrix4): void {
+  /** Where a gun held in hand (its item model's slot_muzzle) is now, and which way its holder faces (three.js rotation.y), for its flash and smoke when it fires. */
+  private noteMuzzle(id: number, item: string, hand: THREE.Matrix4, heading: number): void {
     let at = this.muzzleOf.get(item);
     if (at === undefined) {
       const model = this.lib?.models.get(item);
@@ -1309,12 +1413,14 @@ export class UnitsView {
       this.muzzleOf.set(item, at);
     }
     if (!at) return;
-    const v = this.muzzles.get(id) ?? new THREE.Vector3();
-    this.muzzles.set(id, v.copy(at).applyMatrix4(hand));
+    const m = this.muzzles.get(id) ?? { at: new THREE.Vector3(), heading: 0 };
+    m.at.copy(at).applyMatrix4(hand);
+    m.heading = heading;
+    this.muzzles.set(id, m);
   }
 
-  /** Hits and deaths of one state message: particles now, the dead kept to play their death clip. A gun's shot leaving gets its flash and smoke (`who` finds the shooter: a pistol smokes less than a musket). */
-  onHits(hits: readonly HitEvent[], seen: (x: number, z: number) => boolean, now: number, who?: (id: number) => { kind: number; ranged: number; x: number; y: number; z: number } | null): void {
+  /** Hits and deaths of one state message: particles now, the dead kept to play their death clip. A gun's shot leaving gets its flash and smoke (`who` finds the shooter: a pistol smokes less than a musket), blown the way the shot flies (`shots`, the message's projectiles). */
+  onHits(hits: readonly HitEvent[], seen: (x: number, z: number) => boolean, now: number, who?: (id: number) => { kind: number; ranged: number; x: number; y: number; z: number } | null, shots?: Int32Array): void {
     for (const h of hits) {
       const x = h.x / WU_PER_METRE;
       const y = h.y / WU_PER_METRE;
@@ -1404,11 +1510,13 @@ export class UnitsView {
       if (h.look === 'shot' && h.shot !== undefined && GUNPOWDER.has(h.shot)) {
         const u = who?.(h.id);
         if (u && u.kind !== UnitKind.Engine) {
-          const seconds = u.ranged === PISTOL_GEAR ? GUN_SMOKE.pistol : h.shot === Shot.MusketBall ? GUN_SMOKE.musket : GUN_SMOKE.cannon;
+          const gun = u.ranged === PISTOL_GEAR ? GUN.pistol : h.shot === Shot.MusketBall ? GUN.musket : GUN.cannon;
           // From the gun's muzzle as last drawn (Patch 5, MB-7), else where the shot leaves.
           const m = this.muzzles.get(h.id);
-          const at = m && Math.abs(m.x - x) + Math.abs(m.z - z) < 2 ? m : null;
-          this.gunFire(at?.x ?? x, at?.y ?? y, at?.z ?? z, Math.atan2(-(x - u.x / WU_PER_METRE), -(z - u.z / WU_PER_METRE)), seconds);
+          const at = m && Math.abs(m.at.x - x) + Math.abs(m.at.z - z) < 2 ? m.at : null;
+          // Along the shot's own flight (Patch 7), else the way its holder faces.
+          const dir = (shots && shotDir(shots, h, this.aim)) ?? this.aim.set(-Math.sin(m?.heading ?? 0), 0, -Math.cos(m?.heading ?? 0));
+          this.gunFire(at?.x ?? x, at?.y ?? y, at?.z ?? z, dir, gun);
         }
       }
       if (h.look === 'death') this.muzzles.delete(h.id);
@@ -1666,7 +1774,7 @@ export class UnitsView {
             const m = slot.m.boneWorld(slot.i, b, this.mat);
             if (stow !== Stow.None) m.multiply(STOW_TURN[`${stow}${POINT_UP.test(item) ? 'up' : 'down'}`]!);
             this.attach.add(item, m, tint);
-            if (stow === Stow.None) this.noteMuzzle(id, item, m);
+            if (stow === Stow.None) this.noteMuzzle(id, item, m, heading);
           }
           if (load.hold && !inCart) {
             const b = pool.bone(HOLD_SLOTS[load.hold]);
@@ -1815,10 +1923,10 @@ export class UnitsView {
           this.noteOwn(ownId, x, y, z, spec.height / WU_PER_METRE, (spec.halfWidth * 1.6) / WU_PER_METRE, outlined);
         }
       }
-      if (muzzle) this.gunFire(muzzle.x, muzzle.y, muzzle.z, heading, GUN_SMOKE.cannon);
+      if (muzzle) this.gunFire(muzzle.x, muzzle.y, muzzle.z, this.aim.set(-Math.sin(heading), 0, -Math.cos(heading)), GUN.cannon);
       return blocks;
     }
-    if (muzzle) this.gunFire(muzzle.x, muzzle.y, muzzle.z, heading, GUN_SMOKE.cannon);
+    if (muzzle) this.gunFire(muzzle.x, muzzle.y, muzzle.z, this.aim.set(-Math.sin(heading), 0, -Math.cos(heading)), GUN.cannon);
     if (blocks >= MAX_UNITS) return blocks;
     const dummy = this.dummy;
     dummy.position.set(x, y, z);

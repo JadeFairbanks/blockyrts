@@ -454,6 +454,7 @@ export const GUIDES: readonly Guide[] = [
         paragraphs: [
           'The [[Magi Sanctum]] trains battle mages and support mages. Mages fight with spells from range, using mana that refills over time, and rise through the ranks as they train; better wands and robes add to their spells and mana.',
           `Rank training needs mana crystals; ${CRYSTAL_STAND_IN.per} demon horns can stand in for each one. See [[Spells and mage ranks]] and [[Mage training and mana]].`,
+          "Magic goes straight through armour, a mount's too, yours and the monsters' alike, and the damage it does shows in purple over what it hits. Poison's damage shows in green, and every other blow's in red.",
         ],
       },
       {
