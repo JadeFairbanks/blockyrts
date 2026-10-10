@@ -29,9 +29,9 @@ import { inFront, orderCart, orderEquip, orderUpgrade, orderUpgradeEquipment } f
 import { markSite, markTunnelStretch } from './units/dig.ts';
 import { bagEmpty, canLoot, carriedOf, dropItem, HAND_ONE, lootIndex, pickersFor } from './units/loot.ts';
 import { startForage } from './units/forage.ts';
-import { isWoodsman } from './units/woodsman.ts';
+import { isWoodsman, woodsmanOnlyLine } from './units/woodsman.ts';
 import { isForage, setWoods } from './units/woods.ts';
-import { isFish } from './world/props.ts';
+import { isFish, woodsmanOnly } from './world/props.ts';
 import { callRepairs } from './units/repairs.ts';
 import { hasRunButton } from './units/moves.ts';
 import { Act, columnCentre, findNode, giveOrder, NODE_SEARCH_COLUMNS, leaveBuilding, nodeView, resetWalk, rankTrainedAt, shelteredIn, shelterRoom, stopUnit, takesWorkers, unitsInside, workOn } from './units/behaviour.ts';
@@ -43,6 +43,7 @@ import { Role } from './threats/types.ts';
 import { clearFoes, godPlace, healAll, killUnits, maxRanks, setGod, showElves } from './debug/god.ts';
 import { eliminate } from './combat/deaths.ts';
 import { peoplesOrder } from './peoples/orders.ts';
+import { say } from './peoples/speech.ts';
 import { knowsSpell, spellProblem } from './magic/cast.ts';
 import { setAutocast } from './magic/mages.ts';
 import { MANA_SCALE, SPELLS } from './magic/spells.ts';
@@ -151,11 +152,12 @@ function giveAll(state: SimState, o: { player: number; units: number[]; queued?:
   }
 }
 
-/** Turns fishing or foraging on (or off) for the woodsmen among a command's units; with none of them, says who does it. */
-function woodsAt(state: SimState, o: { player: number; units: number[]; queued?: boolean }, what: number, spot: { cx: number; cz: number; i: number } | null, on = 1): void {
+/** Turns fishing or foraging on (or off) for the woodsmen among a command's units; with none of them, says who does it (unless a worker already said so). */
+function woodsAt(state: SimState, o: { player: number; units: number[]; queued?: boolean }, what: number, spot: { cx: number; cz: number; i: number } | null, on = 1, quiet = false): void {
   const e = state.entities;
   const men = ownUnits(state, o.player, o.units).filter((i) => isWoodsman(e, i));
   if (men.length === 0) {
+    if (quiet) return;
     alert(state, o.player, what === 1 ? 'Only woodsmen fish. Train them at the Scholar\'s Lodge.' : 'Only woodsmen forage. Train them at the Scholar\'s Lodge.');
     return;
   }
@@ -608,10 +610,13 @@ export function applyOrders(state: SimState, orders: readonly Order[]): void {
         giveAll(state, o, (i) => (e.id[i] === o.target ? null : { t: 'follow', id: o.target }), true, true);
         break;
       case 'gather': {
-        // Fish only woodsmen catch (Patch 5, Jade's FR-1): a fish stretch sends them fishing there, and workers nowhere.
+        // Fish and edible mushrooms only woodsmen take (Patch 5, Jade's FR-1; her Patch 6 ruling): the woodsmen sent fish or
+        // forage there, and a worker sent says why it will not; workers still pick berries when sent to them.
         const v = nodeView(state, o.cx, o.cz, o.index);
-        if (v && isFish(v.kind)) {
-          woodsAt(state, o, 1, { cx: o.cx, cz: o.cz, i: o.index });
+        if (v && woodsmanOnly(v.kind)) {
+          const worker = ownUnits(state, o.player, o.units).find((i) => e.kind[i] === UnitKind.Worker);
+          if (worker !== undefined) say(state, worker, woodsmanOnlyLine(v.kind));
+          woodsAt(state, o, isFish(v.kind) ? 1 : 2, { cx: o.cx, cz: o.cz, i: o.index }, 1, worker !== undefined);
           break;
         }
         giveAll(state, o, () => ({ t: 'gather', cx: o.cx, cz: o.cz, i: o.index }), true);
