@@ -2,8 +2,12 @@
 // resources). Patch 5, decisions 2.16: "the item list you have gets too
 // compressed when you have alot of items so you can barely see what they
 // are". A good shows its picture, name and count in a row that keeps its size
-// and scrolls with its list, and an amount can be typed in a box.
+// and scrolls with its list, and an amount can be typed in a box. Patch 7
+// (plan section 3): a piece of gear's name is in its rarity's colour, and an
+// epic piece's picture glints, a legendary one's sparkles.
 import type { MouseTarget } from '../input/input-manager.ts';
+import { shineEl } from './buttons.ts';
+import { rarityClass, shineOf } from './gear-compare.ts';
 import { goodIcon, iconUrl } from './inventory-icons.ts';
 
 /** The amount after a +N press, never past what the pool holds (the sim clamps too). */
@@ -33,7 +37,21 @@ export function goodPic(good: number): HTMLElement {
   img.alt = '';
   img.draggable = false;
   if (icon.tint) img.style.filter = icon.tint;
-  return img;
+  const shine = shineOf(good);
+  if (!shine) return img;
+  const box = document.createElement('span');
+  box.className = 'good-pic shiny';
+  img.className = '';
+  box.append(img, shineEl(shine));
+  return box;
+}
+
+/** A good's name in its rarity's colour (a piece of gear), as a span of the row's name class. */
+export function goodLabel(good: number, text: string, cls = 'good-name'): HTMLElement {
+  const label = document.createElement('span');
+  label.className = `${cls} ${rarityClass(good)}`.trim();
+  label.textContent = text;
+  return label;
 }
 
 /** A good's count at the end of its row. */
@@ -48,10 +66,7 @@ export function goodCount(n: number | string): HTMLElement {
 export function goodRow(parent: HTMLElement, good: number, name: string, count?: number): HTMLElement {
   const row = document.createElement('div');
   row.className = 'good-row';
-  const label = document.createElement('span');
-  label.className = 'good-name';
-  label.textContent = name;
-  row.append(goodPic(good), label);
+  row.append(goodPic(good), goodLabel(good, name));
   if (count !== undefined) row.append(goodCount(count));
   parent.append(row);
   return row;

@@ -10,8 +10,9 @@ import { RESOURCES, type Order } from '@blockyrts/sim';
 import type { GameInfo } from '../game/game-info.ts';
 import type { MouseTarget } from '../input/input-manager.ts';
 import type { ButtonRegistry, HudButtonDef } from './buttons.ts';
-import { addAmount, amountBox, FOCUS_BOX, goodCount, goodPic } from './goods-ui.ts';
+import { addAmount, amountBox, FOCUS_BOX, goodCount, goodLabel, goodPic } from './goods-ui.ts';
 import type { HudPanels } from './panels.ts';
+import { gameScroll } from './game-scroll.ts';
 
 export { addAmount, parseAmount } from './goods-ui.ts';
 
@@ -87,7 +88,7 @@ export class AlliesUi {
     this.sendBox = el('div', 'panel send-dialog', root);
     for (const p of [this.allies, this.sendBox]) {
       p.hidden = true;
-      p.dataset.scroll = '';
+      gameScroll(p);
     }
     panels.register('allies', this.allies);
     panels.register('send', this.sendBox);
@@ -153,7 +154,7 @@ export class AlliesUi {
     el('h3', 'dlg-title', head, 'Allies');
     this.alliesButtons.add(head, { face: '×', name: 'Close', description: 'Close the Allies panel ([ or Esc).', className: 'dlg-close', onPress: () => this.toggleAllies() });
     const body = el('div', 'dlg-body', this.allies);
-    body.dataset.scroll = '';
+    gameScroll(body);
     const others = this.others();
     if (others.length === 0) {
       el('p', 'dlg-note', body, 'You are playing alone. Host a game from the main menu to play with others.');
@@ -236,14 +237,14 @@ export class AlliesUi {
     el('h3', 'dlg-title', head, 'Send resources');
     this.sendButtons.add(head, { face: '×', name: 'Close', description: 'Close the Send resources window (] or Esc).', className: 'dlg-close', onPress: () => this.toggleSend() });
     const body = el('div', 'dlg-body', this.sendBox);
-    body.dataset.scroll = '';
+    gameScroll(body);
     if (others.length === 0) {
       el('p', 'dlg-note', body, 'There is nobody to send to.');
       return;
     }
     el('p', 'dlg-note', body, 'Put resources on the To send list and set how many, then Send on a player\'s row. Everything on the list arrives at once.');
     const grid = el('div', 'send-res', body);
-    grid.dataset.scroll = '';
+    gameScroll(grid);
     RESOURCES.forEach((r, k) => {
       const n = pool[k] ?? 0;
       if (n <= 0) return;
@@ -273,8 +274,7 @@ export class AlliesUi {
       const have = this.have(res);
       const r = RESOURCES[res]!;
       const line = el('div', 'good-row offer-line', list);
-      line.append(goodPic(res));
-      el('span', 'good-name', line, r.name);
+      line.append(goodPic(res), goodLabel(res, r.name));
       const box = amountBox(n, have, `How many ${r.name.toLowerCase()} to send`, (v) => this.lines.set(res, v), () => this.boxLeft());
       this.a.addArea('send-amount', box, FOCUS_BOX);
       line.append(box);

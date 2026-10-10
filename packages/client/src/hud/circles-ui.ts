@@ -30,6 +30,7 @@ import { goodRow } from './goods-ui.ts';
 import { registerItemUse } from './item-menu.ts';
 import type { HudPanels } from './panels.ts';
 import { Buttons, el, frame } from './peoples-ui.ts';
+import { gameScroll } from './game-scroll.ts';
 
 export interface CirclesActions {
   send(o: Order): void;
@@ -135,7 +136,7 @@ export class CirclesUi {
     this.headless = el('div', 'panel circle-dialog headless-dialog', root);
     for (const p of [this.chest, this.altar, this.apePanel, this.headless]) {
       p.hidden = true;
-      p.dataset.scroll = '';
+      gameScroll(p);
     }
     panels.register('chest', this.chest);
     panels.register('altar', this.altar);

@@ -25,8 +25,10 @@ import type { GameInfo } from '../game/game-info.ts';
 import type { MouseTarget } from '../input/input-manager.ts';
 import type { PeopleInfo } from '../messages.ts';
 import type { ButtonPress, ButtonRegistry, HudButton, HudButtonDef } from './buttons.ts';
-import { amountBox, FOCUS_BOX, goodCount, goodPic, goodRow } from './goods-ui.ts';
+import { amountBox, FOCUS_BOX, goodCount, goodLabel, goodPic, goodRow } from './goods-ui.ts';
+import { rarityClass } from './gear-compare.ts';
 import type { HudPanels } from './panels.ts';
+import { gameScroll } from './game-scroll.ts';
 
 export interface PeoplesActions {
   send(o: Order): void;
@@ -121,7 +123,10 @@ export class Buttons {
 
   /** A good's button: its picture, its name on the face and its count at the end. */
   good(parent: HTMLElement, good: number, count: number | string, def: Omit<HudButtonDef, 'id' | 'keys' | 'face'>, disabled = ''): HudButton {
-    const b = this.add(parent, { ...def, face: goodName(good) }, disabled);
+    const cls = rarityClass(good);
+    const b = this.add(parent, { ...def, face: goodName(good), ...(cls ? { nameClass: cls } : {}) }, disabled);
+    // A piece of gear's name in its rarity's colour (Patch 7).
+    if (cls) b.el.querySelector('.face')?.classList.add(cls);
     b.el.prepend(goodPic(good));
     b.el.append(goodCount(count));
     return b;
@@ -147,7 +152,7 @@ export function frame(panel: HTMLElement, title: string): { head: HTMLElement; b
   const head = el('div', 'dlg-head', panel);
   el('h3', 'dlg-title', head, title);
   const body = el('div', 'dlg-body', panel);
-  body.dataset.scroll = '';
+  gameScroll(body);
   return { head, body };
 }
 
@@ -198,7 +203,7 @@ export class PeoplesUi {
     this.war = el('div', 'panel war-confirm', root);
     for (const p of [this.list, this.trade, this.hire, this.war]) {
       p.hidden = true;
-      p.dataset.scroll = '';
+      gameScroll(p);
     }
     panels.register('peoples', this.list);
     panels.register('trade', this.trade);
@@ -486,7 +491,7 @@ export class PeoplesUi {
     const theirs = el('div', 'trade-col', cols);
     el('div', 'trade-head', theirs, 'They sell today');
     const stock = el('div', 'trade-list', theirs);
-    stock.dataset.scroll = '';
+    gameScroll(stock);
     if (f.stock.length === 0) el('div', 'trade-good muted', stock, 'Nothing left today. Their stock refills each morning.');
     for (let k = 0; k + 1 < f.stock.length; k += 2) goodRow(stock, f.stock[k]!, goodName(f.stock[k]!), f.stock[k + 1]!);
     el('div', 'trade-head', theirs, 'They want');
@@ -501,7 +506,7 @@ export class PeoplesUi {
     const yours = el('div', 'trade-col', cols);
     el('div', 'trade-head', yours, 'Your goods');
     const pool = el('div', 'trade-list goods', yours);
-    pool.dataset.scroll = '';
+    gameScroll(pool);
     const open = f.offer !== null;
     for (const [good, n] of mine) {
       const refusedGood = this.pays(f, good) === REFUSE;
@@ -526,7 +531,7 @@ export class PeoplesUi {
     const box = el('div', 'trade-col', cols);
     el('div', 'trade-head', box, 'Your offer');
     const offered = el('div', 'trade-list offer', box);
-    offered.dataset.scroll = '';
+    gameScroll(offered);
     const goods = open ? new Map<number, number>(pairsOf(f.offer!.goods)) : this.draft;
     if (goods.size === 0) el('div', 'trade-good muted', offered, 'Click your goods to put them here, then type how many.');
     for (const [good, n] of goods) {
@@ -535,8 +540,7 @@ export class PeoplesUi {
         continue;
       }
       const line = el('div', 'good-row offer-line', offered);
-      line.append(goodPic(good));
-      el('span', 'good-name', line, goodName(good));
+      line.append(goodPic(good), goodLabel(good, goodName(good)));
       const most = this.have(good);
       const amount = amountBox(
         n,
@@ -596,8 +600,7 @@ export class PeoplesUi {
       );
       for (const [good, n] of pairsOf(b)) {
         const g = el('span', 'bundle-good', btn.el);
-        g.append(goodPic(good));
-        el('span', 'good-name', g, n === 1 ? goodName(good) : `${goodName(good)} ×${n}`);
+        g.append(goodPic(good), goodLabel(good, n === 1 ? goodName(good) : `${goodName(good)} ×${n}`));
       }
     });
     this.tradeButtons.add(actions, {

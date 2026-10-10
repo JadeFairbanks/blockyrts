@@ -34,6 +34,7 @@ import {
   circlesView,
   questsView,
   questTimers,
+  keptGoods,
   FOG_TILE_COLUMNS,
   BuildingKind,
   forgeStepOf,
@@ -441,6 +442,7 @@ function postInfo(s: SimState): void {
   const mageTraining: Array<[number, number, number]> = [];
   const mageRanks: Array<[number, string]> = [];
   const bags: Array<[number, Array<[number, number]>]> = [];
+  const bagKept: Array<[number, number[]]> = [];
   const woodsmen: Array<[number, number, number, number, number]> = [];
   const carry: Array<[number, number, number]> = [];
   const effects: Array<[number, Array<[number, number]>]> = [];
@@ -459,6 +461,8 @@ function postInfo(s: SimState): void {
     if (!bagBare(s, i)) bags.push([e.id[i]!, bagItems(s, i)]);
     if (canLoot(s, i)) carry.push([e.id[i]!, ...carryView(s, i)]);
     if (e.kind[i] === UnitKind.Mage) mageRanks.push([e.id[i]!, mageTrainingProblem(s, i)]);
+    const kept = keptGoods(s, i);
+    if (kept.length > 0) bagKept.push([e.id[i]!, kept]);
     if (e.kind[i] === UnitKind.Mage) {
       spells.push([e.id[i]!, schoolSpells(e.school[i]!).map((sp): [number, string, number, number] => [sp, spellProblem(s, i, sp), Math.max(0, spellReadyAt(s, i, sp) - s.step), autocastOn(s, i, sp) ? 1 : 0])]);
       const training = mageTrainingProgress(s, i);
@@ -507,6 +511,7 @@ function postInfo(s: SimState): void {
         .filter((l) => s.world.isExplored(Math.floor(l.x / FOG_TILE_WU), Math.floor(l.z / FOG_TILE_WU)))
         .map((l) => ({ id: l.id, res: l.res, amt: l.amt, x: l.x, y: l.y, z: l.z, own: l.owner < 0 || l.owner === PLAYER })),
       bags,
+      bagKept,
       woodsmen,
       carry,
       effects,

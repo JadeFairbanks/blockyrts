@@ -384,6 +384,8 @@ export interface InfoMessage {
   loot: LootInfo[];
   /** The local player's units' loot bags: per unit id, (resource, count) pairs. */
   bags: Array<[number, Array<[number, number]>]>;
+  /** The goods each of the local player's units keeps in its bag (Patch 7, Keep in bag): per unit id, the resources. */
+  bagKept?: Array<[number, number[]]>;
   /** The local player's woodsmen's food lines (Patch 5, Jade's WD-7): per id, the food brought in and eaten (quarters), over how many steps, and its colour (sim Keep). */
   woodsmen?: Array<[number, number, number, number, number]>;
   /** The local player's units that carry (workers, troops, mages): per unit id, what they carry and the most they can, tenths of a pound (Patch 5, GP-7: the unit inventory's weight). */

@@ -1193,6 +1193,17 @@ body.playing * {
   height: 32px;
   image-rendering: pixelated;
 }
+/* An epic or legendary piece's picture with its glint or sparkle over it (Patch 7, goods-ui.ts). */
+.good-pic.shiny {
+  position: relative;
+  display: inline-block;
+}
+.good-pic.shiny > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
 .good-row,
 .hud-btn.trade-item,
 .hud-btn.send-pick,
@@ -3246,4 +3257,417 @@ body.playing.touch .hud {
   font: 9px/1 var(--crisp);
   color: var(--parchment);
   z-index: 1;
+}
+
+/* ---- Patch 7: the game's own scroll bar (game-scroll.ts, Jade's J-16).
+   Every list in the match that scrolls hides the browser's bar; a dark well
+   (the menu list frame) is the track and the gold-edged pop-up button the
+   handle. The bar rides in a sticky pin, the list's first child, so it stays
+   in view while the list moves. ---- */
+.gs-host {
+  scrollbar-width: none;
+}
+.gs-host::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.gs-pin {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  flex: none;
+  align-self: stretch;
+  grid-column: 1 / -1;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+.gs-bar {
+  position: absolute;
+  right: 0;
+  width: 10px;
+  pointer-events: auto;
+}
+.gs-bar[hidden] {
+  display: none;
+}
+.gs-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 3px solid transparent;
+  border-image: var(--kit-well) 4 fill / 3px;
+  image-rendering: pixelated;
+}
+.gs-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+  border: 3px solid transparent;
+  border-image: var(--kit-pop-btn) 6 fill / 3px stretch;
+  image-rendering: pixelated;
+}
+.gs-thumb.hover {
+  border-image-source: var(--kit-pop-btn-hover);
+}
+.gs-thumb.pressed {
+  border-image-source: var(--kit-pop-btn-pressed);
+}
+
+/* ---- Patch 7: gear menus (card-pop.ts, plan section 7, Jade's drafts). A
+   gear menu has a header (the piece's name in its rarity's colour, a quieter
+   line under it), rows on the pop-up button frames with the piece's picture,
+   its name, a line under it or why it is greyed, and its number with a green
+   or red arrow against what the unit has, under gold group headings, and a
+   foot line. Past MENU_MOST the rows scroll with the game's own bar; the
+   header and the foot stay put. ---- */
+.hud .panel.card-pop.rich {
+  width: 300px;
+  max-height: var(--menu-most, 440px);
+  box-sizing: border-box;
+  gap: 3px;
+  padding: 2px 3px 4px;
+}
+.pop-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px 4px;
+  border-bottom: 1px solid rgba(232, 194, 90, 0.35);
+}
+.hud-btn.pop-back {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
+  border: 6px solid transparent;
+  border-image: var(--kit-pop-btn) 6 fill / 6px stretch !important;
+}
+.hud-btn.pop-back.hover {
+  border-image-source: var(--kit-pop-btn-hover) !important;
+}
+.pop-words {
+  display: grid;
+  min-width: 0;
+}
+.pop-title {
+  font-family: var(--display);
+  font-size: 19px;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+.pop-sub {
+  color: var(--muted);
+  font-size: 11px;
+}
+.pop-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.pop-list > * {
+  flex: none;
+}
+.pop-group {
+  padding: 4px 2px 0;
+  color: var(--accent);
+  opacity: 0.85;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.pop-foot {
+  flex: none;
+  padding: 3px 2px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.hud-btn.pop-row {
+  justify-content: flex-start;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 3px;
+  border: 6px solid transparent;
+  border-image: var(--kit-pop-btn) 6 fill / 6px stretch !important;
+  background: none;
+  text-align: left;
+}
+.hud-btn.pop-row.hover,
+.hud-btn.pop-row.best {
+  border-image-source: var(--kit-pop-btn-hover) !important;
+}
+.hud-btn.pop-row.pressed {
+  border-image-source: var(--kit-pop-btn-pressed) !important;
+}
+.hud-btn.pop-row.disabled {
+  opacity: 0.7;
+}
+.hud-btn.pop-row .face {
+  display: none;
+}
+.hud-btn.pop-row .btn-icon {
+  position: relative;
+  inset: auto;
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+.hud-btn.pop-row .btn-icon img {
+  width: 28px;
+  height: 28px;
+}
+.pr-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.2;
+}
+.pr-name {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.pr-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+.pr-why {
+  color: #e9b16a;
+  font-size: 11px;
+}
+.pr-value {
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pr-mark,
+.tt-mark {
+  margin-left: 3px;
+  font-size: 11px;
+}
+.pr-mark.up,
+.tt-mark.up {
+  color: #63e06b;
+}
+.pr-mark.down,
+.tt-mark.down {
+  color: #ef7a6a;
+}
+.pr-mark.same,
+.tt-mark.same {
+  color: var(--muted);
+}
+.pr-more {
+  flex: none;
+  color: var(--accent);
+}
+
+/* The hover comparison (plan section 7, "Hover"): the line under the title,
+   the piece's numbers beside what the unit has with arrows, who can use it. */
+#tooltip.gear-tip {
+  max-width: 300px;
+}
+.tt-sub {
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.tt-table {
+  width: 100%;
+  margin: 2px 0 3px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.tt-table th {
+  padding: 1px 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+}
+.tt-table td {
+  padding: 2px 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+.tt-table td.tt-label {
+  color: var(--muted);
+}
+.tt-who {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 9px;
+  margin: 2px 0 3px;
+  font-size: 11.5px;
+}
+.tt-who .ok {
+  color: #63e06b;
+}
+.tt-who .no {
+  color: #ef7a6a;
+}
+
+/* Rarity (plan section 3): the name's colour, common blue, rare orange, epic
+   purple, legendary white. */
+:root {
+  --rarity-common: #6fb4ff;
+  --rarity-rare: #ffa040;
+  --rarity-epic: #c98cff;
+  --rarity-legendary: #ffffff;
+}
+.rarity-common {
+  color: var(--rarity-common) !important;
+}
+.rarity-rare {
+  color: var(--rarity-rare) !important;
+}
+.rarity-epic {
+  color: var(--rarity-epic) !important;
+}
+.rarity-legendary {
+  color: var(--rarity-legendary) !important;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.55), 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+
+/* An epic piece glints slightly (a soft purple light runs over its picture
+   now and then), a legendary one sparkles (white stars wink on it), in the
+   menus, the stock, a unit's bag and its kit. Only transform and opacity
+   move. */
+.shine {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.shine.glint::after {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: 0;
+  width: 45%;
+  height: 180%;
+  background: linear-gradient(90deg, transparent, rgba(226, 196, 255, 0.5), transparent);
+  transform: translateX(-120%) rotate(22deg);
+  opacity: 0;
+  animation: gear-glint 5s ease-in-out infinite;
+}
+@keyframes gear-glint {
+  0%,
+  72% {
+    transform: translateX(-120%) rotate(22deg);
+    opacity: 0;
+  }
+  76% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(280%) rotate(22deg);
+    opacity: 0;
+  }
+}
+.shine.sparkle::before,
+.shine.sparkle::after {
+  content: '';
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  box-shadow: 0 -2px 0 #fff, 0 2px 0 #fff, -2px 0 0 #fff, 2px 0 0 #fff, 0 0 5px 2px rgba(255, 255, 255, 0.6);
+  opacity: 0;
+  animation: gear-twinkle 1.8s ease-in-out infinite;
+}
+.shine.sparkle::before {
+  left: 24%;
+  top: 22%;
+}
+.shine.sparkle::after {
+  left: 70%;
+  top: 64%;
+  animation-delay: 0.9s;
+}
+@keyframes gear-twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  45% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shine.glint::after,
+  .shine.sparkle::before,
+  .shine.sparkle::after {
+    animation-duration: 12s;
+  }
+}
+
+/* A piece of gear being dragged (gear-drag.ts): its picture by the cursor and a word for what letting go does. */
+.gear-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.gear-ghost[hidden] {
+  display: none;
+}
+.gear-ghost img {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.7));
+}
+.gear-ghost-word {
+  padding: 1px 6px;
+  border: 6px solid transparent;
+  border-image: var(--kit-tip) 6 fill / 6px;
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+  image-rendering: pixelated;
+}
+.gear-ghost-word[hidden] {
+  display: none;
+}
+.gear-ghost.ok .gear-ghost-word {
+  color: #9be88f;
+}
+.gear-ghost.no .gear-ghost-word {
+  color: #ffb37a;
+}
+
+/* Keep in bag (Patch 7, the drafts' scene 6): a padlock in the corner of a slot of a unit's inventory whose good it keeps. */
+.unit-slot .kept-lock {
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  width: 12px;
+  height: 12px;
+  background: url('../../../assets/src/ui/icon_padlock_closed.png') center / 12px no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
 }

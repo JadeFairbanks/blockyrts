@@ -6,6 +6,7 @@
 // buttons, so they work with the cursor locked.
 import type { ButtonRegistry } from './buttons.ts';
 import type { HudPanels } from './panels.ts';
+import { gameScroll } from './game-scroll.ts';
 
 /** How long a stall lasts before the banner names who the game waits for (technical decision 3: after 1 s). */
 export const WAITING_NOTICE_MS = 1000;
@@ -51,6 +52,7 @@ export class NetUi {
     this.choice = document.createElement('div');
     this.choice.className = 'panel host-choice';
     this.choice.hidden = true;
+    gameScroll(this.choice);
     root.append(this.choice);
     panels.register('host-choice', this.choice);
   }

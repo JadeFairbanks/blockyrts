@@ -6,10 +6,12 @@
 // veins. Steam rises from where the models put it (Patch 5): a hot spring's
 // fx_steam vents, with bubbles at its fx_bubble, and a sulphur rock's
 // fx_steam (its fx_steam_depleted vent once it is half dug out).
+// Patch 7 (plan section 3): an epic piece of gear on the ground glints
+// purple now and then, a legendary one sparkles white, often.
 // Decoration only; nothing here reaches the sim. Every number is a pick (s).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { Res, RESOURCES, TRINKET_BASE, TRINKET_METALS } from '@blockyrts/sim';
+import { isGearItem, itemRarity, Rarity, Res, RESOURCES, TRINKET_BASE, TRINKET_METALS } from '@blockyrts/sim';
 import { showInstances } from './instances.ts';
 
 /** The glitter's colours (AR-16, AR-17: silver white-grey, gold yellow), a touch brighter than the metal. */
@@ -23,6 +25,22 @@ export interface GlitterSpot {
   z: number;
   r: number;
   colour: number;
+  /** How often it starts a glint, on average, seconds (GLINT_EVERY_S when left out), and how many it has alive at once (GLINTS_PER_SPOT). */
+  every?: number;
+  most?: number;
+}
+
+/** An epic piece's glint (its name colour, a little paler) and a legendary piece's sparkle (Patch 7, plan section 3). */
+export const EPIC_GLINT = 0xd6a8ff;
+export const LEGENDARY_GLINT = 0xffffff;
+
+/** How a piece of gear on the ground shines: an epic one glints slightly (now and then, one at a time), a legendary one sparkles (often, several at once); null for anything else. */
+export function gearGlint(res: number): { colour: number; every: number; most: number } | null {
+  if (!isGearItem(res)) return null;
+  const r = itemRarity(res);
+  if (r === Rarity.Legendary) return { colour: LEGENDARY_GLINT, every: 0.3, most: 4 };
+  if (r === Rarity.Epic) return { colour: EPIC_GLINT, every: 1.8, most: 1 };
+  return null;
 }
 
 /** The glitter colour of a prop's resource ('gold', 'silver'), or 0 for none. */
@@ -256,10 +274,9 @@ export class WorldFx {
       const s = this.owner[k];
       if (s) this.running.set(s, (this.running.get(s) ?? 0) + 1);
     }
-    const chance = dt / GLINT_EVERY_S;
     for (const s of this.spots) {
       if (this.glints.n >= MAX_GLINTS) break;
-      if ((this.running.get(s) ?? 0) >= GLINTS_PER_SPOT || Math.random() >= chance || !seen(s.x, s.z)) continue;
+      if ((this.running.get(s) ?? 0) >= (s.most ?? GLINTS_PER_SPOT) || Math.random() >= dt / (s.every ?? GLINT_EVERY_S) || !seen(s.x, s.z)) continue;
       const a = Math.random() * Math.PI * 2;
       const r = s.r * Math.sqrt(Math.random());
       this.owner[this.glints.n] = s;

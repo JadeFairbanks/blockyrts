@@ -4,6 +4,7 @@
 // hud-layout.ts says for the screen size.
 import { buttonIcon, CARD_PAD, cardInner, SLOT, type ButtonFit, type HudGeometry } from './hud-layout.ts';
 import type { HudPanels } from './panels.ts';
+import { gameScroll } from './game-scroll.ts';
 
 export interface HudLayout {
   root: HTMLElement;
@@ -74,7 +75,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   // Message panel (left, above the minimap).
   const messagePanel = div('panel message-panel', root);
   const messageList = div('message-list', messagePanel);
-  messageList.dataset.scroll = '';
+  gameScroll(messageList);
   const chat = document.createElement('input');
   chat.className = 'chat';
   chat.disabled = true;
@@ -103,7 +104,7 @@ export function buildLayout(parent: HTMLElement, panels: HudPanels): HudLayout {
   const selectionExtra = div('sel-extra', selHead);
   const selectionCorner = div('sel-corner', selHead);
   const selectionBody = div('sel-body', selContent);
-  selectionBody.dataset.scroll = '';
+  gameScroll(selectionBody);
 
   // Command card (bottom right): a slot per button, square and centred (applyGeometry sizes them and adds slots as a card needs them).
   const commandCard = div('panel command-card', root);

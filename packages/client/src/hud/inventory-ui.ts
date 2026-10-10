@@ -10,9 +10,10 @@
 // items; the Food cell is the food value of them all (patch 1). In the
 // debugger's godmode (Jade's Patch 5) the grid holds everything godmode can
 // place instead of the goods: a click puts one on the cursor.
-import { foodAmountText, FOODS, GOD_SPAWNS, RESOURCES, type Res } from '@blockyrts/sim';
+import { foodAmountText, FOODS, GOD_SPAWNS, isGearItem, RESOURCES, type Res } from '@blockyrts/sim';
 import type { InfoMessage } from '../messages.ts';
-import type { ButtonRegistry, HudButton, HudButtonDef } from './buttons.ts';
+import { shineEl, type ButtonRegistry, type CompareTip, type HudButton, type HudButtonDef } from './buttons.ts';
+import { rarityClass, shineOf } from './gear-compare.ts';
 import { FOOD_ICON, goodIcon, iconUrl, SUPPLY_ICON, type GoodIcon } from './inventory-icons.ts';
 import { changeText, INVENTORY_COLUMNS, INVENTORY_ROWS, INVENTORY_SLOTS, InventoryGrid, PoolHistory, slotCount, WheelRows } from './inventory.ts';
 import { equippable } from './item-menu.ts';
@@ -25,6 +26,8 @@ export interface InventoryActions {
   addWheel(id: string, el: HTMLElement, onWheel: (dy: number) => void): void;
   /** Godmode: puts one of GOD_SPAWNS on the cursor to place. */
   pickSpawn(k: number): void;
+  /** A piece of gear's numbers beside what the one selected unit has (Patch 7, the hover), worked out as its tooltip shows. */
+  compare(res: number): CompareTip | null;
 }
 
 /** Rows of godmode's grid. */
@@ -106,6 +109,8 @@ interface Slot {
   cell: HTMLElement;
   btn: HudButton;
   pic: HTMLImageElement;
+  /** An epic piece's glint or a legendary one's sparkle over its picture (Patch 7, plan section 3). */
+  shine: HTMLElement | null;
   /** What the slot shows now, to skip unchanged work. */
   sig: string;
 }
@@ -157,7 +162,7 @@ export class InventoryUi {
       btn.el.hidden = true;
       const pic = img('inv-icon', btn.el);
       cell.append(btn.el);
-      this.slots.push({ cell, btn, pic, sig: '' });
+      this.slots.push({ cell, btn, pic, shine: null, sig: '' });
     }
     actions.addWheel('inventory', gridEl, (dy) => {
       const rows = this.wheel.push(dy);
@@ -248,6 +253,7 @@ export class InventoryUi {
 
   /** A godmode slot: something to place, its picture, its name in the tooltip; a click puts it on the cursor. */
   private renderSpawn(slot: Slot, k: number): void {
+    this.setShine(slot, undefined);
     const g = GOD_SPAWNS[k];
     if (!g) {
       if (slot.sig !== '') {
@@ -286,6 +292,7 @@ export class InventoryUi {
         slot.sig = '';
         slot.btn.el.hidden = true;
         slot.cell.classList.add('empty');
+        this.setShine(slot, undefined);
       }
       return;
     }
@@ -307,19 +314,37 @@ export class InventoryUi {
     if (change) parts.push(change);
     if (kept) parts.push('Kept back: nobody eats it.');
     const btn = slot.btn;
+    // A piece of gear (Patch 7): its name in its rarity's colour, its numbers beside the selected unit's, and it drags onto a unit or the Workshop.
+    const gear = isGearItem(res);
     slot.btn.redefine({
       id: slot.btn.def.id,
       face: slotCount(have),
       name: r.name,
       keys: [],
       description: parts.join(' '),
-      foot: food ? 'Right click: Don\'t eat, or eat it again.' : equippable(res) ? 'Right click: Equip or Scrap.' : 'Right click: its menu.',
+      foot: food
+        ? 'Right click: Don\'t eat, or eat it again.'
+        : gear
+          ? 'Right click: Equip or Scrap. Drag it onto one of your units to equip it, or onto the Workshop to scrap it.'
+          : equippable(res)
+            ? 'Right click: Equip or Scrap.'
+            : 'Right click: its menu.',
       className: `inv-slot${have === 0 ? ' zero' : ''}${kept ? ' dont-eat' : ''}`,
       onRightClick: () => this.actions.menu(btn.el, res),
+      ...(gear ? { nameClass: rarityClass(res), compare: () => this.actions.compare(res), ...(have > 0 ? { holds: { res, unit: null, line: -1 } } : {}) } : {}),
     });
+    this.setShine(slot, shineOf(res));
     if (slot.pic.getAttribute('src') !== src) slot.pic.src = src;
     slot.pic.style.filter = icon?.tint ?? '';
     slot.btn.el.hidden = false;
     slot.cell.classList.remove('empty');
+  }
+
+  /** Puts a slot's glint or sparkle on or takes it off. */
+  private setShine(slot: Slot, kind: 'glint' | 'sparkle' | undefined): void {
+    if (slot.shine?.classList.contains(kind ?? '-')) return;
+    slot.shine?.remove();
+    slot.shine = kind ? shineEl(kind) : null;
+    if (slot.shine) slot.btn.el.append(slot.shine);
   }
 }
