@@ -18,6 +18,7 @@ import { buildingCentre } from '../buildings/lights.ts';
 import type { Building } from '../buildings/store.ts';
 import { FactionKind, LEADER_NAMES, peopleUnitSpec, SPEECH_NEAR_WU } from './data.ts';
 import { factionById } from './types.ts';
+import { RISEN_NAME } from '../units/effects.ts';
 
 /** A player's units say "under attack" at most once per 10 s, and one unit at most once per 30 s (s). */
 const ATTACKED_PLAYER_GAP = 10 * STEPS_PER_SECOND;
@@ -56,6 +57,7 @@ export function asking(state: SimState): Set<number> {
 export function speakerName(state: SimState, i: number): string {
   const e = state.entities;
   if (e.role[i] === Role.Mercenary) return `Mercenary ${peopleUnitSpec(e.mob[i]!).name.toLowerCase()}`;
+  if (e.role[i] === Role.Risen) return RISEN_NAME;
   if (e.owner[i] === PEOPLES) {
     const f = factionById(state.peoples, e.group[i]!);
     if (f && f.leader === e.id[i]) return LEADER_NAMES[f.kind] ?? 'Elder';

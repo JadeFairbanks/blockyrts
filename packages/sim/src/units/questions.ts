@@ -263,7 +263,7 @@ function ownUnit(state: SimState, i: number): boolean {
   const e = state.entities;
   const owner = e.owner[i]!;
   if (owner >= state.players.length || e.hp[i]! <= 0 || !asks(state, owner)) return false;
-  return e.role[i] !== Role.Mercenary && e.role[i] !== Role.People;
+  return e.role[i] !== Role.Mercenary && e.role[i] !== Role.People && e.role[i] !== Role.Risen;
 }
 
 /** Not fighting: no foe in hand and none being chased. */

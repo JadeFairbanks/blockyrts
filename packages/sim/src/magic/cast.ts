@@ -38,6 +38,7 @@ import { clearLob, fireAt, HAND_HEIGHT, lineOfSight, ProjectileFlag } from '../c
 import { smoulder } from '../threats/burns.ts';
 import { moveSpeed, resetWalk, walkTo } from '../units/behaviour.ts';
 import type { UnitOrder } from '../units/unit-orders.ts';
+import { debuffImmune } from '../units/effects.ts';
 import { autocastOn, inCombat, spellPowerBp } from './mages.ts';
 import { CAST_STEPS, FIREBALL_BURN, FIREBALL_SPLASH, FIREBALL_WOOD_MULTIPLIER, MAGE_LEASH_WU, MANA_SCALE, School, SCHOOL_NAMES, Spell, SPELLS, spellSpec, type SpellSpec } from './spells.ts';
 
@@ -328,6 +329,8 @@ export const EFFECTS: Record<SpellSpec['effect'], Effect> = {
   root(state, i, s, _t, x, z) {
     const e = state.entities;
     for (const j of enemiesNear(state, i, x, z, s.radius)) {
+      // The Deathless Shroud's wearer cannot be rooted (Patch 7).
+      if (debuffImmune(state, j)) continue;
       // Rooted where it stands: as a slime's hold, it cannot act until let go.
       e.heldUntil[j] = Math.max(e.heldUntil[j]!, state.step + s.steps);
       cancelSpell(state, j);
