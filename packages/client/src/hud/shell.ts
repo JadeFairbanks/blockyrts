@@ -1567,8 +1567,8 @@ export class GameShell {
    * stock or bag piece on a unit equips it (from its own bag on the spot),
    * a bag piece on another unit is given to it, any piece on the Workshop is
    * scrapped there, and a food from the stock on a unit sends it to fetch
-   * some from a store point (Jade). Where the unit cannot take it the order still goes and
-   * it says why (the Dreadnought: "I need something for smashing.").
+   * some from a store point (Jade). Where the unit cannot take it the order
+   * still goes and it says why (the Dreadnought: "I need something for smashing.").
    */
   private dropPlan(from: HeldPiece, on: DropOn): DropPlan | null {
     const send = (o: Order): void => this.opts.issueOrder(o);
